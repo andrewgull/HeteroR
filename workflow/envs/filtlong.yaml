@@ -1,0 +1,5 @@
+name: filtlong-env
+channels:
+  - bioconda
+dependencies:
+  - filtlong=0.2.1

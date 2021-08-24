@@ -1,0 +1,6 @@
+name: quast-env
+channels:
+  - bioconda
+dependencies:
+  - quast=5.0.2
+  - python=3.7

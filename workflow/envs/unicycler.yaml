@@ -1,0 +1,5 @@
+name: unicycler-env
+channels:
+  - bioconda
+dependencies:
+  - unicycler=0.4.8
