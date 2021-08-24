@@ -1,28 +1,43 @@
 #!/usr/bin/env python3
-import os
-import sys
 import subprocess
 from tqdm import tqdm
+import argparse
 
 
-help_message = 'Script for linking read files, renaming them properly and joining Nanopore reads for each strain.\n' \
-               'Usage: prepare_files.py <strains_file> <threads>'
+def get_args():
+    """
+    Get command line arguments
+    """
 
-try:
-    # file with strains should be specified here
-    strain_file = sys.argv[1]
-except IndexError:
-    print(help_message)
-    sys.exit()
+    parser = argparse.ArgumentParser(
+        description="Script for copying read files from mounted ARGOS directory to data_raw.\n"
+                    "ARGOS DIR='/mnt/imb_sal_raw/500 Sepsis Eco/Sequencing/Strains'\n"
+                    "ARGOS directory MUST be mounted!",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
 
-# argos directory must be mounted
-argos_path = "/mnt/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains"
+    parser.add_argument("strains_file", metavar="filename", help="file with strain names to copy, one name per line")
 
-with open(strain_file, 'r') as f:
-    strains = [line.rstrip() for line in f.readlines()]
+    return parser.parse_args()
 
-# go to data_raw, you're in ./scripts
-# os.chdir("./data_raw")
 
-for strain in tqdm(strains):
-    subprocess.call("cp -r %s/%s ./data_raw" % (argos_path, strain), shell=True)
+def main(argos_path="/mnt/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains"):
+    args = get_args()
+
+    strain_file = args.strains_file
+
+    # argos directory must be mounted
+    # argos_path = "/mnt/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains"
+
+    with open(strain_file, 'r') as f:
+        strains = [line.rstrip() for line in f.readlines()]
+
+    # go to data_raw, you're in ./scripts
+    # os.chdir("./data_raw")
+
+    for strain in tqdm(strains):
+        subprocess.call("cp -r %s/%s ./data_raw" % (argos_path, strain), shell=True)
+
+
+if __name__ == '__main__':
+    main()
