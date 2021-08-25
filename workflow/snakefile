@@ -111,7 +111,7 @@ rule busco:
     input:
         "assemblies/{strain}/assembly.fasta"
     output:
-        directory("busco_results/{strain}")
+        directory("busco_results")
     threads: 14
     message: "executing BUSCO with {threads} threads on {wildcards.strain} assembly"
     log: "logs/{strain}_busco.log"
