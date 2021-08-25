@@ -18,7 +18,8 @@ def get_args():
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    parser.add_argument("strains_file", metavar="filename", help="file with strain names to copy, one name per line")
+    parser.add_argument("strains_file", metavar="<strains file>",
+                        help="file with strain names to copy, one name per line")
 
     return parser.parse_args()
 
