@@ -19,9 +19,10 @@ def get_args():
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    parser.add_argument("strains_file", metavar="filename", help="file with strain names to copy, one name per line")
-    parser.add_argument("genome_length", metavar="genome length (E.coli=5131220 bp)", help="Approx. genome length, bp")
-    parser.add_argument("output", "output TSV", help="output filename, tab-separated")
+    parser.add_argument("strains_file", metavar="<strains file>",
+                        help="file with strain names to copy, one name per line")
+    parser.add_argument("genome_length", metavar="<genome length>", help="Approx. genome length, bp (E.coli=5131220)")
+    parser.add_argument("output", metavar="<output file>", help="output filename, tab-separated")
     return parser.parse_args()
 
 
