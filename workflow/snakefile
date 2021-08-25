@@ -117,4 +117,4 @@ rule busco:
     log: "logs/{strain}_busco.log"
     conda: "envs/busco.yaml"
     shell:
-        "busco -m genome -i {input} --out_path {output} -l gammaproteobacteria_odb10 --cpu {threads}"
+        "busco -m genome -i {input} -o busco_results --out_path {output} -l gammaproteobacteria_odb10 --cpu {threads}"
