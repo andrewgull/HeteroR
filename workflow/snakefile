@@ -55,6 +55,7 @@ rule auto_trim_illumina:
         short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
         report_html = "qualcheck/fastp_reports/{strain}_report.html",
         report_json = "qualcheck/fastp_reports/{strain}_report.json"
+    wildcard_constraints: strain="DA[0-9]*"
     threads: 14
     message: "executing fastp with {threads} threads on {wildcards.strain} short reads"
     log: "logs/{strain}_fastp.log"
