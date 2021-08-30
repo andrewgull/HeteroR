@@ -14,7 +14,7 @@ rule quality_check_illumina:
     log: "logs/{strain}_illumina_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R"
+        "scripts/run_qualcheck.R &> {log}"
 
 rule quality_check_trimmed:
     input:
@@ -24,7 +24,7 @@ rule quality_check_trimmed:
     log: "logs/{strain}_trimmed_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R"
+        "scripts/run_qualcheck.R &> {log}"
 
 rule quality_check_nanopore:  # also builds length distribution plots
     input:
@@ -34,7 +34,7 @@ rule quality_check_nanopore:  # also builds length distribution plots
     log: "logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R"
+        "scripts/run_qualcheck.R &> {log}"
 
 rule quality_check_filtered:
     input:
@@ -44,7 +44,7 @@ rule quality_check_filtered:
     log: "logs/{strain}_filtered_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R"
+        "scripts/run_qualcheck.R &> {log}"
 
 rule auto_trim_illumina:
     input:
@@ -63,7 +63,7 @@ rule auto_trim_illumina:
     shell:
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} --out2 {output.short_read_2} "
         "--thread {threads} --qualified_quality_phred 20 --cut_window_size 4 "
-        "--cut_right 20 --length_required 50 --html {output.report_html} --json {output.report_json}"
+        "--cut_right 20 --length_required 50 --html {output.report_html} --json {output.report_json} &> {log}"
 
 rule filtlong:
     input:
@@ -76,7 +76,7 @@ rule filtlong:
     conda: "envs/filtlong.yaml"
     threads: 14
     shell:
-        "filtlong --min_length 1000 --keep_percent 90 {input} | pigz -c -p {threads} > {output}"
+        "filtlong --min_length 1000 --keep_percent 90 {input} | pigz -c -p {threads} > {output} &> {log}"
 
 rule unicycler:
     input:
@@ -92,7 +92,7 @@ rule unicycler:
         "logs/{strain}_unicycler.log"
     conda: "envs/unicycler.yaml"
     shell:
-        "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output}"
+        "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
 
 rule quast:
     input:
@@ -106,7 +106,7 @@ rule quast:
         "logs/{strain}_quast.log"
     conda: "envs/quast.yaml"
     shell:
-        "quast.py -t {threads} -o {output} {input}"
+        "quast.py -t {threads} -o {output} {input} &> {log}"
 
 rule busco:
     input:
@@ -118,4 +118,4 @@ rule busco:
     log: "logs/{strain}_busco.log"
     conda: "envs/busco.yaml"
     shell:
-        "busco -m genome -i {input} -o busco_results --out_path {output} -l gammaproteobacteria_odb10 --cpu {threads}"
+        "busco -m genome -i {input} -o busco_results --out_path {output} -l gammaproteobacteria_odb10 --cpu {threads} &> {log}"
