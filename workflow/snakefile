@@ -60,10 +60,22 @@ rule auto_trim_illumina:
     message: "executing fastp with {threads} threads on {wildcards.strain} short reads"
     log: "logs/{strain}_fastp.log"
     conda: "envs/fastp.yaml"
+    params: q="20", W="4", r="20", l="50"
     shell:
+        # -q, --qualified_quality_phred
+        # the quality value that a base is qualified. Default 15 means phred quality >=Q15 is qualified. (int [=15])
+        # -W, --cut_window_size
+        # the window size option shared by cut_front, cut_tail or cut_sliding. Range: 1~1000, default: 4 (int [=4])
+        # -r, --cut_right
+        # move a sliding window from front to tail, if meet one window with mean quality < threshold,
+        # drop the bases in the window and the right part, and then stop.
+        # -l, --length_required
+        # reads shorter than length_required will be discarded, default is 15. (int [=15])
+        # -y, --low_complexity_filter
+        # enable low complexity filter. The complexity is defined as the percentage of base that is different from its next base (base[i] != base[i+1]).
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} --out2 {output.short_read_2} "
-        "--thread {threads} --qualified_quality_phred 20 --cut_window_size 4 "
-        "--cut_right 20 --length_required 50 --html {output.report_html} --json {output.report_json} &> {log}"
+        "--thread {threads} --qualified_quality_phred {params.q} --cut_window_size {params.W} "
+        "--cut_right {params.r} --length_required {params.l} --low_complexity_filter --html {output.report_html} --json {output.report_json} &> {log}"
 
 rule filtlong:
     input:
