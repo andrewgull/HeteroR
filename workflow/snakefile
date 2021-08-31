@@ -34,7 +34,7 @@ rule quality_check_nanopore:  # also builds length distribution plots
     log: "logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R &"
+        "scripts/run_qualcheck.R"
 
 rule quality_check_filtered:
     input:
