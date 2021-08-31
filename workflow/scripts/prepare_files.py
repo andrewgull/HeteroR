@@ -143,3 +143,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+    # TODO: add functionality: move original files (Illumina and Nano) to separate dirs inside data_raw/STRAIN/TOOL dir
+    # cause now fastqc works on all gz files, so it works twice on Nanopore and Illumina data
