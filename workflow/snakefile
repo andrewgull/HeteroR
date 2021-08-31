@@ -14,7 +14,7 @@ rule quality_check_illumina:
     log: "logs/{strain}_illumina_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R &> {log}"
+        "scripts/run_qualcheck.R"
 
 rule quality_check_trimmed:
     input:
@@ -24,7 +24,7 @@ rule quality_check_trimmed:
     log: "logs/{strain}_trimmed_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R &> {log}"
+        "scripts/run_qualcheck.R"
 
 rule quality_check_nanopore:  # also builds length distribution plots
     input:
@@ -34,7 +34,7 @@ rule quality_check_nanopore:  # also builds length distribution plots
     log: "logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R &> {log}"
+        "scripts/run_qualcheck.R &"
 
 rule quality_check_filtered:
     input:
@@ -44,7 +44,7 @@ rule quality_check_filtered:
     log: "logs/{strain}_filtered_qc.log"
     conda: "envs/rscripts.yaml"
     script:
-        "scripts/run_qualcheck.R &> {log}"
+        "scripts/run_qualcheck.R"
 
 rule auto_trim_illumina:
     input:
