@@ -6,6 +6,8 @@ rule all:
 # all quality_check_* rules produce all the expected files but job crashes with the following message (for ex):
 # Job Missing files after 5 seconds:
 # qualcheck/DA62942/Nanopore/DA62942_all.fastqc.zip
+# TODO: separate Nanopore and Illumina related functionality: output files must correspond to what a rule actually outputs!
+# TODO: move quality_check rules to another snakefile (if it makes sense) cuz now they are excluded from main workflow
 rule quality_check_illumina:
     input:
         "data_raw/{strain}/Illumina/{strain}_1.fq.gz"
@@ -101,6 +103,7 @@ rule unicycler:
         short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
         long_read = "data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
+        # TODO: is there a way to specify output file not directory? It excludes the following two rules from main workflow
         directory("assemblies/{strain}")
     threads: 14
     message:
@@ -113,6 +116,7 @@ rule unicycler:
 
 rule quast:
     # NOT INCLUDED in DAG because input != output of unicycler rule
+    # TODO: is there a way to specify input directory not a file? (to include the rule to the main workflow)
     input:
         "assemblies/{strain}/assembly.fasta"
     output:
@@ -128,6 +132,7 @@ rule quast:
 
 rule busco:
     # NOT INCLUDED in DAG because input != output of unicycler rule
+    # TODO: is there a way to specify input directory not a file? (to include the rule to the main workflow)
     input:
         "assemblies/{strain}/assembly.fasta"
     output:
