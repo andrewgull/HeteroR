@@ -112,6 +112,7 @@ rule unicycler:
         "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
 
 rule quast:
+    # NOT INCLUDED in DAG because input != output of unicycler rule
     input:
         "assemblies/{strain}/assembly.fasta"
     output:
@@ -126,6 +127,7 @@ rule quast:
         "quast.py -t {threads} -o {output} {input} &> {log}"
 
 rule busco:
+    # NOT INCLUDED in DAG because input != output of unicycler rule
     input:
         "assemblies/{strain}/assembly.fasta"
     output:
