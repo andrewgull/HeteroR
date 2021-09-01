@@ -116,7 +116,9 @@ def main():
             if "Nanopore" in line:
                 destination = "/".join([cwd, "data_raw", strain, "Nanopore", line_new_name])
             else:
-                destination = "/".join([cwd, "data_raw", strain, "Illumina", line_new_name])
+                # create 'renamed' directory
+                os.mkdir("/".join([cwd, "data_raw", strain, "Illumina", "renamed"]))
+                destination = "/".join([cwd, "data_raw", strain, "Illumina", "renamed", line_new_name])
             # create link
             try:
                 os.symlink(source, destination)
