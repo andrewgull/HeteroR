@@ -10,7 +10,7 @@ rule all:
 # TODO: move quality_check rules to another snakefile (if it makes sense) cuz now they are excluded from main workflow
 rule quality_check_illumina:
     input:
-        "data_raw/{strain}/Illumina/{strain}_1.fq.gz"
+        "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
     output:
         "qualcheck/{strain}/Illumina/{strain}_1.fastqc.zip"
     log: "logs/{strain}_illumina_qc.log"
@@ -50,8 +50,8 @@ rule quality_check_filtered:
 
 rule auto_trim_illumina:
     input:
-        short_read_1 = "data_raw/{strain}/Illumina/{strain}_1.fq.gz",
-        short_read_2 = "data_raw/{strain}/Illumina/{strain}_2.fq.gz"
+        short_read_1 = "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz",
+        short_read_2 = "data_raw/{strain}/Illumina/renamed/{strain}_2.fq.gz"
     output:
         short_read_1 = "data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
         short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
