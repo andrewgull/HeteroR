@@ -138,6 +138,12 @@ def main():
                                     (path, threads, path, strain),
                                     shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
+        # now you can safely remove links, leave only DA[0-9]_all.fastq.gz
+        # this is not optimal way but it's easy to embed into this script
+        gz_files = glob.glob("%s/*.fastq.gz" % path)
+        gz_files = [f for f in gz_files if "_all.fastq.gz" not in f]
+        for file in gz_files:
+            os.remove(file)
     print("Done!")
 
 
