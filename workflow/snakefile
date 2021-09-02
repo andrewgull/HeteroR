@@ -6,8 +6,6 @@ rule all:
 # all quality_check_* rules produce all the expected files but job crashes with the following message (for ex):
 # Job Missing files after 5 seconds:
 # qualcheck/DA62942/Nanopore/DA62942_all.fastqc.zip
-# TODO: separate Nanopore and Illumina related functionality: output files must correspond to what a rule actually outputs!
-# TODO: move quality_check rules to another snakefile (if it makes sense) cuz now they are excluded from main workflow
 rule quality_check_illumina:
     input:
         "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
