@@ -21,7 +21,6 @@ keyword <- function(file_out){
 }
 
 quality_reports <- function(file_in, file_out, fastqc_exe, cpus){
-  # TODO: check beahaviour with the new 'renamed' subdir in Illumina data
   # run fastqc, write summary table and length distribution for Nanopore reads
   # ARGUMENT PARSING SECTION
   key_word <- keyword(file_out = file_out)
