@@ -105,7 +105,7 @@ def main():
         # join illumina and nanopore lists
         read_files = illumina_files + nanopore_clean
         # iterate and create symlinks
-        for line in read_files:
+        for line in tqdm(read_files):
             line_new_name = new_name(line)
             # now, when you have a new name, rename the file (create a soft link)
             # put links into Nanopore or Illumina directories, respectively
@@ -114,11 +114,13 @@ def main():
             source = "/".join([cwd, line])
             # create destination - absolute path
             if "Nanopore" in line:
-                destination = "/".join([cwd, "data_raw", strain, "Nanopore", line_new_name])
+                destination = os.path.join(cwd, "data_raw", strain, "Nanopore", line_new_name)
             else:
                 # create 'renamed' directory
-                os.mkdir("/".join([cwd, "data_raw", strain, "Illumina", "renamed"]))
-                destination = "/".join([cwd, "data_raw", strain, "Illumina", "renamed", line_new_name])
+                renamed = os.path.join(cwd, "data_raw", strain, "Illumina", "renamed")
+                if not os.path.exists(renamed):
+                    os.mkdir(renamed)
+                destination = os.path.join(renamed, line_new_name)
             # create link
             try:
                 os.symlink(source, destination)
@@ -151,5 +153,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    # TODO: test new functionality
-    # cause now fastqc works on all gz files, so it works twice on Nanopore and Illumina data
