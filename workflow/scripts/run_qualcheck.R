@@ -28,20 +28,20 @@ quality_reports <- function(file_in, file_out, fastqc_exe, cpus){
   if (key_word == "Illumina"){
     # file_in: "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
     input_dir <- paste0(str_replace(file_in, "Illumina/renamed/DA.*_1.fq.gz", ""), paste0(key_word, "/renamed"))  # "data_raw/DA62920/" + Illumina
-    output_dir <- paste0(str_replace(file_out, "Illumina/DA.*_1.fastqc.zip", ""), key_word)  # "qualcheck/DA62920/" + Illumina
+    output_dir <- paste0(str_replace(file_out, "Illumina/DA.*_summary.tsv", ""), key_word)  # "qualcheck/DA62920/" + Illumina
   } else if (key_word == "Nanopore"){
     input_dir <- paste0(str_replace(file_in, "Nanopore/DA.*_all.fastq.gz", ""), key_word)
-    output_dir <- paste0(str_replace(file_out, "Nanopore/DA.*_all.fastqc.zip", ""), key_word)
+    output_dir <- paste0(str_replace(file_out, "Nanopore/DA.*_summary.tsv", ""), key_word)
   } else if (key_word == "Illumina_trimmed"){
     # input: "data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
     # output: "qualcheck/{strain}/Illumina_trimmed/{strain}_1.fastqc.zip"
     input_dir <- paste0(str_replace(file_in, "Illumina/DA.*_1.fq.gz", ""), "Illumina")
-    output_dir <- paste0(str_replace(file_out, "Illumina_trimmed/DA.*_1.fastqc.zip", ""), key_word)  # this creates new dir
+    output_dir <- paste0(str_replace(file_out, "Illumina_trimmed/DA.*_summary.tsv", ""), key_word)  # this creates new dir
   } else if (key_word == "Nanopore_filtered"){
     # input: "data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     # output: "qualcheck/{strain}/Nanopore/{strain}_all.fastqc.zip"
     input_dir <- paste0(str_replace(file_in, "Nanopore/DA.*_all.fastq.gz"), "Nanopore")
-    output_dir <- paste0(str_replace(file_out, "Nanopore_filtered/DA.*_all.fastqc.zip"), key_word)  # this creates new dir
+    output_dir <- paste0(str_replace(file_out, "Nanopore_filtered/DA.*_summary.tsv"), key_word)  # this creates new dir
   }
 
   # FASTQC RUN
