@@ -81,6 +81,7 @@ rule auto_trim_illumina:
         "--html {output.report_html} --json {output.report_json} &> {log}"
 
 rule filtlong:
+    # TODO: with sample DA62886 filtlong filters out ALL reads. Why?
     input:
         "data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
