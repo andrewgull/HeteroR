@@ -39,8 +39,8 @@ quality_reports <- function(file_in, file_out, fastqc_exe, cpus){
   } else if (key_word == "Nanopore_filtered"){
     # input: "data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     # output: "qualcheck/{strain}/Nanopore/{strain}_all.fastqc.zip"
-    input_dir <- paste0(str_replace(file_in, "Nanopore/DA.*_all.fastq.gz"), "Nanopore")
-    output_dir <- paste0(str_replace(file_out, "Nanopore_filtered/DA.*_summary.tsv"), key_word)  # this creates new dir
+    input_dir <- paste0(str_replace(file_in, "Nanopore/DA.*_all.fastq.gz", ""), "Nanopore")
+    output_dir <- paste0(str_replace(file_out, "Nanopore_filtered/DA.*_summary.tsv", ""), key_word)  # this creates new dir
   }
 
   # FASTQC RUN
