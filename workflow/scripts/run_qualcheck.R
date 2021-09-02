@@ -26,8 +26,8 @@ quality_reports <- function(file_in, file_out, fastqc_exe, cpus){
   # ARGUMENT PARSING SECTION
   key_word <- keyword(file_out = file_out)
   if (key_word == "Illumina"){
-    # file_in: "data_raw/{strain}/Illumina/{strain}_1.fq.gz"
-    input_dir <- paste0(str_replace(file_in, "Illumina/DA.*_1.fq.gz", ""), key_word)  # "data_raw/DA62920/" + Illumina
+    # file_in: "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
+    input_dir <- paste0(str_replace(file_in, "Illumina/renamed/DA.*_1.fq.gz", ""), paste0(key_word, "/renamed"))  # "data_raw/DA62920/" + Illumina
     output_dir <- paste0(str_replace(file_out, "Illumina/DA.*_1.fastqc.zip", ""), key_word)  # "qualcheck/DA62920/" + Illumina
   } else if (key_word == "Nanopore"){
     input_dir <- paste0(str_replace(file_in, "Nanopore/DA.*_all.fastq.gz", ""), key_word)
