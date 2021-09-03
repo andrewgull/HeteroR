@@ -128,12 +128,11 @@ rule busco:
     # NOT INCLUDED in DAG because input != output of unicycler rule
     # TODO: is there a way to specify input directory not a file? (to include the rule to the main workflow)
     input:
-        "assemblies/{strain}/assembly.fasta"
+        "assemblies/{strain}"
     output:
-        directory("busco_results/{strain}")
+        "busco_results/{strain}"
     threads: 14
     message: "executing BUSCO with {threads} threads on {wildcards.strain} assembly"
-    log: "logs/{strain}_busco.log"
     conda: "envs/busco.yaml"
-    shell:
-        "busco -m genome -i {input} -o busco_results --out_path {output} -l gammaproteobacteria_odb10 --cpu {threads} &> {log}"
+    script:
+        "scripts/run_busco.py"
