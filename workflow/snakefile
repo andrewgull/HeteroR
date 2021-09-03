@@ -113,7 +113,7 @@ rule assembly_qualcheck:
     input:
         "assemblies/{strain}"
     output:
-        "qualcheck_assembly/{strain}"
+        directory("qualcheck_assembly/{strain}")
     threads: 14
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
     conda: "envs/busco_quast.yaml"
