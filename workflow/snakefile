@@ -114,17 +114,15 @@ rule quast:
     # NOT INCLUDED in DAG because input != output of unicycler rule
     # TODO: is there a way to specify input directory not a file? (to include the rule to the main workflow)
     input:
-        "assemblies/{strain}/assembly.fasta"
+        "assemblies/{strain}"
     output:
-        directory("quast_results/{strain}")
+        "quast_results/{strain}"
     threads: 14
     message:
         "executing QUAST with {threads} threads on {wildcards.strain} assembly"
-    log:
-        "logs/{strain}_quast.log"
     conda: "envs/quast.yaml"
-    shell:
-        "quast.py -t {threads} -o {output} {input} &> {log}"
+    script:
+        "scripts/run_quast.py"
 
 rule busco:
     # NOT INCLUDED in DAG because input != output of unicycler rule
