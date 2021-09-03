@@ -1,6 +1,0 @@
-name: busco-env
-channels:
-  - bioconda
-  - conda-forge
-dependencies:
-  - busco=5.2.2

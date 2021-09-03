@@ -8,7 +8,7 @@ rule quality_check_illumina:
     input:
         "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
     output:
-        "qualcheck/{strain}/Illumina/{strain}_summary.tsv"
+        "qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv"
     log: "logs/{strain}_illumina_qc.log"
     conda: "envs/rscripts.yaml"
     script:
@@ -18,7 +18,7 @@ rule quality_check_trimmed:
     input:
         "data_filtered/{strain}/Illumina/{strain}_1.fq.gz"
     output:
-        "qualcheck/{strain}/Illumina_trimmed/{strain}_summary.tsv"
+        "qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv"
     log: "logs/{strain}_trimmed_qc.log"
     conda: "envs/rscripts.yaml"
     script:
@@ -28,7 +28,7 @@ rule quality_check_nanopore:  # also builds length distribution plots
     input:
         "data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-        "qualcheck/{strain}/Nanopore/{strain}_summary.tsv"
+        "qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv"
     log: "logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
     script:
@@ -38,21 +38,21 @@ rule quality_check_filtered:
     input:
         "data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-        "qualcheck/{strain}/Nanopore_filtered/{strain}_summary.tsv"
+        "qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv"
     log: "logs/{strain}_filtered_qc.log"
     conda: "envs/rscripts.yaml"
     script:
         "scripts/run_qualcheck.R"
 
-rule auto_trim_illumina:
+rule trim_illumina:
     input:
         short_read_1 = "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz",
         short_read_2 = "data_raw/{strain}/Illumina/renamed/{strain}_2.fq.gz"
     output:
         short_read_1 = "data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
         short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
-        report_html = "qualcheck/fastp_reports/{strain}_report.html",
-        report_json = "qualcheck/fastp_reports/{strain}_report.json"
+        report_html = "qualcheck_reads/fastp_reports/{strain}_report.html",
+        report_json = "qualcheck_reads/fastp_reports/{strain}_report.json"
     wildcard_constraints: strain="DA[0-9]*"
     threads: 14
     message: "executing fastp with {threads} threads on {wildcards.strain} short reads"
@@ -80,7 +80,7 @@ rule auto_trim_illumina:
         "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --low_complexity_filter "
         "--html {output.report_html} --json {output.report_json} &> {log}"
 
-rule filtlong:
+rule filter_nanopore:
     input:
         "data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
@@ -109,25 +109,13 @@ rule unicycler:
     shell:
         "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
 
-rule quast:
+rule assembly_qualcheck:
     input:
         "assemblies/{strain}"
     output:
-        "quast_results/{strain}"
+        "qualcheck_assembly/{strain}"
     threads: 14
-    message:
-        "executing QUAST with {threads} threads on {wildcards.strain} assembly"
-    conda: "envs/quast.yaml"
+    message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
+    conda: "envs/busco_quast.yaml"
     script:
-        "scripts/run_quast.py"
-
-rule busco:
-    input:
-        "assemblies/{strain}"
-    output:
-        "busco_results/{strain}"
-    threads: 14
-    message: "executing BUSCO with {threads} threads on {wildcards.strain} assembly"
-    conda: "envs/busco.yaml"
-    script:
-        "scripts/run_busco.py"
+        "scripts/assembly_qualcheck.py"
