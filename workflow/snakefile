@@ -81,7 +81,6 @@ rule auto_trim_illumina:
         "--html {output.report_html} --json {output.report_json} &> {log}"
 
 rule filtlong:
-    # TODO: with sample DA62886 filtlong filters out ALL reads. Why?
     input:
         "data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
@@ -92,7 +91,7 @@ rule filtlong:
     conda: "envs/filtlong.yaml"
     threads: 14
     shell:
-        "filtlong --min_length 1000 --keep_percent 90 {input} | pigz -c -p {threads} > {output} &> {log}"
+        "filtlong --min_length 1000 --keep_percent 90 {input} | pigz -c -p {threads} > {output} 2> {log}"
 
 rule unicycler:
     input:
