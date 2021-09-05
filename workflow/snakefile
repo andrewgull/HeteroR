@@ -2,7 +2,7 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("busco_results/{strain}", strain=config['strains'])
+        expand("qualcheck_assembly/{strain}", strain=config['strains'])
 
 rule quality_check_illumina:
     input:
