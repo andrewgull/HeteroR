@@ -6,36 +6,52 @@ directive 'run' is also not viable cause than it's impossible to use conda envs
 """
 
 import subprocess
-# import snakemake
 import os
+
+
+def write_logs(output, tool, strain_name):
+    """
+    param: output - stdout or stderr output of communicate(), bytes object
+    param: tool - busco or quast
+    param: strain_name - name of strain
+    """
+    if len(output) > 0:
+        with open("logs/%s_%s.log" % (strain_name, tool), "w") as f:
+            f.write(output.decode("utf-8"))
+    else:
+        pass
 
 
 def main(indir, outdir, cpus):
     """
-    function to run busco
+    function to run busco and quast with logging
     """
 
-    # run BUSCO
-    # busco -m genome -i {input} -o busco_results --out_path {output} -l gammaproteobacteria_odb10 --cpu {threads}"
     # INPUT looks like "assemblies/{strain}" but you need "assemblies/{strain}/assembly.fasta"
     infile = os.path.join(indir, "assembly.fasta")
+    # for QUAST we need a special output_dir
+    output_dir = os.path.join(outdir, "quast_results")
+    # for logs we need a strain name
+    strain = indir.split("/")[1]
+
+    # run BUSCO
     # subprocess.call(["busco", "-m", "genome", "-i", infile, "-o", "busco_results", "--out_path", outdir,
     #                 "-l", "gammaproteobacteria_odb10", "--cpu", cpus])
     proc_busco = subprocess.Popen("busco -m genome -i %s -o busco_results --out_path %s -l gammaproteobacteria_odb10 "
                                   "--cpu %s"
                                   % (infile, outdir, cpus), shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = proc_busco.communicate()
-    strain = indir.split("/")[1]
-    # write logs
-    with open("logs/%s_busco_stderr.log" % strain, "w") as errout:
-        errout.write(err.decode("utf-8"))
-
-    with open("logs/%s_busco_stdout.log" % strain, "w") as stout:
-        stout.write(out.decode("utf-8"))
+    busco_stdout, busco_stderr = proc_busco.communicate()
 
     # run QUAST
-    output_dir = os.path.join(outdir, "quast_results")
-    subprocess.call(["quast.py", "-t", cpus, "-o", output_dir, infile])
+    # subprocess.call(["quast.py", "-t", cpus, "-o", output_dir, infile])
+    proc_quast = subprocess.Popen("quast.py -t %s -o %s %s" % (cpus, output_dir, infile),
+                                  shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    quast_stdout, quast_stderr = proc_quast.communicate()
+
+    # write logs
+    output_dict = dict({"busco": (busco_stderr, busco_stdout), "quast": (quast_stderr, quast_stdout)})
+    for software in output_dict.keys():
+        write_logs(output_dict[software], software, strain)
 
 
 main(indir=snakemake.input[0], outdir=snakemake.output[0], cpus=str(snakemake.threads))
