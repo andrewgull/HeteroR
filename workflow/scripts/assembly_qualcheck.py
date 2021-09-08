@@ -39,19 +39,20 @@ def main(indir, outdir, cpus):
     #                 "-l", "gammaproteobacteria_odb10", "--cpu", cpus])
     proc_busco = subprocess.Popen("busco -m genome -i %s -o busco_results --out_path %s -l gammaproteobacteria_odb10 "
                                   "--cpu %s"
-                                  % (infile, outdir, cpus), shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                  % (infile, outdir, cpus), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     busco_stdout, busco_stderr = proc_busco.communicate()
 
     # run QUAST
     # subprocess.call(["quast.py", "-t", cpus, "-o", output_dir, infile])
     proc_quast = subprocess.Popen("quast.py -t %s -o %s %s" % (cpus, output_dir, infile),
-                                  shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                  shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     quast_stdout, quast_stderr = proc_quast.communicate()
 
     # write logs
     output_dict = dict({"busco": (busco_stderr, busco_stdout), "quast": (quast_stderr, quast_stdout)})
     for software in output_dict.keys():
-        write_logs(output_dict[software], software, strain)
+        for item in output_dict[software]:
+            write_logs(item, software, strain)
 
 
 main(indir=snakemake.input[0], outdir=snakemake.output[0], cpus=str(snakemake.threads))
