@@ -48,7 +48,7 @@ def main(strains_file, genome_length):
     nanopore_df = pd.DataFrame.from_records(nanopore_stats, columns=["file", "format", "type", "num_seqs", "sum_len",
                                                                      "min_len", "avg_len", "max_len"])
     nanopore_df = nanopore_df.astype({'sum_len': 'float'})
-    nanopore_df["coverage"] = nanopore_df["sum_len"] / genome_length
+    nanopore_df["coverage"] = nanopore_df["sum_len"] / int(genome_length)
     return nanopore_df
 
 
