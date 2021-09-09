@@ -36,7 +36,7 @@ def main(ass, r1, r2, out_sam, t):
     param: t - threads
     """
     # INDEX THE GENOME, MAP READS
-    subprocess.call(["bwa", "index", ass])
+    subprocess.call(["bwa", "index", ass])  # creates files .sa, .amb, ann, .pac, .bwt, can not be specified as -o
     subprocess.call(["bwa", "mem", "-t", t, ass, r1, r2, ">", out_sam])
     # SAMTOOLS: VIEW, SORT, INDEX
-
+    subprocess.call(["samtools", "view", "-b", "$DIR/assembly/hybrid_uni/assembly.sam > $DIR/assembly/hybrid_uni/assembly.bam"])
