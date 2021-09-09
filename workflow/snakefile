@@ -119,3 +119,46 @@ rule assembly_qualcheck:
     conda: "envs/busco_quast.yaml"
     script:
         "scripts/assembly_qualcheck.py"
+
+rule bwa_map:
+    input:
+        assembly_dir = "assemblies/{strain}",
+        short_read_1= "data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
+        short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz"
+    output:
+        # an output file marked as temp is deleted after all rules that use it as an input are completed
+        temp("assemblies/{strain}/assembly.sam")
+    threads: 14
+    message: "executing BWA with {threads} on {wildcards.strain} assembly"
+    log: "logs/{strain}_bwa.log"
+    conda: "envs/bwa.yaml"
+    shell:
+        "bwa index {input.assembly_dir}/assembly.fasta && "
+        "bwa mem -t {threads} {input.assembly_dir}/assembly.fasta {input.short_read_1} {input.short_read_2} -o {output} &> {log}"
+
+rule samtools:
+    input:
+        "assemblies/{strain}/assembly.sam"
+    output:
+        "assemblies/{strain}/assembly.bam"
+    threads: 14
+    message: "executing SAMTOOLS with {threads} on {wildcards.strain} mapping file"
+    log: "logs/{strain}_samtools.log"
+    conda: "envs/samtools.yaml"
+    shell:
+        "samtools view -b {input} | samtools sort -o {output} -O BAM -@ {threads} &> {log} && samtools index {output}"
+
+rule unmapped:
+    input:
+        "assemblies/{strain}/assembly.bam"
+    output:
+        r1 = "assembly/{strain}/unmapped_1.fastq",
+        r2 = "assembly/{strain}/unmapped_2.fastq"
+    threads: 14
+    message: "executing SAMTOOLS UNMAPPED with {threads} on {wildcards.strain} BAM file"
+    log: "logs/{strain}_unmapped.log"
+    conda: "envs/samtools.yaml"
+    shell:
+        "samtools view -@ {threads} -b -f 4 | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
+
+# rule plasmid_assembly:
