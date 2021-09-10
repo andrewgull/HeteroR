@@ -13,6 +13,8 @@ project structure:
 
 `qualcheck_assemblies/`
 
+`mapping/`
+
 `workflow/`
 
 `strain_list.txt`
@@ -26,4 +28,4 @@ workflow:
 3. prepare files
 4. get coverage
 5. (create config)
-6. run the pipeline on these files (+ back-mapping, spades)
+6. run the pipeline on these files (+ back-mapping, spades --plasmid)
