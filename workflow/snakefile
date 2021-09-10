@@ -172,5 +172,5 @@ rule plasmid_assembly:
     log: "logs/{strain}_spades.log"
     conda: "envs/spades.yaml"
     shell:
-        "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output}"
+        "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log}"
 
