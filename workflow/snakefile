@@ -152,8 +152,8 @@ rule unmapped:
     input:
         "assemblies/{strain}/assembly.bam"
     output:
-        r1 = "assembly/{strain}/unmapped_1.fastq",
-        r2 = "assembly/{strain}/unmapped_2.fastq"
+        r1 = "assemblies/{strain}/unmapped_1.fastq",
+        r2 = "assemblies/{strain}/unmapped_2.fastq"
     threads: 14
     message: "executing SAMTOOLS UNMAPPED with {threads} on {wildcards.strain} BAM file"
     log: "logs/{strain}_unmapped.log"
@@ -161,4 +161,16 @@ rule unmapped:
     shell:
         "samtools view -@ {threads} -b -f 4 | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
 
-# rule plasmid_assembly:
+rule plasmid_assembly:
+    input:
+        r1 = "assemblies/{strain}/unmapped_1.fastq",
+        r2 = "assemblies/{strain}/unmapped_2.fastq"
+    output:
+        directory("assemblies/{strain}/plasmid_assembly")
+    threads: 14
+    message: "executing SPAdes with {threads} on unmapped reads of {wildcards.strain}"
+    log: "logs/{strain}_spades.log"
+    conda: "envs/spades.yaml"
+    shell:
+        "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output}"
+
