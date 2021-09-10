@@ -2,7 +2,7 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("qualcheck_assembly/{strain}", strain=config['strains'])
+        expand("plasmids/{strain}", strain=config['strains'])
 
 rule quality_check_illumina:
     input:
@@ -127,7 +127,7 @@ rule bwa_map:
         short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz"
     output:
         # an output file marked as temp is deleted after all rules that use it as an input are completed
-        temp("assemblies/{strain}/assembly.sam")
+        temp("mapping/{strain}/assembly.sam")
     threads: 14
     message: "executing BWA with {threads} on {wildcards.strain} assembly"
     log: "logs/{strain}_bwa.log"
@@ -138,9 +138,9 @@ rule bwa_map:
 
 rule samtools:
     input:
-        "assemblies/{strain}/assembly.sam"
+        "mapping/{strain}/assembly.sam"
     output:
-        "assemblies/{strain}/assembly.bam"
+        "mapping/{strain}/assembly.bam"
     threads: 14
     message: "executing SAMTOOLS with {threads} on {wildcards.strain} mapping file"
     log: "logs/{strain}_samtools.log"
@@ -150,10 +150,10 @@ rule samtools:
 
 rule unmapped:
     input:
-        "assemblies/{strain}/assembly.bam"
+        "mapping/{strain}/assembly.bam"
     output:
-        r1 = "assemblies/{strain}/unmapped_1.fastq",
-        r2 = "assemblies/{strain}/unmapped_2.fastq"
+        r1 = "mapping/{strain}/unmapped_1.fastq",
+        r2 = "mapping/{strain}/unmapped_2.fastq"
     threads: 14
     message: "executing SAMTOOLS UNMAPPED with {threads} on {wildcards.strain} BAM file"
     log: "logs/{strain}_unmapped.log"
@@ -163,10 +163,10 @@ rule unmapped:
 
 rule plasmid_assembly:
     input:
-        r1 = "assemblies/{strain}/unmapped_1.fastq",
-        r2 = "assemblies/{strain}/unmapped_2.fastq"
+        r1 = "mapping/{strain}/unmapped_1.fastq",
+        r2 = "mapping/{strain}/unmapped_2.fastq"
     output:
-        directory("assemblies/{strain}/plasmid_assembly")
+        directory("plasmids/{strain}")
     threads: 14
     message: "executing SPAdes with {threads} on unmapped reads of {wildcards.strain}"
     log: "logs/{strain}_spades.log"
