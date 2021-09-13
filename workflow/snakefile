@@ -159,7 +159,7 @@ rule unmapped:
     log: "logs/{strain}_unmapped.log"
     conda: "envs/samtools.yaml"
     shell:
-        "samtools view -@ {threads} -u -f 12 -F 256 | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
+        "samtools view -@ {threads} -u -f 12 -F 256 {input} | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
 
 rule plasmid_assembly:
     input:
