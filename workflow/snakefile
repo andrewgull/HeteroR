@@ -130,11 +130,12 @@ rule bwa_map:
         temp("mapping/{strain}/assembly.sam")
     threads: 14
     message: "executing BWA with {threads} threads on {wildcards.strain} assembly"
-    log: "logs/{strain}_bwa.log"
+    log: mem = "logs/{strain}_bwa_mem.log",
+         index = "logs/{strain}_bwa_index.log"
     conda: "envs/bwa.yaml"
     shell:
-        "bwa index {input.assembly_dir}/assembly.fasta && "
-        "bwa mem -t {threads} {input.assembly_dir}/assembly.fasta {input.short_read_1} {input.short_read_2} -o {output} &> {log}"
+        "bwa index {input.assembly_dir}/assembly.fasta &> {log.index} && "
+        "bwa mem -t {threads} {input.assembly_dir}/assembly.fasta {input.short_read_1} {input.short_read_2} -o {output} &> {log.mem}"
 
 rule samtools:
     input:
