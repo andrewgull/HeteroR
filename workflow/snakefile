@@ -143,7 +143,7 @@ rule samtools:
     output:
         "mapping/{strain}/assembly.bam"
     threads: 14
-    message: "executing SAMTOOLS with {threads} threads on {wildcards.strain} mapping file"
+    message: "executing SAMTOOLS: VIEW-SORT with {threads} threads on {wildcards.strain} mapping file"
     log: "logs/{strain}_samtools.log"
     conda: "envs/samtools.yaml"
     shell:
@@ -156,7 +156,7 @@ rule unmapped:
         r1 = "mapping/{strain}/unmapped_1.fastq",
         r2 = "mapping/{strain}/unmapped_2.fastq"
     threads: 14
-    message: "executing SAMTOOLS UNMAPPED with {threads} threads on {wildcards.strain} BAM file"
+    message: "executing SAMTOOLS: VIEW-FASTQ with {threads} threads on {wildcards.strain} BAM file"
     log: "logs/{strain}_unmapped.log"
     conda: "envs/samtools.yaml"
     shell:
@@ -169,7 +169,7 @@ rule plasmid_assembly:
     output:
         directory("plasmids/{strain}")
     threads: 14
-    message: "executing SPAdes with {threads} threads on unmapped reads of {wildcards.strain}"
+    message: "executing SPAdes in plasmid mode with {threads} threads on unmapped reads of {wildcards.strain}"
     log: "logs/{strain}_spades.log"
     conda: "envs/spades.yaml"
     shell:
