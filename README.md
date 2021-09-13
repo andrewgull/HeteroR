@@ -27,5 +27,5 @@ workflow:
 2. copy files
 3. prepare files
 4. get coverage
-5. (create config)
-6. run the pipeline on these files (+ back-mapping, spades --plasmid)
+5. create config
+6. run the pipeline on these files (incl. spades --plasmid)
