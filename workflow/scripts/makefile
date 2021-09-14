@@ -1,6 +1,11 @@
 # make file for bash scripts
 SHELL=/bin/bash
 
+#### retrieve particular lines from the full strain list ####
+### line X to Y
+sed -n '11,20p' strain_list_full.txt > strain_list11-20.txt
+
+
 #### file preparation/processing ####
 join_nano:
 	for S in DA*; do zcat $S/Nanopore/"$S"_*.fastq.gz > $S/Nanopore/"$S"_total.fastq && pigz -p 10 "$S"_total.fastq; done
