@@ -153,3 +153,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    print("Done! Now you can run 'coverage.py'")

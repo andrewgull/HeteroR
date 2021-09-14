@@ -38,3 +38,4 @@ def main(argos_path="/mnt/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains"):
 
 if __name__ == '__main__':
     main()
+    print("Done! Now you can run 'prepare_files.py'")

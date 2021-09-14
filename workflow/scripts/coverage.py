@@ -61,3 +61,4 @@ if __name__ == '__main__':
     coverage_stats = main(genome_length=length, strains_file=strains)
     coverage_stats.to_csv(path_or_buf=output, sep="\t", index=False)
     print("Coverage ~25x or less is sparse, good for Unicycler.")
+    print("Now you can create config and run the pipeline'")
