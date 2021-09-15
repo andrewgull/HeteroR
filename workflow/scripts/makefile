@@ -51,3 +51,10 @@ map_back:
 backmapped_coverage:
 	bedtools genomecov -ibam assembly.sorted.bam -bga > assembly.coverage.bga
 	grep -w "0$" assembly.coverage.bga
+
+
+not_covered_regions:
+    bedtools genomecov -ibam assembly.bam -bga | grep -w "0$"
+
+assembly_summary:
+    sed -n '/^Bridged/,/^Polishing/{p;/^Polishing/q}' assemblies/DAXXXXX/unicycler.log
