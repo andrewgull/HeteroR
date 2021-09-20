@@ -58,3 +58,11 @@ not_covered_regions:
 
 assembly_summary:
     sed -n '/^Bridged/,/^Polishing/{p;/^Polishing/q}' assemblies/DAXXXXX/unicycler.log
+
+filtlong_nano:
+    STRAIN="DA63052"
+    filtlong --min_length 10000 --keep_percent 90 "$STRAIN"_all.fastq.gz | pigz -c -p 10 > "$STRAIN"_all_filt_min10k.fastq.gz
+
+read_length_stat:
+    STRAIN="DA63052"
+    seqkit fx2tab --length --threads 10 -n "$STRAIN"_all_filt_min10k.fastq.gz > "$STRAIN"_Nano_filt_min10k_stats.tsv
