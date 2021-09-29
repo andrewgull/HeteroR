@@ -196,3 +196,15 @@ rule protein_annotation:
 rule trna_annotation:
 
 rule resistance_genes:
+    # how it handles rRNAs?
+    # ALSO: rgi load --card_json ./card_database/card.json --local
+    input: ""
+    output: ""
+    threads: 14
+    message: "executing RGI with {threads} threads on predicted genes/proteins from {wildcards.strain}"
+    log: "logs/{strain}_rgi.log"
+    conda: "envs/rgi.yaml"
+    params: a=""
+    shell:
+        "rgi main --input_sequence DA62920/assembly.fasta --output_file ./rgi_assembly_excl_nudge/rgi_assembly_output  "
+        "--input_type contig --local  --low_quality --include_loose --clean "
