@@ -173,6 +173,26 @@ rule plasmid_assembly:
     log: "logs/{strain}_spades.log"
     conda: "envs/spades.yaml"
     shell:
-        # || true prevents the rule from failing when spades throws an error what happens when unmapped files are too small
+        # || true prevents the rule from failing when spades throws an error; this happens when unmapped files are too small
         "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log} || true"
 
+rule protein_annotation:
+    input:
+        "assemblies/{strain}/assembly.fasta"
+        # what to do with plasmids assemblies (if they exist)?
+        # plasm = ""
+    output:
+        directory("annotations/{strain}")
+    threads: 14
+    message: "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
+    log: "logs/{strain}_prokka.log"
+    conda: "envs/prokka.yaml"
+    params: centre="UU", minlen="200", genus="Escherichia", species="coli"
+    shell:
+        "prokka --addgenes --addmrna --compliant --outdir {output} --centre {params.centre} --genus {params.genus} "
+        "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
+        "--mincontiglen {params.minlen} {input}"
+
+rule trna_annotation:
+
+rule resistance_genes:
