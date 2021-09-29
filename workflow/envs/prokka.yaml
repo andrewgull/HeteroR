@@ -1,0 +1,5 @@
+name: prokka-env
+channels:
+  - bioconda
+dependencies:
+  - prokka=1.14.6
