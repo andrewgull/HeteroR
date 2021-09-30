@@ -2,7 +2,7 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("plasmids/{strain}", strain=config['strains'])
+        expand("resistance_genes/{strain}", strain=config['strains'])
 
 rule quality_check_illumina:
     input:
@@ -177,7 +177,7 @@ rule plasmid_assembly:
         "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log} || true"
 
 rule genome_annotation:
-    # proteins and rRNA (barrnap)
+    # proteins (prodigal) and rRNA (barrnap)
     input:
         "assemblies/{strain}/assembly.fasta"
         # what to do with plasmids assemblies (if they exist)?
@@ -191,7 +191,7 @@ rule genome_annotation:
     params: centre="UU", minlen="200", genus="Escherichia", species="coli"
     shell:
         # skip tRNAs search?
-        "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix annotation --centre {params.centre} --genus {params.genus} "
+        "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix annotation_prokka --centre {params.centre} --genus {params.genus} "
         "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
         "--mincontiglen {params.minlen} {input} &> {log}"
 
@@ -218,13 +218,14 @@ rule trna_annotation:
 rule resistance_genes:
     # how it handles rRNAs?
     # ALSO: rgi load --card_json ./card_database/card.json --local
-    input: ""
-    output: ""
+    input:
+        "annotations/{strain}"
+    output:
+        "resistance_genes/{strain}/rgi_table" # IT'S JUST A PREFIX!
     threads: 14
     message: "executing RGI with {threads} threads on predicted genes/proteins from {wildcards.strain}"
     log: "logs/{strain}_rgi.log"
     conda: "envs/rgi.yaml"
-    params: a=""
     shell:
-        "rgi main --input_sequence DA62920/assembly.fasta --output_file ./rgi_assembly_excl_nudge/rgi_assembly_output  "
-        "--input_type contig --local  --low_quality --include_loose --clean "
+        "rgi main --input_sequence {input}/annotation_prokka.faa --output_file {output}.txt  "
+        "--input_type contig --local  --low_quality --include_loose --clean &> {log}"
