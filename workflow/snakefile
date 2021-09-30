@@ -176,7 +176,8 @@ rule plasmid_assembly:
         # || true prevents the rule from failing when spades throws an error; this happens when unmapped files are too small
         "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log} || true"
 
-rule protein_annotation:
+rule genome_annotation:
+    # proteins and rRNA (barrnap)
     input:
         "assemblies/{strain}/assembly.fasta"
         # what to do with plasmids assemblies (if they exist)?
@@ -189,11 +190,30 @@ rule protein_annotation:
     conda: "envs/prokka.yaml"
     params: centre="UU", minlen="200", genus="Escherichia", species="coli"
     shell:
-        "prokka --addgenes --addmrna --compliant --outdir {output} --centre {params.centre} --genus {params.genus} "
+        # skip tRNAs search?
+        "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix annotation --centre {params.centre} --genus {params.genus} "
         "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
-        "--mincontiglen {params.minlen} {input}"
+        "--mincontiglen {params.minlen} {input} &> {log}"
 
 rule trna_annotation:
+    # tRNA genes only - tRNAScan-SE
+    input:
+        "assemblies/{strain}/assembly.fasta"
+    output:
+        general = "annotations/{strain}/trna_gen.txt",
+        struct = "annotations/{strain}/trna_struct.txt",
+        iso = "annotations/{strain}/trna_iso.txt",
+        stats = "annotations/{strain}/trna_stat.txt",
+        bed = "annotations/{strain}/trna.bed",
+        gff = "annotations/{strain}/trna.gff",
+        fasta = "annotations/{strain}/trna.fasta"
+    threads: 14
+    message: "executing tRNAScan-SE with {threads} threads on full assembly of {wildcards.strain} strain"
+    log: "logs/{strain}_trnascan.log"
+    conda: "envs/trnascan.yaml"
+    shell:
+        "tRNAScan-SE -B -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
+        "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input}"
 
 rule resistance_genes:
     # how it handles rRNAs?
