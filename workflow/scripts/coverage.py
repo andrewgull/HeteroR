@@ -47,7 +47,7 @@ def main(strains_file, genome_length):
 
     nanopore_df = pd.DataFrame.from_records(nanopore_stats, columns=["file", "format", "type", "num_seqs", "sum_len",
                                                                      "min_len", "avg_len", "max_len"])
-    nanopore_df = nanopore_df.astype({'sum_len': 'float'})
+    nanopore_df = nanopore_df.astype({"sum_len": "float"})
     nanopore_df["coverage"] = nanopore_df["sum_len"] / int(genome_length)
     return nanopore_df
 
@@ -59,6 +59,8 @@ if __name__ == '__main__':
     output = args.output
 
     coverage_stats = main(genome_length=length, strains_file=strains)
+    min_cov, max_cov, avg_cov = coverage_stats["coverage"].min(), coverage_stats["coverage"].max(), \
+                                coverage_stats["coverage"].mean()
     coverage_stats.to_csv(path_or_buf=output, sep="\t", index=False)
-    print("Coverage ~25x or less is sparse, good for Unicycler.")
-    print("Now you can create config and run the pipeline'")
+    print("Batch coverage:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler.\n"
+          "Now you can create config and run the pipeline" % (min_cov, avg_cov, max_cov))
