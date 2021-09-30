@@ -1,0 +1,5 @@
+name: rgi-env
+channels:
+  - bioconda
+dependencies:
+  - rgi=5.2.0

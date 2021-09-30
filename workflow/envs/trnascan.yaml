@@ -1,0 +1,5 @@
+name: trnascan-env
+channels:
+  - bioconda
+dependencies:
+  - trnascan-se=2.0.9
