@@ -66,3 +66,6 @@ filtlong_nano:
 read_length_stat:
     STRAIN="DA63052"
     seqkit fx2tab --length --threads 10 -n "$STRAIN"_all_filt_min10k.fastq.gz > "$STRAIN"_Nano_filt_min10k_stats.tsv
+
+get_lines:
+    sed -n '20,25p' lines.txt
