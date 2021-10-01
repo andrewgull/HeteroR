@@ -1,6 +1,10 @@
 # HeteroR
 code for heteroresistance project
 
+Example DAG
+
+![dag](figures/dag_full.png)
+
 project structure:
 
 `data_raw/`
