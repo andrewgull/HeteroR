@@ -8,6 +8,7 @@ from Bio import SeqIO
 def get_args():
     """
     Get command line arguments
+    requires directories not files as inputs because of the outputs produced by rule unicycler and rule plasmid_assembly
     """
 
     parser = argparse.ArgumentParser(
@@ -16,9 +17,9 @@ def get_args():
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    parser.add_argument("unicycler_assembly", metavar="<filename>",
+    parser.add_argument("unicycler_assembly", metavar="<path to a dir with the assembly>",
                         help="file with genome assembly produced by Unicycler")
-    parser.add_argument("plasmid_assembly", metavar="<filename>",
+    parser.add_argument("plasmid_assembly", metavar="<path to a directory with the assembly>",
                         help="file with plasmids assembly produced by SPAdes")
     parser.add_argument("output", metavar="<filename>",
                         help="new joined assembly file")
@@ -50,5 +51,8 @@ def joiner(file1, file2):
 
 if __name__ == '__main__':
     args = get_args()
-    output_assembly = joiner(file1=args.unicycler_assembly, file2=args.plasmid_assembly)
+    # make proper filenames (not directories!)
+    filename1 = args.unicycler_assembly + "/assembly.fasta"
+    filename2 = args.plasmid_assembly + "/scaffolds.fasta"
+    output_assembly = joiner(file1=filename1, file2=filename2)
     SeqIO.write(output_assembly, args.output, 'fasta')
