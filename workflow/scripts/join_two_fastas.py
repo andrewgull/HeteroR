@@ -17,12 +17,13 @@ def get_args():
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    parser.add_argument("unicycler_assembly", metavar="<path to a dir with the assembly>",
+    parser.add_argument("first_file", metavar="<path to a dir with the 1st fasta file (e.g. unicycler assembly)>",
                         help="file with genome assembly produced by Unicycler")
-    parser.add_argument("plasmid_assembly", metavar="<path to a directory with the assembly>",
+    parser.add_argument("second_file", metavar="<path to a directory with the 2nd fasta file (e.g. plasmids)>",
                         help="file with plasmids assembly produced by SPAdes")
     parser.add_argument("output", metavar="<filename>",
                         help="new joined assembly file")
+    parser.add_argument("mode", metavar="<assembly or annotation>", help="which mode of joining to use")
 
     return parser.parse_args()
 
@@ -51,8 +52,14 @@ def joiner(file1, file2):
 
 if __name__ == '__main__':
     args = get_args()
-    # make proper filenames (not directories!)
-    filename1 = args.unicycler_assembly + "/assembly.fasta"
-    filename2 = args.plasmid_assembly + "/scaffolds.fasta"
-    output_assembly = joiner(file1=filename1, file2=filename2)
-    SeqIO.write(output_assembly, args.output, 'fasta')
+    if args.mode == "assembly":
+        # make proper filenames (not directories!)
+        filename1 = args.first_file + "/assembly.fasta"
+        filename2 = args.second_file + "/scaffolds.fasta"
+
+    elif args.mode == "annotation":
+        # It might not work because it's a mix of NUC and AA
+        filename1 = args.first_file + "/annotation_prokka.faa"
+        filename2 = args.second_file + "/trna_seq.fasta"
+    output_file = joiner(file1=filename1, file2=filename2)
+    SeqIO.write(output_file, args.output, 'fasta')
