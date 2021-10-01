@@ -15,11 +15,22 @@ project structure:
 
 `mapping/`
 
+`plasmids/`
+
+`annotations/`
+
+`resistance_genes/`
+
 `workflow/`
+ - `.snakemake`
+ - `envs`
+ - `scripts`
 
 `strain_list.txt`
 
 `config.yaml`
+
+`snakefile`
 
 workflow:
 
