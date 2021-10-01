@@ -185,15 +185,17 @@ rule join_assemblies:
     threads: 1
     message: "joining Unicycler assembly and SPAdes plasmid assembly together, strain {wildcards.strain}"
     log: "logs/{strain}_joiner.log"
+    params:
+        mode="annotation"
     script:
-        "scripts/join_two_fastas.py {input.unicycler} {input.spades} {output}"
+        "scripts/join_two_fastas.py {input.unicycler} {input.spades} {output} {params.mode}"
 
 rule genome_annotation:
     # proteins (prodigal) and rRNA (barrnap)
     input:
         "assemblies_joined/{strain}/assembly.fasta"
     output:
-        directory("annotations/{strain}")
+        directory("annotations/{strain}/prokka")
     threads: 14
     message: "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
     log: "logs/{strain}_prokka.log"
@@ -210,13 +212,13 @@ rule trna_annotation:
     input:
         "assemblies/{strain}/assembly.fasta"
     output:
-        general = "annotations/{strain}/trna_gen.txt",
-        struct = "annotations/{strain}/trna_struct.txt",
-        iso = "annotations/{strain}/trna_iso.txt",
-        stats = "annotations/{strain}/trna_stat.txt",
-        bed = "annotations/{strain}/trna.bed",
-        gff = "annotations/{strain}/trna.gff",
-        fasta = "annotations/{strain}/trna.fasta"
+        general = "annotations/{strain}/trna/trna_gen.txt",
+        struct = "annotations/{strain}/trna/trna_struct.txt",
+        iso = "annotations/{strain}/trna/trna_iso.txt",
+        stats = "annotations/{strain}/trna/trna_stat.txt",
+        bed = "annotations/{strain}/trna/trna_coords.bed",
+        gff = "annotations/{strain}/trna/trna_feat.gff",
+        fasta = "annotations/{strain}/trna/trna_seq.fasta"
     threads: 14
     message: "executing tRNAScan-SE with {threads} threads on full assembly of {wildcards.strain} strain"
     log: "logs/{strain}_trnascan.log"
@@ -225,11 +227,22 @@ rule trna_annotation:
         "tRNAScan-SE -B -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input}"
 
+rule join_annotations:
+    input:
+        prokka="annotations/{strain}/prokka",
+        trnascan="annotations/{strain}/trna/trna_seq.fasta" # change it! see the command
+    output:
+        "annotations/{strain}/joined/annotation.fasta"
+    params:
+        mode="annotation"
+    script:
+        "scripts/join_two_fastas.py {input.prokka} {input.trnascan} {output} {params.mode}"
+
 rule resistance_genes:
     # how it handles rRNAs?
     # ALSO: rgi load --card_json ./card_database/card.json --local
     input:
-        "annotations/{strain}"
+        "annotations/{strain}/joined/annotation.fasta"  # change it! see the command
     output:
         "resistance_genes/{strain}/rgi_table" # IT'S JUST A PREFIX!
     threads: 14
@@ -237,5 +250,5 @@ rule resistance_genes:
     log: "logs/{strain}_rgi.log"
     conda: "envs/rgi.yaml"
     shell:
-        "rgi main --input_sequence {input}/annotation_prokka.faa --output_file {output}.txt  "
+        "rgi main --input_sequence {input}/annotation.fasta --output_file {output}.txt  "
         "--input_type contig --local  --low_quality --include_loose --clean &> {log}"
