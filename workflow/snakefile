@@ -210,7 +210,7 @@ rule genome_annotation:
 rule trna_annotation:
     # tRNA genes only - tRNAScan-SE
     input:
-        "assemblies/{strain}/assembly.fasta"
+        "assemblies_joined/{strain}/assembly.fasta"
     output:
         general = "annotations/{strain}/trna/trna_gen.txt",
         struct = "annotations/{strain}/trna/trna_struct.txt",
