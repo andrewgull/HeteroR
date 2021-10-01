@@ -1,7 +1,7 @@
 # HeteroR
 code for heteroresistance project
 
-Example DAG
+Current DAG example:
 
 ![dag](figures/dag_full.png)
 
