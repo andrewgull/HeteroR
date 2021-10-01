@@ -60,6 +60,6 @@ if __name__ == '__main__':
     elif args.mode == "annotation":
         # It might not work because it's a mix of NUC and AA
         filename1 = args.first_file + "/annotation_prokka.faa"
-        filename2 = args.second_file + "/trna_seq.fasta"
+        filename2 = args.second_file
     output_file = joiner(file1=filename1, file2=filename2)
     SeqIO.write(output_file, args.output, 'fasta')
