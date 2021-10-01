@@ -2,7 +2,7 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("resistance_genes/{strain}", strain=config['strains'])
+        expand("resistance_genes/{strain}/rgi_table", strain=config['strains'])
 
 rule quality_check_illumina:
     input:
