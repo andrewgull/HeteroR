@@ -30,22 +30,25 @@ def get_args():
 
 def joiner(file1, file2):
     """
-    Joins provided files
+    Reads in provided files and joins them together as lists
     param: file1 - 1st file to join (unicycler assembly or any other fasta)
     param: file2 - 2nd file to join (plasmid assembly or any other fasta)
+    return: joined fasta as list
     """
     # read the 1st file
     fasta1 = [seq for seq in SeqIO.parse(file1, 'fasta')]
-    # check if plasmid assembly exists and its size
+    # check if the 2nd file exists and its size is greater than 0
+    # useful in 'assembly' mode when file2 = plasmid
     if os.path.isfile(file2) and os.path.getsize(file2) > 0:
         # file exists, read it and join
         fasta2 = [seq for seq in SeqIO.parse(file2, 'fasta')]
         fasta_joined = fasta1 + fasta2
     else:
-        # return the 1st file (unicycler assembly)
+        # return the 1st file
+        # in 'assembly' mode it is an unicycler assembly
         fasta_joined = fasta1
         # it will go to a log file
-        print("no finished plasmid assembly file found")
+        print("no 2nd file found (finished plasmid assembly doesn't exist)")
 
     return fasta_joined
 
