@@ -203,7 +203,7 @@ rule genome_annotation:
     params: centre="UU", minlen="200", genus="Escherichia", species="coli"
     shell:
         # skip tRNAs search?
-        "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix annotation_prokka --centre {params.centre} --genus {params.genus} "
+        "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix {wildcards.strain}_genomic --centre {params.centre} --genus {params.genus} "
         "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
         "--mincontiglen {params.minlen} {input} &> {log}"
 
@@ -230,19 +230,19 @@ rule trna_annotation:
 rule join_annotations:
     input:
         prokka="annotations/{strain}/prokka",
-        trnascan="annotations/{strain}/trna/trna_seq.fasta" # change it! see the command
+        trnascan="annotations/{strain}/trna/trna_seq.fasta"
     output:
-        "annotations/{strain}/joined/annotation.fasta"
+        "annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
     params:
         mode="annotation"
     script:
         "scripts/join_two_fastas.py {input.prokka} {input.trnascan} {output} {params.mode}"
 
 rule resistance_genes:
-    # how it handles rRNAs?
+    # it doesn't work with tRNAs
     # ALSO: rgi load --card_json ./card_database/card.json --local
     input:
-        "annotations/{strain}/joined/annotation.fasta"  # change it! see the command
+        "annotations/{strain}/prokka"
     output:
         "resistance_genes/{strain}/rgi_table" # IT'S JUST A PREFIX!
     threads: 14
@@ -250,5 +250,5 @@ rule resistance_genes:
     log: "logs/{strain}_rgi.log"
     conda: "envs/rgi.yaml"
     shell:
-        "rgi main --input_sequence {input}/annotation.fasta --output_file {output}.txt  "
-        "--input_type contig --local  --low_quality --include_loose --clean &> {log}"
+        "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file {output}.txt  "
+        "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
