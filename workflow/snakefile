@@ -2,7 +2,7 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("resistance_genes/{strain}/rgi_table", strain=config['strains'])
+        expand("final/{strain}_all.done", strain=config['strains'])
 
 rule quality_check_illumina:
     input:
@@ -252,3 +252,10 @@ rule resistance_genes:
     shell:
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file {output}.txt  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
+
+rule final:
+    input:
+        trnascan="annotations/{strain}/trna/trna_gen.txt",
+        rgi="resistance_genes/{strain}/rgi_table"
+    output: touch("final/{strain}_all.done")
+    shell: "echo 'DONE'"
