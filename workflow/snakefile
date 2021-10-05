@@ -254,6 +254,7 @@ rule resistance_genes:
 
 rule final:
     input:
+        qc_ass="qualcheck_assembly/{strain}",
         qc_ill_raw="qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv",
         qc_ill_trim="qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv",
         qc_nan_raw="qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
