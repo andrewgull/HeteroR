@@ -178,17 +178,15 @@ rule plasmid_assembly:
 
 rule join_assemblies:
     input:
-        unicycler="assemblies/{strain}",
-        spades="plasmids/{strain}"
+        "assemblies/{strain}",
+        "plasmids/{strain}"
     output:
         "assemblies_joined/{strain}/assembly.fasta"
     threads: 1
     message: "joining Unicycler assembly and SPAdes plasmid assembly together, strain {wildcards.strain}"
     log: "logs/{strain}_joiner.log"
-    params:
-        mode="annotation"
     script:
-        "scripts/join_two_fastas.py {input.unicycler} {input.spades} {output} {params.mode}"
+        "scripts/join_two_fastas.py"
 
 rule genome_annotation:
     # proteins (prodigal) and rRNA (barrnap)
@@ -212,6 +210,7 @@ rule trna_annotation:
     input:
         "assemblies_joined/{strain}/assembly.fasta"
     output:
+        # TODO: use multiext function
         general = "annotations/{strain}/trna/trna_gen.txt",
         struct = "annotations/{strain}/trna/trna_struct.txt",
         iso = "annotations/{strain}/trna/trna_iso.txt",
@@ -224,19 +223,19 @@ rule trna_annotation:
     log: "logs/{strain}_trnascan.log"
     conda: "envs/trnascan.yaml"
     shell:
-        "tRNAScan-SE -B -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
+        # TODO: pipe stdout and stderr
+        "tRNAscan-SE -B -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input}"
 
 rule join_annotations:
     input:
         prokka="annotations/{strain}/prokka",
         trnascan="annotations/{strain}/trna/trna_seq.fasta"
+        # mode="annotation"
     output:
         "annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
-    params:
-        mode="annotation"
     script:
-        "scripts/join_two_fastas.py {input.prokka} {input.trnascan} {output} {params.mode}"
+        "scripts/join_two_fastas.py"
 
 rule resistance_genes:
     # it doesn't work with tRNAs
