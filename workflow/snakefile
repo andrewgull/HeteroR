@@ -223,9 +223,8 @@ rule trna_annotation:
     log: "logs/{strain}_trnascan.log"
     conda: "envs/trnascan.yaml"
     shell:
-        # TODO: pipe stdout and stderr
         "tRNAscan-SE -B -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
-        "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input}"
+        "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input} &> {log}"
 
 rule join_annotations:
     input:
