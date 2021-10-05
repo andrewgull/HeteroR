@@ -242,18 +242,19 @@ rule resistance_genes:
     input:
         "annotations/{strain}/prokka"
     output:
-        "resistance_genes/{strain}/rgi_table" # IT'S JUST A PREFIX!
+        "resistance_genes/{strain}/rgi_table.txt" # IT'S JUST A PREFIX!
     threads: 14
     message: "executing RGI with {threads} threads on predicted genes/proteins from {wildcards.strain}"
     log: "logs/{strain}_rgi.log"
     conda: "envs/rgi.yaml"
     shell:
-        "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file {output}.txt  "
+        "output=$(echo '{output}' | cut -d'.' -f 1) && "
+        "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
 rule final:
     input:
         trnascan="annotations/{strain}/trna/trna_gen.txt",
-        rgi="resistance_genes/{strain}/rgi_table"
+        rgi="resistance_genes/{strain}/rgi_table.txt"
     output: touch("final/{strain}_all.done")
     shell: "echo 'DONE'"
