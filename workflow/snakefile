@@ -254,6 +254,10 @@ rule resistance_genes:
 
 rule final:
     input:
+        qc_ill_raw="qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv",
+        qc_ill_trim="qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv",
+        qc_nan_raw="qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
+        qc_nan_filt="qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv",
         trnascan="annotations/{strain}/trna/trna_gen.txt",
         rgi="resistance_genes/{strain}/rgi_table.txt"
     output: touch("final/{strain}_all.done")
