@@ -47,22 +47,21 @@ def joiner(file1, file2):
         # return the 1st file
         # in 'assembly' mode it is an unicycler assembly
         fasta_joined = fasta1
-        # it will go to a log file
+        # TODO: it should go to a log file
         print("no 2nd file found (finished plasmid assembly doesn't exist)")
 
     return fasta_joined
 
 
-if __name__ == '__main__':
-    args = get_args()
-    if args.mode == "assembly":
-        # make proper filenames (not directories!)
-        filename1 = args.first_file + "/assembly.fasta"
-        filename2 = args.second_file + "/scaffolds.fasta"
+# args = get_args()
+# if snakemake.input[2] == "assembly":
+# make proper filenames (not directories!)
+filename1 = snakemake.input[0] + "/assembly.fasta"
+filename2 = snakemake.input[1] + "/scaffolds.fasta"
 
-    elif args.mode == "annotation":
-        # It might not work because it's a mix of NUC and AA
-        filename1 = args.first_file + "/annotation_prokka.faa"
-        filename2 = args.second_file
-    output_file = joiner(file1=filename1, file2=filename2)
-    SeqIO.write(output_file, args.output, 'fasta')
+# elif snakemake.input[2] == "annotation":
+# It might not work because it's a mix of NUC and AA
+#     filename1 = snakemake.input[0] + "/annotation_prokka.faa"
+#     filename2 = snakemake.input[1]
+output_file = joiner(file1=filename1, file2=filename2)
+SeqIO.write(output_file, snakemake.output[0], 'fasta')
