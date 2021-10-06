@@ -49,3 +49,7 @@ workflow:
 
 The most recent version of RGI heatmap
 ![resistance genes heatmap](figures/heatmap44.png)
+
+AMR genes categorised by AMR Gene Family and samples have been clustered hierarchically (see SciPy documentation). 
+Yellow represents a perfect hit, teal represents a strict hit, purple represents no hit. 
+Genes with asterisks (*) appear multiple times because they belong to more than one AMR Gene Family category in the antibiotic resistance ontology (ARO).
