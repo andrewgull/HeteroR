@@ -43,4 +43,6 @@ workflow:
 3. prepare files
 4. get coverage
 5. create config
-6. run the pipeline on these files (incl. spades --plasmid)
+6. load a local instance of CARD db (it must be in the project dir as 'localDB' - `rgi load`)
+7. run the pipeline on these files: `snakemake --use-conda --cores 12 --resources mem_mb=12000`
+8. run `rgi heatmap -i <dir with jsons>` to get an overview of resistance hits in your strains
