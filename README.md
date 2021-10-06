@@ -46,3 +46,6 @@ workflow:
 6. load a local instance of CARD db (it must be in the project dir as 'localDB' - `rgi load`)
 7. run the pipeline on these files: `snakemake --use-conda --cores 12 --resources mem_mb=12000`
 8. run `rgi heatmap -i <dir with jsons>` to get an overview of resistance hits in your strains
+
+The most recent version of RGI heatmap
+![resistance genes heatmap](figures/heatmap44.png)
