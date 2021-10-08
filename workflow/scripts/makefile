@@ -57,7 +57,7 @@ not_covered_regions:
     bedtools genomecov -ibam assembly.bam -bga | grep -w "0$"
 
 assembly_summary:
-    sed -n '/^Bridged/,/^Polishing/{p;/^Polishing/q}' assemblies/DAXXXXX/unicycler.log
+    sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' DAXXXXX/unicycler.log | head -n -3
 
 filtlong_nano:
     STRAIN="DA63052"
