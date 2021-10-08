@@ -53,7 +53,7 @@ workflow:
    ```
 
 The most recent version of RGI heatmap
-![resistance genes heatmap](figures/heatmap44.png)
+![resistance genes heatmap](figures/heatmap54.png)
 
 AMR genes categorised by AMR Gene Family and samples have been clustered hierarchically (see SciPy documentation). 
 Yellow represents a perfect hit, teal represents a strict hit, purple represents no hit. 
