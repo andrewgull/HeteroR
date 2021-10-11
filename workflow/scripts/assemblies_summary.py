@@ -39,12 +39,12 @@ if os.path.isfile(plasmid_assembly) and os.path.getsize(plasmid_assembly) > 0:
     plasmid_df['Status'] = 'scaffold'
     plasmid_df['Strain'] = strain
     plasmid_df['Type'] = 'Plasmid'
-
-# concatenate summary_df and plasmid_df
-joined_df = pd.concat([summary_df, plasmid_df])
-# rewrite 'Component' to include new plasmids
-joined_df['Component'] = [i for i in range(1, len(joined_df) + 1)]
-
+    # concatenate summary_df and plasmid_df
+    joined_df = pd.concat([summary_df, plasmid_df])
+    # rewrite 'Component' to include new plasmids
+    joined_df['Component'] = [i for i in range(1, len(joined_df) + 1)]
+else:
+    joined_df = summary_df
 # write this DataFrame to a file
 # output is declared on the top of he script (and comes from snakemake)
 joined_df.to_csv(path_or_buf=output, sep="\t", index=False)
