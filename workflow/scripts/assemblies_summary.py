@@ -14,10 +14,11 @@ for strain in strains:
     summary_lines = [item.split() for item in summary_stdout][2:len(summary_stdout)]
     summary_df = pd.DataFrame(summary_lines, columns=col_names)
     summary_df["Strain"] = strain
+    # ideally there should be one chromosomal sequence and the rest should be plasmids
     summary_df['Type'] = ['Chromosome'] + ['Plasmid'] * (len(summary_df) - 1)
 
-    # get stats from plasmid assemblies
-    # finished plasmids assembly is called scaffolds.fasta
+    # get stats from plasmid assemblies: count and length
+    # finished plasmids assembly is called 'scaffolds.fasta'
     plasmid_assembly = "plasmids/%s/scaffolds.fasta" % strain
     if os.path.isfile(plasmid_assembly) and os.path.getsize(plasmid_assembly) > 0:
         plasmid = [len(seq) for seq in SeqIO.parse(plasmid_assembly, 'fasta')]
