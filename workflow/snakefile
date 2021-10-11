@@ -178,6 +178,18 @@ rule plasmid_assembly:
         # || true prevents the rule from failing when spades throws an error; this happens when unmapped files are too small
         "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log} || true"
 
+rule assembly_summary:
+    input:
+        "assemblies/{strain}",
+        "plasmids/{strain}"
+    output:
+         "assemblies_joined/{strain}/summary.tsv"
+    threads: 1
+    message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
+    log: "logs/{strain}_assembly_summary.log"
+    script:
+        "scripts/assemblies_summary.py"
+
 rule join_assemblies:
     input:
         "assemblies/{strain}",
