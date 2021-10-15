@@ -1,7 +1,9 @@
 name: r-env
 channels:
   - conda-forge
+  - bioconda
 dependencies:
   - r-ggplot2=3.3.5
   - r-stringr=1.4.0
   - r-fastqcr=0.1.2
+  - fastqc=0.11.9
