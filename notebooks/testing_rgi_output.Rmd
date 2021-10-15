@@ -1,0 +1,113 @@
+---
+title: "Testing RGI output"
+author: "AG"
+date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`" 
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    toc: true
+    toc_float: true
+    rmdformats:
+      theme: readthedown
+      highlight: github
+---
+
+# How different are identities among Strict, Perfect and Loose?
+
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(ggpubr)
+```
+
+## PROKKA -> RGI Loose excl nudge
+
+```{r}
+rgi_prot_nudge <- read_delim("./rgi_protein_excl_nudge/rgi_protein_output.tsv", 
+                             delim = "\t", escape_double = FALSE, 
+                             trim_ws = TRUE)
+rgi_prot_nudge$mode <- rep('prokka_nudge')
+rgi_prot_nudge %>% arrange(-Best_Identities)
+```
+
+## PROKKA -> RGI Loose
+
+```{r, warning=FALSE, message=FALSE}
+rgi_prot_loose <- read_delim("./rgi_protein_loose/rgi_protein_output.tsv", 
+                             delim = "\t", escape_double = FALSE, 
+                             trim_ws = TRUE)
+rgi_prot_loose$mode <- rep('prokka_loose')
+rgi_prot_loose %>% arrange(-Best_Identities)
+```
+
+## ASSEMBLY - Loose
+```{r, warning=FALSE, message=FALSE}
+rgi_ass_loose <- read_delim("./rgi_assembly_loose/rgi_assembly_output.txt", 
+                             delim = "\t", escape_double = FALSE, 
+                             trim_ws = TRUE)
+rgi_ass_loose$mode <- rep('assembly_loose')
+rgi_ass_loose %>% arrange(-Best_Identities)
+```
+
+## ASSEMBLY - Loose excl Nudge
+```{r, warning=FALSE, message=FALSE}
+rgi_ass_nudge <- read_delim("./rgi_assembly_excl_nudge/rgi_assembly_output.txt", 
+                             delim = "\t", escape_double = FALSE, 
+                             trim_ws = TRUE)
+rgi_ass_nudge$mode <- rep('assembly_nudge')
+rgi_ass_nudge %>% arrange(-Best_Identities)
+```
+
+
+## All the plots together
+
+```{r, fig.width=12}
+tabs <- bind_rows(rgi_ass_loose, rgi_ass_nudge, rgi_prot_loose, rgi_prot_nudge)
+ggplot(tabs, aes(Cut_Off, Best_Identities))+geom_boxplot()+facet_grid(.~mode)+ggtitle('DA62920')
+```
+
+so, the results are quite similar, but the actual box in 'assembly loose/nudge' is a bit wider, BUT number of rows is equal in every table.
+
+Count the number of STRICT rows in each table
+
+```{r}
+tabs %>% group_by(mode, Cut_Off) %>% summarise(n=n())
+```
+
+I need PROKKA's gbk files, so let's have a look at prokka loose
+
+```{r}
+rgi_prot_loose %>% filter(Cut_Off == 'Strict') %>% arrange(-Best_Identities)
+```
+
+Table headers are explained [here](https://github.com/arpcard/rgi#rgi-main-tab-delimited-output-details) 
+
+# Let's have a thorough look at PROKKA Loose results
+
+## Summary
+
+```{r}
+# I changed col types
+
+rgi_prot_loose <- read_delim("./rgi_protein_loose/rgi_protein_output.tsv", 
+                             delim = "\t", escape_double = FALSE, 
+                             trim_ws = TRUE, col_types = cols('c', 'c', 'i', 'i', '?', 'f', 'd', 'd', 'f', 'd', 'f', 'f', 'f', 'f', 'f', 'f', 'l', 'f', 'c', 'c', 'd', 'f', 'l', 'l'))
+rgi_prot_loose$mode <- rep('prokka_loose')
+
+summary(rgi_prot_loose)
+```
+## Summary of Strict and Perfect
+
+```{r}
+rgi_prot_loose %>% filter(Cut_Off == 'Strict' | Cut_Off == 'Perfect') %>% summary()
+```
+
+```{r}
+rgi_prot_loose %>% filter(Cut_Off == 'Strict' | Cut_Off == 'Perfect') %>% arrange(`Percentage Length of Reference Sequence`)
+
+```
+
+Percentage Length of Reference Sequence - protein/CARD ref protein
+

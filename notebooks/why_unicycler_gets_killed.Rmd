@@ -1,0 +1,361 @@
+---
+title: "Why Unicycler gets killed?"
+author: "AG"
+date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`" 
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    toc: true
+    toc_float: true
+    theme: cerulean
+    highlight: tango
+---
+
+
+```{r, warning=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(fastqcr)
+```
+
+# General comparison of 'good' and 'bad'
+
+The following stats was obtained by `coverage.py` script
+
+```{bash, eval=FALSE}
+python workflow/scripts/coverage.py strains_crashing_unicycler.txt 5131220 coverage/strains_crashing_unicycler_coverage.tsv
+```
+
+
+```{r, message=FALSE}
+crash <- read_delim("strains_crashing_unicycler_coverage.tsv", delim = "\t", escape_double = FALSE, trim_ws = TRUE)
+
+strains1_10 <- read_delim("nanopore_coverage_stats1-10.tsv", delim = "\t", escape_double = FALSE, trim_ws = TRUE)
+
+strains11_20 <- read_delim("nanopore_coverage_stats11-20.tsv", delim = "\t", escape_double = FALSE, trim_ws = TRUE)
+not_crashing <- bind_rows(strains1_10, strains11_20)
+not_crashing$crashing <- rep("No", nrow(not_crashing))
+crash$crashing <- rep("Yes", nrow(crash))
+
+all <- bind_rows(crash, not_crashing) %>% 
+  filter(!is.na(sum_len)) %>% 
+  distinct(num_seqs, .keep_all=TRUE)
+
+all
+```
+
+```{r}
+ns <- ggplot(all, aes(crashing, num_seqs))+geom_boxplot() 
+
+sl <- ggplot(all, aes(crashing, sum_len))+geom_boxplot() 
+
+al <- ggplot(all, aes(crashing, avg_len))+geom_boxplot() 
+
+ml <- ggplot(all, aes(crashing, max_len))+geom_boxplot() 
+
+co <- ggplot(all, aes(crashing, coverage))+geom_boxplot() 
+
+ggarrange(ns, sl, al, ml, co, ncol = 3, nrow=2)
+
+```
+
+# DA63052 vs DA62886: read lengths
+
+```{r, message=FALSE}
+# check out length distribution
+
+DA63052_Nano_stats <- read_delim("DA63052_Nano_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+DA63052_Nano_stats$label <- rep('bad', nrow(DA63052_Nano_stats))
+
+
+DA62886_Nano_stats <- read_delim("DA62886_Nano_stats.tsv",delim = "\t", escape_double = FALSE,col_names = FALSE, trim_ws = TRUE)
+DA62886_Nano_stats$label <- rep('good', nrow(DA62886_Nano_stats))
+
+
+good_and_bad <- bind_rows(DA62886_Nano_stats, DA63052_Nano_stats)
+```
+
+```{r}
+ggplot(good_and_bad, aes(X2))+
+  geom_histogram(bins = 100, aes(fill=label), alpha=0.8)+
+  xlab('length')
+```
+
+## Try to filter out all reads up to 10000 bp long + keep 90% best reads
+
+```{bash, eval=FALSE}
+
+filtlong --min_length 10000 --keep_percent 90 DA63052_all.fastq.gz | pigz -c -p 10 > DA63052_all_filt_min10k.fastq.gz
+```
+
+
+```{r, message=FALSE}
+DA63052_Nano_filt_stats <- read_delim("DA63052_Nano_filt_min10k_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+DA63052_Nano_filt_stats$label <- rep('bad filtered', nrow(DA63052_Nano_filt_stats))
+
+good_and_filt <- bind_rows(DA62886_Nano_stats, DA63052_Nano_filt_stats)
+```
+
+```{r}
+ggplot(good_and_filt, aes(X2))+
+  geom_histogram(bins = 100, aes(fill=label), alpha=0.8)+
+  xlab('length')
+```
+
+well, Unicycler crashed with this data set too
+
+## filter out up to 20000 bp + keep 20% best reads
+
+```{bash, eval=FALSE}
+
+filtlong --min_length 20000 --keep_percent 20 DA63052_all.fastq.gz | pigz -c -p 10 > DA63052_all_filt_min20k.fastq.gz
+
+# get lengths
+seqkit fx2tab --length --threads 8 -n DA63052_all_filt_min20k.fastq.gz > DA63052_Nano_filt_min20k_stats.tsv
+```
+
+
+
+```{r, message=FALSE}
+DA63052_filt_stats <- read_delim("DA63052_Nano_filt_min20k_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63052_filt_stats$X2)/1000000, 2)
+
+ggplot(DA63052_filt_stats, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('ml 20k, kp 20, ', total_len, 'Mb'))
+  
+```
+
+Assembling has finished successfully!
+
+Component   Segments   Links   Length      N50         Longest segment   Status  
+    total          4       4   5,168,360   5,020,283         5,020,283           
+        1          1       1   5,020,283   5,020,283         5,020,283   complete
+        2          1       1     136,867     136,867           136,867   complete
+        3          1       1       7,138       7,138             7,138   complete
+        4          1       1       4,072       4,072             4,072   complete
+
+
+## filter out up to 5000 bp + keep 20% best reads
+
+```{bash, eval=FALSE}
+filtlong --min_length 5000 --keep_percent 20 DA63052_all.fastq.gz | pigz -c -p 10 > DA63052_all_filt_min5k_p20.fastq.gz
+
+seqkit fx2tab --length --threads 8 -n DA63052_all_filt_min5k_p20.fastq.gz > DA63052_Nano_filt_min5k_p20_stats.tsv
+```
+
+
+```{r, message=FALSE}
+DA63052_filt_stats <- read_delim("DA63052_Nano_filt_min5k_p20_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63052_filt_stats$X2)/1000000, 2)
+
+ggplot(DA63052_filt_stats, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('ml 5k, kp 20, ', total_len, 'Mb'))
+```
+That one was too big
+
+## adjusting length weight
+
+### length weigth 10, no 'keep best' filtering
+
+```{bash, eval=FALSE}
+
+filtlong --min_length 5000 --length_weight 10 DA63052_all.fastq.gz | seqkit fx2tab --length --threads 2 -n > DA63052_Nano_filt_min5k_lw10_stats.tsv
+
+```
+
+
+```{r, message=FALSE}
+DA63052_filt_stats <- read_delim("DA63052_Nano_filt_min5k_lw10_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63052_filt_stats$X2)/1000000, 2)
+
+ggplot(DA63052_filt_stats, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('ml 5k, lw 10, ', total_len, 'Mb'))
+```
+
+Also too big
+
+### length weight 10, min len 5000, keep best 20
+
+```{bash, eval=FALSE}
+filtlong --min_length 5000 --length_weight 10 --keep_percent 20 DA63052_all.fastq.gz | seqkit fx2tab --length --threads 6 -n > DA63052_Nano_filt_min5k_lw10_p20_stats.tsv
+
+```
+
+```{r, message=FALSE}
+DA63052_filt_stats <- read_delim("DA63052_Nano_filt_min5k_lw10_p20_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63052_filt_stats$X2)/1000000, 2)
+
+ggplot(DA63052_filt_stats, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('ml 5k, lw 10, kp 20, ', total_len, 'Mb'))
+
+```
+Too big
+
+### length weight 10, min len 5000, keep best 20, target bases 300Mb
+
+```{bash, eval=FALSE}
+filtlong --min_length 5000 --length_weight 10 --keep_percent 20 --target_bases 300000000 DA63052_all.fastq.gz | seqkit fx2tab --length --threads 6 -n > DA63052_Nano_filt_min5k_lw10_p20_tb300m_stats.tsv
+```
+
+```{r, message=FALSE}
+DA63052_filt_stats <- read_delim("DA63052_Nano_filt_min5k_lw10_p20_tb300m_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63052_filt_stats$X2)/1000000, 2)
+
+ggplot(DA63052_filt_stats, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('ml 5k, lw 10, kp 20, tb 300m, ', total_len, 'Mb'))
+
+```
+Too big!!!
+
+### length weight 10, min len 5000, keep best 20, target bases 260Mb
+
+```{bash, eval=FALSE}
+filtlong --min_length 5000 --length_weight 10 --keep_percent 20 --target_bases 260000000 DA63052_all.fastq.gz | seqkit fx2tab --length --threads 6 -n > DA63052_Nano_filt_min5k_lw10_p20_tb260m_stats.tsv
+```
+
+```{r, message=FALSE}
+DA63052_filt_stats <- read_delim("DA63052_Nano_filt_min5k_lw10_p20_tb260m_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63052_filt_stats$X2)/1000000, 2)
+
+ggplot(DA63052_filt_stats, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('ml 5k, lw 10, kp 20, tb 260m, ', total_len, 'Mb'))
+
+```
+Assembly finished successfully!
+
+Component   Segments   Links   Length      N50         Longest segment   Status  
+    total          4       4   5,168,461   5,020,384         5,020,384           
+        1          1       1   5,020,384   5,020,384         5,020,384   complete
+        2          1       1     136,867     136,867           136,867   complete
+        3          1       1       7,138       7,138             7,138   complete
+        4          1       1       4,072       4,072             4,072   complete
+
+Chromosome is a bit longer
+
+### length weight 1, min 5k, keep 20, target bases 260 Mb
+
+```{bash, eval=FALSE}
+filtlong --min_length 5000 --length_weight 1 --keep_percent 20 --target_bases 260000000 DA63052_all.fastq.gz | seqkit fx2tab --length --threads 8 -n > DA63052_Nano_filt_min5k_lw1_p20_tb260m_stats.tsv
+```
+
+```{r, message=FALSE}
+DA63052_filt_stats <- read_delim("DA63052_Nano_filt_min5k_lw1_p20_tb260m_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63052_filt_stats$X2)/1000000, 2)
+
+ggplot(DA63052_filt_stats, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('ml 5k, lw 1, kp 20, tb 260m, ', total_len, 'Mb'))
+```
+assembly?
+
+Yes!
+
+Component   Segments   Links   Length      N50         Longest segment   Status  
+    total          4       4   5,168,392   5,020,315         5,020,315           
+        1          1       1   5,020,315   5,020,315         5,020,315   complete
+        2          1       1     136,867     136,867           136,867   complete
+        3          1       1       7,138       7,138             7,138   complete
+        4          1       1       4,072       4,072             4,072   complete
+
+
+# DA63052 reads quality with different filterings applied
+
+
+do not use fastqc() within R cause if it's hangs it kills RStudio
+
+
+```{r, message=FALSE, fig.width=10, fig.height=10}
+zip <- dir('./qc_results', '*.zip')
+plots <- lapply(zip, function(filename){
+  qc_results <- qc_read(paste0('./qc_results/', filename))
+  length_plot <- ggplot(data = qc_results$per_sequence_quality_scores, aes(Quality, Count)) +
+          geom_bar(stat="identity")+
+          ggtitle(filename)
+  return(length_plot)
+  })
+
+ggarrange(plotlist = plots, nrow = 3, ncol = 2)
+```
+
+
+```{r, eval=FALSE}
+plots[[1]]
+```
+
+
+
+```{r, eval=FALSE}
+qc_results <- qc_read(paste0('./qc_results/', zip[1]))
+qc_results$per_base_sequence_quality
+```
+
+
+# The rest of 'bad' strains
+
+are of size 500-700 Mb, but one - DA63112 is just 217 Mb...
+
+Let's have a look at it
+
+## DA63112 - a tiny crasher
+
+### Length distribution
+
+```{bash, eval=FALSE}
+seqkit fx2tab --length --threads 8 -n  DA63112_all.fastq.gz > DA63113_lengths.tsv
+```
+
+```{r, message=FALSE}
+DA63112_lengths <- read_delim("DA63112_lengths.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63112_lengths$X2)/1000000, 2)
+
+ggplot(DA63112_lengths, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('DA63112 no filter, ', total_len, 'Mb'))
+```
+
+
+
+```{bash, eval=FALSE}
+filtlong --min_length 5000 --length_weight 1 --keep_percent 20 --target_bases 260000000 DA63112_all.fastq.gz | seqkit fx2tab --length --threads 8 -n > DA63112_Nano_filt_min5k_lw1_p20_tb260m_stats.tsv
+```
+
+
+```{r, message=FALSE}
+DA63112_lengths <- read_delim("DA63112_Nano_filt_min5k_lw1_p20_tb260m_stats.tsv", delim = "\t", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE)
+
+total_len <- round(sum(DA63112_lengths$X2)/1000000, 2)
+
+ggplot(DA63112_lengths, aes(X2))+
+  geom_histogram(bins = 100)+
+  xlab('length')+
+  ggtitle(paste0('DA63112 min 5k, lw 1, kp 20, tb 260m, total ', total_len, 'Mb'))
+```
+
+Assembly is done, it works.
+this option will go to the filtlong rule in the pipeline
+
