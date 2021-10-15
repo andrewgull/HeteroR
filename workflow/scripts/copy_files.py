@@ -13,7 +13,7 @@ def get_args():
     parser = argparse.ArgumentParser(
         description="Script for copying read files from ARGOS directory to data_raw.\n"
                     "Run this script from the project directory, not from ./scripts.\n"
-                    "ARGOS DIR='/mnt/imb_sal_raw/500 Sepsis Eco/Sequencing/Strains'\n"
+                    "ARGOS DIR='/home/andrei/Data/Argos/imb_sal_raw/500 Sepsis Eco/Sequencing/Strains'\n"
                     "ARGOS directory MUST be mounted!",
         formatter_class=argparse.RawTextHelpFormatter
     )
@@ -24,7 +24,7 @@ def get_args():
     return parser.parse_args()
 
 
-def main(argos_path="/mnt/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains"):
+def main(argos_path="/home/andrei/Data/Argos/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains"):
     """Main function to copy files"""
     args = get_args()
     strain_file = args.strains_file
