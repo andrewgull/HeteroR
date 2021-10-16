@@ -14,7 +14,7 @@ def get_args():
 
     parser = argparse.ArgumentParser(
         description="Script for calculating and summarizing coverage of concatenated Nanopore reads across samples.\n"
-                    "Requires seqkit - https://bioinf.shenwei.me/seqkit/.\n"
+                    "Requires seqkit - https://bioinf.shenwei.me/seqkit/ - it MUST be in your PATH\n"
                     "Run this script from the project directory, not from ./scripts.\n",
         formatter_class=argparse.RawTextHelpFormatter
     )
