@@ -93,7 +93,7 @@ rule filter_nanopore:
     conda: "envs/filtlong.yaml"
     threads: 14
     shell:
-        "filtlong --min_length 5000 --length_weight 1 --keep_percent 20 --target_bases 260000000 {input} | pigz -c -p {threads} > {output}"
+        "filtlong --min_length 5000 --length_weight 1 --keep_percent 20 --target_bases 260000000 {input} 2> {log} | pigz -c -p {threads} > {output}"
 
 rule unicycler:
     input:
