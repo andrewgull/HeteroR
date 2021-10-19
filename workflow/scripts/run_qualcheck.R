@@ -79,6 +79,9 @@ quality_reports <- function(file_in, file_out, fastqc_exe, cpus){
   }
 }
 
+# run the script with logging
+log <- file(snakemake@log[[1]], open="wt")
+sink(log)
 quality_reports(file_in = snakemake@input[[1]],
                     file_out = snakemake@output[[1]],
                     fastqc_exe = "/home/andrei/miniconda3/bin/fastqc",
