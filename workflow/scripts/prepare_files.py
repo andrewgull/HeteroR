@@ -67,7 +67,8 @@ def main():
         print("Found %i uncompressed fastq files. From\n%s\nto\n%s"
               % (len(uncomp_files), uncomp_files[0], uncomp_files[-1]))
         for line in tqdm(uncomp_files):
-            subprocess.run(["pigz", "-p", "%s" % threads, line])
+            # force overwrite
+            subprocess.run(["pigz", "-f", "-p", "%s" % threads, line])
     else:
         print("No uncompressed files found")
 
