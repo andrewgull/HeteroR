@@ -2,6 +2,7 @@
 """Joins Unicycler assembly/prokka annotation and SPAdes plasmid assembly/tRNAScan-SE annotation. """
 import argparse
 import os
+import sys
 from Bio import SeqIO
 
 
@@ -43,25 +44,26 @@ def joiner(file1, file2):
         # file exists, read it and join
         fasta2 = [seq for seq in SeqIO.parse(file2, 'fasta')]
         fasta_joined = fasta1 + fasta2
+        print("Joined assembly contains %i sequences" % len(fasta_joined))
     else:
         # return the 1st file
         # in 'assembly' mode it is an unicycler assembly
         fasta_joined = fasta1
-        # TODO: it should go to a log file
-        print("no 2nd file found (finished plasmid assembly doesn't exist)")
+        print("No 2nd file found (finished plasmid assembly doesn't exist)")
 
     return fasta_joined
 
 
-# args = get_args()
-# if snakemake.input[2] == "assembly":
-# make proper filenames (not directories!)
-filename1 = snakemake.input[0] + "/assembly.fasta"
-filename2 = snakemake.input[1] + "/scaffolds.fasta"
+# execute joiner() and send its stderr/stdout to the log file
+with open(snakemake.log[0], "w") as f:
+    sys.stderr = sys.stdout = f
+    # make proper filenames (not directories!)
+    filename1 = snakemake.input[0] + "/assembly.fasta"
+    filename2 = snakemake.input[1] + "/scaffolds.fasta"
 
-# elif snakemake.input[2] == "annotation":
-# It might not work because it's a mix of NUC and AA
-#     filename1 = snakemake.input[0] + "/annotation_prokka.faa"
-#     filename2 = snakemake.input[1]
-output_file = joiner(file1=filename1, file2=filename2)
-SeqIO.write(output_file, snakemake.output[0], 'fasta')
+    # elif snakemake.input[2] == "annotation":
+    # It might not work because it's a mix of NUC and AA
+    #     filename1 = snakemake.input[0] + "/annotation_prokka.faa"
+    #     filename2 = snakemake.input[1]
+    output_file = joiner(file1=filename1, file2=filename2)
+    SeqIO.write(output_file, snakemake.output[0], 'fasta')
