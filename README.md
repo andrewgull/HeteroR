@@ -1,5 +1,35 @@
-# HeteroR
-code for the heteroresistance project
+# Sequence based prediciton of Unstable and Gene-amplification Generated Heteroresistance
+
+**Background:** Heteroresistance (HR) is a phenomenon in which a preexisting subpopulation of resistant cells can rapidly replicate in the presence of a given antibiotic, whereas the majority population of susceptible cells is killed. The mechanisms underlying HR are somewhat unclear, although unstable amplification of antibiotic resistance genes resulting in increased gene dosage is responsible for the resistant subpopulation in numerous cases
+
+**Objective:** Predicting heteroresistance from bacterial genome data.
+
+**Input:** 
+- Nanopore and Illumina reads;
+- "resistance labels"
+
+**Metrics:**
+
+1. Presence of resistance genes (RG)
+   - presence of known RG as identified from the CARD database
+   - presence of efflux pumps as identified from the CARD database
+
+2. Presence of amplifiable regions
+   - For each RG all pairs of direct repeats (DR) flanking the RG. 
+     - DR min length = 10 bp, max mismatch = 10%, search range 100 kb. 
+     - DR pairs are scored according to their length, their level of identity, and their distance to each other. 
+     - These three parameters should reflect the probability that the segment encompassing the RG will be amplified. 
+
+3. Presence of deleterious effects
+   - truncated genes
+   - broken operons
+   - co-expression
+   - toxic genes
+
+   - Are any of the DRs inside a gene? Amplification would create truncated proteins, which may have a toxic effect, in particular for essential genes. Interrupted genes will be compared to the TraDIS (19) and the Keio (6) databases to identify essential genes.
+Are any of the DRs inside an operon? Amplifications would break the operon and thereby modify the stoichiometry of the proteins produced by the operon. Operons will be identified through the ODB4 database (https://operondb.jp/)
+Are any of the genes in the amplified segment known to be co-expressed with a gene outside of the segment? As in the operon case, changes in stoichiometry might be deleterious. Co-expressed genes will be identified using the data collated in StringDB ( https://string-db.org/).
+Are any of the genes in the amplified segment know to be toxic if overexpressed? Amplifications would presumably increase the expression of the gene. Toxic genes will be identified using three different databases (EDGE (33), ASKA (22) and PandaTox (https://exploration.weizmann.ac.il/pandatox/1_0/home.html).
 
 ## The project structure:
 
