@@ -266,6 +266,19 @@ rule resistance_genes:
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
+rule direct_repeats:
+    # draft command
+    input:
+        # THERE ARE MANY SHORT SEQS WITH LOW COVERAGE
+        "assemblies_joined/assembly.fasta"
+    output:
+        directory("spade/{strain}")
+    threads: 14
+    log: "logs/{strain}_spade.log"
+    shell:
+        # OUTPUT?
+        "SPADE.py -i {input} -f fasta -t nucl -d -n {threads} &> {log}"
+
 rule final:
     input:
         qc_ass="qualcheck_assembly/{strain}",
