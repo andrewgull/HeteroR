@@ -57,7 +57,6 @@ def copy_files(strain_file, argos_path):
 
     with open(strain_file, 'r') as f:
         strains = [line.rstrip() for line in f.readlines()]
-    print("Copying files from ARGOS...")
 
     for strain in tqdm(strains):
         subprocess.call("cp -r %s/%s ./data_raw" % (argos_path, strain), shell=True)
@@ -84,7 +83,7 @@ def prepare_files(strain_file, threads):
     # 1. COMPRESSING FILES
     # check uncompressed files and compress them
     # to find fastq and fq extensions
-    print("1. Checking uncompressed files...\n")
+    print("2.1. Checking uncompressed files...\n")
 
     # this line gives you all .*q files regardless of number of directories in DA*
     uncomp_files = glob.glob("data_raw/DA*/**/*.*q", recursive=True)
@@ -97,7 +96,7 @@ def prepare_files(strain_file, threads):
     else:
         print("No uncompressed files found")
 
-    print("2. Collecting compressed files and creating renamed symlinks...\n")
+    print("2.2. Collecting compressed files and creating renamed symlinks...\n")
 
     # to get a list of strains use provided file
     # strains = glob.glob("data_raw/DA*")
@@ -157,7 +156,7 @@ def prepare_files(strain_file, threads):
 
     # 3. JOINING NANOPORE READS
     # former rule 'join_nanopore': "zcat {input} | pigz -c -p {threads} > {output}"
-    print("3. Joining Nanopore reads...")
+    print("2.3. Joining Nanopore reads...")
 
     for strain in tqdm(strains):
         # strain looks like 'DA62920'
@@ -179,7 +178,7 @@ def prepare_files(strain_file, threads):
     print("Done!")
 
     # 4. COMPRESS FAST5 FILES
-    print("4. Compressing FAST5 files...")
+    print("2.4. Compressing FAST5 files...")
     # collect all fast5 files
     fast5 = glob.glob("data_raw/DA*/**/*.fast5", recursive=True)
     if len(fast5) > 0:
@@ -236,20 +235,24 @@ if __name__ == '__main__':
     args = get_args()
 
     # 1. Copy files
+    print("1. Copying files from ARGOS...")
     copy_files(strain_file=args.strains, argos_path=args.argos)
 
     # 2. Prepare files
+    print("\n2. Preparing files...")
     prepare_files(strain_file=args.strains, threads=args.threads)
 
     # 3. Calculate coverage
+    print("\n3. Calculating coverage...")
     coverage_stats = coverage(strain_file=args.strains, genome_length=args.genome_length)
     min_cov, max_cov, avg_cov = coverage_stats["coverage"].min(), coverage_stats["coverage"].max(), coverage_stats["coverage"].mean()
     # write it to a file
     coverage_stats.to_csv(path_or_buf=args.output, sep="\t", index=False)
     # print some stats
-    print("Batch coverage:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler.\n" % (min_cov, avg_cov, max_cov))
+    print("Quick stats:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler.\n" % (min_cov, avg_cov, max_cov))
 
     # 4. Create a config file
+    print("\n4. Creating a config file...")
     config_dict = create_config(strain_file=args.strain)
     # write as yaml
     with open(args.config, 'w') as outfile:
