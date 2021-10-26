@@ -21,90 +21,87 @@
      - These three parameters should reflect the probability that the segment encompassing the RG will be amplified. 
 
 3. Presence of deleterious effects
-   - truncated genes
-   - broken operons
-   - co-expression
-   - toxic genes
+   - truncated genes (any DR inside a gene?); 
+   - broken operons (any DR inside an operon?); operons will be identified via [ODB4](https://operondb.jp/)
+   - co-expression as identified by [StringDB](https://string-db.org/) (Are any of the genes in the amplified segment known to be co-expressed with a gene outside of the segment?)
+   - toxic essential genes: essential genes (as identified by databases TraDIS (?) and Keio(?)) being truncated may become toxic.
+   - toxic if over-expressed: gene amplifications may increase the expression of the gene, which in turn may be toxic. Related data can be found in databases [EDGE](https://www.pnas.org/content/pnas/early/2013/11/05/1312361110), [ASKA](https://academic.oup.com/dnaresearch/article/12/5/291/350187) and [PandaTox](https://exploration.weizmann.ac.il/pandatox/1_0/home.html).
 
-   - Are any of the DRs inside a gene? Amplification would create truncated proteins, which may have a toxic effect, in particular for essential genes. Interrupted genes will be compared to the TraDIS (19) and the Keio (6) databases to identify essential genes.
-Are any of the DRs inside an operon? Amplifications would break the operon and thereby modify the stoichiometry of the proteins produced by the operon. Operons will be identified through the ODB4 database (https://operondb.jp/)
-Are any of the genes in the amplified segment known to be co-expressed with a gene outside of the segment? As in the operon case, changes in stoichiometry might be deleterious. Co-expressed genes will be identified using the data collated in StringDB ( https://string-db.org/).
-Are any of the genes in the amplified segment know to be toxic if overexpressed? Amplifications would presumably increase the expression of the gene. Toxic genes will be identified using three different databases (EDGE (33), ASKA (22) and PandaTox (https://exploration.weizmann.ac.il/pandatox/1_0/home.html).
+The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable) - a Python-based workflow management system for reproducible and scalable data analysis. [The "rolling" paper reference](https://f1000research.com/articles/10-33/v2) 
 
 ## The project structure:
 
-`data_raw/`
+The project home directory is `/home/andrei/Data/HetroR`
+ which contains the following directories:
 
-`data_filtered/`
+`data_raw/` - raw sequencing data (both Illumina and Nanopore reads) copied from Argos 
 
-`qualcheck_reads/`
+`data_filtered/` - sequencing data after filtering with filtlong and fastp
 
-`assemblies/`
+`qualcheck_reads/` - quality control data
 
-`qualcheck_assembly/`
+`assemblies/` - hybrid assemblies made with Unicycler
 
-`mapping/`
+`qualcheck_assembly/` - assembly quality control made with BUSCO and QUAST
 
-`plasmids/`
+`mapping/` - mapping of short reads onto genome assembly to collect unmapped reads
 
-`assemblies_joined/`
+`plasmids/` - assembly of unmapped reads with SPAdes ('plasmid' mode) to assemble plasmids missed by Unicycler
 
-`annotations/`
+`assemblies_joined/` - keeps merged hybrid and plasmid assembly
 
-`resistance_genes/`
+`annotations/` - assembly annotations made with PROKKA and tRNA-ScanSE
 
-`logs/`
+`resistance_genes/` - resistance genes tables identified by RGI (requires local CARD database)
 
-`strain_lists/`
+`logs/` - tool's logs
 
-`test_dir/`
+`strain_lists/` - lists of available and processed strains, serves as input to some scripts that prepare data for the processing by the pipeline
 
-`tools/`
+`test_dir/` - various test of tools used in the pipeline
 
-`localDB/`
+`tools/` - tools required by the pipeline but not available through conda package manager
 
-`busco_downloads/`
+`localDB/` - local instance of the CARD database (required by RGI)
 
-`coverage/`
+`busco_downloads/` - files required by BUSCO
 
-`final/`
+`coverage/` - a bunch of tables with Nanopore coverage
 
-`dags/`
+`final/` - "regulatory" dir created by Snakemake, nothing important there
 
-`card_database/`
+`dags/` - directed acyclic graphs created by Snakemake representing the workflow (see below for the most recent example)
 
 `notebooks/` - these are copies of actual notebooks that I keep on GoogleDrive. Hope these copies will be updated regularly
 
-`workflow/`
- - `snakefile`
- - `envs`
- - `scripts`
+`workflow/` - the pipeline's actual code
+ - `snakefile` - a file describing the workflow
+ - `envs` - a set of YAML files describing required conda environments
+ - `scripts` - additional scripts used by Snakemake and by me
 
-`config.yaml`
+`config.yaml` - a list of strains to be processed
 
 ## Workflow:
 
 1. mount ARGOS
-2. copy files
-3. prepare files
-4. get coverage
-5. create config
-6. load a local instance of CARD db (it must be in the project dir as 'localDB' - `rgi load`)
-7. run the pipeline on these files: `snakemake --use-conda --cores 12 --resources mem_mb=12000`
-8. run the following command to get an overview of resistance hits in your strains
+2. copy files using `wokflow/scripts/copy_files.py`
+3. prepare files using `workflow/scripts/prepare_files.py`
+4. get coverage using `workflow/scripts/coverage.py`
+5. create config using `workflow/scripts/create_config.py`
+6. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
+7. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
+8. run the following command to produce a nice heatmap of resistance hits in your strains:
    ```
    cd resistance genes; 
    for D in DA*; do ln -s "/home/andrei/Data/HeteroR/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/resistance_genes/linked/"$D"_rgi_table.json"; done && 
    rgi heatmap -i linked -o heatmap -cat gene_family -clus samples
    ```
 
-## DAG example
-
-the most recent version
+## Current workflow's DAG
 
 ![dag](figures/dag_full.png)
 
-## Heatmap
+## Heatmap example
 
 the most recent version
 
