@@ -188,6 +188,8 @@ def prepare_files(strain_file, threads):
     else:
         print("No uncompressed fast5 files found!")
 
+    return None
+
 
 def coverage(strain_file, genome_length):
     """Calculate and summarize coverage"""
@@ -253,7 +255,7 @@ if __name__ == '__main__':
 
     # 4. Create a config file
     print("\n4. Creating a config file...")
-    config_dict = create_config(strain_file=args.strain)
+    config_dict = create_config(strain_file=args.strains)
     # write as yaml
     with open(args.config, 'w') as outfile:
         yaml.dump(config_dict, outfile, default_flow_style=False)
