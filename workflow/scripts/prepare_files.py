@@ -100,6 +100,9 @@ def main():
             two_barcodes = [line for line in nanopore_files if line.count("barcode") == 3]
             if len(two_barcodes) == 0:
                 nanopore_clean = [line for line in nanopore_files if line.count("barcode") == 2]
+                if len(nanopore_clean) == 0:
+                    # if dir is called 'Fastq_pass' and has "pass_barcode" in it
+                    nanopore_clean = [line for line in nanopore_files if "Fastq_pass" in line]
                 # use these files for symlinks
             else:
                 # use two_barcodes for symlinks
