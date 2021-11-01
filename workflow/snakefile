@@ -270,15 +270,16 @@ rule direct_repeats:
     # draft command
     input:
         # THERE ARE MANY SHORT SEQS WITH LOW COVERAGE
-        "assemblies_joined/assembly.fasta"
+        "assemblies_joined/{strain}/assembly.fasta"
     output:
         directory("spade/{strain}")
     threads: 14
     log: "logs/{strain}_spade.log"
     shell:
-        # OUTPUT?
-        "SPADE.py -i {input} -f fasta -t nucl -d -n {threads} &> {log}"
+        # fix logging
+        "SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log}"
         # get a table of repeats: get_spade_annotation.py NC_008532.1_SPADE.gb
+        "get_spade_annotation.py -i {output} -o SPADE_outdir2/DA62892_SPADE_summary.tsv"
 
 rule final:
     input:
