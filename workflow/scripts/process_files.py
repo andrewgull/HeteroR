@@ -24,7 +24,7 @@ def get_args():
 
     parser = argparse.ArgumentParser(
         description="This scripts prepares sequencing reads to be fed to the pipeline:\n"
-                    "1. Transfers files from Argos to ./data_raw\n"
+                    "1. Transfers files from Argos to ./data_raw using rsync\n"
                     "2. Renames them like 'STRAIN_[1,2].fq.gz' (Illumina) and 'STRAIN_all.fastq.gz' (Nanopore)\n"
                     "3. Calculates coverage of joined Nanopore reads\n"
                     "4. Creates config file in YAML format\n"
