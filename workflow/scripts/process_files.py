@@ -114,7 +114,7 @@ def prepare_files(strain_file, threads):
         strains = [line.rstrip() for line in f.readlines()]
 
     # 2. CREATING SYMLINKS WITH THE RIGHT NAMES
-    for strain in strains:
+    for strain in tqdm(strains):
         # to get a full path to each of GZ files in a given strain:
         read_files = glob.glob("data_raw/%s/**/*.gz" % strain, recursive=True)
         # beginning of each line is a strain name, ending - current filename
@@ -147,7 +147,7 @@ def prepare_files(strain_file, threads):
         # join illumina and nanopore lists
         read_files = illumina_files + nanopore_clean
         # iterate and create symlinks
-        for line in tqdm(read_files):
+        for line in read_files:
             line_new_name = new_name(line)
             # now, when you have a new name, rename the file (create a soft link)
             # put links into Nanopore or Illumina directories, respectively
