@@ -190,15 +190,15 @@ def prepare_files(strain_file, threads):
     print("Done!")
 
     # 4. COMPRESS FAST5 FILES
-    print("2.4. Compressing FAST5 files...")
-    # collect all fast5 files
-    fast5 = glob.glob("data_raw/DA*/**/*.fast5", recursive=True)
-    if len(fast5) > 0:
-        print("Found %i fastq5 files" % len(fast5))
-        for line in tqdm(fast5):
-            subprocess.run(["pigz", "-p", "%i" % threads, line])
-    else:
-        print("No uncompressed fast5 files found!")
+    # print("2.4. Compressing FAST5 files...")
+    # # collect all fast5 files
+    # fast5 = glob.glob("data_raw/DA*/**/*.fast5", recursive=True)
+    # if len(fast5) > 0:
+    #     print("Found %i fastq5 files" % len(fast5))
+    #     for line in tqdm(fast5):
+    #         subprocess.run(["pigz", "-p", "%i" % threads, line])
+    # else:
+    #     print("No uncompressed fast5 files found!")
 
     return None
 
