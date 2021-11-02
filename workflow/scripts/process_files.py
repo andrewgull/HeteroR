@@ -89,7 +89,7 @@ def new_name(path_string):
 
 
 def prepare_files(strain_file, threads):
-    messages = list()
+    messages = ["\n"]
     # 1. COMPRESSING FILES
     # check uncompressed files and compress them
     # to find fastq and fq extensions
