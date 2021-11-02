@@ -89,23 +89,24 @@ def new_name(path_string):
 
 
 def prepare_files(strain_file, threads):
+    messages = list()
     # 1. COMPRESSING FILES
     # check uncompressed files and compress them
     # to find fastq and fq extensions
-    print("2.1. Checking uncompressed files...\n")
+    print("2.1. Looking for uncompressed files...\n")
 
     # this line gives you all .*q files regardless of number of directories in DA*
     uncomp_files = glob.glob("data_raw/DA*/**/*.*q", recursive=True)
     if len(uncomp_files) > 0:
-        print("Found %i uncompressed fastq files. From\n%s\nto\n%s"
-              % (len(uncomp_files), uncomp_files[0], uncomp_files[-1]))
+        print("Found %i uncompressed fastq files. From\n%s\nto\n%s\nCompressing with %i threads\n"
+              % (len(uncomp_files), uncomp_files[0], uncomp_files[-1], threads))
         for line in tqdm(uncomp_files):
             # force overwrite
             subprocess.run(["pigz", "-f", "-p", "%i" % threads, line])
     else:
         print("No uncompressed files found")
 
-    print("2.2. Collecting compressed files and creating renamed symlinks...\n")
+    print("\n2.2. Collecting compressed files and creating renamed symlinks...\n")
 
     # to get a list of strains use provided file
     # strains = glob.glob("data_raw/DA*")
@@ -124,9 +125,11 @@ def prepare_files(strain_file, threads):
         nanopore_files = [line for line in read_files if "Nanopore" in line]
         # there can be a case when there's no nanopore or illumina files - we report these cases
         if len(illumina_files) == 0:
-            print("No Illumina reads found for %s" % strain)
+            messages.append("No Illumina reads found for %s" % strain)
+            # print("No Illumina reads found for %s" % strain)
         if len(nanopore_files) == 0:
-            print("No Nanopore reads found for %s" % strain)
+            messages.append("No Nanopore reads found for %s" % strain)
+            # print("No Nanopore reads found for %s" % strain)
             nanopore_clean = list()
         else:
             # filter out nanopore files you don't need
@@ -164,18 +167,20 @@ def prepare_files(strain_file, threads):
             try:
                 os.symlink(source, destination)
             except FileExistsError:
-                print("File exists in destination: %s " % destination)
+                messages.append("File exists in destination: %s " % destination)
+                # print("File exists in destination: %s " % destination)
 
     # 3. JOINING NANOPORE READS
     # former rule 'join_nanopore': "zcat {input} | pigz -c -p {threads} > {output}"
-    print("2.3. Joining Nanopore reads...")
+    print("\n2.3. Joining Nanopore reads...\n")
 
     for strain in tqdm(strains):
         # strain looks like 'DA62920'
         path = "data_raw/" + strain + "/Nanopore"
         # strain_name = strain.split("/")[-1]
         if os.path.isfile(path + "/" + "%s_all.fastq.gz" % strain):
-            print("Joined Nanopore file for strain %s exists" % strain)
+            messages.append("Joined Nanopore file for strain %s exists" % strain)
+            # print("Joined Nanopore file for strain %s exists" % strain)
         else:
             proc = subprocess.Popen("zcat %s/*.fastq.gz | pigz -c -p %i > %s/%s_all.fastq.gz" %
                                     (path, threads, path, strain),
@@ -187,20 +192,8 @@ def prepare_files(strain_file, threads):
         gz_files = [f for f in gz_files if "_all.fastq.gz" not in f]
         for file in gz_files:
             os.remove(file)
-    print("Done!")
 
-    # 4. COMPRESS FAST5 FILES
-    # print("2.4. Compressing FAST5 files...")
-    # # collect all fast5 files
-    # fast5 = glob.glob("data_raw/DA*/**/*.fast5", recursive=True)
-    # if len(fast5) > 0:
-    #     print("Found %i fastq5 files" % len(fast5))
-    #     for line in tqdm(fast5):
-    #         subprocess.run(["pigz", "-p", "%i" % threads, line])
-    # else:
-    #     print("No uncompressed fast5 files found!")
-
-    return None
+    return messages
 
 
 def coverage(strain_file, genome_length):
@@ -255,20 +248,22 @@ if __name__ == '__main__':
         print("WARNING! Something went wrong during raw files transfer: at least one process finished with exit code 1")
 
     # 2. Prepare files
-    print("\n2. Preparing files...")
-    prepare_files(strain_file=args.strains, threads=args.threads)
+    print("\n2. Prepare files...")
+    info_messages = prepare_files(strain_file=args.strains, threads=args.threads)
+    for msg in info_messages:
+        print(msg)
 
     # 3. Calculate coverage
-    print("\n3. Calculating coverage...")
+    print("\n3. Calculate coverage...")
     coverage_stats = coverage(strain_file=args.strains, genome_length=args.genome_length)
     min_cov, max_cov, avg_cov = coverage_stats["coverage"].min(), coverage_stats["coverage"].max(), coverage_stats["coverage"].mean()
     # write it to a file
     coverage_stats.to_csv(path_or_buf=args.output, sep="\t", index=False)
     # print some stats
-    print("Quick stats:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler.\n" % (min_cov, avg_cov, max_cov))
+    print("\nQuick stats:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler" % (min_cov, avg_cov, max_cov))
 
     # 4. Create a config file
-    print("\n4. Creating a config file...")
+    print("\n4. Create config file...")
     config_dict = create_config(strain_file=args.strains)
     # write as yaml
     with open(args.config, 'w') as outfile:
