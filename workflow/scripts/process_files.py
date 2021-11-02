@@ -58,14 +58,19 @@ def copy_files(strain_file, argos_path, destination="data_raw"):
     with open(strain_file, 'r') as f:
         strains = [line.rstrip() for line in f.readlines()]
 
+    results = list()
     for strain in tqdm(strains):
         # use rsync to copy directories excluding fast5
         # no trailing /
         # no whitespace mirroring in path string
         source = os.path.join(argos_path, strain)
-        subprocess.call("rsync -avr --exclude='*.fast5' %s %s" % (source, destination), shell=True)
-
-    return None
+        # if it shows any stdout replace it with subprocess.Popen
+        out = subprocess.call("rsync -avrq --exclude='*.fast5' %s %s" % (source, destination), shell=True)
+        results.append(out)
+        # proc = subprocess.Popen("rsync -avr --exclude='*.fast5' %s %s" % (os.path.join(argos_path, strain),
+        # destination), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # out, err = proc.communicate()
+    return sum(results)
 
 
 def new_name(path_string):
@@ -244,8 +249,10 @@ if __name__ == '__main__':
     args = get_args()
 
     # 1. Copy files
-    print("1. Copying files from ARGOS...")
-    copy_files(strain_file=args.strains, argos_path=args.argos)
+    print("1. Transfer files from ARGOS...")
+    copy_results = copy_files(strain_file=args.strains, argos_path=args.argos)
+    if copy_results > 0:
+        print("WARNING! Something went wrong during raw files transfer: at least one process finished with exit code 1")
 
     # 2. Prepare files
     print("\n2. Preparing files...")
