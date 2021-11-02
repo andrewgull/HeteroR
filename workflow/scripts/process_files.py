@@ -52,14 +52,18 @@ def get_args():
     return parser.parse_args()
 
 
-def copy_files(strain_file, argos_path):
-    """Main function to copy files"""
-
+def copy_files(strain_file, argos_path, destination="data_raw"):
+    """A function to copy files from ARGOS except fast5 files"""
+    # collect strain names
     with open(strain_file, 'r') as f:
         strains = [line.rstrip() for line in f.readlines()]
 
     for strain in tqdm(strains):
-        subprocess.call("cp -r %s/%s ./data_raw" % (argos_path, strain), shell=True)
+        # use rsync to copy directories excluding fast5
+        # no trailing /
+        # no whitespace mirroring in path string
+        source = os.path.join(argos_path, strain)
+        subprocess.call("rsync -avr --exclude='*.fast5' %s %s" % (source, destination), shell=True)
 
     return None
 
