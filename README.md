@@ -36,7 +36,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 
 ```bash
 .
-├── figures
+├── images
 │   ├── dag_full.png
 │   ├── heatmap44.png
 │   └── heatmap54.png
@@ -47,7 +47,23 @@ The project home directory is `/home/andrei/Data/HetroR`
 │   └── why_unicycler_gets_killed.Rproj
 ├── README.md
 ├── resources
+│   ├── busco_downloads
+│   ├── data_raw
+│   ├── localDB
+│   └── strain_lists
 ├── results
+│   ├── annotations
+│   ├── assemblies
+│   ├── assemblies_joined
+│   ├── coverage
+│   ├── data_filtered
+│   ├── final
+│   ├── logs
+│   ├── mapping
+│   ├── plasmids
+│   ├── qualcheck_assembly
+│   ├── qualcheck_reads
+│   └── resistance_genes
 └── workflow
     ├── config.yaml
     ├── envs
@@ -82,6 +98,7 @@ The project home directory is `/home/andrei/Data/HetroR`
     │   ├── run_qualcheck.sh
     │   └── run_quast.py
     └── snakefile
+
 ```
 
 
@@ -178,14 +195,14 @@ The environments are described using YAML files that can be found in ``workflow/
 
 ## Current workflow's DAG
 
-![dag](figures/dag_full.png)
+![dag](images/dag_full.png)
 
 ## Heatmap example
 
 the most recent version
 
 The most recent version of RGI heatmap
-![resistance genes heatmap](figures/heatmap54.png)
+![resistance genes heatmap](images/heatmap54.png)
 
 AMR genes categorised by AMR Gene Family and samples have been clustered hierarchically (see SciPy documentation). 
 Yellow represents a perfect hit, teal represents a strict hit, purple represents no hit. 
