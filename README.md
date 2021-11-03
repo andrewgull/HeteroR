@@ -83,16 +83,11 @@ The project home directory is `/home/andrei/Data/HetroR`
     ├── scripts
     │   ├── assemblies_summary.py
     │   ├── assembly_qualcheck.py
-    │   ├── copy_files.py
-    │   ├── coverage.py
     │   ├── coverage.sh
-    │   ├── create_config.py
-    │   ├── join_nanopore.py
     │   ├── join_two_fastas.py
     │   ├── makefile
     │   ├── map_back.sh
     │   ├── nanopore_qc.py
-    │   ├── prepare_files.py
     │   ├── process_files.py
     │   ├── run_qualcheck.R
     │   ├── run_qualcheck.sh
