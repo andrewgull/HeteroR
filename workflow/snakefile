@@ -4,61 +4,61 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("final/{strain}_all.done", strain=config['strains'])
+        expand("results/final/{strain}_all.done", strain=config['strains'])
 
 rule quality_check_illumina:
     input:
-        "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
+        "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
     output:
-        "qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv"
-    log: "logs/{strain}_illumina_qc.log"
+        "results/qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv"
+    log: "results/logs/{strain}_illumina_qc.log"
     conda: "envs/rscripts.yaml"
     script:
         "scripts/run_qualcheck.R"
 
 rule quality_check_trimmed:
     input:
-        "data_filtered/{strain}/Illumina/{strain}_1.fq.gz"
+        "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz"
     output:
-        "qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv"
-    log: "logs/{strain}_trimmed_qc.log"
+        "results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv"
+    log: "results/logs/{strain}_trimmed_qc.log"
     conda: "envs/rscripts.yaml"
     script:
         "scripts/run_qualcheck.R"
 
 rule quality_check_nanopore:  # also builds length distribution plots
     input:
-        "data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
+        "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-        "qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv"
-    log: "logs/{strain}_nanopore_qc.log"
+        "results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv"
+    log: "results/logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
     script:
         "scripts/run_qualcheck.R"
 
 rule quality_check_filtered:
     input:
-        "data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+        "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-        "qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv"
-    log: "logs/{strain}_filtered_qc.log"
+        "results/qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv"
+    log: "results/logs/{strain}_filtered_qc.log"
     conda: "envs/rscripts.yaml"
     script:
         "scripts/run_qualcheck.R"
 
 rule trim_illumina:
     input:
-        short_read_1 = "data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz",
-        short_read_2 = "data_raw/{strain}/Illumina/renamed/{strain}_2.fq.gz"
+        short_read_1 = "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz",
+        short_read_2 = "resources/data_raw/{strain}/Illumina/renamed/{strain}_2.fq.gz"
     output:
-        short_read_1 = "data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
-        report_html = "qualcheck_reads/fastp_reports/{strain}_report.html",
-        report_json = "qualcheck_reads/fastp_reports/{strain}_report.json"
+        short_read_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
+        short_read_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
+        report_html = "results/qualcheck_reads/fastp_reports/{strain}_report.html",
+        report_json = "results/qualcheck_reads/fastp_reports/{strain}_report.json"
     wildcard_constraints: strain="DA[0-9]*"
     threads: 14
     message: "executing fastp with {threads} threads on {wildcards.strain} short reads"
-    log: "logs/{strain}_fastp.log"
+    log: "results/logs/{strain}_fastp.log"
     conda: "envs/fastp.yaml"
     params: q="20", W="4", r="20", l="50", f="10"
     shell:
@@ -79,17 +79,17 @@ rule trim_illumina:
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} "
         "--out2 {output.short_read_2} "
         "--thread {threads} --qualified_quality_phred {params.q} --cut_window_size {params.W} "
-        "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --low_complexity_filter "
+        "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --lremove obsolete scriptsow_complexity_filter "
         "--html {output.report_html} --json {output.report_json} &> {log}"
 
 rule filter_nanopore:
     input:
-        "data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
+        "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-        "data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+        "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     message:
         "executing filtlong on {wildcards.strain} long reads"
-    log: "logs/{strain}_filtlong.log"
+    log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
     threads: 14
     shell:
@@ -97,25 +97,25 @@ rule filter_nanopore:
 
 rule unicycler:
     input:
-        short_read_1 = "data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
-        long_read = "data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+        short_read_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
+        short_read_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
+        long_read = "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-        directory("assemblies/{strain}")
+        directory("results/assemblies/{strain}")
     threads: 14
     message:
         "executing Unicycler with {threads} threads on {wildcards.strain} reads"
     log:
-        "logs/{strain}_unicycler.log"
+        "results/logs/{strain}_unicycler.log"
     conda: "envs/unicycler.yaml"
     shell:
         "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
 
 rule assembly_qualcheck:
     input:
-        "assemblies/{strain}"
+        "results/assemblies/{strain}"
     output:
-        directory("qualcheck_assembly/{strain}")
+        directory("results/qualcheck_assembly/{strain}")
     threads: 14
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
     conda: "envs/busco_quast.yaml"
@@ -124,16 +124,16 @@ rule assembly_qualcheck:
 
 rule bwa_map:
     input:
-        assembly_dir = "assemblies/{strain}",
-        short_read_1= "data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        short_read_2 = "data_filtered/{strain}/Illumina/{strain}_2.fq.gz"
+        assembly_dir = "results/assemblies/{strain}",
+        short_read_1= "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
+        short_read_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz"
     output:
         # an output file marked as temp is deleted after all rules that use it as an input are completed
-        temp("mapping/{strain}/assembly.sam")
+        temp("results/mapping/{strain}/assembly.sam")
     threads: 14
     message: "executing BWA with {threads} threads on {wildcards.strain} assembly"
-    log: mem = "logs/{strain}_bwa_mem.log",
-         index = "logs/{strain}_bwa_index.log"
+    log: mem = "results/logs/{strain}_bwa_mem.log",remove obsolete scripts
+         index = "results/logs/{strain}_bwa_index.log"
     conda: "envs/bwa.yaml"
     shell:
         "bwa index {input.assembly_dir}/assembly.fasta &> {log.index} && "
@@ -141,38 +141,38 @@ rule bwa_map:
 
 rule samtools:
     input:
-        "mapping/{strain}/assembly.sam"
+        "results/mapping/{strain}/assembly.sam"
     output:
-        "mapping/{strain}/assembly.bam"
+        "results/mapping/{strain}/assembly.bam"
     threads: 14
     message: "executing SAMTOOLS: VIEW-SORT with {threads} threads on {wildcards.strain} mapping file"
-    log: "logs/{strain}_samtools.log"
+    log: "results/logs/{strain}_samtools.log"
     conda: "envs/samtools.yaml"
     shell:
         "samtools view -b {input} | samtools sort -o {output} -O BAM -@ {threads} &> {log} && samtools index {output}"
 
 rule unmapped:
     input:
-        "mapping/{strain}/assembly.bam"
+        "results/mapping/{strain}/assembly.bam"
     output:
-        r1 = "mapping/{strain}/unmapped_1.fastq",
-        r2 = "mapping/{strain}/unmapped_2.fastq"
+        r1 = "results/mapping/{strain}/unmapped_1.fastq",
+        r2 = "results/mapping/{strain}/unmapped_2.fastq"
     threads: 14
     message: "executing SAMTOOLS: VIEW-FASTQ with {threads} threads on {wildcards.strain} BAM file"
-    log: "logs/{strain}_unmapped.log"
+    log: "results/logs/{strain}_unmapped.log"
     conda: "envs/samtools.yaml"
     shell:
         "samtools view -@ {threads} -u -f 12 -F 256 {input} | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
 
 rule plasmid_assembly:
     input:
-        r1 = "mapping/{strain}/unmapped_1.fastq",
-        r2 = "mapping/{strain}/unmapped_2.fastq"
+        r1 = "results/mapping/{strain}/unmapped_1.fastq",
+        r2 = "results/mapping/{strain}/unmapped_2.fastq"
     output:
-        directory("plasmids/{strain}")
+        directory("results/plasmids/{strain}")
     threads: 14
     message: "executing SPAdes in plasmid mode with {threads} threads on unmapped reads of {wildcards.strain}"
-    log: "logs/{strain}_spades.log"
+    log: "results/logs/{strain}_spades.log"
     conda: "envs/spades.yaml"
     shell:
         # || true prevents the rule from failing when spades throws an error; this happens when unmapped files are too small
@@ -180,37 +180,37 @@ rule plasmid_assembly:
 
 rule assembly_summary:
     input:
-        "assemblies/{strain}",
-        "plasmids/{strain}"
+        "results/assemblies/{strain}",
+        "results/plasmids/{strain}"
     output:
-         "assemblies_joined/{strain}/summary.tsv"
+         "results/assemblies_joined/{strain}/summary.tsv"
     threads: 1
     message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
-    log: "logs/{strain}_assembly_summary.log"
+    log: "results/logs/{strain}_assembly_summary.log"
     script:
         "scripts/assemblies_summary.py"
 
 rule join_assemblies:
     input:
-        "assemblies/{strain}",
-        "plasmids/{strain}"
+        "results/assemblies/{strain}",
+        "results/plasmids/{strain}"
     output:
-        "assemblies_joined/{strain}/assembly.fasta"
+        "results/assemblies_joined/{strain}/assembly.fasta"
     threads: 1
     message: "joining Unicycler assembly and SPAdes plasmid assembly together, strain {wildcards.strain}"
-    log: "logs/{strain}_joiner.log"
+    log: "results/logs/{strain}_joiner.log"
     script:
         "scripts/join_two_fastas.py"
 
 rule genome_annotation:
     # proteins (prodigal) and rRNA (barrnap)
     input:
-        "assemblies_joined/{strain}/assembly.fasta"
+        "results/assemblies_joined/{strain}/assembly.fasta"
     output:
-        directory("annotations/{strain}/prokka")
+        directory("results/annotations/{strain}/prokka")
     threads: 14
     message: "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
-    log: "logs/{strain}_prokka.log"
+    log: "results/logs/{strain}_prokka.log"
     conda: "envs/prokka.yaml"
     params: centre="UU", minlen="200", genus="Escherichia", species="coli"
     shell:
@@ -222,19 +222,19 @@ rule genome_annotation:
 rule trna_annotation:
     # tRNA genes only - tRNAScan-SE
     input:
-        "assemblies_joined/{strain}/assembly.fasta"
+        "results/assemblies_joined/{strain}/assembly.fasta"
     output:
         # TODO: use multiext function
-        general = "annotations/{strain}/trna/trna_gen.txt",
-        struct = "annotations/{strain}/trna/trna_struct.txt",
-        iso = "annotations/{strain}/trna/trna_iso.txt",
-        stats = "annotations/{strain}/trna/trna_stat.txt",
-        bed = "annotations/{strain}/trna/trna_coords.bed",
-        gff = "annotations/{strain}/trna/trna_feat.gff",
-        fasta = "annotations/{strain}/trna/trna_seq.fasta"
+        general = "results/annotations/{strain}/trna/trna_gen.txt",
+        struct = "results/annotations/{strain}/trna/trna_struct.txt",
+        iso = "results/annotations/{strain}/trna/trna_iso.txt",
+        stats = "results/annotations/{strain}/trna/trna_stat.txt",
+        bed = "results/annotations/{strain}/trna/trna_coords.bed",
+        gff = "results/annotations/{strain}/trna/trna_feat.gff",
+        fasta = "results/annotations/{strain}/trna/trna_seq.fasta"
     threads: 14
     message: "executing tRNAScan-SE with {threads} threads on full assembly of {wildcards.strain} strain"
-    log: "logs/{strain}_trnascan.log"
+    log: "results/logs/{strain}_trnascan.log"
     conda: "envs/trnascan.yaml"
     shell:
         "tRNAscan-SE -B --forceow -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
@@ -242,11 +242,11 @@ rule trna_annotation:
 
 rule join_annotations:
     input:
-        prokka="annotations/{strain}/prokka",
-        trnascan="annotations/{strain}/trna/trna_seq.fasta"
+        prokka="results/annotations/{strain}/prokka",
+        trnascan="results/annotations/{strain}/trna/trna_seq.fasta"
         # mode="annotation"
     output:
-        "annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
+        "results/annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
     script:
         "scripts/join_two_fastas.py"
 
@@ -254,12 +254,12 @@ rule resistance_genes:
     # it doesn't work with tRNAs
     # ALSO: rgi load --card_json ./card_database/card.json --local
     input:
-        "annotations/{strain}/prokka"
+        "results/annotations/{strain}/prokka"
     output:
-        "resistance_genes/{strain}/rgi_table.txt" # IT'S JUST A PREFIX!
+        "results/resistance_genes/{strain}/rgi_table.txt" # IT'S JUST A PREFIX!
     threads: 14
     message: "executing RGI with {threads} threads on predicted genes/proteins from {wildcards.strain}"
-    log: "logs/{strain}_rgi.log"
+    log: "results/logs/{strain}_rgi.log"
     conda: "envs/rgi.yaml"
     shell:
         "output=$(echo '{output}' | cut -d'.' -f 1) && "
@@ -270,11 +270,11 @@ rule direct_repeats:
     # draft command
     input:
         # THERE ARE MANY SHORT SEQS WITH LOW COVERAGE
-        "assemblies_joined/{strain}/assembly.fasta"
+        "results/assemblies_joined/{strain}/assembly.fasta"
     output:
-        directory("spade/{strain}")
+        directory("results/spade/{strain}")
     threads: 14
-    log: "logs/{strain}_spade.log"
+    log: "results/logs/{strain}_spade.log"
     shell:
         # fix logging
         "SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log}"
@@ -283,15 +283,15 @@ rule direct_repeats:
 
 rule final:
     input:
-        qc_ass="qualcheck_assembly/{strain}",
-        qc_ill_raw="qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv",
-        qc_ill_trim="qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv",
-        qc_nan_raw="qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
-        qc_nan_filt="qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv",
-        trnascan="annotations/{strain}/trna/trna_gen.txt",
-        rgi="resistance_genes/{strain}/rgi_table.txt",
-        summary="assemblies_joined/{strain}/summary.tsv"
-    output: touch("final/{strain}_all.done")
+        qc_ass="results/qualcheck_assembly/{strain}",
+        qc_ill_raw="results/qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv",
+        qc_ill_trim="results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv",
+        qc_nan_raw="results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
+        qc_nan_filt="results/qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv",
+        trnascan="results/annotations/{strain}/trna/trna_gen.txt",
+        rgi="results/resistance_genes/{strain}/rgi_table.txt",
+        summary="results/assemblies_joined/{strain}/summary.tsv"
+    output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
 onsuccess:
