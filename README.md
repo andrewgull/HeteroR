@@ -29,7 +29,7 @@
 
 The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable) - a Python-based workflow management system for reproducible and scalable data analysis. [The "rolling" paper reference](https://f1000research.com/articles/10-33/v2) 
 
-## The project structure:
+## The project's structure:
 
 The project home directory is `/home/andrei/Data/HetroR`
  which contains the following directories:
@@ -84,18 +84,44 @@ The project home directory is `/home/andrei/Data/HetroR`
 ## Workflow:
 
 1. mount ARGOS
-2. copy files using `wokflow/scripts/copy_files.py`
-3. prepare files using `workflow/scripts/prepare_files.py`
-4. get coverage using `workflow/scripts/coverage.py`
-5. create config using `workflow/scripts/create_config.py`
-6. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
-7. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
-8. run the following command to produce a nice heatmap of resistance hits in your strains:
+2. run `workflow/scripts/process_files.py` to transfer read files from ARGOS, rename them, calculate coverage and create config file.
+3. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
+4. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
+5. run the following command to produce a nice heatmap of resistance hits in your strains:
    ```
    cd resistance genes; 
    for D in DA*; do ln -s "/home/andrei/Data/HeteroR/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/resistance_genes/linked/"$D"_rgi_table.json"; done && 
    rgi heatmap -i linked -o heatmap -cat gene_family -clus samples
    ```
+
+## Installation
+
+The basic requiremnt is `snakemake`, install it using `conda` or `mamba`:
+
+```
+mamba create -c conda-forge -c bioconda -n snakemake snakemake
+```
+
+### SPADE installation
+
+Right now the original version of SPADE can not be installed using conda and is not working properly.
+
+I [forked](https://github.com/andrewgull/SPADE) the original SPADE [repo](https://github.com/yachielab/SPADE) to fix the code
+and make it usable.
+
+SPADE dependencies for the pipeline are described in `workflow/envs/spade-env.yaml`
+
+My version of SPADE should be cloned and then executable files should be copied to
+`~/minicinda3/envs/snakemake/bin` which is suboptimal but it's the only method available so far
+
+## Dependencies
+
+All dependencies are installed by `snakemake` itself in isolated environments using `conda`. 
+The environments are described using YAML files that can be found in ``workflow/envs``
+
+### List of tools used in the pipeline
+
+1. Unicycler
 
 ## Current workflow's DAG
 
