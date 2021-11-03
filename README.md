@@ -29,7 +29,7 @@
 
 The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable) - a Python-based workflow management system for reproducible and scalable data analysis. [The "rolling" paper reference](https://f1000research.com/articles/10-33/v2) 
 
-## The project structure:
+## The project structure
 
 The project home directory is `/home/andrei/Data/HetroR`
  which contains the following directories:
