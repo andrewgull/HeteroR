@@ -24,7 +24,7 @@ def get_args():
 
     parser = argparse.ArgumentParser(
         description="This scripts prepares sequencing reads to be fed to the pipeline:\n"
-                    "1. Transfers files from Argos to ./data_raw using rsync\n"
+                    "1. Transfers files from Argos to ./resources/data_raw using rsync\n"
                     "2. Renames them like 'STRAIN_[1,2].fq.gz' (Illumina) and 'STRAIN_all.fastq.gz' (Nanopore)\n"
                     "3. Calculates coverage of joined Nanopore reads\n"
                     "4. Creates config file in YAML format\n"
@@ -46,13 +46,13 @@ def get_args():
     parser.add_argument("-a", "--argos", type=str, metavar="<path>", help="path to raw data on ARGOS (optional)",
                         default="/home/andrei/Data/Argos/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains")
     parser.add_argument("-l", "--genome_length", type=int, metavar="<genome length>",
-                        help="Approx. genome length, bp (optional)", default=5131220)
-    parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.0')
+                        help="Approx. genome length, bp (optional, in E.coli=5131220)", default=5131220)
+    parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.2')
 
     return parser.parse_args()
 
 
-def copy_files(strain_file, argos_path, destination="data_raw"):
+def copy_files(strain_file, argos_path, destination="resources/data_raw"):
     """A function to copy files from ARGOS except fast5 files"""
     # collect strain names
     with open(strain_file, 'r') as f:
@@ -76,7 +76,7 @@ def copy_files(strain_file, argos_path, destination="data_raw"):
 def new_name(path_string):
     """
     converts path to a filename
-    param path: unix path-like string: "data_raw/strain/machine/barcode/filename.fq.gz"
+    param path: unix path-like string: "resources/data_raw/strain/machine/barcode/filename.fq.gz"
     return: new filename like "strain_14.fq.gz" or "strain_1.fq.gz"
     """
     dirs = path_string.split("/")
@@ -96,7 +96,7 @@ def prepare_files(strain_file, threads):
     print("2.1. Looking for uncompressed files...\n")
 
     # this line gives you all .*q files regardless of number of directories in DA*
-    uncomp_files = glob.glob("data_raw/DA*/**/*.*q", recursive=True)
+    uncomp_files = glob.glob("resources/data_raw/DA*/**/*.*q", recursive=True)
     if len(uncomp_files) > 0:
         print("Found %i uncompressed fastq files. From\n%s\nto\n%s\nCompressing with %i threads\n"
               % (len(uncomp_files), uncomp_files[0], uncomp_files[-1], threads))
@@ -116,7 +116,7 @@ def prepare_files(strain_file, threads):
     # 2. CREATING SYMLINKS WITH THE RIGHT NAMES
     for strain in tqdm(strains):
         # to get a full path to each of GZ files in a given strain:
-        read_files = glob.glob("data_raw/%s/**/*.gz" % strain, recursive=True)
+        read_files = glob.glob("resources/data_raw/%s/**/*.gz" % strain, recursive=True)
         # beginning of each line is a strain name, ending - current filename
         # in the filename - there's a barcode and replicate/read number
         # I need only 2nd barcode from strains with two barcode directories
@@ -156,10 +156,10 @@ def prepare_files(strain_file, threads):
             source = "/".join([cwd, line])
             # create destination - absolute path
             if "Nanopore" in line:
-                destination = os.path.join(cwd, "data_raw", strain, "Nanopore", line_new_name)
+                destination = os.path.join(cwd, "resources/data_raw", strain, "Nanopore", line_new_name)
             else:
                 # create 'renamed' directory
-                renamed = os.path.join(cwd, "data_raw", strain, "Illumina", "renamed")
+                renamed = os.path.join(cwd, "resources/data_raw", strain, "Illumina", "renamed")
                 if not os.path.exists(renamed):
                     os.mkdir(renamed)
                 destination = os.path.join(renamed, line_new_name)
@@ -176,7 +176,7 @@ def prepare_files(strain_file, threads):
 
     for strain in tqdm(strains):
         # strain looks like 'DA62920'
-        path = "data_raw/" + strain + "/Nanopore"
+        path = "resources/data_raw/" + strain + "/Nanopore"
         # strain_name = strain.split("/")[-1]
         if os.path.isfile(path + "/" + "%s_all.fastq.gz" % strain):
             messages.append("Joined Nanopore file for strain %s exists" % strain)
@@ -205,7 +205,7 @@ def coverage(strain_file, genome_length):
     nanopore_stats = list()
     for strain in tqdm(strain_names):
         try:
-            file = glob.glob("data_raw/%s/Nanopore/%s_all.fastq.gz" % (strain, strain))[0]
+            file = glob.glob("resources/data_raw/%s/Nanopore/%s_all.fastq.gz" % (strain, strain))[0]
             proc = subprocess.Popen("seqkit stats %s -T" % file, shell=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
