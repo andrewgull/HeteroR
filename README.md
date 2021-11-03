@@ -29,12 +29,65 @@
 
 The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable) - a Python-based workflow management system for reproducible and scalable data analysis. [The "rolling" paper reference](https://f1000research.com/articles/10-33/v2) 
 
-## The project's structure:
+## The project structure:
 
 The project home directory is `/home/andrei/Data/HetroR`
  which contains the following directories:
 
-`data_raw/` - raw sequencing data (both Illumina and Nanopore reads) copied from Argos 
+```bash
+.
+├── figures
+│   ├── dag_full.png
+│   ├── heatmap44.png
+│   └── heatmap54.png
+├── notebooks
+│   ├── testing_rgi_output.Rmd
+│   ├── testing_rgi_output.Rproj
+│   ├── why_unicycler_gets_killed.Rmd
+│   └── why_unicycler_gets_killed.Rproj
+├── README.md
+├── resources
+├── results
+└── workflow
+    ├── config.yaml
+    ├── envs
+    │   ├── busco_quast.yaml
+    │   ├── bwa.yaml
+    │   ├── fastp.yaml
+    │   ├── filtlong.yaml
+    │   ├── prokka.yaml
+    │   ├── quast.yaml
+    │   ├── rgi.yaml
+    │   ├── rscripts.yaml
+    │   ├── samtools.yaml
+    │   ├── spades.yaml
+    │   ├── spade.yaml
+    │   ├── trnascan.yaml
+    │   └── unicycler.yaml
+    ├── scripts
+    │   ├── assemblies_summary.py
+    │   ├── assembly_qualcheck.py
+    │   ├── copy_files.py
+    │   ├── coverage.py
+    │   ├── coverage.sh
+    │   ├── create_config.py
+    │   ├── join_nanopore.py
+    │   ├── join_two_fastas.py
+    │   ├── makefile
+    │   ├── map_back.sh
+    │   ├── nanopore_qc.py
+    │   ├── prepare_files.py
+    │   ├── process_files.py
+    │   ├── run_qualcheck.R
+    │   ├── run_qualcheck.sh
+    │   └── run_quast.py
+    └── snakefile
+```
+
+
+`resources/` is for storage retrieved/transferred data like: raw_reads, RGI Database, BUSCO downloads, strain lists
+
+   - `data_raw/` - raw sequencing data (both Illumina and Nanopore reads) copied from Argos 
 
 `data_filtered/` - sequencing data after filtering with filtlong and fastp
 
@@ -111,8 +164,8 @@ and make it usable.
 
 SPADE dependencies for the pipeline are described in `workflow/envs/spade-env.yaml`
 
-My version of SPADE should be cloned and then executable files should be copied to
-`~/minicinda3/envs/snakemake/bin` which is suboptimal but it's the only method available so far
+My version of SPADE should be cloned and then executable files should be copied to the corresponding env's `bin` directory created by snakemake 
+which is suboptimal, but it's the only method available so far.
 
 ## Dependencies
 
