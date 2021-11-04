@@ -193,7 +193,7 @@ rule assembly_summary:
 rule join_assemblies:
     input:
         "results/assemblies/{strain}",
-        "results/plasmids/{strain}"
+        "results/plasmids/{strain}"$HOME/SPADE/get_spade_annotation.py -i {output} -o {strain}/DA62892_SPADE_summary.tsv
     output:
         "results/assemblies_joined/{strain}/assembly.fasta"
     threads: 1
@@ -277,9 +277,8 @@ rule direct_repeats:
     log: "results/logs/{strain}_spade.log"
     shell:
         # fix logging
-        "$HOME/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log}"
-        # get a table of repeats: get_spade_annotation.py NC_008532.1_SPADE.gb
-        "$HOME/SPADE/get_spade_annotation.py -i {output} -o SPADE_outdir2/DA62892_SPADE_summary.tsv"
+        "$HOME/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log} &&  "
+        "$HOME/SPADE/get_spade_annotation.py -i {output} -o {strain}/{strain}_SPADE_summary.tsv"
 
 rule final:
     input:
