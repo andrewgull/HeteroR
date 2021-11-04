@@ -274,7 +274,9 @@ rule direct_repeats:
     output:
         directory("results/spade/{strain}")
     threads: 14
+    message: "executing SPADE with {threads} on {wildcards.strain} assembly"
     log: "results/logs/{strain}_spade.log"
+    conda: "envs/spade.yaml"
     shell:
         # fix logging
         "$HOME/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log} &&  "
@@ -295,5 +297,5 @@ rule final:
     shell: "echo 'DONE'"
 
 onsuccess:
-    print("Workflow finished, no error")
+    print("Workflow finished, no errors")
 
