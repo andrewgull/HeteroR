@@ -1,3 +1,5 @@
+from snakemake.io import touch, directory, temp, expand
+
 configfile: "config.yaml"
 # command to run the pipeline on 14 threads and 10Gb of RAM:
 # snakemake --use-conda --cores 14 --resources mem_mb=10000
@@ -132,7 +134,7 @@ rule bwa_map:
         temp("results/mapping/{strain}/assembly.sam")
     threads: 14
     message: "executing BWA with {threads} threads on {wildcards.strain} assembly"
-    log: mem = "results/logs/{strain}_bwa_mem.log",remove obsolete scripts
+    log: mem = "results/logs/{strain}_bwa_mem.log",
          index = "results/logs/{strain}_bwa_index.log"
     conda: "envs/bwa.yaml"
     shell:
@@ -188,12 +190,12 @@ rule assembly_summary:
     message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
     log: "results/logs/{strain}_assembly_summary.log"
     script:
-        "scripts/assemblies_summary.py"
+        "scripts/assembly_summary.py"
 
 rule join_assemblies:
     input:
         "results/assemblies/{strain}",
-        "results/plasmids/{strain}"$HOME/SPADE/get_spade_annotation.py -i {output} -o {strain}/DA62892_SPADE_summary.tsv
+        "results/plasmids/{strain}"
     output:
         "results/assemblies_joined/{strain}/assembly.fasta"
     threads: 1
@@ -279,7 +281,7 @@ rule direct_repeats:
     shell:
         # fix logging
         "$HOME/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log} &&  "
-        "$HOME/SPADE/get_spade_annotation.py -i {output} -o {strain}/{strain}_SPADE_summary.tsv"
+        "$HOME/SPADE/get_spade_annotation.py -i {output} -o {wildcards.strain}/{wildcards.strain}_SPADE_summary.tsv"
 
 rule final:
     input:
