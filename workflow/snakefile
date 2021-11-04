@@ -115,7 +115,8 @@ rule unicycler:
 
 rule assembly_qualcheck:
     input:
-        "results/assemblies/{strain}"
+        "results/assemblies/{strain}",
+        "resources/busco_downloads"
     output:
         directory("results/qualcheck_assembly/{strain}")
     threads: 14
