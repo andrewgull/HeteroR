@@ -7,6 +7,7 @@ directive 'run' is also not viable cause than it's impossible to use conda envs
 
 import subprocess
 import os
+import snakemake
 
 
 def write_logs(output, tool, strain_name):
