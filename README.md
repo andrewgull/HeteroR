@@ -163,8 +163,7 @@ and make it usable.
 
 SPADE dependencies for the pipeline are described in `workflow/envs/spade-env.yaml`
 
-My version of SPADE should be cloned and then executable files should be copied to the corresponding env's `bin` directory created by snakemake 
-which is suboptimal, but it's the only method available so far.
+My version of SPADE should be cloned to `$HOME`, and then Snakemake will find it there. I will create a Docker image later.
 
 ### RGI Database installation
 
