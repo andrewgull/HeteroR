@@ -178,6 +178,14 @@ RGI requires its database to be in the project's directory and named `localDB`.
 No other way to set the database location is available.
 That's why `localDB` must be in the project's directory even though it is not listed here.
 
+### BUSCO installation
+
+BUSCO tools and databases (needed for searching BUSCO genes) -- works in Linux only!
+Download the database using the command below
+```
+quast-download-busco
+```
+
 ## Dependencies
 
 All dependencies are installed by `snakemake` itself in isolated environments using `conda`. 
