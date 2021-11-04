@@ -80,7 +80,7 @@ The project home directory is `/home/andrei/Data/HetroR`
     │   ├── trnascan.yaml
     │   └── unicycler.yaml
     ├── scripts
-    │   ├── assemblies_summary.py
+    │   ├── assembly_summary.py
     │   ├── assembly_qualcheck.py
     │   ├── coverage.sh
     │   ├── join_two_fastas.py
