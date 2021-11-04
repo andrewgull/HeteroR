@@ -277,9 +277,9 @@ rule direct_repeats:
     log: "results/logs/{strain}_spade.log"
     shell:
         # fix logging
-        "SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log}"
+        "$HOME/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log}"
         # get a table of repeats: get_spade_annotation.py NC_008532.1_SPADE.gb
-        "get_spade_annotation.py -i {output} -o SPADE_outdir2/DA62892_SPADE_summary.tsv"
+        "$HOME/SPADE/get_spade_annotation.py -i {output} -o SPADE_outdir2/DA62892_SPADE_summary.tsv"
 
 rule final:
     input:
