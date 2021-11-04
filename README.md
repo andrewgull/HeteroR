@@ -49,7 +49,6 @@ The project home directory is `/home/andrei/Data/HetroR`
 ├── resources
 │   ├── busco_downloads
 │   ├── data_raw
-│   ├── localDB
 │   └── strain_lists
 ├── results
 │   ├── annotations
@@ -96,53 +95,41 @@ The project home directory is `/home/andrei/Data/HetroR`
 
 ```
 
+### Directories' description
 
-`resources/` is for storage retrieved/transferred data like: raw_reads, RGI Database, BUSCO downloads, strain lists
+`images/` - workflow DAGs, RGI heatmaps etc.
+
+`resources/` is for storing retrieved/transferred data like: raw_reads, BUSCO downloads, strain lists
 
    - `data_raw/` - raw sequencing data (both Illumina and Nanopore reads) copied from Argos 
+   - `strain_lists/` - lists of available and processed strains, serves as input to some scripts that prepare data for the processing by the pipeline
+   - `busco_downloads/` - files required by BUSCO
 
-`data_filtered/` - sequencing data after filtering with filtlong and fastp
-
-`qualcheck_reads/` - quality control data
-
-`assemblies/` - hybrid assemblies made with Unicycler
-
-`qualcheck_assembly/` - assembly quality control made with BUSCO and QUAST
-
-`mapping/` - mapping of short reads onto genome assembly to collect unmapped reads
-
-`plasmids/` - assembly of unmapped reads with SPAdes ('plasmid' mode) to assemble plasmids missed by Unicycler
-
-`assemblies_joined/` - keeps merged hybrid and plasmid assembly
-
-`annotations/` - assembly annotations made with PROKKA and tRNA-ScanSE
-
-`resistance_genes/` - resistance genes tables identified by RGI (requires local CARD database)
-
-`logs/` - tool's logs
-
-`strain_lists/` - lists of available and processed strains, serves as input to some scripts that prepare data for the processing by the pipeline
-
+`results/` is for everything the pipeline produces
+  - `data_filtered/` - sequencing data after filtering with filtlong and fastp
+  - `qualcheck_reads/` - quality control data
+  - `assemblies/` - hybrid assemblies made with Unicycler
+  - `qualcheck_assembly/` - assembly quality control made with BUSCO and QUAST
+  - `mapping/` - mapping of short reads onto genome assembly to collect unmapped reads
+  - `plasmids/` - assembly of unmapped reads with SPAdes ('plasmid' mode) to assemble plasmids missed by Unicycler
+  - `assemblies_joined/` - keeps merged hybrid and plasmid assembly
+  - `annotations/` - assembly annotations made with PROKKA and tRNA-ScanSE
+  - `resistance_genes/` - resistance genes tables identified by RGI (requires local CARD database)
+  - `logs/` - tool's logs
+  - `coverage/` - a bunch of tables with Nanopore coverage
+  - `final/` - "regulatory" dir created by Snakemake, nothing important there
+  
 `test_dir/` - various test of tools used in the pipeline
-
-`tools/` - tools required by the pipeline but not available through conda package manager
+  - `tools/` - some tools required for the testing 
 
 `localDB/` - local instance of the CARD database (required by RGI)
-
-`busco_downloads/` - files required by BUSCO
-
-`coverage/` - a bunch of tables with Nanopore coverage
-
-`final/` - "regulatory" dir created by Snakemake, nothing important there
-
-`dags/` - directed acyclic graphs created by Snakemake representing the workflow (see below for the most recent example)
 
 `notebooks/` - these are copies of actual notebooks that I keep on GoogleDrive. Hope these copies will be updated regularly
 
 `workflow/` - the pipeline's actual code
  - `snakefile` - a file describing the workflow
- - `envs` - a set of YAML files describing required conda environments
- - `scripts` - additional scripts used by Snakemake and by me
+ - `envs/` - a set of YAML files describing required conda environments
+ - `scripts/` - additional scripts used by Snakemake and by me
 
 `config.yaml` - a list of strains to be processed
 
@@ -178,6 +165,12 @@ SPADE dependencies for the pipeline are described in `workflow/envs/spade-env.ya
 
 My version of SPADE should be cloned and then executable files should be copied to the corresponding env's `bin` directory created by snakemake 
 which is suboptimal, but it's the only method available so far.
+
+### RGI Database installation
+
+RGI requires its database to be in the project's directory and named `localDB`. 
+No other way to set the database location is available.
+That's why `localDB` must be in the project's directory even though it is not listed here.
 
 ## Dependencies
 
