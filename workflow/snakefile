@@ -267,7 +267,6 @@ rule resistance_genes:
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
 rule direct_repeats:
-    # draft command
     input:
         # THERE ARE MANY SHORT SEQS WITH LOW COVERAGE
         "results/assemblies_joined/{strain}/assembly.fasta"
