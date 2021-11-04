@@ -148,7 +148,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 
 ## Installation
 
-The basic requiremnt is `snakemake`, install it using `conda` or `mamba`:
+The basic requirement is `snakemake`, install it using `conda` or `mamba`:
 
 ```
 mamba create -c conda-forge -c bioconda -n snakemake snakemake
@@ -163,7 +163,14 @@ and make it usable.
 
 SPADE dependencies for the pipeline are described in `workflow/envs/spade-env.yaml`
 
-My version of SPADE should be cloned to `$HOME`, and then Snakemake will find it there. I will create a Docker image later.
+My version of SPADE should be cloned to `$HOME`
+
+```
+git clone https://github.com/andrewgull/SPADE $HOME
+```
+
+and then Snakemake will find it there. 
+To allow a better installation, I will create a Docker image later.
 
 ### RGI Database installation
 
