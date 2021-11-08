@@ -17,7 +17,7 @@ def write_logs(output, tool, strain_name):
     param: strain_name - name of strain
     """
     if len(output) > 0:
-        with open("logs/%s_%s.log" % (strain_name, tool), "w") as f:
+        with open("results/logs/%s_%s.log" % (strain_name, tool), "w") as f:
             f.write(output.decode("utf-8"))
     else:
         pass
