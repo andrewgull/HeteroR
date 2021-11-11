@@ -281,8 +281,8 @@ rule direct_repeats:
     conda: "envs/spade.yaml"
     shell:
         # fix logging
-        "$HOME/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &> {log} &&  "
-        "$HOME/SPADE/get_spade_annotation.py -i {output} -o {wildcards.strain}/{wildcards.strain}_SPADE_summary.tsv"
+        "$HOME/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &&  "
+        "$HOME/SPADE/get_spade_annotation.py -i {output} -o {output}/{wildcards.strain}/{wildcards.strain}_SPADE_summary.tsv &> {log}"
 
 rule final:
     input:
