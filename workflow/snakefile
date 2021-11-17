@@ -269,20 +269,20 @@ rule resistance_genes:
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
-rule direct_repeats:
-    input:
-        # THERE ARE MANY SHORT SEQS WITH LOW COVERAGE
-        "results/assemblies_joined/{strain}/assembly.fasta"
-    output:
-        directory("results/spade/{strain}")
-    threads: 14
-    message: "executing SPADE with {threads} on {wildcards.strain} assembly"
-    log: "results/logs/{strain}_spade.log"
-    conda: "envs/spade.yaml"
-    shell:
-        # environment variables or docker!!!
-        "/home/andrei/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &&  "
-        "/home/andrei/SPADE/get_spade_annotation.py -i {output} -o {output}/{wildcards.strain}_SPADE_summary.tsv &> {log}"
+# rule direct_repeats:
+#     input:
+#         # THERE ARE MANY SHORT SEQS WITH LOW COVERAGE
+#         "results/assemblies_joined/{strain}/assembly.fasta"
+#     output:
+#         directory("results/spade/{strain}")
+#     threads: 14
+#     message: "executing SPADE with {threads} on {wildcards.strain} assembly"
+#     log: "results/logs/{strain}_spade.log"
+#     conda: "envs/spade.yaml"
+#     shell:
+#         # environment variables or docker!!!
+#         "/home/andrei/SPADE/SPADE.py -i {input} -f fasta -t nucl -d -n {threads} -v N -o {output} &&  "
+#         "/home/andrei/SPADE/get_spade_annotation.py -i {output} -o {output}/{wildcards.strain}_SPADE_summary.tsv &> {log}"
 
 rule final:
     input:
@@ -294,7 +294,7 @@ rule final:
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
         rgi="results/resistance_genes/{strain}/rgi_table.txt",
         summary="results/assemblies_joined/{strain}/summary.tsv",
-        spade="results/spade/{strain}"
+        # spade="results/spade/{strain}"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
