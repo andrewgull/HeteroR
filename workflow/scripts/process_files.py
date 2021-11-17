@@ -134,16 +134,20 @@ def prepare_files(strain_file, threads):
             nanopore_clean = list()
         else:
             # filter out nanopore files you don't need
+            # keep a file if it has 3 'barcode' in the path
             two_barcodes = [line for line in nanopore_files if line.count("barcode") == 3]
-            if len(two_barcodes) == 0:
-                nanopore_clean = [line for line in nanopore_files if line.count("barcode") == 2]
-                if len(nanopore_clean) == 0:
-                    # if dir is called 'Fastq_pass' and has "pass_barcode" in it
-                    nanopore_clean = [line for line in nanopore_files if "Fastq_pass" in line]
-                # use these files for symlinks
-            else:
+            if len(two_barcodes) != 0:
                 # use two_barcodes for symlinks
                 nanopore_clean = two_barcodes
+            else:
+                # if you can't find such files, keep those with 2 'barcode' in the path
+                nanopore_clean = [line for line in nanopore_files if line.count("barcode") == 2]
+                # if none found again, don't use those with one 'barcode' they could be of low quality
+                # keep those with words pass
+                if len(nanopore_clean) == 0:
+                    # if dir is called 'Fastq_pass' and has "pass_barcode" in it
+                    nanopore_clean = [line for line in nanopore_files if "Fastq_pass" in line or "pass_barcode" in line]
+                # use these files for symlinks
 
         # join illumina and nanopore lists
         read_files = illumina_files + nanopore_clean
