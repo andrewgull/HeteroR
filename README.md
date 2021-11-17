@@ -142,7 +142,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 5. run the following command to produce a nice heatmap of resistance hits in your strains:
    ```
    cd resistance genes; 
-   for D in DA*; do ln -s "/home/andrei/Data/HeteroR/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/resistance_genes/linked/"$D"_rgi_table.json"; done && 
+   for D in DA*; do ln -s "/home/andrei/Data/HeteroR/results/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/resistance_genes/linked/"$D"_rgi_table.json"; done && 
    rgi heatmap -i linked -o heatmap -cat gene_family -clus samples
    ```
 
@@ -154,7 +154,7 @@ The basic requirement is `snakemake`, install it using `conda` or `mamba`:
 mamba create -c conda-forge -c bioconda -n snakemake snakemake
 ```
 
-### SPADE installation
+### SPADE installation (NOT REQUIRED - USE GRF instead)
 
 Right now the original version of SPADE can not be installed using conda and is not working properly.
 
