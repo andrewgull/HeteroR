@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"a script for genomes and repeats generation"
+"""a script for genomes and repeats generation"""
 
 
 import random
