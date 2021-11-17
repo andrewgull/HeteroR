@@ -78,9 +78,10 @@ def new_name(path_string):
     converts path to a filename
     param path: unix path-like string: "resources/data_raw/strain/machine/barcode/filename.fq.gz"
     return: new filename like "strain_14.fq.gz" or "strain_1.fq.gz"
+    NB: a retrieved strain_name depends on directory structure!
     """
     dirs = path_string.split("/")
-    strain_name, old_name = dirs[1], dirs[-1]
+    strain_name, old_name = dirs[2], dirs[-1]
     # suffix is universal for both Illumina and Nanopore files
     # it contains read number and extensions
     suffix = old_name.split("_")[-1]
