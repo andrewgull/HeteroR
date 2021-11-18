@@ -8,7 +8,6 @@ requires: bcbio-gff and gffutils
 from Bio import SeqIO
 import pandas as pd
 from BCBio import GFF
-import pprint
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 
