@@ -12,7 +12,7 @@ from BCBio import GFF
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 
 # rgi results
-rgi = pd.read_csv("DA62886_rgi_table.tsv", sep="\t")
+rgi = pd.read_csv("DA62886_rgi_table.tsv", sep="\t")  # all genes are in this list???
 
 # parse gbk file
 gbk = [rec for rec in SeqIO.parse("DA62886_genomic.gbk", "genbank")]
@@ -32,7 +32,12 @@ with open(in_file) as f:
 chromosome_genes = [feature for feature in gff[0].features if feature.type == "gene"]  # here we have IDs and positions
 
 # filter the genes with resistance - both in RGI and GBK
-rgi["ORF_ID"]
+# naive looping approach
+resistance_genes_coords = list()
+for orf in rgi["ORF_ID"]:
+    for gene in chromosome_genes:
+        if orf.split(" ")[0] in gene.id:
+            resistance_genes_coords.append(gene)
 
 # get their coordinates - from GBK
 # get ± 100 kb region for each gene
