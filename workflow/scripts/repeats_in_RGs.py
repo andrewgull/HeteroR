@@ -42,3 +42,16 @@ for orf in rgi["ORF_ID"]:
 # get their coordinates - from GBK
 # get ± 100 kb region for each gene
 
+genome_end = 5131220
+span = 100000
+for gene in resistance_genes_coords:
+    start = int(gene.location.start)
+    end = int(gene.location.end)
+    span_start = start - span
+    # check if it's negative
+    #if span_start < 0:
+    #    span_start = genome_end + span_start
+    span_end = end + span
+    row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
+    print(row)
+genes_and_spans = pd.DataFrame()
