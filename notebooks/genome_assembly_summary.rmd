@@ -44,7 +44,7 @@ plasmids_count
 ```
 
 
-```{r, message = FALSE}
+```{r, warning = FALSE, message = FALSE}
 library(ggplot2)
 
 plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col() +
@@ -52,6 +52,26 @@ plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), 
 plot_plasmids_per_strain
 ```
 
-Now, click the **Run** button on the chunk toolbar to [execute](https://www.jetbrains.com/help/pycharm/r-markdown.html#run-r-code) the chunk code. The result should be placed under the chunk.
-Click the **Knit and Open Document** to build and preview an output.
+## Number of complete and incomplete segments per strain
 
+```{r, warning = FALSE, message = FALSE}
+complete_incomplete <- summary_table %>% group_by(Strain, Status) %>% summarise(Count = n())
+complete_incomplete
+```
+```{r, warning = FALSE, message = FALSE}
+plot_complete_incomplete <- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) + geom_col(aes(fill=Status), position = "dodge") +
+        theme(axis.text.x = element_text(size = 7, angle = 45))
+
+plot_complete_incomplete
+```
+
+"complete" - circular assembly (Unicycler)
+"incomplete" - linear assembly (Unicycler)
+"scaffold" - linear assembly (SPAdes plasmid)
+
+## Genome length distribution
+```{r, warning = FALSE, message = FALSE}
+summary_chrom <- summary_table %>% filter(Type=='Chromosome')
+plot_length_chrom <- ggplot(summary_chrom, aes(Length)) + geom_area(stat="bin")
+plot_length_chrom
+```
