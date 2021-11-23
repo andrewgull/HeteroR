@@ -7,6 +7,7 @@
         <entry key="file://$PROJECT_DIR$/notebooks/genome_assembly_summary.rmd">
           <value>
             <RMarkdownRenderProfile>
+              <option name="lastOutput" value="$PROJECT_DIR$/notebooks/genome_assembly_summary.html" />
               <option name="outputDirectoryUrl" value="file://$PROJECT_DIR$/notebooks" />
             </RMarkdownRenderProfile>
           </value>
