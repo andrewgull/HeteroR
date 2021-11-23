@@ -1,0 +1,77 @@
+---
+title: "Genome assemblies summary"
+author: "AG"
+date: "last update: `r format(Sys.time(), format = '%d %B %Y, %H:%M CET')`"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    toc: true
+    toc_float: true
+    rmdformats:
+      theme: cerulean
+      highlight: github
+---
+
+Here you'll find a summary of `results/assemblies_joined/{strain}/summary.tsv` files
+
+# Read the data
+
+```{r, message = FALSE, warning = FALSE}
+library(dplyr)
+
+summary_files <- dir(path="../results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
+summary_table <- lapply(summary_files, function(x){read.delim(paste0("../results/assemblies_joined/", x), stringsAsFactors = TRUE)})
+
+summary_table <- bind_rows(summary_table)
+# replace commas in Length, N50 and Longest component
+summary_table$Length <- as.integer(gsub(",", "", summary_table$Length, fixed=TRUE))
+summary_table$N50 <- as.integer(gsub(",", "", summary_table$N50, fixed=TRUE))
+summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longest_component, fixed=TRUE))
+summary_table
+```
+
+# Summaries
+```{r}
+summary(summary_table)
+```
+
+## Number of plasmids per strain
+
+```{r, message = FALSE}
+plasmids_count <- summary_table %>% group_by(Strain, Type) %>% summarise(Count = n()) %>% filter(Type=="Plasmid")
+plasmids_count
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+library(ggplot2)
+
+plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col() +
+        theme(axis.text.x = element_text(size = 7, angle = 45))
+plot_plasmids_per_strain
+```
+
+## Number of complete and incomplete segments per strain
+
+```{r, warning = FALSE, message = FALSE}
+complete_incomplete <- summary_table %>% group_by(Strain, Status) %>% summarise(Count = n())
+complete_incomplete
+```
+```{r, warning = FALSE, message = FALSE}
+plot_complete_incomplete <- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) + geom_col(aes(fill=Status), position = "dodge") +
+        theme(axis.text.x = element_text(size = 7, angle = 45))
+
+plot_complete_incomplete
+```
+
+"complete" - circular assembly (Unicycler)
+"incomplete" - linear assembly (Unicycler)
+"scaffold" - linear assembly (SPAdes plasmid)
+
+## Genome length distribution
+```{r, warning = FALSE, message = FALSE}
+summary_chrom <- summary_table %>% filter(Type=='Chromosome')
+plot_length_chrom <- ggplot(summary_chrom, aes(Length)) + geom_area(stat="bin")
+plot_length_chrom
+```
