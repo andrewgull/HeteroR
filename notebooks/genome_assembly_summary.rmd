@@ -21,7 +21,7 @@ Here you'll find a summary of `results/assemblies_joined/{strain}/summary.tsv` f
 library(dplyr)
 
 # just in case
-setwd("notebooks")
+setwd("/home/andrei/Data/HeteroR/notebooks")
 
 summary_files <- dir(path="../results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
 summary_table <- lapply(summary_files, function(x){read.delim(paste0("../results/assemblies_joined/", x), stringsAsFactors = TRUE)})
@@ -47,12 +47,14 @@ plasmids_count
 ```
 
 
-```{r, warning = FALSE, message = FALSE}
+```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
 library(ggplot2)
 
 plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col() +
-        theme(axis.text.x = element_text(size = 7, angle = 45)) +
-        scale_y_continuous(breaks=seq(0, 9, 1))
+        theme(axis.text.x = element_text(size = 10, angle = 45)) +
+        scale_y_continuous(breaks=seq(0, 9, 1)) +
+        xlab("strains") +
+        ylab("plasmids count")
 plot_plasmids_per_strain
 ```
 
@@ -60,8 +62,9 @@ plot_plasmids_per_strain
 ggplot(plasmids_count, aes(Type, Count)) +
         geom_boxplot() +
         geom_jitter() +
-        theme_dark() +
-        scale_y_continuous(breaks=seq(0, 9, 2))
+        scale_y_continuous(breaks=seq(0, 9, 2)) +
+        xlab("") +
+        ylab("plasmid count")
 ```
 
 ## Number of complete and incomplete segments per strain
@@ -70,20 +73,58 @@ ggplot(plasmids_count, aes(Type, Count)) +
 complete_incomplete <- summary_table %>% group_by(Strain, Status) %>% summarise(Count = n())
 complete_incomplete
 ```
-```{r, warning = FALSE, message = FALSE}
-plot_complete_incomplete <- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) + geom_col(aes(fill=Status), position = "dodge") +
-        theme(axis.text.x = element_text(size = 7, angle = 45))
+```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
+plot_complete_incomplete <- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) +
+         geom_col(aes(fill=Status), position = "stack") +
+        theme(axis.text.x = element_text(size = 7, angle = 45)) +
+        xlab("strain") +
+        ylab("count")
 
 plot_complete_incomplete
 ```
 
 "complete" - circular assembly (Unicycler)
+
 "incomplete" - linear assembly (Unicycler)
+
 "scaffold" - linear assembly (SPAdes plasmid)
 
+There is indeed just one scaffold, i.e. plasmid assembles by SPAdes
+
+```{r}
+summary_table %>% filter(Status=="scaffold")
+```
+
 ## Genome length distribution
+
+### Chromosomes
+
 ```{r, warning = FALSE, message = FALSE}
 summary_chrom <- summary_table %>% filter(Type=='Chromosome')
-plot_length_chrom <- ggplot(summary_chrom, aes(Length)) + geom_area(stat="bin")
+plot_length_chrom <- ggplot(summary_chrom, aes(Length)) + geom_histogram(stat="bin")
 plot_length_chrom
 ```
+
+### Plasmids
+
+```{r}
+summary_plasmids <- summary_table %>% filter(Type=='Plasmid')
+plot_length_plasmid <- ggplot(summary_plasmids, aes(Length)) + geom_histogram(stat="bin")
+plot_length_plasmid
+```
+
+These longest outliers (250k, 400k, 700k and 900k) - are they really plasmids?
+```{r}
+summary_table %>% filter(Type=='Plasmid') %>% arrange(-Length)
+```
+```{r}
+summary_table %>% filter(Strain=="DA63676")
+```
+
+Chromosome is incomplete and adds up to 5 Mbp with the longest plasmid...
+
+```{r}
+summary_table %>% filter(Strain=="DA63914")
+```
+
+Same here...
