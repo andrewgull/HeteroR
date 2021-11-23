@@ -128,3 +128,5 @@ summary_table %>% filter(Strain=="DA63914")
 ```
 
 Same here...
+
+# Assembly completeness
