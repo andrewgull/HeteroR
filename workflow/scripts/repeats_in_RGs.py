@@ -55,10 +55,11 @@ for gene in resistance_genes_coords:
     genes_lol.append(row)
 
 # a table with span and resistance gene coordinates
-coordinates = pd.DataFrame(columns=["gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
+rg_spans_and_coords = pd.DataFrame(columns=["gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
                            data=genes_lol)
 
-# Now collect the spans from the genome
+# turn this data frame to a bed file - but how to deal with negative coordinates?
+# https://bacteria.ensembl.org/info/website/upload/bed.html
 # Use bed tools - create a bed file
 # something should be done with the negative coordinates
 
