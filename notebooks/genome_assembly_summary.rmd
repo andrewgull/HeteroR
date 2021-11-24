@@ -130,3 +130,50 @@ summary_table %>% filter(Strain=="DA63914")
 Same here...
 
 # Assembly completeness
+
+Parse BUSCO summary files and summarize the results
+
+```{r}
+busco_path <- "/home/andrei/Data/HeteroR/results/qualcheck_assembly/"
+busco_filename <- "short_summary.specific.gammaproteobacteria_odb10.busco_results.txt"
+
+busco_files <- dir(path = busco_path, pattern = busco_filename, recursive = TRUE)
+
+busco_list <- lapply(busco_files, function(x){
+  strain <- strsplit(x, "/")[[1]][1]
+  t <- read.delim(paste0(busco_path, x), skip = 9, header = FALSE, nrows = 6)
+  t$Strain <- strain
+  return(t)
+})
+
+busco_table <- bind_rows(busco_list) %>% select(-c(V1, V4, V5, V6))
+
+busco_table
+```
+
+## Distribution of complete BUSCOs
+
+### Complete
+
+```{r}
+busco_table %>% filter(V3 == "Complete BUSCOs (C)") %>% summary()
+```
+
+### Complete and single-copy
+
+```{r}
+busco_table %>% filter(V3 == "Complete and single-copy BUSCOs (S)") %>% summary()
+```
+
+### Fragmented
+
+```{r}
+busco_table %>% filter(V3 == "Fragmented BUSCOs (F)") %>% summary()
+```
+
+### Missing
+
+```{r}
+busco_table %>% filter(V3 == "Missing BUSCOs (MFragmented)") %>% summary()
+```
+
