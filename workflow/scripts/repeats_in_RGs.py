@@ -10,48 +10,55 @@ import pandas as pd
 from BCBio import GFF
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
+# VARIABLES
+in_rgi = "DA62886_rgi_table.tsv"
+in_gff = "DA62886_genomic.gff"
+genome_len = 5131220  # must be determined for each particular genome
+span_len = 100000
 
-# rgi results
-rgi = pd.read_csv("DA62886_rgi_table.tsv", sep="\t")  # all genes are in this list???
+# rgi results - resistance information
+rgi = pd.read_csv(in_rgi, sep="\t")
+# rgi["Cut_Off"].unique()
+# some genes are 'Loose', leave 'Strict' and 'Perfect' only
+rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
 
-# parse gbk file
-gbk = [rec for rec in SeqIO.parse("DA62886_genomic.gbk", "genbank")]
-gbk_dict = SeqIO.to_dict(SeqIO.parse("DA62886_genomic.gbk", "gb"))
-
-# it contains 3 records: a chromosome and two plasmids, they are accessible through .features
-# get chromosomal genes
-
-# chrom_genes = [item for item in gbk[0].features if item.type == 'gene']  # 4947
-
-# try GFF file instead
-in_file = "DA62886_genomic.gff"
-
-with open(in_file) as f:
+# parse GFF annotation file to retrieve genes' coordinates and strand
+with open(in_gff) as f:
     gff = [rec for rec in GFF.parse(f)]
 
 chromosome_genes = [feature for feature in gff[0].features if feature.type == "gene"]  # here we have IDs and positions
 
-# filter the genes with resistance - both in RGI and GBK
-# naive looping approach
+# find resistance genes' coords: RGI - resistance, GBK - coords
+# naive looping approach: 61*4947 comparisons
 resistance_genes_coords = list()
-for orf in rgi["ORF_ID"]:
+for orf in rgi_notLoose["ORF_ID"]:
     for gene in chromosome_genes:
         if orf.split(" ")[0] in gene.id:
             resistance_genes_coords.append(gene)
 
+print("Coordinates of %i resistance genes not found" % (len(rgi_notLoose) - len(resistance_genes_coords)))
+
 # get their coordinates - from GBK
 # get ± 100 kb region for each gene
 
-genome_end = 5131220
-span = 100000
+genes_lol = list()
+
 for gene in resistance_genes_coords:
     start = int(gene.location.start)
     end = int(gene.location.end)
-    span_start = start - span
+    span_start = start - span_len
     # check if it's negative
     #if span_start < 0:
-    #    span_start = genome_end + span_start
-    span_end = end + span
+    #    span_start = genome_len + span_start
+    span_end = end + span_len
     row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
-    print(row)
-genes_and_spans = pd.DataFrame()
+    genes_lol.append(row)
+
+# a table with span and resistance gene coordinates
+coordinates = pd.DataFrame(columns=["gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
+                           data=genes_lol)
+
+# Now collect the spans from the genome
+# Use bed tools - create a bed file
+# something should be done with the negative coordinates
+
