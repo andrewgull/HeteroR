@@ -22,11 +22,20 @@ rgi = pd.read_csv(in_rgi, sep="\t")
 # some genes are 'Loose', leave 'Strict' and 'Perfect' only
 rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
 
-# parse GFF annotation file to retrieve genes' coordinates and strand
+# parse GFF annotation file
+# to retrieve chromosomal genes' coordinates and strand
 with open(in_gff) as f:
     gff = [rec for rec in GFF.parse(f)]
 
 chromosome_genes = [feature for feature in gff[0].features if feature.type == "gene"]  # here we have IDs and positions
+chromosome_id = [gff[0].id]
+
+# and plasmid genes' coordinates and strand
+plasmid_genes = list()
+plasmid_id = list()
+for i in range(1, len(gff)):
+    plasmid_genes.append([feature for feature in gff[i].features if feature.type == "gene"])
+    plasmid_id.append(gff[i].id)
 
 # find resistance genes' coords: RGI - resistance, GBK - coords
 # naive looping approach: 61*4947 comparisons
@@ -62,4 +71,17 @@ rg_spans_and_coords = pd.DataFrame(columns=["gene_id", "gene_start", "gene_end",
 # https://bacteria.ensembl.org/info/website/upload/bed.html
 # Use bed tools - create a bed file
 # something should be done with the negative coordinates
+
+rg_spans_and_coords_positive = rg_spans_and_coords[rg_spans_and_coords["span_start"] >= 0]
+rg_spans_and_coords_negative = rg_spans_and_coords[rg_spans_and_coords["span_start"] < 0]
+
+# making a bed file for ranges not crossing oriC
+bed_file = pd.DataFrame()
+
+bed_file["range_start"] = rg_spans_and_coords_positive["span_start"]
+bed_file["range_end"] = rg_spans_and_coords_positive["span_end"]
+bed_file["name"] = rg_spans_and_coords_positive["gene_id"]
+bed_file["score"] = "0"
+bed_file["strand"] = rg_spans_and_coords_positive["strand"]
+
 
