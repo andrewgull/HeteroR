@@ -72,7 +72,6 @@ for item in gff:
 
     # making a bed file for ranges not crossing oriC
     bed_file = pd.DataFrame()
-
     bed_file["range_start"] = rg_ranges_pos["span_start"]
     bed_file["range_end"] = rg_ranges_pos["span_end"]
     bed_file["name"] = rg_ranges_pos["gene_id"]
