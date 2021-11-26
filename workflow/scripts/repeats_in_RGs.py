@@ -60,7 +60,7 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len):
     bed_file["name"] = rg_ranges_pos["gene_id"]
     bed_file["score"] = "0"
     bed_file["strand"] = rg_ranges_pos["strand"]
-    return bed_file, message
+    return bed_file, rg_ranges_neg, message
 
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
@@ -85,6 +85,7 @@ with open(in_gff) as f:
 for item in gff:
     # TODO: make use of genome length - use for plasmids
     # TODO: negative coordinates?
-    ranges_bed, bed_message = make_bed_file(gff_record=item, rgi_dataframe=rgi_notLoose, dna_len=genome_len, span_len=range_len)
+    ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=item, rgi_dataframe=rgi_notLoose,
+                                                             dna_len=genome_len, span_len=range_len)
     # TODO: cut the ranges from chromosome or plasmid
     # TODO: run GRF
