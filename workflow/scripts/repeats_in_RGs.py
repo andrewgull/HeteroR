@@ -8,6 +8,7 @@ requires: bcbio-gff and gffutils
 from Bio import SeqIO
 import pandas as pd
 from BCBio import GFF
+from pybedtools import BedTool
 
 
 def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
