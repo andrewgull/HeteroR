@@ -117,7 +117,6 @@ assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
 
 # iterate through chromosome and plasmids
 for i in range(len(gff)):
-    # TODO: make use of genome length - use for plasmids
     # TODO: negative coordinates?
     record_len = len(assembly[i].seq)
     if "circular=true" in assembly[i].description:
@@ -127,5 +126,4 @@ for i in range(len(gff)):
 
     ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                              dna_len=record_len, span_len=range_len, circular=circ)
-    # TODO: cut the ranges from chromosome or plasmid
     # TODO: run GRF
