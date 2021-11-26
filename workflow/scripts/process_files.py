@@ -76,8 +76,8 @@ def copy_files(strain_file, argos_path, destination="resources/data_raw"):
 def new_name(path_string):
     """
     converts path to a filename
-    param path: unix path-like string: "resources/data_raw/strain/machine/barcode/filename.fq.gz"
-    return: new filename like "strain_14.fq.gz" or "strain_1.fq.gz"
+    :param path_string: unix path-like string: "resources/data_raw/strain/machine/barcode/filename.fq.gz"
+    :return: new filename like "strain_14.fq.gz" or "strain_1.fq.gz"
     NB: a retrieved strain_name depends on directory structure!
     """
     dirs = path_string.split("/")
