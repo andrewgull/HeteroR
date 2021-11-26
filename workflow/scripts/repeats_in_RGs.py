@@ -10,7 +10,7 @@ import pandas as pd
 from BCBio import GFF
 
 
-def make_bed_file(gff_record, rgi_dataframe):
+def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len):
     """
     makes bed file for genomic ranges with resistance genes
     """
@@ -36,9 +36,7 @@ def make_bed_file(gff_record, rgi_dataframe):
         start = int(gene.location.start)
         end = int(gene.location.end)
         span_start = start - span_len
-        # check if it's negative
-        #if span_start < 0:
-        #    span_start = genome_len + span_start
+        # IF genome_len is shorter than 5Mbp?
         span_end = end + span_len
         row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
         rg_collection.append(row)
@@ -70,7 +68,7 @@ def make_bed_file(gff_record, rgi_dataframe):
 in_rgi = "DA62886_rgi_table.tsv"
 in_gff = "DA62886_genomic.gff"
 genome_len = 5131220  # must be determined for each particular genome
-span_len = 100000
+range_len = 100000
 
 # rgi results - resistance information
 rgi = pd.read_csv(in_rgi, sep="\t")
@@ -85,4 +83,8 @@ with open(in_gff) as f:
 
 # iterate through chromosome and plasmids
 for item in gff:
-    ranges_bed, bed_message = make_bed_file(item, rgi_notLoose)
+    # TODO: make use of genome length - use for plasmids
+    # TODO: negative coordinates?
+    ranges_bed, bed_message = make_bed_file(gff_record=item, rgi_dataframe=rgi_notLoose, dna_len=genome_len, span_len=range_len)
+    # TODO: cut the ranges from chromosome or plasmid
+    # TODO: run GRF
