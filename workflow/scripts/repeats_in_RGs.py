@@ -70,10 +70,17 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular=True):
 
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
-# VARIABLES
-in_rgi = "DA62886_rgi_table.tsv"
+# VARIABLES NON CIRCULAR CHROMOSOME
+in_rgi = "DA62886_rgi_table.txt"
 in_gff = "DA62886_genomic.gff"
-genome_len = 5131220  # must be determined for each particular genome
+in_assembly = "DA63004_assembly.fasta"
+
+# VARIABLES CIRCULAR EVERYTHING
+in_rgi_circ = "DA63004_rgi_table.txt"
+in_gff_circ = "DA63004_genomic.gff"
+in_assembly_circ = "DA63004_assembly.fasta"
+
+# genome_len = 5131220  # must be determined for each particular genome
 range_len = 100000
 
 # rgi results - resistance information
@@ -87,11 +94,15 @@ rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
 with open(in_gff) as f:
     gff = [rec for rec in GFF.parse(f)]
 
+# read joined assembly file
+assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
+
 # iterate through chromosome and plasmids
-for item in gff:
+for i in range(len(gff)):
     # TODO: make use of genome length - use for plasmids
     # TODO: negative coordinates?
-    ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=item, rgi_dataframe=rgi_notLoose,
-                                                             dna_len=genome_len, span_len=range_len)
+    record_len = len(assembly[i].seq)
+    ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
+                                                             dna_len=record_len, span_len=range_len)
     # TODO: cut the ranges from chromosome or plasmid
     # TODO: run GRF
