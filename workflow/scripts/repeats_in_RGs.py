@@ -10,9 +10,10 @@ import pandas as pd
 from BCBio import GFF
 
 
-def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular=True):
+def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
     """
     makes bed file for genomic ranges with resistance genes
+    it takes into account the length of dna record and range
     param gff_record: obj, list of gff records of a particular assembly
     param rgi_dataframe: obj, pd DataFrame of RGI results
     param dna_len: int, length of a current record (chromosome or plasmid)
@@ -53,6 +54,7 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular=True):
                 span_end = dna_len
             else:
                 span_end = end + span_len
+            # make a future table row
             row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
             rg_collection.append(row)
 
@@ -89,7 +91,7 @@ def handle_negative_coords():
 # VARIABLES NON CIRCULAR CHROMOSOME
 in_rgi = "DA62886_rgi_table.txt"
 in_gff = "DA62886_genomic.gff"
-in_assembly = "DA63004_assembly.fasta"
+in_assembly = "DA62886_assembly.fasta"
 
 # VARIABLES CIRCULAR EVERYTHING
 in_rgi_circ = "DA63004_rgi_table.txt"
@@ -118,7 +120,12 @@ for i in range(len(gff)):
     # TODO: make use of genome length - use for plasmids
     # TODO: negative coordinates?
     record_len = len(assembly[i].seq)
+    if "circular=true" in assembly[i].description:
+        circ = True
+    else:
+        circ = False
+
     ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
-                                                             dna_len=record_len, span_len=range_len)
+                                                             dna_len=record_len, span_len=range_len, circular=circ)
     # TODO: cut the ranges from chromosome or plasmid
     # TODO: run GRF
