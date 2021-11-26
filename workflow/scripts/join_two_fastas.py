@@ -32,9 +32,9 @@ def get_args():
 def joiner(file1, file2):
     """
     Reads in provided files and joins them together as lists
-    param: file1 - 1st file to join (unicycler assembly or any other fasta)
-    param: file2 - 2nd file to join (plasmid assembly or any other fasta)
-    return: joined fasta as list
+    :param file1: 1st file to join (unicycler assembly or any other fasta)
+    :param file2: 2nd file to join (plasmid assembly or any other fasta)
+    :return: joined fasta as list
     """
     # read the 1st file
     fasta1 = [seq for seq in SeqIO.parse(file1, 'fasta')]
