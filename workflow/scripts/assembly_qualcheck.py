@@ -11,9 +11,9 @@ import os
 
 def write_logs(output, tool, strain_name):
     """
-    param: output - stdout or stderr output of communicate(), bytes object
-    param: tool - busco or quast
-    param: strain_name - name of strain
+    :param output: stdout or stderr output of communicate(), bytes object
+    :param tool: busco or quast
+    :param strain_name: name of strain
     """
     if len(output) > 0:
         with open("results/logs/%s_%s.log" % (strain_name, tool), "w") as f:
