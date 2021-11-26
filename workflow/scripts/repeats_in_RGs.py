@@ -37,36 +37,44 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular=True):
     # get ± 100 kb region for each gene
 
     rg_collection = list()
+    if not circular:
+        # don't care about ranges crossing oriC
+        for gene in resistance_genes_coords:
+            start = int(gene.location.start)
+            end = int(gene.location.end)
+            span_start = start - span_len
+            # IF genome_len is shorter than 5Mbp?
+            span_end = end + span_len
+            row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
+            rg_collection.append(row)
 
-    for gene in resistance_genes_coords:
-        start = int(gene.location.start)
-        end = int(gene.location.end)
-        span_start = start - span_len
-        # IF genome_len is shorter than 5Mbp?
-        span_end = end + span_len
-        row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
-        rg_collection.append(row)
+        # a table with span and resistance gene coordinates
+        rg_ranges = pd.DataFrame(columns=["gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
+                                 data=rg_collection)
 
-    # a table with span and resistance gene coordinates
-    rg_ranges = pd.DataFrame(columns=["gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
-                             data=rg_collection)
+        # split ranges not crossing oriC and not crossing it
+        rg_ranges_pos = rg_ranges[rg_ranges["span_start"] >= 0]
+        rg_ranges_neg = rg_ranges[rg_ranges["span_start"] < 0]
 
-    # turn this data frame to a bed file - but how to deal with negative coordinates?
-    # https://bacteria.ensembl.org/info/website/upload/bed.html
-    # Use bed tools - create a bed file
-    # something should be done with the negative coordinates
-    # split ranges not crossing oriC and not crossing it
-    rg_ranges_pos = rg_ranges[rg_ranges["span_start"] >= 0]
-    rg_ranges_neg = rg_ranges[rg_ranges["span_start"] < 0]
+        # making a bed file for ranges not crossing oriC
+        bed_file = pd.DataFrame()
+        bed_file["range_start"] = rg_ranges_pos["span_start"]
+        bed_file["range_end"] = rg_ranges_pos["span_end"]
+        bed_file["name"] = rg_ranges_pos["gene_id"]
+        bed_file["score"] = "0"
+        bed_file["strand"] = rg_ranges_pos["strand"]
+    else:
+        # this line doesn't do anything
+        bed_file, rg_ranges_neg, message = handle_negative_coords()
 
-    # making a bed file for ranges not crossing oriC
-    bed_file = pd.DataFrame()
-    bed_file["range_start"] = rg_ranges_pos["span_start"]
-    bed_file["range_end"] = rg_ranges_pos["span_end"]
-    bed_file["name"] = rg_ranges_pos["gene_id"]
-    bed_file["score"] = "0"
-    bed_file["strand"] = rg_ranges_pos["strand"]
     return bed_file, rg_ranges_neg, message
+
+
+def handle_negative_coords():
+    """
+    do something with negative coordinates
+    """
+    return 1, 1, 1
 
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
