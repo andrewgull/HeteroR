@@ -38,13 +38,21 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular=True):
 
     rg_collection = list()
     if not circular:
-        # don't care about ranges crossing oriC
+        # then don't care about ranges crossing oriC
+        # range coordinate will always be less than span length
         for gene in resistance_genes_coords:
             start = int(gene.location.start)
             end = int(gene.location.end)
-            span_start = start - span_len
-            # IF genome_len is shorter than 5Mbp?
-            span_end = end + span_len
+            # check left end
+            if start < span_len:
+                span_start = start
+            else:
+                span_start = start - span_len
+            # check right end
+            if end + span_len > dna_len:
+                span_end = dna_len
+            else:
+                span_end = end + span_len
             row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
             rg_collection.append(row)
 
