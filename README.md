@@ -1,5 +1,7 @@
 # Sequence based prediciton of Unstable and Gene-amplification Generated Heteroresistance
 
+![hr_model](images/unstable_HR_model.png)
+
 **Background:** Heteroresistance (HR) is a phenomenon in which a preexisting subpopulation of resistant cells can rapidly replicate in the presence of a given antibiotic, whereas the majority population of susceptible cells is killed. The mechanisms underlying HR are somewhat unclear, although unstable amplification of antibiotic resistance genes resulting in increased gene dosage is responsible for the resistant subpopulation in numerous cases
 
 **Objective:** Predicting heteroresistance from bacterial genome data.
@@ -9,6 +11,8 @@
 - "resistance labels"
 
 **Metrics:**
+
+![metrics](images/HR_workflow_features_scheme.png)
 
 1. Presence of resistance genes (RG)
    - presence of known RG as identified from the CARD database
