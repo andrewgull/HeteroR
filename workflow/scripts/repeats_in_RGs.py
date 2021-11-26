@@ -14,12 +14,12 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
     """
     makes bed file for genomic ranges with resistance genes
     it takes into account the length of dna record and range
-    param gff_record: obj, list of gff records of a particular assembly
-    param rgi_dataframe: obj, pd DataFrame of RGI results
-    param dna_len: int, length of a current record (chromosome or plasmid)
-    param span_len: int, length of up- and downstream region flanking a resistance gene
-    param circular: bool, is current dna record circular or not?
-    return: bed formatted DataFrame, negative span DataFrame, message with number of found genes
+    :param gff_record: GFF-object, list of gff records of a particular assembly
+    :param rgi_dataframe: pandas DataFrame, pd DataFrame of RGI results
+    :param dna_len: integer, length of a current record (chromosome or plasmid)
+    :param span_len: integer, length of up- and downstream region flanking a resistance gene
+    :param circular: boolean, is current dna record circular or not?
+    :return: bed formatted pandas DataFrame, negative span pandas DataFrame, message with number of found genes
     """
     genes = [feature for feature in gff_record.features if feature.type == "gene"]  # here we have IDs and positions
     item_id = gff_record.id
