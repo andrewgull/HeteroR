@@ -128,5 +128,5 @@ for i in range(len(gff)):
 
     ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                              dna_len=record_len, span_len=range_len, circular=circ)
-    # TODO: merge overlapping ranges (t.ex. in DA62886 plasmid)
+    # no merge needed here
     # TODO: run GRF
