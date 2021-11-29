@@ -51,8 +51,8 @@ plasmids_count
 library(ggplot2)
 
 plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col() +
-        theme(axis.text.x = element_text(size = 10, angle = 45)) +
-        scale_y_continuous(breaks=seq(0, 9, 1)) +
+        theme(axis.text.x = element_text(size = 7, angle = 90)) +
+        scale_y_continuous(breaks=seq(0, 10, 1)) +
         xlab("strains") +
         ylab("plasmids count")
 plot_plasmids_per_strain
@@ -62,7 +62,7 @@ plot_plasmids_per_strain
 ggplot(plasmids_count, aes(Type, Count)) +
         geom_boxplot() +
         geom_jitter() +
-        scale_y_continuous(breaks=seq(0, 9, 2)) +
+        scale_y_continuous(breaks=seq(0, 11, 2)) +
         xlab("") +
         ylab("plasmid count")
 ```
@@ -76,7 +76,7 @@ complete_incomplete
 ```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
 plot_complete_incomplete <- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) +
          geom_col(aes(fill=Status), position = "stack") +
-        theme(axis.text.x = element_text(size = 7, angle = 45)) +
+        theme(axis.text.x = element_text(size = 7, angle = 90)) +
         xlab("strain") +
         ylab("count")
 
