@@ -47,7 +47,7 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
             end = int(gene.location.end)
             # check left end
             if start < span_len:
-                # TODO: 1-based indexing in BED format???
+                # BED indexes start with zero
                 span_start = 1
             else:
                 span_start = start - span_len
@@ -129,4 +129,6 @@ for i in range(len(gff)):
     ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                              dna_len=record_len, span_len=range_len, circular=circ)
     # no merge needed here
+    # cut regions using bedtools
+
     # TODO: run GRF
