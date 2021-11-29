@@ -3,8 +3,7 @@ sequence of commands/a script prototype
 to join RGI and RGF results
 requires: bcbio-gff and gffutils
 """
-
-
+import pybedtools
 from Bio import SeqIO
 import pandas as pd
 from BCBio import GFF
@@ -43,6 +42,7 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
         # then don't care about ranges crossing oriC
         # range coordinate will always be less than span length
         for gene in resistance_genes_coords:
+            chrom_name = item_id.split("_")[-1]  # goes to the first column of abed file
             start = int(gene.location.start)
             end = int(gene.location.end)
             # check left end
@@ -57,11 +57,11 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
             else:
                 span_end = end + span_len
             # make a future table row
-            row = [gene.id, start, end, span_start, span_end, int(gene.location.strand)]
+            row = [chrom_name, gene.id, start, end, span_start, span_end, int(gene.location.strand)]
             rg_collection.append(row)
 
         # a table with span and resistance gene coordinates
-        rg_ranges = pd.DataFrame(columns=["gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
+        rg_ranges = pd.DataFrame(columns=["chrom", "gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
                                  data=rg_collection)
 
         # split ranges not crossing oriC and not crossing it
@@ -70,6 +70,7 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
 
         # making a bed file for ranges not crossing oriC
         bed_file = pd.DataFrame()
+        bed_file["chrom"] = rg_ranges_pos["chrom"]
         bed_file["range_start"] = rg_ranges_pos["span_start"]
         bed_file["range_end"] = rg_ranges_pos["span_end"]
         bed_file["name"] = rg_ranges_pos["gene_id"]
@@ -94,6 +95,8 @@ def handle_negative_coords():
 in_rgi = "DA62886_rgi_table.txt"
 in_gff = "DA62886_genomic.gff"
 in_assembly = "DA62886_assembly.fasta"
+regions_bed_output = "regions_output.bed"
+regions_fasta_output = "regions_output.fasta"
 
 # VARIABLES CIRCULAR EVERYTHING
 in_rgi_circ = "DA63004_rgi_table.txt"
@@ -129,6 +132,10 @@ for i in range(len(gff)):
     ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                              dna_len=record_len, span_len=range_len, circular=circ)
     # no merge needed here
+    ranges_bed.to_csv(regions_bed_output, sep="\t", index=False, header=False)
     # cut regions using bedtools
+    bed_file = BedTool(regions_bed_output)
+    # write fasta regions to a file
+    bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
 
     # TODO: run GRF
