@@ -47,11 +47,11 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
             end = int(gene.location.end)
             # check left end
             if start < span_len:
-                # BED indexes start with zero
-                span_start = 1
+                # to include leftmost letter subtract 1
+                span_start = 0
             else:
-                span_start = start - span_len
-            # check right end
+                span_start = start - span_len - 1
+            # check right end: bedtools includes it
             if end + span_len > dna_len:
                 span_end = dna_len
             else:
