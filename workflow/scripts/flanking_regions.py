@@ -124,6 +124,7 @@ assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
 for i in range(len(gff)):
     # TODO: negative coordinates?
     record_len = len(assembly[i].seq)
+    # find is it circular
     if "circular=true" in assembly[i].description:
         circ = True
     else:
@@ -138,4 +139,3 @@ for i in range(len(gff)):
     # write fasta regions to a file
     bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
 
-    # TODO: run GRF
