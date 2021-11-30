@@ -1,0 +1,5 @@
+name: grf-env
+channels:
+  - bioconda
+dependencies:
+  - genericrepeatfinder=1.0
