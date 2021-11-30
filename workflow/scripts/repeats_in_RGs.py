@@ -139,4 +139,3 @@ for i in range(len(gff)):
     # write fasta regions to a file
     bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
 
-    # TODO: run GRF
