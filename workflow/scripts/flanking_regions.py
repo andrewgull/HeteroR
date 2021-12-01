@@ -137,10 +137,14 @@ for i in range(len(gff)):
 
     ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                              dna_len=record_len, span_len=range_len, circular=circ)
-    # no merge needed here
-    ranges_bed.to_csv(regions_bed_output, sep="\t", index=False, header=False)
-    # cut regions using bedtools
-    bed_file = BedTool(regions_bed_output)
-    # write fasta regions to a file
-    bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
+    # skipping bed files with negative coordinates
+    if type(ranges_bed) is int:
+        print("no bed file will be produced")
+    else:
+        # no merge needed here
+        ranges_bed.to_csv(regions_bed_output, sep="\t", index=False, header=False)
+        # cut regions using bedtools
+        bed_file = BedTool(regions_bed_output)
+        # write fasta regions to a file
+        bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
 
