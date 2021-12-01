@@ -279,8 +279,7 @@ rule repeated_regions:
     output:
         "results/direct_repeats/{strain}/bed/regions.bed",
         "results/direct_repeats/{strain}/bed/regions.fasta"
-    threads: 14
-    message: "executing BEDtools with {threads} on {wildcards.strain} assembly"
+    message: "executing BEDtools on {wildcards.strain} assembly"
     log: "results/logs/{strain}_bedtools.log"
     params: span=100000  # one flank length
     script:
