@@ -1,6 +1,6 @@
+#!/usr/bin/env python3
 """
-sequence of commands/a script prototype
-to join RGI and RGF results
+script to create a bed files for a given assembly and get regions from bed in fasta format
 requires: bcbio-gff and gffutils
 """
 import pybedtools
@@ -91,20 +91,25 @@ def handle_negative_coords():
 
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
-# VARIABLES NON CIRCULAR CHROMOSOME
-in_rgi = "DA62886_rgi_table.txt"
-in_gff = "DA62886_genomic.gff"
-in_assembly = "DA62886_assembly.fasta"
-regions_bed_output = "regions_output.bed"
-regions_fasta_output = "regions_output.fasta"
+# VARIABLES TEST NON CIRCULAR CHROMOSOME
+# in_rgi = "DA62886_rgi_table.txt"
+# in_gff = "DA62886_genomic.gff"
+# in_assembly = "DA62886_assembly.fasta"
+# regions_bed_output = "regions_output.bed"
+# regions_fasta_output = "regions_output.fasta"
+#
+# # VARIABLES TEST CIRCULAR EVERYTHING
+# in_rgi_circ = "DA63004_rgi_table.txt"
+# in_gff_circ = "DA63004_genomic.gff"
+# in_assembly_circ = "DA63004_assembly.fasta"
 
-# VARIABLES CIRCULAR EVERYTHING
-in_rgi_circ = "DA63004_rgi_table.txt"
-in_gff_circ = "DA63004_genomic.gff"
-in_assembly_circ = "DA63004_assembly.fasta"
-
-# genome_len = 5131220  # must be determined for each particular genome
-range_len = 100000
+# VARIABLES FOR SNAKEMAKE
+in_assembly = snakemake.input[0]
+in_gff = snakemake.input[1]
+in_rgi = snakemake.input[2]
+range_len = int(snakemake.input[3])
+regions_bed_output = snakemake.output[0]
+regions_fasta_output = snakemake.output[1]
 
 # rgi results - resistance information
 rgi = pd.read_csv(in_rgi, sep="\t")
