@@ -114,7 +114,7 @@ rule unicycler:
     shell:
         "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
 
-rule assembly_qualcheck:
+rule QC_assembly:
     input:
         "results/assemblies/{strain}",
         "resources/busco_downloads"
