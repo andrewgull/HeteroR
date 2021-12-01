@@ -124,7 +124,7 @@ rule QC_assembly:
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
     conda: "envs/busco_quast.yaml"
     script:
-        "scripts/assembly_qualcheck.py"
+        "scripts/QC_assembly.py"
 
 rule bwa_map:
     input:

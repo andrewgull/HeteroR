@@ -85,7 +85,7 @@ The project home directory is `/home/andrei/Data/HetroR`
     │   └── unicycler.yaml
     ├── scripts
     │   ├── assembly_summary.py
-    │   ├── assembly_qualcheck.py
+    │   ├── QC_assembly.py
     │   ├── coverage.sh
     │   ├── join_two_fastas.py
     │   ├── makefile
