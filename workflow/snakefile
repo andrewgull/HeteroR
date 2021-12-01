@@ -270,7 +270,7 @@ rule resistance_genes:
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
 rule repeated_regions:
-    # requires BEDtools and pybedtool
+    # requires BEDtools, pybedtools and bcbio-gff
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
         "results/annotations/{strain}/prokka/{strain}_genomic.gff",
