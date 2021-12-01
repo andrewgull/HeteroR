@@ -275,36 +275,30 @@ rule repeated_regions:
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
         "results/annotations/{strain}/prokka/{strain}_genomic.gff",
-        "results/resistance_genes/{strain}/rgi_table.txt",
-        "100000"  # one flank length
+        "results/resistance_genes/{strain}/rgi_table.txt"
     output:
         "results/direct_repeats/{strain}/bed/regions.bed",
         "results/direct_repeats/{strain}/bed/regions.fasta"
     threads: 14
     message: "executing BEDtools with {threads} on {wildcards.strain} assembly"
     log: "results/logs/{strain}_bedtools.log"
+    params: span=100000  # one flank length
     script:
         "scripts/flanking_regions.py"
 
 rule direct_repeats:
     input:
-        fasta="results/direct_repeats/{strain}/bed/regions.fasta",
-        mode="2",  # TDR detection
-        min_size="10",
-        format="1",  # fasta
-        mism="0",
-        seed_mism="0",
-        max_dist="205000",  # length of the longest sequence in data set: flank length*2 + gene length
-        min_dist="500"  # less than a single gene or 0?
+        fasta="results/direct_repeats/{strain}/bed/regions.fasta"
     output:
         directory("results/direct_repeats/{strain}/repeats")
     threads: 14
     message: "executing GRF with {threads} on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf.log"
     conda: "envs/grf.yaml"
+    params: mode=2, min_size=10, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=500
     shell:
-        "grf-main -i {input.fasta} -c {input.mode} -o {output} -t {threads} --min_tr {input.min_size} -f {input.format} "
-        "--max_mismatch {input.mism} --seed_mismatch {input.seed_mism} --max_space {input.max_dist} --min_space {input.min_dist}"
+        "grf-main -i {input.fasta} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
+        "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist}"
 
 rule final:
     input:
