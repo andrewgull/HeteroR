@@ -270,7 +270,7 @@ rule resistance_genes:
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
-rule repeated_regions:
+rule rg_flanking_regions:
     # requires BEDtools, pybedtools and bcbio-gff
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
