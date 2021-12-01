@@ -296,7 +296,7 @@ rule direct_repeats:
         max_dist="205000",  # length of the longest sequence in data set: flank length*2 + gene length
         min_dist="500"  # less than a single gene or 0?
     output:
-        "results/direct_repeats/{strain}/repeats"
+        directory("results/direct_repeats/{strain}/repeats")
     threads: 14
     message: "executing GRF with {threads} on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf.log"
@@ -315,7 +315,8 @@ rule final:
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
         rgi="results/resistance_genes/{strain}/rgi_table.txt",
         summary="results/assemblies_joined/{strain}/summary.tsv",
-        # spade="results/spade/{strain}"
+        rep_regions="results/direct_repeats/{strain}/bed/regions.fasta",
+        dr="results/direct_repeats/{strain}/repeats"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
