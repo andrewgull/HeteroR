@@ -10,7 +10,23 @@ from BCBio import GFF
 from pybedtools import BedTool
 
 
-def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
+def make_bed(collection, score):
+    """
+    :param collection: pd DataFrame of ranges for a bed file
+    :param score: score column value for bed file
+    :return: bed formatted pd DataFrame
+    """
+    bed = pd.DataFrame()
+    bed["chrom"] = collection["chrom"]
+    bed["range_start"] = collection["span_start"]
+    bed["range_end"] = collection["span_end"]
+    bed["name"] = collection["gene_id"]
+    bed["score"] = str(score)
+    bed["strand"] = collection["strand"]
+    return bed
+
+
+def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular):
     """
     makes bed file for genomic ranges with resistance genes
     it takes into account the length of dna record and range
@@ -38,57 +54,54 @@ def make_bed_file(gff_record, rgi_dataframe, dna_len, span_len, circular):
     # get ± 100 kb region for each gene
 
     rg_collection = list()
-    if not circular:
-        # then don't care about ranges crossing oriC
-        # range coordinate will always be less than span length
-        for gene in resistance_genes_coords:
-            chrom_name = item_id.split("_")[-1]  # goes to the first column of abed file
-            start = int(gene.location.start)
-            end = int(gene.location.end)
-            # check left end
-            if start < span_len:
-                # to include leftmost letter subtract 1
-                span_start = 0
-            else:
-                span_start = start - span_len - 1
-            # check right end: bedtools includes it
-            if end + span_len > dna_len:
-                span_end = dna_len
-            else:
-                span_end = end + span_len
-            # make a future table row
-            row = [chrom_name, gene.id, start, end, span_start, span_end, int(gene.location.strand)]
-            rg_collection.append(row)
+    # if not circular:  # TODO: SOLVE THE CASE WHEN IT'S CIRCULAR!
+    # then don't care about ranges crossing oriC
+    # range coordinate will always be less than span length
+    for gene in resistance_genes_coords:
+        chrom_name = item_id.split("_")[-1]  # goes to the first column of a bed file
+        start = int(gene.location.start)
+        end = int(gene.location.end)
+        # check left end
+        if start < span_len:
+            # to include leftmost letter subtract 1
+            span_start = 0
+        else:
+            span_start = start - span_len - 1
+        # check right end: bedtools includes it
+        if end + span_len > dna_len:
+            span_end = dna_len
+        else:
+            span_end = end + span_len
+        # make a future table row
+        row = [chrom_name, gene.id, start, end, span_start, span_end, int(gene.location.strand)]
+        rg_collection.append(row)
 
-        # a table with span and resistance gene coordinates
-        rg_ranges = pd.DataFrame(columns=["chrom", "gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
-                                 data=rg_collection)
+    # a table with span and resistance gene coordinates
+    rg_ranges = pd.DataFrame(columns=["chrom", "gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
+                             data=rg_collection)
 
-        # split ranges not crossing oriC and not crossing it
-        rg_ranges_pos = rg_ranges[rg_ranges["span_start"] >= 0]
-        rg_ranges_neg = rg_ranges[rg_ranges["span_start"] < 0]
+    # split ranges not crossing oriC and not crossing it
+    rg_ranges_pos = rg_ranges[rg_ranges["span_start"] >= 0]
+    rg_ranges_neg = rg_ranges[rg_ranges["span_start"] < 0]
 
-        # making a bed file for ranges not crossing oriC
-        bed_file = pd.DataFrame()
-        bed_file["chrom"] = rg_ranges_pos["chrom"]
-        bed_file["range_start"] = rg_ranges_pos["span_start"]
-        bed_file["range_end"] = rg_ranges_pos["span_end"]
-        bed_file["name"] = rg_ranges_pos["gene_id"]
-        bed_file["score"] = "0"
-        bed_file["strand"] = rg_ranges_pos["strand"]
-    else:
-        # this line doesn't do anything
-        bed_file, rg_ranges_neg, message = handle_negative_coords()
+    # making a bed file for ranges not crossing oriC
+    bed_dataframe = make_bed(rg_ranges_pos, score=0)
 
-    return bed_file, rg_ranges_neg, message
+    return bed_dataframe, rg_ranges_neg, message
 
 
-def handle_negative_coords():
+def handle_circular_records():
     """
     do something with negative coordinates
     """
     return 1, 1, 1
 
+
+def join_bed_files(bed_files_list):
+    """
+    join bed files
+    """
+    return 1
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 # VARIABLES TEST NON CIRCULAR CHROMOSOME
@@ -103,13 +116,14 @@ def handle_negative_coords():
 # in_gff_circ = "DA63004_genomic.gff"
 # in_assembly_circ = "DA63004_assembly.fasta"
 
+
 # VARIABLES FOR SNAKEMAKE
 in_assembly = snakemake.input[0]
 in_gff = snakemake.input[1]
 in_rgi = snakemake.input[2]
 range_len = int(snakemake.params[0])
-regions_bed_output = snakemake.output[0]
-regions_fasta_output = snakemake.output[1]
+regions_bed_output = snakemake.output[0][:-13]  # cut off file name "results/direct_repeats/strain/bed/regions.fasta"
+regions_fasta_output = snakemake.output[0]
 
 # rgi results - resistance information
 rgi = pd.read_csv(in_rgi, sep="\t")
@@ -126,25 +140,28 @@ with open(in_gff) as f:
 assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
 
 # iterate through chromosome and plasmids
+bed_list = list()
 for i in range(len(gff)):
     # TODO: negative coordinates?
     record_len = len(assembly[i].seq)
+    record_id = assembly[i].id
     # find is it circular
     if "circular=true" in assembly[i].description:
         circ = True
     else:
         circ = False
 
-    ranges_bed, negative_coords, bed_message = make_bed_file(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
-                                                             dna_len=record_len, span_len=range_len, circular=circ)
-    # skipping bed files with negative coordinates
-    if type(ranges_bed) is int:
-        print("no bed file will be produced")
-    else:
-        # no merge needed here
-        ranges_bed.to_csv(regions_bed_output, sep="\t", index=False, header=False)
-        # cut regions using bedtools
-        bed_file = BedTool(regions_bed_output)
-        # write fasta regions to a file
-        bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
+    ranges_bed, negative_coords, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
+                                                                    dna_len=record_len, span_len=range_len,
+                                                                    circular=circ)
+    bed_list.append(ranges_bed)
+
+# TODO: join bed files for all records in assembly into one, then you'll get "one input-one output" for GRF rule
+joined_bed_dataframe = join_bed_files(bed_list)
+joined_bed_dataframe.to_csv(regions_bed_output+"regions.bed", sep="\t", index=False, header=False)
+
+# cut regions using bedtools
+bed_file = BedTool(regions_bed_output + "regions.bed")
+# write fasta regions to a file
+bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
 
