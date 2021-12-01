@@ -107,7 +107,7 @@ def handle_negative_coords():
 in_assembly = snakemake.input[0]
 in_gff = snakemake.input[1]
 in_rgi = snakemake.input[2]
-range_len = int(snakemake.input[3])
+range_len = int(snakemake.params[0])
 regions_bed_output = snakemake.output[0]
 regions_fasta_output = snakemake.output[1]
 
