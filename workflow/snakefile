@@ -280,7 +280,7 @@ rule get_coordinates:
        "results/direct_repeats/{strain}/regions/regions.bed"
     message: "creating BED files for RGs found in {wildcards.strain} assembly"
     log: "results/logs/{strain}_getbed.log"
-    params: span=100000  # one flank length
+    params: span=100000, min_plasmid_size=1000
     script:
         "scripts/flanking_regions.py"
 
