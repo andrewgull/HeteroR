@@ -270,23 +270,35 @@ rule resistance_genes:
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
-rule rg_flanking_regions:
+rule get_coordinates:
     # requires BEDtools, pybedtools and bcbio-gff
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
         "results/annotations/{strain}/prokka/{strain}_genomic.gff",
         "results/resistance_genes/{strain}/rgi_table.txt"
     output:
-       "results/direct_repeats/{strain}/bed/regions.fasta"
-    message: "executing BEDtools on {wildcards.strain} assembly"
-    log: "results/logs/{strain}_bedtools.log"
+       "results/direct_repeats/{strain}/regions/regions.bed"
+    message: "creating BED files for RGs found in {wildcards.strain} assembly"
+    log: "results/logs/{strain}_getbed.log"
     params: span=100000  # one flank length
     script:
         "scripts/flanking_regions.py"
 
+rule get_fasta:
+    input:
+        assembly="results/assemblies_joined/{strain}/assembly.fasta",
+        bed="results/direct_repeats/{strain}/regions/regions.bed"
+    output:
+        "results/direct_repeats/{strain}/regions/regions.fasta"
+    message: "retrieving regions' sequences from {wildcards.strain} assembly"
+    log: "results/logs/{strain}_bedtools.log"
+    conda: "envs/bedtools.yaml"
+    shell:
+        "bedtools getfasta -fi {input.assembly} -bed {input.bed} -fo {output}"
+
 rule direct_repeats:
     input:
-        "results/direct_repeats/{strain}/bed/regions.fasta"
+        "results/direct_repeats/{strain}/regions/regions.fasta"
     output:
         directory("results/direct_repeats/{strain}/repeats")
     threads: 14
@@ -296,7 +308,7 @@ rule direct_repeats:
     params: mode=2, min_size=10, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=500
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
-        "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist}"
+        "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
 rule final:
     input:
@@ -308,7 +320,8 @@ rule final:
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
         rgi="results/resistance_genes/{strain}/rgi_table.txt",
         summary="results/assemblies_joined/{strain}/summary.tsv",
-        rep_regions="results/direct_repeats/{strain}/bed/regions.fasta",
+        rep_regions="results/direct_repeats/{strain}/regions/regions.bed",
+        bed="results/direct_repeats/{strain}/regions/regions.fasta",
         dr="results/direct_repeats/{strain}/repeats"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
