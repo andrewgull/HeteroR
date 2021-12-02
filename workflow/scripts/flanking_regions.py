@@ -3,12 +3,10 @@
 script to create a bed files for a given assembly and get regions from bed in fasta format
 requires: bcbio-gff and gffutils
 """
-import pybedtools
+
 from Bio import SeqIO
 import pandas as pd
 from BCBio import GFF
-from pybedtools import BedTool
-import sys
 
 
 def make_bed(collection, score):
@@ -49,7 +47,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
             if orf.split(" ")[0] in gene.id:
                 resistance_genes_coords.append(gene)
 
-    message = "In record %s %i of %i resistance genes found" % (item_id, len(resistance_genes_coords), len(rgi_dataframe))
+    msg = "In record %s %i of %i resistance genes found" % (item_id, len(resistance_genes_coords), len(rgi_dataframe))
 
     # get their coordinates - from GBK
     # get ± 100 kb region for each gene
@@ -88,7 +86,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
     # making a bed file for ranges not crossing oriC
     bed_dataframe = make_bed(rg_ranges_pos, score=0)
 
-    return bed_dataframe, rg_ranges_neg, message
+    return bed_dataframe, rg_ranges_neg, msg
 
 
 def handle_circular_records():
@@ -124,7 +122,6 @@ in_gff = snakemake.input[1]
 in_rgi = snakemake.input[2]
 range_len = int(snakemake.params[0])
 regions_bed_output = snakemake.output[0][:-13]  # cut off file name "results/direct_repeats/strain/bed/regions.fasta"
-regions_fasta_output = snakemake.output[0]
 
 # write things to log
 with open(snakemake.log[0], "w") as log:
@@ -162,13 +159,8 @@ with open(snakemake.log[0], "w") as log:
         messages.append(bed_message)
 
     joined_bed_dataframe = join_bed_files(bed_list)
+    # write dataframe to a BED file
     joined_bed_dataframe.to_csv(regions_bed_output+"regions.bed", sep="\t", index=False, header=False)
-
-    # cut regions using bedtools
-    bed_file = BedTool(regions_bed_output + "regions.bed")
-    # write fasta regions to a file
-    bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
-
     # write messages to log
     for message in messages:
         print(message)
