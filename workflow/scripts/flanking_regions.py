@@ -121,7 +121,7 @@ in_assembly = snakemake.input[0]
 in_gff = snakemake.input[1]
 in_rgi = snakemake.input[2]
 range_len = int(snakemake.params[0])
-regions_bed_output = snakemake.output[0][:-13]  # cut off file name "results/direct_repeats/strain/bed/regions.fasta"
+regions_bed_output = snakemake.output[0]
 
 # write things to log
 with open(snakemake.log[0], "w") as log:
@@ -160,7 +160,7 @@ with open(snakemake.log[0], "w") as log:
 
     joined_bed_dataframe = join_bed_files(bed_list)
     # write dataframe to a BED file
-    joined_bed_dataframe.to_csv(regions_bed_output+"regions.bed", sep="\t", index=False, header=False)
+    joined_bed_dataframe.to_csv(regions_bed_output, sep="\t", index=False, header=False)
     # write messages to log
     for message in messages:
         print(message)
