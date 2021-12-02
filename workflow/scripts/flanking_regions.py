@@ -121,6 +121,7 @@ in_assembly = snakemake.input[0]
 in_gff = snakemake.input[1]
 in_rgi = snakemake.input[2]
 range_len = int(snakemake.params[0])
+min_plasmid_size = int(snakemake.params[1])
 regions_bed_output = snakemake.output[0]
 
 # write things to log
@@ -134,20 +135,23 @@ with open(snakemake.log[0], "w") as log:
     # parse GFF annotation file
     # to retrieve chromosomal genes' coordinates and strand
     with open(in_gff) as f:
-        gff = [rec for rec in GFF.parse(f)]
-
-    # read joined assembly file
-    assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
+        gff = [rec for rec in GFF.parse(f) if len(rec.seq) >= min_plasmid_size]
+    gff_ids = [rec.id.split("_")[-1] for rec in gff]
+    # read joined assembly file as dict
+    assembly = SeqIO.to_dict(SeqIO.parse(in_assembly, "fasta"))
+    # filter it because not all of the records present in GFF
+    assembly_filtered = [assembly[key] for key in gff_ids]
 
     # iterate through chromosome and plasmids
     bed_list = list()
     messages = list()
     for i in range(len(gff)):
         # TODO: negative coordinates?
-        record_len = len(assembly[i].seq)
-        record_id = assembly[i].id
+        # i in assembly does not correspond to i in gff!
+        record_len = len(assembly_filtered[i].seq)
+        record_id = assembly_filtered[i].id
         # find is it circular
-        if "circular=true" in assembly[i].description:
+        if "circular=true" in assembly_filtered[i].description:
             circ = True
         else:
             circ = False
