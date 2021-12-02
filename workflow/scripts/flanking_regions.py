@@ -101,7 +101,7 @@ def join_bed_files(bed_files_list):
     """
     join bed files
     """
-    return 1
+    return pd.concat(bed_files_list)
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 # VARIABLES TEST NON CIRCULAR CHROMOSOME
@@ -156,7 +156,6 @@ for i in range(len(gff)):
                                                                     circular=circ)
     bed_list.append(ranges_bed)
 
-# TODO: join bed files for all records in assembly into one, then you'll get "one input-one output" for GRF rule
 joined_bed_dataframe = join_bed_files(bed_list)
 joined_bed_dataframe.to_csv(regions_bed_output+"regions.bed", sep="\t", index=False, header=False)
 
