@@ -8,6 +8,7 @@ from Bio import SeqIO
 import pandas as pd
 from BCBio import GFF
 from pybedtools import BedTool
+import sys
 
 
 def make_bed(collection, score):
@@ -125,42 +126,49 @@ range_len = int(snakemake.params[0])
 regions_bed_output = snakemake.output[0][:-13]  # cut off file name "results/direct_repeats/strain/bed/regions.fasta"
 regions_fasta_output = snakemake.output[0]
 
-# rgi results - resistance information
-rgi = pd.read_csv(in_rgi, sep="\t")
-# rgi["Cut_Off"].unique()
-# some genes are 'Loose', leave 'Strict' and 'Perfect' only
-rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
+# write things to log
+with open(snakemake.log[0], "w") as log:
+    # rgi results - resistance information
+    rgi = pd.read_csv(in_rgi, sep="\t")
+    # rgi["Cut_Off"].unique()
+    # some genes are 'Loose', leave 'Strict' and 'Perfect' only
+    rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
 
-# parse GFF annotation file
-# to retrieve chromosomal genes' coordinates and strand
-with open(in_gff) as f:
-    gff = [rec for rec in GFF.parse(f)]
+    # parse GFF annotation file
+    # to retrieve chromosomal genes' coordinates and strand
+    with open(in_gff) as f:
+        gff = [rec for rec in GFF.parse(f)]
 
-# read joined assembly file
-assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
+    # read joined assembly file
+    assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
 
-# iterate through chromosome and plasmids
-bed_list = list()
-for i in range(len(gff)):
-    # TODO: negative coordinates?
-    record_len = len(assembly[i].seq)
-    record_id = assembly[i].id
-    # find is it circular
-    if "circular=true" in assembly[i].description:
-        circ = True
-    else:
-        circ = False
+    # iterate through chromosome and plasmids
+    bed_list = list()
+    messages = list()
+    for i in range(len(gff)):
+        # TODO: negative coordinates?
+        record_len = len(assembly[i].seq)
+        record_id = assembly[i].id
+        # find is it circular
+        if "circular=true" in assembly[i].description:
+            circ = True
+        else:
+            circ = False
 
-    ranges_bed, negative_coords, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
-                                                                    dna_len=record_len, span_len=range_len,
-                                                                    circular=circ)
-    bed_list.append(ranges_bed)
+        ranges_bed, negative_coords, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
+                                                                        dna_len=record_len, span_len=range_len,
+                                                                        circular=circ)
+        bed_list.append(ranges_bed)
+        messages.append(bed_message)
 
-joined_bed_dataframe = join_bed_files(bed_list)
-joined_bed_dataframe.to_csv(regions_bed_output+"regions.bed", sep="\t", index=False, header=False)
+    joined_bed_dataframe = join_bed_files(bed_list)
+    joined_bed_dataframe.to_csv(regions_bed_output+"regions.bed", sep="\t", index=False, header=False)
 
-# cut regions using bedtools
-bed_file = BedTool(regions_bed_output + "regions.bed")
-# write fasta regions to a file
-bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
+    # cut regions using bedtools
+    bed_file = BedTool(regions_bed_output + "regions.bed")
+    # write fasta regions to a file
+    bedtool_write = pybedtools.bedtool.BedTool.sequence(bed_file, fi=in_assembly, fo=regions_fasta_output)
 
+    # write messages to log
+    for message in messages:
+        print(message)
