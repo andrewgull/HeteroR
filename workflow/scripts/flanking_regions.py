@@ -166,6 +166,4 @@ with open(snakemake.log[0], "w") as log:
     # write dataframe to a BED file
     joined_bed_dataframe.to_csv(regions_bed_output, sep="\t", index=False, header=False)
     # write messages to log
-    # TODO: write using writelines()
-    for message in messages:
-        print(message)
+    log.writelines(messages)
