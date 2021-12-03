@@ -47,7 +47,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
             if orf.split(" ")[0] in gene.id:
                 resistance_genes_coords.append(gene)
 
-    msg = "In record %s %i of %i resistance genes found" % (item_id, len(resistance_genes_coords), len(rgi_dataframe))
+    msg = "In record %s %i of %i resistance genes found\n" % (item_id, len(resistance_genes_coords), len(rgi_dataframe))
 
     # get their coordinates - from GBK
     # get ± 100 kb region for each gene
