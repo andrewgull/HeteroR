@@ -302,7 +302,7 @@ rule direct_repeats:
     output:
         directory("results/direct_repeats/{strain}/repeats")
     threads: 14
-    message: "executing GRF with {threads} on {wildcards.strain} assembly"
+    message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf.log"
     conda: "envs/grf.yaml"
     params: mode=2, min_size=10, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=500
