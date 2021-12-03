@@ -294,7 +294,7 @@ rule get_fasta:
     log: "results/logs/{strain}_bedtools.log"
     conda: "envs/bedtools.yaml"
     shell:
-        "bedtools getfasta -fi {input.assembly} -bed {input.bed} -fo {output}"
+        "bedtools getfasta -fi {input.assembly} -bed {input.bed} -fo {output} &> {log}"
 
 rule direct_repeats:
     input:
