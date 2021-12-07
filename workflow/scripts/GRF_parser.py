@@ -69,3 +69,5 @@ for line in spacer_ids[:20]:
                                            type='direct_repeat', id=str(n)))
 with open("/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff", 'w') as out_gff:
     GFF.write(recs=[assembly[0]], out_handle=out_gff, include_fasta=True)
+
+# TODO: expand to all records in assembly
