@@ -332,7 +332,8 @@ rule final:
         summary="results/assemblies_joined/{strain}/summary.tsv",
         rep_regions="results/direct_repeats/{strain}/regions/regions.bed",
         bed="results/direct_repeats/{strain}/regions/regions.fasta",
-        dr="results/direct_repeats/{strain}/repeats"
+        dr="results/direct_repeats/{strain}/repeats",
+        gff="results/annotations/repeats/{strain}/repeats.gff"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
