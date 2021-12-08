@@ -58,9 +58,11 @@ def gff_object(features_df, record, strand=1, feature_type="direct_repeat"):
 # in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
 # out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
 
-in_spacers = snakemake.input[0]
+in_spacers = snakemake.input[0]  # it's a directory
 in_assembly = snakemake.input[1]
 out_gff = snakemake.output[0]
+# set minimal repeat length
+min_repeat_length = int(snakemake.params[0])
 
 # read spacer IDs
 with open(in_spacers) as f:
@@ -73,8 +75,6 @@ assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
 gff_rows = [parse_spacer(line) for line in spacer_ids]
 gff_df = pd.DataFrame(columns=["record_id", "start_1", "end_1", "start_2", "end_2", "length"], data=gff_rows)
 
-# set minimal repeat length
-min_repeat_length = 15
 # filter out too short repeats
 gff_df = gff_df[gff_df.length > min_repeat_length]
 
