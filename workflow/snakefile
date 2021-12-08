@@ -314,7 +314,7 @@ rule gff_files:
     input:
         "results/direct_repeats/{strain}/repeats",
         "results/assemblies_joined/{strain}/assembly.fasta"
-    output: "results/annotations/repeats/{strain}/repeats.gff"
+    output: "results/annotations/{strain}/repeats/{strain}_repeats.gff"
     message: "executing GFF_parser.py on {wildcards.strain} data"
     params: min_len = 15
     log: "results/logs/{strain}_gff.log"
@@ -333,7 +333,7 @@ rule final:
         rep_regions="results/direct_repeats/{strain}/regions/regions.bed",
         bed="results/direct_repeats/{strain}/regions/regions.fasta",
         dr="results/direct_repeats/{strain}/repeats",
-        gff="results/annotations/repeats/{strain}/repeats.gff"
+        gff="results/annotations/{strain}/repeats/{strain}_repeats.gff"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
