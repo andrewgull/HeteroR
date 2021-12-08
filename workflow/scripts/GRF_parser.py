@@ -54,9 +54,13 @@ def gff_object(features_df, record, strand=1, feature_type="direct_repeat"):
 
 
 # DEFINE INPUTS AND OUTPUTS
-in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
-in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
-out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
+# in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
+# in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
+# out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
+
+in_spacers = snakemake.input[0]
+in_assembly = snakemake.input[1]
+out_gff = snakemake.output[0]
 
 # read spacer IDs
 with open(in_spacers) as f:
@@ -78,6 +82,6 @@ gff_df = gff_df[gff_df.length > min_repeat_length]
 # one SeqRecord with features per record in assembly
 gff_records = [gff_object(gff_df, record) for record in assembly]
 
-
+# write to a GFF file
 with open(out_gff, 'w') as out:
     GFF.write(recs=gff_records, out_handle=out, include_fasta=False)
