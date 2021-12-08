@@ -207,7 +207,7 @@ The environments are described using YAML files that can be found in ``workflow/
 the most recent version
 
 The most recent version of RGI heatmap
-![resistance genes heatmap](images/heatmap54.png)
+![resistance genes heatmap](images/heatmap-146.png)
 
 AMR genes categorised by AMR Gene Family and samples have been clustered hierarchically (see SciPy documentation). 
 Yellow represents a perfect hit, teal represents a strict hit, purple represents no hit. 
