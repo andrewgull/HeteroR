@@ -8,22 +8,26 @@ from BCBio import GFF
 
 
 def parse_spacer(header):
-    # header '>1:0-190543:951:190482:14m'
+    """
+    :param header: a char string like '>1:0-190543:951:190482:14m'
+    :return: a list of values from parsed header
+    """
     first_split = header.split(":")
     record_id = first_split[0][1:]
     repeat_len = int(first_split[-1][:-1])
     range_ = first_split[1].split("-")
     range_start, range_end = int(range_[0]), int(range_[-1])
-    repeat_1_start_inRange = int(first_split[2])
-    repeat_2_end_inRange = int(first_split[3])
+    repeat_1_start_in_range = int(first_split[2])
+    repeat_2_end_in_range = int(first_split[3])
 
-    repeat_1_start_inChrom = range_start + repeat_1_start_inRange
-    repeat_1_end_inChrom = repeat_1_start_inChrom + repeat_len
+    repeat_1_start_in_chrom = range_start + repeat_1_start_in_range
+    repeat_1_end_in_chrom = repeat_1_start_in_chrom + repeat_len
 
-    repeat_2_end_inChrom = range_start + repeat_2_end_inRange
-    repeat_2_start_inChrom = repeat_2_end_inChrom - repeat_len
+    repeat_2_end_in_chrom = range_start + repeat_2_end_in_range
+    repeat_2_start_in_chrom = repeat_2_end_in_chrom - repeat_len
 
-    return [record_id, repeat_1_start_inChrom, repeat_1_end_inChrom, repeat_2_start_inChrom, repeat_2_end_inChrom, repeat_len]
+    return [record_id, repeat_1_start_in_chrom, repeat_1_end_in_chrom, repeat_2_start_in_chrom,
+            repeat_2_end_in_chrom, repeat_len]
 
 
 min_repeat_length = 10  # make a pd DF from headers to filter them effectively?
