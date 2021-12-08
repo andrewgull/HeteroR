@@ -66,6 +66,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 │   ├── assemblies_joined
 │   ├── coverage
 │   ├── data_filtered
+│   ├── direct_repeats
 │   ├── final
 │   ├── logs
 │   ├── mapping
@@ -126,6 +127,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 
 `results/` is for everything the pipeline produces
   - `data_filtered/` - sequencing data after filtering with filtlong and fastp
+  - `direct_repeats/` - direct repeats as detected by GRF
   - `qualcheck_reads/` - quality control data
   - `assemblies/` - hybrid assemblies made with Unicycler
   - `qualcheck_assembly/` - assembly quality control made with BUSCO and QUAST
