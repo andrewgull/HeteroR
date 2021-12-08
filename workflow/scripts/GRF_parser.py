@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
-from Bio.Seq import Seq
 import pandas as pd
 from BCBio import GFF
 
