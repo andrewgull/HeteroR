@@ -145,8 +145,8 @@ The project home directory is `/home/andrei/Data/HetroR`
 4. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
 5. run the following command to produce a nice heatmap of resistance hits in your strains:
    ```
-   cd resistance_genes; 
-   for D in DA*; do ln -s "/home/andrei/Data/HeteroR/results/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/resistance_genes/linked/"$D"_rgi_table.json"; done && 
+   cd results/resistance_genes; 
+   for D in DA*; do ln -s "/home/andrei/Data/HeteroR/results/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/results/resistance_genes/linked/"$D"_rgi_table.json"; done && 
    rgi heatmap -i linked -o heatmap -cat gene_family -clus samples
    ```
 
