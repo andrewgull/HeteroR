@@ -39,12 +39,17 @@ The project home directory is `/home/andrei/Data/HetroR`
  which contains the following directories:
 
 ```bash
+ $ tree                    
 .
 ├── images
 │   ├── dag_full.png
 │   ├── heatmap44.png
-│   └── heatmap54.png
+│   ├── heatmap54.png
+│   ├── HR_workflow_features_scheme.png
+│   └── unstable_HR_model.png
 ├── notebooks
+│   ├── genome_assembly_summary.rmd
+│   ├── repeats_summary.ipynb
 │   ├── testing_rgi_output.Rmd
 │   ├── testing_rgi_output.Rproj
 │   ├── why_unicycler_gets_killed.Rmd
@@ -53,6 +58,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 ├── resources
 │   ├── busco_downloads
 │   ├── data_raw
+│   ├── localDB
 │   └── strain_lists
 ├── results
 │   ├── annotations
@@ -70,10 +76,12 @@ The project home directory is `/home/andrei/Data/HetroR`
 └── workflow
     ├── config.yaml
     ├── envs
+    │   ├── bedtools.yaml
     │   ├── busco_quast.yaml
     │   ├── bwa.yaml
     │   ├── fastp.yaml
     │   ├── filtlong.yaml
+    │   ├── grf.yaml
     │   ├── prokka.yaml
     │   ├── quast.yaml
     │   ├── rgi.yaml
@@ -85,17 +93,24 @@ The project home directory is `/home/andrei/Data/HetroR`
     │   └── unicycler.yaml
     ├── scripts
     │   ├── assembly_summary.py
-    │   ├── QC_assembly.py
     │   ├── coverage.sh
+    │   ├── flanking_regions.py
+    │   ├── get_card_db.sh
+    │   ├── get_new_strains_list.sh
+    │   ├── GRF_parser.py
+    │   ├── gr_generator.py
     │   ├── join_two_fastas.py
     │   ├── makefile
     │   ├── map_back.sh
     │   ├── nanopore_qc.py
     │   ├── process_files.py
+    │   ├── QC_assembly.py
     │   ├── run_qualcheck.R
     │   ├── run_qualcheck.sh
-    │   └── run_quast.py
+    │   ├── run_quast.py
+    │   └── update_symlinks.py
     └── snakefile
+
 
 ```
 
