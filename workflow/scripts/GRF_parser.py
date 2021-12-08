@@ -23,10 +23,10 @@ def parse_spacer(header):
     repeat_2_end_inChrom = range_start + repeat_2_end_inRange
     repeat_2_start_inChrom = repeat_2_end_inChrom - repeat_len
 
-    return [record_id, repeat_1_start_inChrom, repeat_1_end_inChrom, repeat_2_start_inChrom, repeat_2_end_inChrom]
+    return [record_id, repeat_1_start_inChrom, repeat_1_end_inChrom, repeat_2_start_inChrom, repeat_2_end_inChrom, repeat_len]
 
 
-min_repeat_length = 10
+min_repeat_length = 10  # make a pd DF from headers to filter them effectively?
 with open("/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id") as f:
     spacer_ids = [line.rstrip() for line in f.readlines() if str(min_repeat_length) + "m" not in line]
 
@@ -35,7 +35,6 @@ assembly = [rec for rec in SeqIO.parse("/home/andrei/Data/HeteroR/test_dir/GRF/D
 # a line in lines looks like this: >1:0-190543:951:190482:14m'
 # >1:0-190543 - fasta id
 # 951:190482:14m - start of the 1st match, end of the 2nd match and length of the match
-
 # read GBK to look inside
 gbk = [rec for rec in SeqIO.parse("/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_genomic.gbk", "genbank")]
 
@@ -57,10 +56,17 @@ gff[0].features[0]
 # to get location features parse and calculate coordinates from spacer IDs
 strand = 1  # is always 1
 n = 0
-for line in spacer_ids[:20]:
+
+gff_rows = [parse_spacer(line) for line in spacer_ids[:20]]
+gff_df = pd.DataFrame(columns=["record_id", "start_1", "end_1", "start_2", "end_2", "length"], data=gff_rows)
+# TODO: filter this DataFrame by chromosome and lengths
+
+
+for line in gff_df:
     n += 1
     repeat_features = parse_spacer(line)
     # use 1st record from the assembly as an example
+    # create a pair of features for each index
     assembly[0].features.append(SeqFeature(FeatureLocation(ExactPosition(repeat_features[1]),
                                                            ExactPosition(repeat_features[2]), strand=strand),
                                            type='direct_repeat', id=str(n)))
