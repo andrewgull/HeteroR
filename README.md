@@ -117,7 +117,7 @@ The project home directory is `/home/andrei/Data/HetroR`
   - `mapping/` - mapping of short reads onto genome assembly to collect unmapped reads
   - `plasmids/` - assembly of unmapped reads with SPAdes ('plasmid' mode) to assemble plasmids missed by Unicycler
   - `assemblies_joined/` - keeps merged hybrid and plasmid assembly
-  - `annotations/` - assembly annotations made with PROKKA and tRNA-ScanSE
+  - `annotations/` - assembly annotations made with PROKKA and tRNA-ScanSE, GFF files with direct repeats
   - `resistance_genes/` - resistance genes tables identified by RGI (requires local CARD database)
   - `logs/` - tool's logs
   - `coverage/` - a bunch of tables with Nanopore coverage
@@ -145,7 +145,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 4. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
 5. run the following command to produce a nice heatmap of resistance hits in your strains:
    ```
-   cd resistance genes; 
+   cd resistance_genes; 
    for D in DA*; do ln -s "/home/andrei/Data/HeteroR/results/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/resistance_genes/linked/"$D"_rgi_table.json"; done && 
    rgi heatmap -i linked -o heatmap -cat gene_family -clus samples
    ```
@@ -157,24 +157,6 @@ The basic requirement is `snakemake`, install it using `conda` or `mamba`:
 ```
 mamba create -c conda-forge -c bioconda -n snakemake snakemake
 ```
-
-### SPADE installation (NOT REQUIRED - USE GRF instead)
-
-Right now the original version of SPADE can not be installed using conda and is not working properly.
-
-I [forked](https://github.com/andrewgull/SPADE) the original SPADE [repo](https://github.com/yachielab/SPADE) to fix the code
-and make it usable.
-
-SPADE dependencies for the pipeline are described in `workflow/envs/spade-env.yaml`
-
-My version of SPADE should be cloned to `$HOME`
-
-```
-git clone https://github.com/andrewgull/SPADE $HOME
-```
-
-and then Snakemake will find it there. 
-To allow a better installation, I will create a Docker image later.
 
 ### RGI Database installation
 
