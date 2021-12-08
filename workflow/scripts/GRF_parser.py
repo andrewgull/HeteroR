@@ -53,12 +53,17 @@ def gff_object(features_df, record, strand=1, feature_type="direct_repeat"):
     return record
 
 
+# DEFINE INPUTS AND OUTPUTS
+in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
+in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
+out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
+
 # read spacer IDs
-with open("/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id") as f:
+with open(in_spacers) as f:
     spacer_ids = [line.rstrip() for line in f.readlines()]
 
 # read assembly
-assembly = [rec for rec in SeqIO.parse("/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta", "fasta")]
+assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
 
 # make features rows from spacer IDs
 gff_rows = [parse_spacer(line) for line in spacer_ids]
@@ -74,5 +79,5 @@ gff_df = gff_df[gff_df.length > min_repeat_length]
 gff_records = [gff_object(gff_df, record) for record in assembly]
 
 
-with open("/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff", 'w') as out_gff:
-    GFF.write(recs=gff_records, out_handle=out_gff, include_fasta=False)
+with open(out_gff, 'w') as out:
+    GFF.write(recs=gff_records, out_handle=out, include_fasta=False)
