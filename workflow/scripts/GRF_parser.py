@@ -54,35 +54,36 @@ def gff_object(features_df, record, strand=1, feature_type="direct_repeat"):
     return record
 
 
-# DEFINE INPUTS AND OUTPUTS
-# in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
-# in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
-# out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
-grf_out_filename = "perfect.spacer.id"  # IT CAN BE CHANGED
-in_spacers = os.path.join(snakemake.input[0], grf_out_filename)
-in_assembly = snakemake.input[1]
-out_gff = snakemake.output[0]
-# set minimal repeat length
-min_repeat_length = int(snakemake.params[0])
+if __name__ == '__main__':
+    # DEFINE INPUTS AND OUTPUTS
+    # in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
+    # in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
+    # out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
+    grf_out_filename = "perfect.spacer.id"  # IT CAN BE CHANGED
+    in_spacers = os.path.join(snakemake.input[0], grf_out_filename)
+    in_assembly = snakemake.input[1]
+    out_gff = snakemake.output[0]
+    # set minimal repeat length
+    min_repeat_length = int(snakemake.params[0])
 
-# read spacer IDs
-with open(in_spacers) as f:
-    spacer_ids = [line.rstrip() for line in f.readlines()]
+    # read spacer IDs
+    with open(in_spacers) as f:
+        spacer_ids = [line.rstrip() for line in f.readlines()]
 
-# read assembly
-assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
+    # read assembly
+    assembly = [rec for rec in SeqIO.parse(in_assembly, "fasta")]
 
-# make features rows from spacer IDs
-gff_rows = [parse_spacer(line) for line in spacer_ids]
-gff_df = pd.DataFrame(columns=["record_id", "start_1", "end_1", "start_2", "end_2", "length"], data=gff_rows)
+    # make features rows from spacer IDs
+    gff_rows = [parse_spacer(line) for line in spacer_ids]
+    gff_df = pd.DataFrame(columns=["record_id", "start_1", "end_1", "start_2", "end_2", "length"], data=gff_rows)
 
-# filter out too short repeats
-gff_df = gff_df[gff_df.length > min_repeat_length]
+    # filter out too short repeats
+    gff_df = gff_df[gff_df.length > min_repeat_length]
 
-# make a gff object from this filtered data frame
-# one SeqRecord with features per record in assembly
-gff_records = [gff_object(gff_df, record) for record in assembly]
+    # make a gff object from this filtered data frame
+    # one SeqRecord with features per record in assembly
+    gff_records = [gff_object(gff_df, record) for record in assembly]
 
-# write to a GFF file
-with open(out_gff, 'w') as out:
-    GFF.write(recs=gff_records, out_handle=out, include_fasta=False)
+    # write to a GFF file
+    with open(out_gff, 'w') as out:
+        GFF.write(recs=gff_records, out_handle=out, include_fasta=False)
