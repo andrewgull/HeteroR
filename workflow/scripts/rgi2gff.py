@@ -14,7 +14,7 @@ from Bio import SeqIO
 # filter_condition = "Loose"
 
 in_rgi = snakemake.input[0]
-in_gbk = snakemke.input[1]
+in_gbk = snakemake.input[1]
 out_gbk = snakemake.output[0]
 filter_condition = snakemake.params[0]
 
