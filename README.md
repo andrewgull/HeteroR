@@ -200,7 +200,7 @@ The environments are described using YAML files that can be found in ``workflow/
 
 ## Current workflow's DAG
 
-![dag](images/dag_full.png)
+![dag](images/dag_new.png)
 
 ## Heatmap example
 
