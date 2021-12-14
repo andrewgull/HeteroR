@@ -276,7 +276,7 @@ rule rg2gbk:
         "results/annotations/{strain}/prokka/{strain}_genomic.gbk"
     output:
         "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
-    params: filter_criterion = "Loose"
+    params: filter_criterion="Loose"
     script:
         "scripts/rgi2gff.py"
 
