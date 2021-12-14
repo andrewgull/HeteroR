@@ -1,3 +1,5 @@
 **/*.html
+**/*.log
 results/*
 resources/*
+.idea/*
