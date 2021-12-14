@@ -5,15 +5,18 @@ to covert rgi output table to bed/gff file
 """
 
 import pandas as pd
-from BCBio import GFF
 from Bio import SeqIO
 
 
-in_rgi = "/home/andrei/Data/HeteroR/results/resistance_genes/DA62886/rgi_table.txt"
+# in_rgi = "/home/andrei/Data/HeteroR/results/resistance_genes/DA62886/rgi_table.txt"
+# in_gbk = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gbk"
+# out_gbk = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_resistance_genes.gbk"
+# filter_condition = "Loose"
 
-# take them from GFF?
-in_gff = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gff"
-in_gbk = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gbk"
+in_rgi = snakemake.input[0]
+in_gbk = snakemke.input[1]
+out_gbk = snakemake.output[0]
+filter_condition = snakemake.params[0]
 
 # no coordinates of genes in this table
 rgi = pd.read_csv(in_rgi, delimiter="\t")
@@ -21,47 +24,37 @@ rgi = pd.read_csv(in_rgi, delimiter="\t")
 # take them from GFF or GBK?
 gbk = [rec for rec in SeqIO.parse(in_gbk, "genbank")]
 # ORF_IDs from rgi are present in GBK file, find them in GBK object
-for rec in gbk:
-    print(rec.id)
-    for f in rec.features:
-        print(f)
-
-# type: mRNA
-# location: [2092185:2093025](+)
-# qualifiers:
-#     Key: gene, Value: ['hdfR_2']
-#     Key: locus_tag, Value: ['LOOOHHPE_01937']
-#     Key: product, Value: ['hypothetical protein']
-# type: CDS
-# location: [2092185:2093025](+)
-# qualifiers:
-#     Key: codon_start, Value: ['1']
-#     Key: gene, Value: ['hdfR_2']
-#     Key: inference, Value: ['ab initio prediction:Prodigal:002006', 'protein motif:HAMAP:MF_01233']
-#     Key: locus_tag, Value: ['LOOOHHPE_01937']
-#     Key: product, Value: ['HTH-type transcriptional regulator HdfR']
-#     Key: protein_id, Value: ['UU:LOOOHHPE_01937']
-#     Key: transl_table, Value: ['11']
-#     Key: translation, Value: ['MDTELLKTFLEVSRTRHFGRAA...
-
-qual = [f.qualifiers for f in gbk[0].features]
-# qual[0]
-# first qualifier is entire chromosome\plasmid qualifier (type='source'), has no locus_tags
-# OrderedDict([('organism', ['Escherichia coli']),
-#              ('mol_type', ['genomic DNA']),
-#              ('strain', ['DA62886']),
-#              ('db_xref', ['taxon:562'])])
-
-feat = [f for f in gbk[0].features]
-# a single gene has 3 features: 1 type='gene', 1 type'mRNA', 1 type='CDS'
-genes = [f for f in feat if f.type == 'gene']
-tags = [gene.qualifiers['locus_tag'][0] for gene in genes]
 
 # iterate through rows and collect genes with features
-rgi_not_loose = rgi[rgi.Cut_Off != "Loose"]
-rgi_from_gbk = list()
+rgi_not_loose = rgi[rgi.Cut_Off != filter_condition]
+rgi_not_loose_ids = [row[1][0].split(" ")[0] for row in rgi_not_loose.iterrows()]
+# keep more information to add to qualifiers
+# ORF_ID(0), SNP(12), Drug Class(14), AMR Gene Family(16)
+rgi_not_loose_dict = dict()
 for row in rgi_not_loose.iterrows():
-    orf_id = row[1][0].split(" ")[0]
-    for gene in genes:
-        if orf_id == gene.qualifiers['locus_tag'][0]:
-            rgi_from_gbk.append(gene)
+    id = row[1][0].split(" ")[0]
+    if id in rgi_not_loose_ids:
+        rgi_not_loose_dict[id] = [row[1][12], row[1][14], row[1][16]]
+
+# rgi_not_loose_tuples = [(row[1][0].split(" ")[0], row[1][12], row[1][14], row[1][16]) for row in rgi_not_loose.iterrows()]
+
+for record in gbk:
+    # change record.id to compatible with assembly's records names
+    record.id = record.id.split("_")[-1]
+    rgi_from_gbk = [f for f in record.features if f.type == 'gene' and f.qualifiers['locus_tag'][0] in rgi_not_loose_ids]
+    # rewrite record's features
+    record.features = rgi_from_gbk
+
+# remove records with no features (i.e. no resistance genes)
+rgi_gbk = [record for record in gbk if len(record.features) > 0]
+
+# add more info to qualifiers
+for record in rgi_gbk:
+    for feature in record.features:
+        qualifiers_to_add = rgi_not_loose_dict[feature.qualifiers['locus_tag'][0]]
+        feature.qualifiers['SNP'] = qualifiers_to_add[0]
+        feature.qualifiers['drug_class'] = qualifiers_to_add[1]
+        feature.qualifiers['AMR_gene_family'] = qualifiers_to_add[2]
+
+# write to a file
+SeqIO.write(rgi_gbk, out_gbk, "genbank")
