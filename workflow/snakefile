@@ -270,6 +270,16 @@ rule resistance_genes:
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
+rule rg2gbk:
+    input:
+        "results/resistance_genes/{strain}/rgi_table.txt",
+        "results/annotations/{strain}/prokka/{strain}_genomic.gbk"
+    output:
+        "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
+    params: filter_criterion = "Loose"
+    script:
+        "scripts/rgi2gff.py"
+
 rule get_coordinates:
     # requires BEDtools, pybedtools and bcbio-gff
     input:
@@ -310,7 +320,7 @@ rule direct_repeats:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
-rule gff_files:
+rule dr2gff:
     input:
         "results/direct_repeats/{strain}/repeats",
         "results/assemblies_joined/{strain}/assembly.fasta"
