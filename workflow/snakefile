@@ -223,6 +223,16 @@ rule genome_annotation:
         "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
         "--mincontiglen {params.minlen} {input} &> {log}"
 
+rule rename_gbk:
+    input:
+        "results/annotations/{strain}/prokka"
+    output:
+        "results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk"
+    params:
+        filename="{strain}_genomic.gbk"
+    script:
+        "scripts/rename_genomic_gbk.py"
+
 rule trna_annotation:
     # tRNA genes only - tRNAScan-SE
     input:
@@ -344,7 +354,8 @@ rule final:
         bed="results/direct_repeats/{strain}/regions/regions.fasta",
         dr="results/direct_repeats/{strain}/repeats",
         gff="results/annotations/{strain}/repeats/{strain}_repeats.gff",
-        rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
+        rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
+        renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
