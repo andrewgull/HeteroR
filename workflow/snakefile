@@ -316,7 +316,7 @@ rule get_fasta:
     shell:
         "bedtools getfasta -fi {input.assembly} -bed {input.bed} -fo {output} &> {log}"
 
-rule direct_repeats:
+rule direct_repeats_perfect:
     input:
         "results/direct_repeats/{strain}/regions/regions.fasta"
     output:
@@ -330,7 +330,7 @@ rule direct_repeats:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
-rule dr2gff:
+rule drp2gff:
     input:
         "results/direct_repeats/{strain}/repeats",
         "results/assemblies_joined/{strain}/assembly.fasta"
