@@ -320,25 +320,39 @@ rule direct_repeats_perfect:
     input:
         "results/direct_repeats/{strain}/regions/regions.fasta"
     output:
-        directory("results/direct_repeats/{strain}/repeats")
+        directory("results/direct_repeats/{strain}/repeats_perfect")
     threads: 14
     message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
-    log: "results/logs/{strain}_grf.log"
+    log: "results/logs/{strain}_grf_perfect.log"
     conda: "envs/grf.yaml"
-    params: mode=2, min_size=10, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=500
+    params: mode=2, min_size=10, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=100
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
 rule drp2gff:
     input:
-        "results/direct_repeats/{strain}/repeats",
+        "results/direct_repeats/{strain}/repeats_perfect",
         "results/assemblies_joined/{strain}/assembly.fasta"
-    output: "results/annotations/{strain}/repeats/{strain}_repeats.gff"
+    output: "results/annotations/{strain}/repeats/{strain}_repeats_perfect.gff"
     message: "executing GFF_parser.py on {wildcards.strain} data"
     params: min_len = 15
     log: "results/logs/{strain}_gff.log"
     script: "scripts/GRF_parser.py"
+
+rule direct_repeats_imperfect:
+    input:
+        "results/direct_repeats/{strain}/regions/regions.fasta"
+    output:
+        directory("results/direct_repeats/{strain}/repeats_imperfect")
+    threads: 14
+    message: "executing GRF (with mismatches) with {threads} threads on {wildcards.strain} assembly"
+    log: "results/logs/{strain}_grf_imperfect.log"
+    conda: "envs/grf.yaml"
+    params: mode=2, min_size=10, format=1, mism=10, seed_mism=0, max_dist=205000, min_dist=100
+    shell:
+        "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
+        "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
 rule final:
     input:
