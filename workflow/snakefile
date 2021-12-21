@@ -377,8 +377,10 @@ rule final:
         summary="results/assemblies_joined/{strain}/summary.tsv",
         rep_regions="results/direct_repeats/{strain}/regions/regions.bed",
         bed="results/direct_repeats/{strain}/regions/regions.fasta",
-        dr="results/direct_repeats/{strain}/repeats",
-        gff="results/annotations/{strain}/repeats/{strain}_repeats.gff",
+        dr_perfect="results/direct_repeats/{strain}/repeats_perfect",
+        gff_perfect="results/annotations/{strain}/repeats/{strain}_repeats_perfect.gff",
+        dr_imperfect="results/direct_repeats/{strain}/repeats_imperfect",
+        gff_imperfect="results/annotations/{strain}/repeats/{strain}_repeats_imperfect.gff",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk"
     output: touch("results/final/{strain}_all.done")
