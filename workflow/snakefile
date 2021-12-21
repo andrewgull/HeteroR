@@ -357,7 +357,7 @@ rule direct_repeats_imperfect:
 rule dri2gff:
     # make GFF with imperfect repeats coords
     input:
-        "results/direct_repeats/{strain}/repeats_perfect",
+        "results/direct_repeats/{strain}/repeats_imperfect",
         "results/assemblies_joined/{strain}/assembly.fasta"
     output: "results/annotations/{strain}/repeats/{strain}_repeats_imperfect.gff"
     message: "executing GFF_parser.py on {wildcards.strain} imperfect repeats data"
