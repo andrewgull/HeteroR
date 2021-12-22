@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""
+parses GRF output (grf-main) and makes GFF file for visualization of repeats (TDR) in a genomic browser
+"""
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
 import pandas as pd
@@ -76,6 +79,7 @@ if __name__ == '__main__':
     # make features rows from spacer IDs
     gff_rows = [parse_spacer(line) for line in spacer_ids]
     gff_df = pd.DataFrame(columns=["record_id", "start_1", "end_1", "start_2", "end_2", "length"], data=gff_rows)
+    gff_df.drop_duplicates(inplace=True)
 
     # filter out too short repeats
     gff_df = gff_df[gff_df.length > min_repeat_length]
