@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 parses GRF output (grf-main) and makes GFF file for visualization of repeats (TDR) in a genomic browser
+for each strain it runs 4 tiles: two for repeats with no mismatches (perfect.spacer.id, imperfect.id)
+and two for repeats with mismatches (perfect.spacer.id, imperfect.id). Second file in each run corresponds to
+type="imperfect" in parse_spacer()
 """
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
