@@ -3,7 +3,7 @@
 parses GRF output (grf-main) and makes GFF file for visualization of repeats (TDR) in a genomic browser
 for each strain it runs 4 tiles: two for repeats with no mismatches (perfect.spacer.id, imperfect.id)
 and two for repeats with mismatches (perfect.spacer.id, imperfect.id). Second file in each run corresponds to
-type="imperfect" in parse_spacer()
+type="imperfect" in parse_grf_output()
 """
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
@@ -12,7 +12,7 @@ from BCBio import GFF
 import os
 
 
-def parse_spacer(header):
+def parse_grf_output(header):
     """
     :param header: a char string like '>1:0-190543:951:190482:14m'
     :return: a list of values from parsed header
