@@ -6,6 +6,7 @@ to covert rgi output table to bed/gff file
 
 import pandas as pd
 from Bio import SeqIO
+import os
 
 
 # in_rgi = "/home/andrei/Data/HeteroR/results/resistance_genes/DA62886/rgi_table.txt"
@@ -14,7 +15,8 @@ from Bio import SeqIO
 # filter_condition = "Loose"
 
 in_rgi = snakemake.input[0]
-in_gbk = snakemake.input[1]
+strain = in_rgi.split("/")[2]
+in_gbk = os.path.join(snakemake.input[1], strain + "_genomic.gbk")
 out_gbk = snakemake.output[0]
 filter_condition = snakemake.params[0]
 

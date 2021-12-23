@@ -7,6 +7,7 @@ requires: bcbio-gff and gffutils
 from Bio import SeqIO
 import pandas as pd
 from BCBio import GFF
+import os
 
 
 def make_bed(collection, score):
@@ -118,7 +119,8 @@ def join_bed_files(bed_files_list):
 
 # VARIABLES FOR SNAKEMAKE
 in_assembly = snakemake.input[0]
-in_gff = snakemake.input[1]
+strain = in_assembly.split("/")[2]
+in_gff = os.path.join(snakemake.input[1], strain + "_genomic.gff")
 in_rgi = snakemake.input[2]
 range_len = int(snakemake.params[0])
 min_plasmid_size = int(snakemake.params[1])

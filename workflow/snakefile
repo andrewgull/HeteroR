@@ -283,7 +283,7 @@ rule resistance_genes:
 rule rg2gbk:
     input:
         "results/resistance_genes/{strain}/rgi_table.txt",
-        "results/annotations/{strain}/prokka/{strain}_genomic.gbk"
+        "results/annotations/{strain}/prokka"
     output:
         "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
     params: filter_criterion="Loose"
@@ -294,7 +294,7 @@ rule get_coordinates:
     # requires BEDtools, pybedtools and bcbio-gff
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
-        "results/annotations/{strain}/prokka/{strain}_genomic.gff",
+        "results/annotations/{strain}/prokka",
         "results/resistance_genes/{strain}/rgi_table.txt"
     output:
        "results/direct_repeats/{strain}/regions/regions.bed"
