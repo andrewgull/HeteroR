@@ -34,6 +34,22 @@ summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longes
 summary_table
 ```
 
+```{r}
+length(unique(summary_table$Strain))
+```
+```{r}
+length(summary_files)
+```
+why the difference?
+
+```{r}
+summary_files_strains <- sapply(summary_files, function(x){strsplit(x, "/")[[1]][1]})
+setdiff(summary_files_strains, summary_table$Strain)
+```
+These summary files are empty - there are only headers
+it happens because I remove first two lines of a summary table in assembly_summary.py
+
+
 # Summaries
 ```{r}
 summary(summary_table)
