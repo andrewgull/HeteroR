@@ -48,7 +48,7 @@ setdiff(summary_files_strains, summary_table$Strain)
 ```
 These summary files are empty - there are only headers
 it happens because I remove first two lines of a summary table in assembly_summary.py
-
+**fixed now**
 
 # Summaries
 ```{r}
@@ -57,30 +57,43 @@ summary(summary_table)
 
 ## Number of plasmids per strain
 
+
 ```{r, message = FALSE}
 plasmids_count <- summary_table %>% group_by(Strain, Type) %>% summarise(Count = n()) %>% filter(Type=="Plasmid")
 plasmids_count
 ```
 
+Total number of strains with plasmids identified
+
+```{r}
+length(plasmids_count$Strain)
+```
+
+I was unable to find plasmid in 20 strains
 
 ```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
 library(ggplot2)
 
 plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col() +
-        theme(axis.text.x = element_text(size = 7, angle = 90)) +
+        theme(axis.text.x = element_text(size = 6, angle = 90)) +
         scale_y_continuous(breaks=seq(0, 10, 1)) +
         xlab("strains") +
         ylab("plasmids count")
 plot_plasmids_per_strain
 ```
 
-```{r}
+```{r, warning = FALSE, message = FALSE, fig.width = 8, fig.asp = 0.6}
 ggplot(plasmids_count, aes(Type, Count)) +
         geom_boxplot() +
+        geom_violin(alpha=0.3) +
         geom_jitter() +
         scale_y_continuous(breaks=seq(0, 11, 2)) +
         xlab("") +
         ylab("plasmid count")
+```
+
+```{r}
+ggplot(plasmids_count, aes(Count)) + geom_histogram(stat="bin", bins = 12)
 ```
 
 ## Number of complete and incomplete segments per strain
@@ -92,7 +105,7 @@ complete_incomplete
 ```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
 plot_complete_incomplete <- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) +
          geom_col(aes(fill=Status), position = "stack") +
-        theme(axis.text.x = element_text(size = 7, angle = 90)) +
+        theme(axis.text.x = element_text(size = 6, angle = 90)) +
         xlab("strain") +
         ylab("count")
 
