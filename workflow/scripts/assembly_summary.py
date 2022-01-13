@@ -18,7 +18,14 @@ summary = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' "
                          "%s/unicycler.log | head -n -3" % input_assembly, shell=True, capture_output=True)
 summary_stdout = summary.stdout.decode("utf-8").splitlines()
 # i can skip first two elements (header and total): summary_lines[2:len(summary_lines)]
-summary_lines = [item.split() for item in summary_stdout][2:len(summary_stdout)]
+if len(summary_stdout) > 2:
+    # there is 'total' which should be removed ( as well as the original header)
+    summary_lines = [item.split() for item in summary_stdout][2:len(summary_stdout)]
+else:
+    # there is no 'total', just one header and one chromosome
+    # remove only original header
+    summary_lines = [item.split() for item in summary_stdout[1:]]
+
 summary_df = pd.DataFrame(summary_lines, columns=col_names)
 summary_df["Strain"] = strain
 # ideally there should be one chromosomal sequence and the rest should be plasmids
