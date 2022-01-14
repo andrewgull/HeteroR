@@ -89,7 +89,8 @@ ggplot(plasmids_count, aes(Type, Count)) +
         geom_jitter() +
         scale_y_continuous(breaks=seq(0, 11, 2)) +
         xlab("") +
-        ylab("plasmid count")
+        ylab("plasmid count") +
+        theme(axis.text.y = element_text(size=15), text = element_text(size=13))
 ```
 
 ```{r}
@@ -130,7 +131,10 @@ summary_table %>% filter(Status=="scaffold")
 
 ```{r, warning = FALSE, message = FALSE}
 summary_chrom <- summary_table %>% filter(Type=='Chromosome')
-plot_length_chrom <- ggplot(summary_chrom, aes(Length)) + geom_histogram(stat="bin")
+plot_length_chrom <- ggplot(summary_chrom, aes(Length)) +
+        geom_histogram(stat="bin") +
+        theme(axis.text.y = element_text(size=15), text = element_text(size=13), axis.text.x = element_text(size=13)) +
+        xlab("Length, bp")
 plot_length_chrom
 ```
 
