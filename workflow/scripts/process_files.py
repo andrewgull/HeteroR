@@ -44,7 +44,7 @@ def get_args():
     parser.add_argument("-m", "--mode", type=str, metavar="<mode>",
                         help="mode: all, copy, prep, coverage, config (optional)", default="all")
     parser.add_argument("-a", "--argos", type=str, metavar="<path>", help="path to raw data on ARGOS (optional)",
-                        default="/home/andrei/Data/Argos/imb_sal_raw/500\ Sepsis\ Eco/Sequencing/Strains")
+                        default="/home/andrei/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains")
     parser.add_argument("-l", "--genome_length", type=int, metavar="<genome length>",
                         help="Approx. genome length, bp (optional, in E.coli=5131220)", default=5131220)
     parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.2')

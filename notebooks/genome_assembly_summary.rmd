@@ -104,13 +104,15 @@ complete_incomplete <- summary_table %>% group_by(Strain, Status) %>% summarise(
 complete_incomplete
 ```
 ```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
-plot_complete_incomplete <- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) +
-         geom_col(aes(fill=Status), position = "stack") +
-        theme(axis.text.x = element_text(size = 6, angle = 90)) +
-        xlab("strain") +
-        ylab("count")
+ ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) +
+          geom_col(aes(fill=Status), position = "stack") +
+         theme(axis.text.x = element_text(size = 10, angle = 90),
+               axis.text.y = element_text(size = 13), text = element_text(size=13),
+               legend.text = element_text(size=16), legend.title = element_blank(), legend.position = c(0.8, 0.8)) +
+         xlab("") +
+         ylab("number of contigs") +
+        scale_fill_brewer(palette="Dark2", labels=c("circular", "linear"))
 
-plot_complete_incomplete
 ```
 
 "complete" - circular assembly (Unicycler)
@@ -131,19 +133,22 @@ summary_table %>% filter(Status=="scaffold")
 
 ```{r, warning = FALSE, message = FALSE}
 summary_chrom <- summary_table %>% filter(Type=='Chromosome')
-plot_length_chrom <- ggplot(summary_chrom, aes(Length)) +
-        geom_histogram(stat="bin") +
+ggplot(summary_chrom, aes(Length)) +
+        geom_histogram(stat="bin", fill="#065c2a") +
         theme(axis.text.y = element_text(size=15), text = element_text(size=13), axis.text.x = element_text(size=13)) +
         xlab("Length, bp")
-plot_length_chrom
+
 ```
 
 ### Plasmids
 
 ```{r}
 summary_plasmids <- summary_table %>% filter(Type=='Plasmid')
-plot_length_plasmid <- ggplot(summary_plasmids, aes(Length)) + geom_histogram(stat="bin")
-plot_length_plasmid
+ggplot(summary_plasmids, aes(Length)) +
+        geom_histogram(stat="bin", fill="#062d5c") +
+        theme(axis.text.y = element_text(size=15), text = element_text(size=13), axis.text.x = element_text(size=13)) +
+        xlab("Length, bp")
+
 ```
 
 These longest outliers (250k, 400k, 700k and 900k) - are they really plasmids?
@@ -156,11 +161,27 @@ summary_table %>% filter(Strain=="DA63676")
 
 Chromosome is incomplete and adds up to 5 Mbp with the longest plasmid...
 
+
 ```{r}
 summary_table %>% filter(Strain=="DA63914")
 ```
 
 Same here...
+
+### Together
+
+```{r}
+ggplot(summary_table, aes(Length)) +
+        geom_histogram(stat="bin", aes(fill=Type)) +
+        theme(axis.text.y = element_text(size=15),
+              text = element_text(size=13),
+              axis.text.x = element_text(size=13),
+              legend.title = element_blank(),
+              legend.text = element_text(size=16)) +
+        xlab("Length, bp") +
+        scale_fill_manual(values=c("#E69F00", "#56B4E9")) +
+        scale_x_continuous(breaks=seq(0, 6e+06, 1e+06))
+```
 
 # Assembly completeness
 
@@ -202,6 +223,10 @@ busco_table %>% filter(V3 == "Complete and single-copy BUSCOs (S)") %>% summary(
 
 ```{r}
 busco_table %>% filter(V3 == "Fragmented BUSCOs (F)") %>% summary()
+```
+
+```{r}
+busco_table %>% filter(V3 == "Fragmented BUSCOs (F)" & V2 > 0)
 ```
 
 ### Missing

@@ -154,7 +154,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 
 `config.yaml` - a list of strains to be processed
 
-## Workflow:
+## How to run an analysis:
 
 1. mount ARGOS
 2. run `workflow/scripts/process_files.py` to transfer read files from ARGOS, rename them, calculate coverage and create config file.
