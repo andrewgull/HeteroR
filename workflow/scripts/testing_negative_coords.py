@@ -131,3 +131,5 @@ all_coords = all_coords.append(df_add)
 # add two columns: crossing_left_end & crossing_right_end
 all_coords["span_over_5_end"] = np.where(all_coords["span_start"] < 0, all_coords["span_start"] + record_len, np.nan)
 all_coords["span_over_3_end"] = np.where(all_coords["span_end"] > record_len, all_coords["span_end"] - record_len, np.nan)
+
+# to join sequences from two files with the same IDs use seqkit concat
