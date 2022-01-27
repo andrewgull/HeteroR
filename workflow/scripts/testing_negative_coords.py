@@ -95,6 +95,9 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
 
         # making a bed file for all ranges
         bed_dataframe = make_bed(rg_ranges, score=0)
+    else:
+        empty_columns = ["chrom", "range_start", "range_end", "name", "score", "strand"]
+        bed_dataframe = pd.DataFrame(columns=empty_columns)
     # the output bed data frame must be further transformed
     return bed_dataframe, msg
 
@@ -139,22 +142,5 @@ for i in range(len(gff)):
 joined_bed_dataframe = pd.concat(bed_list)
 joined_bed_dataframe.to_csv("test_bed_output.tsv", sep="\t", index=False, header=False)
 
-# look at spans crossing left end of the DNA
-neg_coords_left = all_coords[all_coords["span_start"] < 0]
-neg_coords_left.head()  # there's just one line
-
-# look at spans crossing right end of the DNA
-neg_coords_right = all_coords[all_coords["span_end"] > record_len]  # there are 0 such lines
-# add one
-df_add = pd.DataFrame({"chrom": ["1"], "gene_id": ["GENE"], "gene_start": [4900000], "gene_end": [4901353],
-              "span_start": [4800000], "span_end": [5001353], "strand": [1]})
-all_coords = all_coords.append(df_add)
-# add two columns: crossing_left_end & crossing_right_end
-all_coords["span_over_5_start"] = np.where(all_coords["span_start"] < 0, all_coords["span_start"] + record_len, np.nan)
-all_coords["span_over_5_end"] = np.where(np.isnan(all_coords["span_over_5_start"]), np.nan, record_len)
-all_coords["span_over_3_end"] = np.where(all_coords["span_end"] > record_len, all_coords["span_end"] - record_len, np.nan)
-all_coords["span_over_3_start"] = np.where(np.isnan(all_coords["span_over_3_end"]), np.nan, 0)
-
-# you can make a single bed file (i.e. DataFrame) for everything
 
 # to join sequences from two files with the same IDs use seqkit concat
