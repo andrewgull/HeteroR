@@ -165,7 +165,7 @@ with open(snakemake.log[0], "w") as log:
         bed_list.append(ranges_bed)
         messages.append(bed_message)
 
-    joined_bed_dataframe = join_bed_files(bed_list)
+    joined_bed_dataframe = pd.concat(bed_list)
     # write dataframe to a BED file
     joined_bed_dataframe.to_csv(regions_bed_output, sep="\t", index=False, header=False)
     # write messages to log
