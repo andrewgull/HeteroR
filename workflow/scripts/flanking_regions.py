@@ -54,7 +54,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
     # get ± 100 kb region for each gene
 
     rg_collection = list()
-    # if not circular:  # TODO: SOLVE THE CASE WHEN IT'S CIRCULAR!
+    # if not circular:
     # then don't care about ranges crossing oriC
     # range coordinate will always be less than span length
     for gene in resistance_genes_coords:
@@ -86,7 +86,6 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
 
     # making a bed file for ranges not crossing oriC
     bed_dataframe = make_bed(rg_ranges_pos, score=0)
-    # TODO: make two bed files for rg_ranges_neg: one with up to oriC and the other for trans-oriC coords, see pseudocode.txt on Argos
 
     return bed_dataframe, rg_ranges_neg, msg
 
@@ -142,7 +141,6 @@ with open(snakemake.log[0], "w") as log:
     bed_list = list()
     messages = list()
     for i in range(len(gff)):
-        # TODO: negative coordinates?
         # i in assembly does not correspond to i in gff!
         record_len = len(assembly_filtered[i].seq)
         record_id = assembly_filtered[i].id
