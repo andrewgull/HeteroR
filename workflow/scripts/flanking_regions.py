@@ -97,13 +97,6 @@ def handle_circular_records():
     """
     return 1, 1, 1
 
-
-def join_bed_files(bed_files_list):
-    """
-    join bed files
-    """
-    return pd.concat(bed_files_list)
-
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 # VARIABLES TEST NON CIRCULAR CHROMOSOME
 # in_rgi = "DA62886_rgi_table.txt"
