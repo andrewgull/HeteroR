@@ -6,17 +6,40 @@ import numpy as np
 
 def make_bed(collection, score):
     """
-    :param collection: pd DataFrame of ranges for a bed file
-    :param score: score column value for bed file
-    :return: bed formatted pd DataFrame
+    :param collection: pd DataFrame of ranges for a bed_normal file
+    :param score: score column value for bed_normal file
+    :return: bed_normal formatted pd DataFrame
     """
-    bed = pd.DataFrame()
-    bed["chrom"] = collection["chrom"]
-    bed["range_start"] = collection["span_start"]
-    bed["range_end"] = collection["span_end"]
-    bed["name"] = collection["gene_id"]
-    bed["score"] = str(score)
-    bed["strand"] = collection["strand"]
+    # make bed_normal for normal coordinates
+    bed_normal = pd.DataFrame()
+    bed_normal["chrom"] = collection["chrom"]
+    bed_normal["range_start"] = collection["span_start"]
+    bed_normal["range_end"] = collection["span_end"]
+    bed_normal["name"] = collection["gene_id"]
+    bed_normal["score"] = str(score)
+    bed_normal["strand"] = collection["strand"]
+    # make bed_5 for spans crossing 5-end
+    bed_5 = pd.DataFrame()
+    bed_5["chrom"] = collection["chrom"]
+    bed_5["range_start"] = collection["span_over_5_start"]
+    bed_5["range_end"] = collection["span_over_5_end"]
+    bed_5["name"] = collection["gene_id"]
+    bed_5["score"] = str(score)
+    bed_5["strand"] = collection["strand"]
+    # drop NaNs in range_start (i.e. span_over_5_start)
+    bed_5 = bed_5[bed_5.range_start.notnull()]
+    # make bed_3 for spans crossing 3-end
+    bed_3 = pd.DataFrame()
+    bed_3["chrom"] = collection["chrom"]
+    bed_3["range_start"] = collection["span_over_3_start"]
+    bed_3["range_end"] = collection["span_over_3_end"]
+    bed_3["name"] = collection["gene_id"]
+    bed_3["score"] = str(score)
+    bed_3["strand"] = collection["strand"]
+    # drop NaNs
+    bed_3 = bed_3[bed_3.range_end.notnull()]
+    # join them
+    bed = pd.concat([bed_normal, bed_5, bed_3])
     return bed
 
 
@@ -48,7 +71,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
     # get ± 100 kb region for each gene
 
     rg_collection = list()
-    # if not circular:  # TODO: SOLVE THE CASE WHEN IT'S CIRCULAR!
+    # if not circular:
     # then don't care about ranges crossing oriC
     # range coordinate will always be less than span length
     for gene in resistance_genes_coords:
@@ -81,10 +104,9 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
     rg_ranges_neg = rg_ranges[rg_ranges["span_start"] < 0]
 
     # making a bed file for ranges not crossing oriC
-    bed_dataframe = make_bed(rg_ranges_pos, score=0)
-    # TODO: make two bed files for rg_ranges_neg: one with up to oriC and the other for trans-oriC coords, see pseudocode.txt on Argos
+    bed_dataframe = make_bed(rg_ranges, score=0)
 
-    return bed_dataframe, rg_ranges, msg
+    return bed_dataframe, msg
 
 
 in_assembly = "results/assemblies_joined/DA63746/assembly.fasta"
@@ -115,9 +137,14 @@ messages = list()
 record_len = len(assembly_filtered[i].seq)
 record_id = assembly_filtered[i].id
 
-ranges_bed, all_coords, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
+ranges_bed, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                                 dna_len=record_len, span_len=range_len,
                                                                 circular=circ)
+# turn negative range starts to zeros and 3-end crossing ranges to chromosome length
+ranges_bed["range_start"] = np.where(ranges_bed["range_start"] < 0, 0, ranges_bed["range_start"])
+ranges_bed["range_end"] = np.where(ranges_bed["range_end"] > record_len, record_len, ranges_bed["range_end"])
+
+
 # look at spans crossing left end of the DNA
 neg_coords_left = all_coords[all_coords["span_start"] < 0]
 neg_coords_left.head()  # there's just one line
@@ -129,7 +156,11 @@ df_add = pd.DataFrame({"chrom": ["1"], "gene_id": ["GENE"], "gene_start": [49000
               "span_start": [4800000], "span_end": [5001353], "strand": [1]})
 all_coords = all_coords.append(df_add)
 # add two columns: crossing_left_end & crossing_right_end
-all_coords["span_over_5_end"] = np.where(all_coords["span_start"] < 0, all_coords["span_start"] + record_len, np.nan)
+all_coords["span_over_5_start"] = np.where(all_coords["span_start"] < 0, all_coords["span_start"] + record_len, np.nan)
+all_coords["span_over_5_end"] = np.where(np.isnan(all_coords["span_over_5_start"]), np.nan, record_len)
 all_coords["span_over_3_end"] = np.where(all_coords["span_end"] > record_len, all_coords["span_end"] - record_len, np.nan)
+all_coords["span_over_3_start"] = np.where(np.isnan(all_coords["span_over_3_end"]), np.nan, 0)
+
+# you can make a single bed file (i.e. DataFrame) for everything
 
 # to join sequences from two files with the same IDs use seqkit concat
