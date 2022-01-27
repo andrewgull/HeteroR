@@ -80,17 +80,6 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
         end = int(gene.location.end)
         span_start = start - span_len - 1
         span_end = end + span_len
-        # check left end
-        # if start < span_len:
-        #     # to include leftmost letter subtract 1
-        #     span_start = 0
-        # else:
-        #     span_start = start - span_len - 1
-        # # check right end: bedtools includes it
-        # if end + span_len > dna_len:
-        #     span_end = dna_len
-        # else:
-        #     span_end = end + span_len
         # make a future table row
         row = [chrom_name, gene.id, start, end, span_start, span_end, int(gene.location.strand)]
         rg_collection.append(row)
@@ -98,14 +87,15 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
     # a table with span and resistance gene coordinates
     rg_ranges = pd.DataFrame(columns=["chrom", "gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
                              data=rg_collection)
+    # add columns for ranges crossing ends of a chromosome
+    rg_ranges["span_over_5_start"] = np.where(rg_ranges["span_start"] < 0, rg_ranges["span_start"] + dna_len, np.nan)
+    rg_ranges["span_over_5_end"] = np.where(np.isnan(rg_ranges["span_over_5_start"]), np.nan, dna_len)
+    rg_ranges["span_over_3_end"] = np.where(rg_ranges["span_end"] > dna_len, rg_ranges["span_end"] - dna_len, np.nan)
+    rg_ranges["span_over_3_start"] = np.where(np.isnan(rg_ranges["span_over_3_end"]), np.nan, 0)
 
-    # split ranges not crossing oriC and not crossing it
-    rg_ranges_pos = rg_ranges[rg_ranges["span_start"] >= 0]
-    rg_ranges_neg = rg_ranges[rg_ranges["span_start"] < 0]
-
-    # making a bed file for ranges not crossing oriC
+    # making a bed file for all ranges
     bed_dataframe = make_bed(rg_ranges, score=0)
-
+    # the output bed data frame must be further transformed
     return bed_dataframe, msg
 
 
@@ -133,17 +123,21 @@ strain = in_assembly.split("/")[2]
 bed_list = list()
 messages = list()
 
-# for i in range(len(gff)):
-record_len = len(assembly_filtered[i].seq)
-record_id = assembly_filtered[i].id
+for i in range(len(gff)):
+    record_len = len(assembly_filtered[i].seq)
+    record_id = assembly_filtered[i].id
 
-ranges_bed, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
-                                                                dna_len=record_len, span_len=range_len,
-                                                                circular=circ)
-# turn negative range starts to zeros and 3-end crossing ranges to chromosome length
-ranges_bed["range_start"] = np.where(ranges_bed["range_start"] < 0, 0, ranges_bed["range_start"])
-ranges_bed["range_end"] = np.where(ranges_bed["range_end"] > record_len, record_len, ranges_bed["range_end"])
+    ranges_bed, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
+                                                                    dna_len=record_len, span_len=range_len,
+                                                                    circular=circ)
+    # turn negative range starts to zeros and 3-end crossing ranges to chromosome length
+    ranges_bed["range_start"] = np.where(ranges_bed["range_start"] < 0, 0, ranges_bed["range_start"])
+    ranges_bed["range_end"] = np.where(ranges_bed["range_end"] > record_len, record_len, ranges_bed["range_end"])
+    bed_list.append(ranges_bed)
+    messages.append(bed_message)
 
+joined_bed_dataframe = pd.concat(bed_list)
+joined_bed_dataframe.to_csv("test_bed_output.tsv", sep="\t", index=False, header=False)
 
 # look at spans crossing left end of the DNA
 neg_coords_left = all_coords[all_coords["span_start"] < 0]
