@@ -107,6 +107,9 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
 
         # making a bed file for all ranges
         bed_dataframe = make_bed(rg_ranges, score=0)
+        # change float to int for BEDtools
+        bed_dataframe["range_start"] = bed_dataframe.range_start.astype("int64")
+        bed_dataframe["range_end"] = bed_dataframe.range_end.astype("int64")
     else:
         empty_columns = ["chrom", "range_start", "range_end", "name", "score", "strand"]
         bed_dataframe = pd.DataFrame(columns=empty_columns)
