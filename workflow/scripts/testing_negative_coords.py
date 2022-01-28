@@ -157,3 +157,4 @@ joined_bed_dataframe.to_csv("test_bed_output.tsv", sep="\t", index=False, header
 
 
 # to join sequences from two files with the same IDs use seqkit concat
+# but you will need to split records with repeated IDs to separate files :(
