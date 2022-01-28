@@ -43,7 +43,7 @@ def make_bed(collection, score):
     return bed
 
 
-def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular):
+def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
     """
     makes bed file for genomic ranges with resistance genes
     it takes into account the length of dna record and range
@@ -51,7 +51,6 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
     :param rgi_dataframe: pandas DataFrame, pd DataFrame of RGI results
     :param dna_len: integer, length of a current record (chromosome or plasmid)
     :param span_len: integer, length of up- and downstream region flanking a resistance gene
-    :param circular: boolean, is current dna record circular or not?
     :return: bed formatted pandas DataFrame, negative span pandas DataFrame, message with number of found genes
     """
     genes = [feature for feature in gff_record.features if feature.type == "gene"]  # here we have IDs and positions
@@ -77,7 +76,8 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
             if orf.split(" ")[0] in gene.id:
                 resistance_genes_coords.append(gene)
 
-    msg_count = "In record %s %i of %i resistance genes found\n" % (item_id, len(resistance_genes_coords), len(rgi_dataframe))
+    msg_count = "In record %s %i of %i resistance genes found\n" % (item_id, len(resistance_genes_coords),
+                                                                    len(rgi_dataframe))
 
     # get their coordinates - from GBK
     # get ± 100 kb region for each gene
@@ -124,7 +124,6 @@ rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
 
 i = 0
 min_plasmid_size = 1000
-circ = False
 range_len = 100000
 
 with open(in_gff) as f:
@@ -143,8 +142,7 @@ for i in range(len(gff)):
     record_id = assembly_filtered[i].id
 
     ranges_bed, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
-                                                                    dna_len=record_len, span_len=range_len,
-                                                                    circular=circ)
+                                                   dna_len=record_len, span_len=range_len)
     # turn negative range starts to zeros and 3-end crossing ranges to chromosome length
     ranges_bed["range_start"] = np.where(ranges_bed["range_start"] < 0, 0, ranges_bed["range_start"])
     ranges_bed["range_end"] = np.where(ranges_bed["range_end"] > record_len, record_len, ranges_bed["range_end"])
