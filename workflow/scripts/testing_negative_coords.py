@@ -57,6 +57,18 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
     genes = [feature for feature in gff_record.features if feature.type == "gene"]  # here we have IDs and positions
     item_id = gff_record.id
 
+    # find median gene length
+    genes_lengths = [gene.location.end.position - gene.location.start.position for gene in genes]
+    median_gene = pd.Series(genes_lengths).median()
+    # adjust span_len according to the record length
+    # span_len = (record_len - median_gene)/2, if 2*span_len > record_len
+    record_length = len(gff[1].seq)
+    if record_length < span_len*2:
+        span_len = round((record_length - median_gene)/2)
+        msg_len = "span length was adjusted to %i in record %s\n" % (span_len, item_id)
+    else:
+        msg_len = ""
+
     # find resistance genes' coords: RGI - resistance, GBK - coords
     # naive looping approach: 61*4947 comparisons
     resistance_genes_coords = list()
@@ -65,7 +77,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
             if orf.split(" ")[0] in gene.id:
                 resistance_genes_coords.append(gene)
 
-    msg = "In record %s %i of %i resistance genes found\n" % (item_id, len(resistance_genes_coords), len(rgi_dataframe))
+    msg_count = "In record %s %i of %i resistance genes found\n" % (item_id, len(resistance_genes_coords), len(rgi_dataframe))
 
     # get their coordinates - from GBK
     # get ± 100 kb region for each gene
@@ -99,7 +111,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, circular)
         empty_columns = ["chrom", "range_start", "range_end", "name", "score", "strand"]
         bed_dataframe = pd.DataFrame(columns=empty_columns)
     # the output bed data frame must be further transformed
-    return bed_dataframe, msg
+    return bed_dataframe, msg_len + msg_count
 
 
 in_assembly = "results/assemblies_joined/DA63746/assembly.fasta"
