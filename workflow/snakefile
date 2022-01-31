@@ -298,7 +298,7 @@ rule get_coordinates:
         "results/resistance_genes/{strain}/rgi_table.txt"
     output:
        "results/direct_repeats/{strain}/regions/regions.bed"
-    message: "creating BED files for RGs found in {wildcards.strain} assembly"
+    message: "creating BED files for RGs flanking regions in {wildcards.strain} assembly"
     log: "results/logs/{strain}_getbed.log"
     params: span=100000, min_plasmid_size=1000
     script:
