@@ -316,6 +316,18 @@ rule get_fasta:
     shell:
         "bedtools getfasta -fi {input.assembly} -bed {input.bed} -fo {output} &> {log}"
 
+rule join_ends:
+    input:
+        "results/direct_repeats/{strain}/regions/regions.fasta"
+    output:
+        "results/direct_repeats/{strain}/regions/regions_joined.fasta"
+    threads: 14
+    message: "joining regions overlapping chromosome ends in {wildcards.strain} assembly"
+    log: "results/logs/{strain}_concat.log"
+    conda: "envs/seqkit.yaml"
+    shell:
+        "seqkit concat input1.fa input2.fa -t dna -j {threads} -o output.fasta &> {log}"
+
 rule direct_repeats_no_mismatch:
     input:
         "results/direct_repeats/{strain}/regions/regions.fasta"
