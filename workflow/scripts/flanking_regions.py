@@ -46,8 +46,8 @@ def make_bed(collection, score):
     # drop NaNs
     bed_3 = bed_3[bed_3.range_end.notnull()]
     # join them
-    bed = pd.concat([bed_normal, bed_5, bed_3])
-    return bed
+    # bed = pd.concat([bed_normal, bed_5, bed_3])
+    return bed_normal, bed_5, bed_3
 
 
 def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
@@ -113,15 +113,18 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
         rg_ranges["span_over_3_start"] = np.where(np.isnan(rg_ranges["span_over_3_end"]), np.nan, 0)
 
         # making a bed file for all ranges
-        bed_dataframe = make_bed(rg_ranges, score=0)
+        bed_dataframes_list = make_bed(rg_ranges, score=0)
         # change float to int for BEDtools
-        bed_dataframe["range_start"] = bed_dataframe.range_start.astype("int64")
-        bed_dataframe["range_end"] = bed_dataframe.range_end.astype("int64")
+        for bed_df in bed_dataframes_list:
+            bed_df["range_start"] = bed_df.range_start.astype("int64")
+            bed_df["range_end"] = bed_df.range_end.astype("int64")
+
     else:
         empty_columns = ["chrom", "range_start", "range_end", "name", "score", "strand"]
-        bed_dataframe = pd.DataFrame(columns=empty_columns)
-    # the output bed data frame must be further transformed
-    return bed_dataframe, msg_len + msg_count
+        bed_dataframes_list = [pd.DataFrame(columns=empty_columns)]
+
+    # the output bed data frame contains negative and overly positive coordinates
+    return bed_dataframes_list, msg_len + msg_count
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 # VARIABLES TEST NON CIRCULAR CHROMOSOME
@@ -172,16 +175,20 @@ with open(snakemake.log[0], "w") as log:
         record_len = len(assembly_filtered[i].seq)
         record_id = assembly_filtered[i].id
 
-        ranges_bed, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
+        ranges_bed_list, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                        dna_len=record_len, span_len=range_len)
+        # TODO: reset start-end coordinates only in the first element of the bed list
         # turn 5-end crossing ranges' starts to zeros and 3-end crossing ranges to chromosome length
         ranges_bed["range_start"] = np.where(ranges_bed["range_start"] < 0, 0, ranges_bed["range_start"])
         ranges_bed["range_end"] = np.where(ranges_bed["range_end"] > record_len, record_len, ranges_bed["range_end"])
         bed_list.append(ranges_bed)
         messages.append(bed_message)
 
+    # TODO: do this join for all three bed df in ranges_bed_list
+    # join bed files for all chromosomes/plasmids in current GFF
     joined_bed_dataframe = pd.concat(bed_list)
     # write dataframe to a BED file
+    # TODO: write three joined dataframes to three files with 5 and 3 in their names
     joined_bed_dataframe.to_csv(regions_bed_output, sep="\t", index=False, header=False)
     # write messages to log
     log.writelines(messages)
