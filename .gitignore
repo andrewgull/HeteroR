@@ -3,3 +3,4 @@
 results/*
 resources/*
 .idea/*
+workflow/scripts/testing_negative_coords.py
