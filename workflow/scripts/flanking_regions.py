@@ -147,7 +147,9 @@ in_gff = os.path.join(snakemake.input[1], strain + "_genomic.gff")
 in_rgi = snakemake.input[2]
 range_len = int(snakemake.params[0])
 min_plasmid_size = int(snakemake.params[1])
-regions_bed_output = snakemake.output[0]
+bed_output_normal = snakemake.output[0]
+bed_output_5_end = snakemake.output[1]
+bed_output_3_end = snakemake.output[2]
 
 # write things to log
 with open(snakemake.log[0], "w") as log:
@@ -168,7 +170,9 @@ with open(snakemake.log[0], "w") as log:
     assembly_filtered = [assembly[key] for key in gff_ids]
 
     # iterate through chromosome and plasmids
-    bed_list = list()
+    bed_list_normal = list()  # this will be a collection of all coordinates from an assembly that do not overlap ends
+    bed_list_5_end = list()  # a collection of all coordinates from the same assembly that overlap the left end
+    bed_list_3_end = list()  # same for the right end
     messages = list()
     for i in range(len(gff)):
         # i in assembly does not correspond to i in gff!
@@ -177,18 +181,26 @@ with open(snakemake.log[0], "w") as log:
 
         ranges_bed_list, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
                                                        dna_len=record_len, span_len=range_len)
-        # TODO: reset start-end coordinates only in the first element of the bed list
         # turn 5-end crossing ranges' starts to zeros and 3-end crossing ranges to chromosome length
-        ranges_bed["range_start"] = np.where(ranges_bed["range_start"] < 0, 0, ranges_bed["range_start"])
-        ranges_bed["range_end"] = np.where(ranges_bed["range_end"] > record_len, record_len, ranges_bed["range_end"])
-        bed_list.append(ranges_bed)
-        messages.append(bed_message)
+        ranges_bed_list[0]["range_start"] = np.where(ranges_bed_list[0]["range_start"] < 0,
+                                                     0, ranges_bed_list[0]["range_start"])
+        ranges_bed_list[0]["range_end"] = np.where(ranges_bed_list[0]["range_end"] > record_len,
+                                                   record_len, ranges_bed_list[0]["range_end"])
+        # add bed data frames to the corresponding lists
+        bed_list_normal.append(ranges_bed_list[0])
+        bed_list_5_end.append(ranges_bed_list[1])
+        bed_list_3_end.append(ranges_bed_list[2])
 
-    # TODO: do this join for all three bed df in ranges_bed_list
+        messages.append(bed_message)
+    # here you have three types of bed files as lists of data frames
     # join bed files for all chromosomes/plasmids in current GFF
-    joined_bed_dataframe = pd.concat(bed_list)
-    # write dataframe to a BED file
-    # TODO: write three joined dataframes to three files with 5 and 3 in their names
-    joined_bed_dataframe.to_csv(regions_bed_output, sep="\t", index=False, header=False)
+    bed_normal_df = pd.concat(bed_list_normal)
+    bed_5_end_df = pd.concat(bed_list_5_end)
+    bed_3_end_df = pd.concat(bed_list_3_end)
+
+    # write dataframes to three BED files
+    bed_normal_df.to_csv(bed_output_normal, sep="\t", index=False, header=False)
+    bed_5_end_df.to_csv(bed_output_5_end, sep="\t", index=False, header=False)
+    bed_3_end_df.to_csv(bed_output_3_end, sep="\t", index=False, header=False)
     # write messages to log
     log.writelines(messages)
