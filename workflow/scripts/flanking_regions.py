@@ -52,13 +52,13 @@ def make_bed(collection, score):
 
 def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
     """
-    makes bed file for genomic ranges with resistance genes
+    makes bed files for genomic ranges with resistance genes
     it takes into account the length of dna record and range
     :param gff_record: GFF-object, list of gff records of a particular assembly
     :param rgi_dataframe: pandas DataFrame, pd DataFrame of RGI results
     :param dna_len: integer, length of a current record (chromosome or plasmid)
     :param span_len: integer, length of up- and downstream region flanking a resistance gene
-    :return: bed formatted pandas DataFrame, negative span pandas DataFrame, message with number of found genes
+    :return: a list of bed formatted pandas DataFrame, message with number of found genes
     """
     genes = [feature for feature in gff_record.features if feature.type == "gene"]  # here we have IDs and positions
     item_id = gff_record.id
