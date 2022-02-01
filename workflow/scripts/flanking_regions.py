@@ -68,7 +68,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
     median_gene = pd.Series(genes_lengths).median()
     # adjust span_len according to the record length
     # span_len = (record_len - median_gene)/2, if 2*span_len > record_len
-    record_length = len(gff[1].seq)
+    record_length = len(gff_record.seq)
     if record_length < span_len*2:
         span_len = round((record_length - median_gene)/2)
         msg_len = "span length was adjusted to %i in record %s\n" % (span_len, item_id)
@@ -183,7 +183,7 @@ with open(snakemake.log[0], "w") as log:
         ranges_bed_list[0]["range_end"] = np.where(ranges_bed_list[0]["range_end"] > record_len,
                                                    record_len, ranges_bed_list[0]["range_end"])
         # add bed data frames to the corresponding lists
-        for j in range(3):
+        for j in range(len(ranges_bed_list)):
             bed_lol[j].append(ranges_bed_list[j])
 
         messages.append(bed_message)
