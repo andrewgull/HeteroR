@@ -320,6 +320,7 @@ rule get_fasta:
     log: "results/logs/{strain}_bedtools.log"
     conda: "envs/bedtools.yaml"
     shell:
+        # bed tools returns an empty file if a bed file is empty
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_normal} -nameOnly -fo {output.normal} &> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_5_end} -nameOnly -fo {output.left} &>> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_3_end} -nameOnly -fo {output.right} &>> {log}"
