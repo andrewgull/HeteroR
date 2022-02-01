@@ -308,15 +308,19 @@ rule get_coordinates:
 
 rule get_fasta:
     input:
-        assembly="results/assemblies_joined/{strain}/assembly.fasta",
-        bed="results/direct_repeats/{strain}/regions/regions.bed"
+        assembly="results/assemblies_joined/{strain}/assembly_within.fasta",
+        bed_normal="results/direct_repeats/{strain}/regions/regions.bed",
+        bed_5_end="results/direct_repeats/{strain}/regions/regions_overlapping_5_end.bed",
+        bed_3_end="results/direct_repeats/{strain}/regions/regions_overlapping_3_end.bed"
     output:
-        "results/direct_repeats/{strain}/regions/regions.fasta"
+        "results/direct_repeats/{strain}/regions/regions_within.fasta",
+        "results/direct_repeats/{strain}/regions/regions_overlapping_5_end.fasta",
+        "results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta"
     message: "retrieving regions' sequences from {wildcards.strain} assembly"
     log: "results/logs/{strain}_bedtools.log"
     conda: "envs/bedtools.yaml"
     shell:
-        "bedtools getfasta -fi {input.assembly} -bed {input.bed} -fo {output} &> {log}"
+        "bedtools getfasta -fi {input.assembly} -bed {input.bed_normal} -nameOnly -fo {output} &> {log}"
 
 rule join_ends:
     input:
