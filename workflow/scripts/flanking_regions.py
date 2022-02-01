@@ -168,8 +168,8 @@ with open(snakemake.log[0], "w") as log:
 
     # iterate through chromosome and plasmids
     #
-    bed_lol = []
-    messages = [list(), list(), list()]
+    bed_lol = [list(), list(), list()]
+    messages = list()
     for i in range(len(gff)):
         # i in assembly does not correspond to i in gff!
         record_len = len(assembly_filtered[i].seq)
