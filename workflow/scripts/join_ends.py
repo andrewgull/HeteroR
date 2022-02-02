@@ -27,15 +27,19 @@ def join_ends(side_dict, normal_dict, left=True):
 
 # in test directory
 # /home/andrei/Data/HeteroR/test_dir/bed_seqkit
+# input_normal = "regions_normal.fasta"
+# input_left = "regions_left.fasta"
+# input_right = "regions_right.fasta"
+
 # input files
-input_normal = "regions_normal.fasta"
-input_left = "regions_left.fasta"
-input_right = "regions_right.fasta"
+input_normal = snakemake.input[0]
+input_left = snakemake.input[1]
+input_right = snakemake.input[3]
 
 # output files
-output_5_end = ""
-output_3_end = ""
-output_normal = ""
+output_normal = snakemake.output[0]
+output_5_end = snakemake.output[1]
+output_3_end = snakemake.output[2]
 
 # read sequences
 normal_records = SeqIO.to_dict(SeqIO.parse(input_normal, "fasta"))
