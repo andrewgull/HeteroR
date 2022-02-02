@@ -346,6 +346,7 @@ rule concatenate_regions:
         right_joined="results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta"
     output:
         "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
+    message: "concatenating regions from {wildcards.strain} assembly"
     log: "results/logs/{strain}_concatenate_regions.txt"
     shell:
         "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
