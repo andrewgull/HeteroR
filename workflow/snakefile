@@ -308,8 +308,8 @@ rule get_coordinates:
 
 rule get_fasta:
     input:
-        assembly="results/assemblies_joined/{strain}/assembly_within.fasta",
-        bed_normal="results/direct_repeats/{strain}/regions/regions.bed",
+        assembly="results/assemblies_joined/{strain}/assembly.fasta",
+        bed_normal="results/direct_repeats/{strain}/regions/regions_within.bed",
         bed_5_end="results/direct_repeats/{strain}/regions/regions_overlapping_5_end.bed",
         bed_3_end="results/direct_repeats/{strain}/regions/regions_overlapping_3_end.bed"
     output:
@@ -341,22 +341,28 @@ rule join_ends:
 
 rule concatenate_regions:
     input:
-        ""
+        normal="results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
+        left_joined="results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
+        right_joined="results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta"
     output:
-        ""
-    log: ""
+        "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
+    log: "results/logs/{strain}_concatenate_regions.txt"
     shell:
-        "cat {input.1} {input.2} {input.3} > {output} 2> {log}"
+        "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
+
+# here I increase min_size of repeat up to 20 because having tested min_size=10 I saw millions these tiny repeats
+# which make up 99% of output and make up the longer exact and inexact repeats
+# exact counts: 10-20 bp - 623 000, 20-50 bp - 292 and so on
 rule direct_repeats_no_mismatch:
     input:
-        "results/direct_repeats/{strain}/regions/regions.fasta"
+        "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
     output:
         directory("results/direct_repeats/{strain}/repeats_no_mismatch")
     threads: 14
     message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf_perfect.log"
     conda: "envs/grf.yaml"
-    params: mode=2, min_size=10, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=100
+    params: mode=2, min_size=20, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=100
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
@@ -368,34 +374,8 @@ rule dr2gff:
     output: "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
             "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff"
     message: "executing GFF_parser.py on {wildcards.strain} perfect repeats data"
-    params: min_len=15
+    params: min_len=20
     log: "results/logs/{strain}_gff_perfect.log"
-    script: "scripts/GRF_parser.py"
-
-rule direct_repeats_mismatch:
-    input:
-        "results/direct_repeats/{strain}/regions/regions.fasta"
-    output:
-        directory("results/direct_repeats/{strain}/repeats_mismatch")
-    threads: 14
-    message: "executing GRF (with mismatches) with {threads} threads on {wildcards.strain} assembly"
-    log: "results/logs/{strain}_grf_imperfect.log"
-    conda: "envs/grf.yaml"
-    params: mode=2, min_size=10, format=1, mism=10, seed_mism=0, max_dist=205000, min_dist=100
-    shell:
-        "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
-        "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
-
-rule dr_mismatch2gff:
-    # make GFF with imperfect repeats coords
-    input:
-        "results/direct_repeats/{strain}/repeats_mismatch",
-        "results/assemblies_joined/{strain}/assembly.fasta"
-    output: "results/annotations/{strain}/repeats/{strain}_repeats_mismatch_perfect.gff",
-             "results/annotations/{strain}/repeats/{strain}_repeats_mismatch_imperfect.gff"
-    message: "executing GFF_parser.py on {wildcards.strain} imperfect repeats data"
-    params: min_len=15
-    log: "results/logs/{strain}_gff_imperfect.log"
     script: "scripts/GRF_parser.py"
 
 rule final:
@@ -413,7 +393,7 @@ rule final:
         #dr_perfect="results/direct_repeats/{strain}/repeats_perfect",
         gff_nomism="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
         #dr_imperfect="results/direct_repeats/{strain}/repeats_imperfect",
-        gff_mism="results/annotations/{strain}/repeats/{strain}_repeats_mismatch_perfect.gff",
+        #gff_mism="results/annotations/{strain}/repeats/{strain}_repeats_mismatch_perfect.gff",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk"
     output: touch("results/final/{strain}_all.done")
