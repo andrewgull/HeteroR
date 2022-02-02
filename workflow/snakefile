@@ -327,16 +327,26 @@ rule get_fasta:
 
 rule join_ends:
     input:
-        "results/direct_repeats/{strain}/regions/regions.fasta"
+        "results/direct_repeats/{strain}/regions/regions_within.fasta",
+        "results/direct_repeats/{strain}/regions/regions_overlapping_5_end.fasta",
+        "results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta"
     output:
-        "results/direct_repeats/{strain}/regions/regions_joined.fasta"
-    threads: 14
+        "results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
+        "results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
+        "results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta"
     message: "joining regions overlapping chromosome ends in {wildcards.strain} assembly"
-    log: "results/logs/{strain}_concat.log"
-    conda: "envs/seqkit.yaml"
-    shell:
-        "seqkit concat input1.fa input2.fa -t dna -j {threads} -o output.fasta &> {log}"
+    log: "results/logs/{strain}_join_ends.log"
+    script:
+        "scripts/join_ends.py"
 
+rule concatenate_regions:
+    input:
+        ""
+    output:
+        ""
+    log: ""
+    shell:
+        "cat {input.1} {input.2} {input.3} > {output} 2> {log}"
 rule direct_repeats_no_mismatch:
     input:
         "results/direct_repeats/{strain}/regions/regions.fasta"
