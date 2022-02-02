@@ -353,7 +353,7 @@ rule concatenate_regions:
 # here I increase min_size of repeat up to 20 because having tested min_size=10 I saw millions these tiny repeats
 # which make up 99% of output and make up the longer exact and inexact repeats
 # exact counts: 10-20 bp - 623 000, 20-50 bp - 292 and so on
-rule direct_repeats_no_mismatch:
+rule direct_repeats:
     input:
         "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
     output:
