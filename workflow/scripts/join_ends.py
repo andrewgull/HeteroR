@@ -42,18 +42,36 @@ normal_records = SeqIO.to_dict(SeqIO.parse(input_normal, "fasta"))
 left_records = SeqIO.to_dict(SeqIO.parse(input_left, "fasta"))
 right_records = SeqIO.to_dict(SeqIO.parse(input_right, "fasta"))
 
-# join overlapping 5-end & ranges within a chromosome
-joined_5_end = join_ends(left_records, normal_records, left=True)
+# CASE 1 (the most probable): normal is non-empty, left and right are empty
+if len(normal_records) > 0 & len(left_records) == 0 & len(right_records) == 0:
+    # write essentially the same file, snakemake will detect these outputs
+    joined_5_end = list()
+    joined_3_end = list()
+    # NORMAL STAYS THE SAME
+# CASE 2 (less probable): normal and left are non-empty, right is empty
+elif len(normal_records) > 0 & len(left_records) > 0 & len(right_records) == 0:
+    joined_5_end = join_ends(left_records, normal_records, left=True)
+    joined_3_end = list()
+    for key in left_records.keys():
+        dropped = normal_records.drop(key, None)
+# CASE 3 (same probability): normal and right are non-empty, left is empty
+elif len(normal_records) > 0 & len(right_records) > 0 & len(left_records) == 0:
+    joined_3_end = join_ends(right_records, normal_records, left=False)
+    joined_5_end = list()
+    for key in right_records.keys():
+        dropped = normal_records.drop(key, None)
+# CASE 4 (unlikely to happen): all three dicts are non-empty
+elif len(normal_records) > 0 & len(right_records) > 0 & len(left_records) > 0:
+    joined_5_end = join_ends(left_records, normal_records, left=True)
+    joined_3_end = join_ends(right_records, normal_records, left=False)
+    keys_to_drop = set(list(left_records.keys()) + list(right_records.keys()))
+    for key in keys_to_drop:
+        dropped = normal_records.drop(key, None)
+else:  # should not happen
+    joined_5_end = list()
+    joined_3_end = list()
 
-# do the same with 3-end
-joined_3_end = join_ends(right_records, normal_records, left=False)
-
-# collect the keys from both left and right dicts and remove them from normal
-keys_to_drop = set(list(left_records.keys()) + list(right_records.keys()))
-for key in keys_to_drop:
-    dropped = normal_records.drop(key, None)
-
-# write new normal_records (without dropped keys of course)
+# write outputs
+SeqIO.write(normal_records, output_normal, "fasta")
 SeqIO.write(joined_5_end, output_5_end, "fasta")
 SeqIO.write(joined_3_end, output_3_end, "fasta")
-SeqIO.write(normal_records, output_normal, "fasta")
