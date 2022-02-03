@@ -34,6 +34,16 @@ summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longes
 summary_table
 ```
 
+## Incomplete assemblies
+
+```{r}
+incomplete_assemblies <- summary_table %>% filter(Status=="incomplete")
+incomplete_assemblies
+```
+
+Number of incomplete assemblies (strains) N=`r length(unique(incomplete_assemblies$Strain))`
+
+
 ```{r}
 length(unique(summary_table$Strain))
 ```
