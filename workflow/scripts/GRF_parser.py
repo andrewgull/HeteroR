@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 parses GRF output (grf-main) and makes GFF file for visualization of repeats (TDR) in a genomic browser
-for each strain it runs 4 tiles: two for repeats with no mismatches (perfect.spacer.id, imperfect.id)
-and two for repeats with mismatches (perfect.spacer.id, imperfect.id). Second file in each run corresponds to
+for each strain it runs two times: perfect.spacer.id and imperfect.id (for repeats with no mismatches)
+Second file in each run corresponds to
 type="imperfect" in parse_grf_output()
 """
 from Bio import SeqIO
@@ -15,6 +15,7 @@ import os
 def parse_grf_output(header):
     """
     :param header: a char string like '>1:0-190543:951:190482:14m' or '>1:155171-355997:1372:198472:10m1D3m'
+    in newer version of grf files: '>IPFHMEHC_00036_gene:12520:113509:13m1I2m2I5m' or '>IPFHMEHC_00036_gene:95122:101284:29m'
     :return: a list of values from parsed header
     """
     first_split = header.split(":")
