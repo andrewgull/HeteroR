@@ -34,7 +34,7 @@ def join_ends(side_dict, normal_dict, left=True):
 # input files
 input_normal = snakemake.input[0]
 input_left = snakemake.input[1]
-input_right = snakemake.input[3]
+input_right = snakemake.input[2]
 
 # output files
 output_normal = snakemake.output[0]
@@ -76,6 +76,6 @@ else:  # should not happen
     joined_3_end = list()
 
 # write outputs
-SeqIO.write(normal_records, output_normal, "fasta")
+SeqIO.write(list(normal_records.values()), output_normal, "fasta")
 SeqIO.write(joined_5_end, output_5_end, "fasta")
 SeqIO.write(joined_3_end, output_3_end, "fasta")
