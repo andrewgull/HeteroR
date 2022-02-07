@@ -28,16 +28,19 @@ library(dplyr)
 my_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined"
 
 summary_files <- dir(path=my_path,  pattern = "summary.tsv", recursive=TRUE)
-summary_table <- lapply(summary_files, function(x){read.delim(paste0("../results/assemblies_joined/", x), stringsAsFactors = TRUE)})
+summary_table <- lapply(summary_files, function(x){read.delim(paste0("results/assemblies_joined/", x), stringsAsFactors = TRUE)})
 
 summary_table <- bind_rows(summary_table)
 # replace commas in Length, N50 and Longest component
 summary_table$Length <- as.integer(gsub(",", "", summary_table$Length, fixed=TRUE))
 summary_table$N50 <- as.integer(gsub(",", "", summary_table$N50, fixed=TRUE))
 summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longest_component, fixed=TRUE))
-
-write.delim(summary_table %>% filter(Status == "incomplete"), sep="\t", quote=F)
-
+summary_table
+```
+```{r eval=FALSE}
+write.delim(summary_table %>% filter(Status == "incomplete"), "/home/andrei/Data/HeteroR/incomplete_assemblies.tsv", sep="\t", quote=F)
+```
+```{r}
 incomplete_assemblies <- read.delim("/home/andrei/Data/HeteroR/incomplete_assemblies.tsv")
 incomplete_assemblies
 ```
@@ -75,7 +78,10 @@ library(ggplot2)
 
 ggplot(coverage_joined, aes(strain, num_seqs))+
          geom_col(aes(fill=filtered), position="dodge")+
-        theme(axis.text.x = element_text(size = 8, angle = 90))
+        theme(axis.text.x = element_text(size = 7, angle = 90))+
+        ggtitle("Number of reads")+
+        ylab("")+
+        xlab("")
 
 #+coord_trans(y="sqrt")
 ```
@@ -85,6 +91,53 @@ ggplot(coverage_joined, aes(strain, num_seqs))+
 ```{r}
 ggplot(coverage_joined, aes(strain, coverage))+
          geom_col(aes(fill=filtered), position="dodge")+
-        theme(axis.text.x = element_text(size = 8, angle = 90))
+        theme(axis.text.x = element_text(size = 7, angle = 90))+
+        ggtitle("Coverage")+
+        ylab("")+
+        xlab("")
 
+```
+
+## Summary length
+
+```{r}
+ggplot(coverage_joined, aes(strain, sum_len))+
+         geom_col(aes(fill=filtered), position="dodge")+
+        theme(axis.text.x = element_text(size = 7, angle = 90))+
+        ggtitle("Total read length")+
+        ylab("")+
+        xlab("")
+```
+
+## Minimum length
+
+```{r}
+ggplot(coverage_joined, aes(strain, min_len))+
+         geom_col(aes(fill=filtered), position="dodge")+
+        theme(axis.text.x = element_text(size = 7, angle = 90))+
+        ggtitle("Minimum read length")+
+        ylab("")+
+        xlab("")
+```
+
+## Average length
+
+```{r}
+ggplot(coverage_joined, aes(strain, avg_len))+
+         geom_col(aes(fill=filtered), position="dodge")+
+        theme(axis.text.x = element_text(size = 7, angle = 90))+
+        ggtitle("Average read length")+
+        ylab("")+
+        xlab("")
+```
+
+## Maximum length
+
+```{r}
+ggplot(coverage_joined, aes(strain, max_len))+
+         geom_col(aes(fill=filtered), position="dodge")+
+        theme(axis.text.x = element_text(size = 7, angle = 90))+
+        ggtitle("Maximum read length")+
+        ylab("")+
+        xlab("")
 ```
