@@ -142,3 +142,8 @@ ggplot(coverage_joined, aes(strain, max_len))+
         xlab("")
 ```
 Max length didn't suffer much, while minimum and average lengths actually improved
+
+filtlong command looks like this:
+```
+filtlong --min_length 5000 --length_weight 1 --keep_percent 20 --target_bases 260000000 {input} 2> {log} | pigz -c -p {threads} > {output}
+```
