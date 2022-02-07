@@ -141,3 +141,4 @@ ggplot(coverage_joined, aes(strain, max_len))+
         ylab("")+
         xlab("")
 ```
+Max length didn't suffer much, while minimum and average lengths actually improved
