@@ -370,6 +370,9 @@ rule direct_repeats:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
+# TODO: dr2gff  without overlapping parts & dr2gff on regions (get local coordinates only)
+# the actual grf output should be used for consequent calculations
+
 rule dr2gff:
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch",
