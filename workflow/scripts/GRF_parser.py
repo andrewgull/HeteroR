@@ -12,10 +12,10 @@ from BCBio import GFF
 import os
 
 
-def parse_grf_output(header):
+def parse_grf_output_w_ranges(header):
     """
+    MUST BE RE-WRITTEN (OR NOT) FOR A CASE WHEN A GENE NAME IS IN THE HEADER
     :param header: a char string like '>1:0-190543:951:190482:14m' or '>1:155171-355997:1372:198472:10m1D3m'
-    in newer version of grf files: '>IPFHMEHC_00036_gene:12520:113509:13m1I2m2I5m' or '>IPFHMEHC_00036_gene:95122:101284:29m'
     :return: a list of values from parsed header
     """
     first_split = header.split(":")
@@ -35,6 +35,25 @@ def parse_grf_output(header):
 
     return [record_id, repeat_1_start_in_chrom, repeat_1_end_in_chrom, repeat_2_start_in_chrom,
             repeat_2_end_in_chrom, repeat_len]
+
+
+def parse_grf_output_no_ranges(header):
+    """
+    for newer version of grf files: '>IPFHMEHC_00036_gene:12520:113509:13m1I2m2I5m' or
+    '>IPFHMEHC_00036_gene:95122:101284:29m'
+    where headers do not contain coordinates of regions on chromosome (i.e. 'ranges')
+    :param header: a string from grf output, see above
+    :return: a list of coordinates from this header ready to be turned into a gff-record
+    """
+    first_split = header.split(":")
+    record_id = first_split[0][1:]
+    repeat_len = int(first_split[-1].split("m")[0])
+    repeat_1_start_in_range = int(first_split[1])
+    repeat_1_end_in_range = repeat_1_start_in_range + repeat_len
+    repeat_2_end_in_range = int(first_split[2])
+    repeat_2_start_in_range = repeat_2_end_in_range - repeat_len
+    return [record_id, repeat_1_start_in_range, repeat_1_end_in_range, repeat_2_start_in_range, repeat_2_end_in_range,
+            repeat_len]
 
 
 def gff_object(features_df, record, strand=1, feature_type="direct_repeat"):
@@ -71,7 +90,7 @@ def main(input_assembly, input_grf, min_len):
     assembly = [rec for rec in SeqIO.parse(input_assembly, "fasta")]
 
     # make features rows from spacer IDs
-    gff_rows = [parse_grf_output(line) for line in repeat_ids]
+    gff_rows = [parse_grf_output_no_ranges(line) for line in repeat_ids]
     gff_df = pd.DataFrame(columns=["record_id", "start_1", "end_1", "start_2", "end_2", "length"], data=gff_rows)
     gff_df.drop_duplicates(inplace=True)
 

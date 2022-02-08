@@ -12,6 +12,13 @@
             </RMarkdownRenderProfile>
           </value>
         </entry>
+        <entry key="file://$PROJECT_DIR$/notebooks/incomplete_assembly_investigation.rmd">
+          <value>
+            <RMarkdownRenderProfile>
+              <option name="outputDirectoryUrl" value="file://$PROJECT_DIR$/notebooks" />
+            </RMarkdownRenderProfile>
+          </value>
+        </entry>
         <entry key="file://$USER_HOME$/GoogleDrive/Science/ripcm/EBV/EBV.Rmd">
           <value>
             <RMarkdownRenderProfile>
