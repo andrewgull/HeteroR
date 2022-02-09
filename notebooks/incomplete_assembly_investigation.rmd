@@ -98,6 +98,42 @@ ggplot(coverage_joined, aes(strain, coverage))+
 
 ```
 
+## Coverage of complete strains
+
+Are changes there as big as in incomplete ones?
+
+```{r}
+coverage_all_filtered <- read.delim("/home/andrei/Data/HeteroR/results/coverage/nanopore_coverage1-216.tsv")
+coverage_all_filtered$filtered <- "yes"
+coverage_all_raw <- read.delim("/home/andrei/Data/HeteroR/results/coverage/nanopore_coverage1-216_raw.tsv")
+coverage_all_raw$filtered <- "no"
+
+# add strain
+coverage_all_raw$Strain <- sapply(coverage_all_raw$file, function(x){substr(tail(strsplit(x, "/")[[1]], 1), 1, 7)})
+coverage_all_filtered$Strain <- sapply(coverage_all_filtered$file, function(x){substr(tail(strsplit(x, "/")[[1]], 1), 1, 7)})
+
+# add completeness info
+summary_chrom <- summary_table %>% filter(Type=="Chromosome") %>% select(Strain, Status)
+coverage_all_raw <- left_join(summary_chrom, coverage_all_raw, by="Strain") %>% filter(!is.na(Status))
+coverage_all_filtered <- left_join(summary_chrom, coverage_all_filtered, by="Strain") %>% filter(!is.na(Status))
+
+coverage_all_joined <- bind_rows(coverage_all_filtered, coverage_all_raw)
+coverage_all_joined
+```
+
+```{r}
+ggplot(coverage_all_joined, aes(Strain, coverage))+
+         geom_col(aes(fill=filtered), position="dodge")+
+        theme(axis.text.x = element_text(size = 7, angle = 90))+
+        ggtitle("Coverage")+
+        ylab("")+
+        xlab("")+
+        facet_grid(rows=vars(Status))
+```
+
+
+
+
 ## Summary length
 
 ```{r}
@@ -252,3 +288,13 @@ kruskal.test(num_seqs ~ Status,  data=summary_coverage)
 
 Coverage seems to be main predictors of the completeness (among the data that we have)
 number of sequences and summary length are correlated
+
+
+
+
+
+
+
+
+
+
