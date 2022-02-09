@@ -132,7 +132,7 @@ ggplot(coverage_all_joined, aes(Strain, coverage))+
 ```
 
 
-
+For the thorough coverage comparison see below
 
 ## Summary length
 
