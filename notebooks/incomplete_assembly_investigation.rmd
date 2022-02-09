@@ -198,6 +198,10 @@ numseq_plot <- ggplot(summary_coverage, aes(Status, num_seqs))+geom_boxplot()+ge
 plot_grid(cov_plot, maxlen_plot, avglen_plot, sumlen_plot, numseq_plot, nrow=2)
 ```
 
+```{r}
+pairs(summary_coverage %>% select(coverage, max_len, avg_len, sum_len, num_seqs))
+```
+
 ## Regression analysis
 
 ### Only coverage
@@ -224,6 +228,11 @@ rsquared <- function(created_model) {
 rsquared(fit_coverage)
 ```
 
+```{r}
+kw.coverage <- kruskal.test(coverage ~ Status, data=summary_coverage)
+kw.coverage
+```
+
 ### Coverage + the rest
 
 ```{r}
@@ -233,6 +242,10 @@ summary(fit_everything)
 
 ```{r}
 rsquared(fit_everything)
+```
+
+```{r}
+kruskal.test(num_seqs ~ Status,  data=summary_coverage)
 ```
 
 ## Conclusion
