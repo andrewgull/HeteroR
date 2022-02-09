@@ -37,7 +37,7 @@ summary_table$N50 <- as.integer(gsub(",", "", summary_table$N50, fixed=TRUE))
 summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longest_component, fixed=TRUE))
 summary_table
 ```
-```{r eval=FALSE}
+```{r, eval=FALSE}
 write.delim(summary_table %>% filter(Status == "incomplete"), "/home/andrei/Data/HeteroR/incomplete_assemblies.tsv", sep="\t", quote=F)
 ```
 ```{r}
@@ -147,3 +147,94 @@ filtlong command looks like this:
 ```
 filtlong --min_length 5000 --length_weight 1 --keep_percent 20 --target_bases 260000000 {input} 2> {log} | pigz -c -p {threads} > {output}
 ```
+
+# Coverage as predictor of an assembly's circularization
+
+I need data on coverage
+
+## Before filtering
+
+Not used in the following analysis.
+When it was used, the coverage coefficient and R-squared were a bit lower
+
+```{r, eval=FALSE}
+coverage_path <- "/home/andrei/Data/HeteroR/results/coverage/"
+coverage_files <- dir(coverage_path, pattern="nanopore_coverage[0-9,-]*.tsv")
+
+coverage_table <- lapply(coverage_files, function(x){read.delim(paste0(coverage_path, x), stringsAsFactors = FALSE)})
+coverage_table <- bind_rows(coverage_table)
+coverage_table <- filter(coverage_table, !is.na(coverage))
+coverage_table$Strain <- sapply(coverage_table$file, function(x){substr(tail(strsplit(x, "/")[[1]], 1), 1, 7)})
+coverage_table
+```
+
+## After filtering (used for actual assembling)
+
+That's what's used in the following analysis
+
+```{r}
+coverage_table <- read.delim("/home/andrei/Data/HeteroR/results/coverage/nanopore_coverage1-216.tsv")
+coverage_table <- filter(coverage_table, !is.na(coverage))
+coverage_table$Strain <- sapply(coverage_table$file, function(x){substr(tail(strsplit(x, "/")[[1]], 1), 1, 7)})
+coverage_table
+```
+
+
+Add completeness information from the summaries
+```{r}
+summary_chrom <- summary_table %>% filter(Type=="Chromosome")
+summary_coverage <- left_join(coverage_table, summary_chrom, by="Strain") %>% filter(!is.na(Status))
+summary_coverage
+```
+
+## Plot potential predictors
+
+```{r}
+cov_plot <- ggplot(summary_coverage, aes(Status, coverage))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
+maxlen_plot <- ggplot(summary_coverage, aes(Status, max_len))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
+avglen_plot <- ggplot(summary_coverage, aes(Status, avg_len))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
+sumlen_plot <- ggplot(summary_coverage, aes(Status, sum_len))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
+numseq_plot <- ggplot(summary_coverage, aes(Status, num_seqs))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
+plot_grid(cov_plot, maxlen_plot, avglen_plot, sumlen_plot, numseq_plot, nrow=2)
+```
+
+## Regression analysis
+
+### Only coverage
+
+```{r}
+fit_coverage <- glm(Status ~ coverage, data=summary_coverage, family = "binomial")
+summary(fit_coverage)
+```
+
+```{r}
+rsquared <- function(created_model) {
+  dev <- created_model$deviance
+  null_dev <- created_model$null.deviance
+  model_n <- length(created_model$fitted.values)
+  R_l <- 1 - dev / null_dev
+  R_cs <- 1 - exp(-(null_dev - dev) / model_n)
+  R_n <- R_cs / (1 - exp(-(null_dev / model_n)))
+  cat("Pseudo R-squared for logistic regression model\n\n")
+  cat("Hosmer and Lemeshow R-squared\t", round(R_l, 3), "\n")
+  cat("Cox and Snell R-squared\t\t\t", round(R_cs, 3), "\n")
+  cat("Nagelkerke R-squared\t\t\t\t", round(R_n, 3), "\n")
+}
+
+rsquared(fit_coverage)
+```
+
+### Coverage + the rest
+
+```{r}
+fit_everything <- glm(Status ~ coverage + avg_len + max_len + sum_len + num_seqs, data=summary_coverage, family = "binomial")
+summary(fit_everything)
+```
+
+```{r}
+rsquared(fit_everything)
+```
+
+## Conclusion
+
+Coverage and number of sequences seem to be main predictors of the completeness (among the data that we have)
