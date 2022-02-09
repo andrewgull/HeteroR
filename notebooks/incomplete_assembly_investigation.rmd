@@ -233,10 +233,10 @@ kw.coverage <- kruskal.test(coverage ~ Status, data=summary_coverage)
 kw.coverage
 ```
 
-### Coverage + the rest
+### Coverage + the rest (except sum_len & num_seqs)
 
 ```{r}
-fit_everything <- glm(Status ~ coverage + avg_len + max_len + sum_len + num_seqs, data=summary_coverage, family = "binomial")
+fit_everything <- glm(Status ~ coverage + avg_len + max_len , data=summary_coverage, family = "binomial")
 summary(fit_everything)
 ```
 
@@ -250,4 +250,5 @@ kruskal.test(num_seqs ~ Status,  data=summary_coverage)
 
 ## Conclusion
 
-Coverage and number of sequences seem to be main predictors of the completeness (among the data that we have)
+Coverage seems to be main predictors of the completeness (among the data that we have)
+number of sequences and summary length are correlated
