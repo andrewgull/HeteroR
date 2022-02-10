@@ -354,6 +354,23 @@ no complete found here:
 for_pred %>% filter(prob >= 0.78 & Status=="complete")
 ```
 
+#### Cut-off table
+
+```{r}
+cutoff_table <- data.frame("probability"=perf.spec@x.values[[1]], "specificity"=perf.spec@y.values[[1]])
+cutoff_table
+```
+
+So, even with probability cut-off = 0.70 I have specificity 0.99
+Maybe spec=0.95 if fine, then prob. cut-off should be 0.63 (or 0.70 for better)
+
+```{r}
+for_pred %>% arrange(-prob) %>% filter(prob > 0.63 & Status=="complete") %>% nrow()
+```
+
+```{r}
+for_pred %>% arrange(-prob) %>% filter(prob > 0.70 & Status=="complete") %>% nrow()
+```
 
 ### Coverage + the rest (except sum_len & num_seqs)
 
