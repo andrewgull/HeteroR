@@ -318,7 +318,7 @@ perf.spec  <- performance(pred.fit, x.measure = "cutoff", measure = "spec")
 perf.sens  <- performance(pred.fit, x.measure = "cutoff", measure = "sens")
 perf.acc  <- performance(pred.fit, x.measure = "cutoff", measure = "acc")
 
-plot(perf.spec, col = "red", lwd =2, xlab='probability', ylab='specificity')
+plot(perf.spec, col = "red", lwd =2, xlab='probability', ylab='')
 plot(add=T, perf.sens , col = "steelblue", lwd =2)
 plot(add=T, perf.acc, lwd =2)
 
@@ -329,10 +329,27 @@ abline(v= 0.4, lwd = 2, lty=6)
 
 ```
 
+specificity => 1 -> starting from prob=0.78 all you find is incomplete
+sensitivity => 1 -> you find all "incomplete"
+
+To illustrate this:
+
+```{r}
+for_pred %>% filter(prob >= 0.0 & Status=="incomplete") %>% nrow()
+```
+
+Same number here
+
+```{r}
+for_pred %>% filter(Status=="incomplete") %>% nrow()
+```
+no complete found here:
 
 
 
-
+```{r}
+for_pred %>% filter(prob >= 0.78 & Status=="complete")
+```
 
 
 ### Coverage + the rest (except sum_len & num_seqs)
