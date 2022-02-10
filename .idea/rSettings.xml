@@ -3,8 +3,7 @@
   <component name="RSettings">
     <option name="interpreterPath" value="/usr/bin/R" />
     <option name="loadWorkspace" value="true" />
-    <option name="remoteBasePath" value="/home/andrei/Data/HeteroR" />
-    <option name="remoteHost" value="6c6094ce-8611-48e4-abda-08b4144cc2aa" />
+    <option name="remoteBasePath" value="$USER_HOME$/Data/HeteroR" />
     <option name="saveWorkspace" value="true" />
   </component>
 </project>

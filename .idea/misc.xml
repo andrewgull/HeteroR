@@ -4,13 +4,6 @@
   <component name="RMarkdownSettings">
     <option name="renderProfiles">
       <map>
-        <entry key="file://$USER_HOME$/GoogleDrive/Science/ripcm/EBV/EBV.Rmd">
-          <value>
-            <RMarkdownRenderProfile>
-              <option name="outputDirectoryUrl" value="file://$USER_HOME$/GoogleDrive/Science/ripcm/EBV" />
-            </RMarkdownRenderProfile>
-          </value>
-        </entry>
         <entry key="file://$PROJECT_DIR$/notebooks/genome_assembly_summary.rmd">
           <value>
             <RMarkdownRenderProfile>
@@ -20,6 +13,13 @@
           </value>
         </entry>
         <entry key="file://$PROJECT_DIR$/notebooks/incomplete_assembly_investigation.rmd">
+          <value>
+            <RMarkdownRenderProfile>
+              <option name="outputDirectoryUrl" value="file://$PROJECT_DIR$/notebooks" />
+            </RMarkdownRenderProfile>
+          </value>
+        </entry>
+        <entry key="file://$PROJECT_DIR$/notebooks/why_unicycler_gets_killed.Rmd">
           <value>
             <RMarkdownRenderProfile>
               <option name="outputDirectoryUrl" value="file://$PROJECT_DIR$/notebooks" />
