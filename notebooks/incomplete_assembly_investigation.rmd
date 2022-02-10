@@ -25,6 +25,7 @@ I have a table with incomplete assemblies
 library(dplyr)
 
 # just in case
+setwd("/home/andrei/Data/HeteroR")
 my_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined"
 
 summary_files <- dir(path=my_path,  pattern = "summary.tsv", recursive=TRUE)
@@ -326,6 +327,7 @@ legend(x = 0.6,y = 0.3, c("spec", "sens", "acc"),
        lty = 1, col =c('red', 'steelblue', 'black'), bty = 'n', cex = 1, lwd = 2)
 # determine x coordinate manually!
 abline(v= 0.4, lwd = 2, lty=6)
+abline(v=0.747, lwd=1, lty=3)
 
 ```
 
@@ -368,17 +370,21 @@ rsquared(fit_everything)
 kruskal.test(num_seqs ~ Status,  data=summary_coverage)
 ```
 
-## Conclusion
+# Conclusion
 
-Coverage seems to be main predictors of the completeness (among the data that we have)
+Coverage is the main predictors of the completeness (among the data that we have)
 number of sequences and summary length are correlated
 
+Balanced probability cut-off for the Status ~ coverage model is 0.4
 
+What is more important: specificity or sensitivity?
+Say, a read data set has coverage X.
+Based on that coverage value, I want to know whether to trim the reads or not.
+If my model predicts that this data set will be an incomplete assembly after trimming, I do not trim it.
+If my model predicts that this data set will be a complete assembly after trimming, I trim it.
+More important is to identify "incomplete" (and not trim it), rather than get some false positive "complete" ones and not trim them too,
+because I know that if I don't trim reads, they may break Unicycler.
 
-
-
-
-
-
+And this is applicable to current trimming rules only!
 
 
