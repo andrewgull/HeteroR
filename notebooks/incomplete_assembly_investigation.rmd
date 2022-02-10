@@ -332,6 +332,7 @@ abline(v= 0.4, lwd = 2, lty=6)
 specificity => 1 -> starting from prob=0.78 **all you find** is "incomplete"
 sensitivity => 1 -> you find **every "incomplete"**
 
+
 To illustrate this:
 
 ```{r}
