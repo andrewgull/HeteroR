@@ -226,6 +226,9 @@ summary_coverage
 ## Plot potential predictors
 
 ```{r}
+library(ggplot2)
+library(cowplot)
+
 cov_plot <- ggplot(summary_coverage, aes(Status, coverage))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
 maxlen_plot <- ggplot(summary_coverage, aes(Status, max_len))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
 avglen_plot <- ggplot(summary_coverage, aes(Status, avg_len))+geom_boxplot()+geom_violin(alpha=0.0)+xlab("")
@@ -242,10 +245,14 @@ pairs(summary_coverage %>% select(coverage, max_len, avg_len, sum_len, num_seqs)
 
 ### Only coverage
 
+#### Model
+
 ```{r}
 fit_coverage <- glm(Status ~ coverage, data=summary_coverage, family = "binomial")
 summary(fit_coverage)
 ```
+
+#### R-squared
 
 ```{r}
 rsquared <- function(created_model) {
@@ -264,10 +271,69 @@ rsquared <- function(created_model) {
 rsquared(fit_coverage)
 ```
 
+#### Kruskal-Wallis test
+
 ```{r}
 kw.coverage <- kruskal.test(coverage ~ Status, data=summary_coverage)
 kw.coverage
 ```
+
+#### Odds ratio
+
+```{r}
+exp(coef(fit_coverage))
+```
+
+#### Choosing a probability cut-off
+
+```{r}
+for_pred <- select(summary_coverage, c(Status, coverage))
+for_pred$prob <- predict(object = fit_coverage, type = "response")
+for_pred
+```
+
+Here "incomplete" is a success (the higher is the coverage, the lower is the probability of success)
+
+```{r, message=FALSE}
+library(ROCR)
+library(cvAUC)
+
+pred.fit <- prediction(for_pred$prob, for_pred$Status)
+perf.fit <- performance(pred.fit ,"tpr","fpr")
+plot(perf.fit, colorize=T , xlab='False positive results', ylab='True positive results')
+
+```
+
+```{r}
+cvauc <- AUC(for_pred$prob, for_pred$Status)
+# the following line also calculate sAUC but ith SE and CI
+auc.cis <- ci.cvAUC(for_pred$prob, for_pred$Status, confidence = .95)
+auc.cis
+```
+
+AUC is quite good
+
+```{r}
+perf.spec  <- performance(pred.fit, x.measure = "cutoff", measure = "spec")
+perf.sens  <- performance(pred.fit, x.measure = "cutoff", measure = "sens")
+perf.acc  <- performance(pred.fit, x.measure = "cutoff", measure = "acc")
+
+plot(perf.spec, col = "red", lwd =2, xlab='probability', ylab='specificity')
+plot(add=T, perf.sens , col = "steelblue", lwd =2)
+plot(add=T, perf.acc, lwd =2)
+
+legend(x = 0.6,y = 0.3, c("spec", "sens", "acc"),
+       lty = 1, col =c('red', 'steelblue', 'black'), bty = 'n', cex = 1, lwd = 2)
+# determine x coordinate manually!
+abline(v= 0.4, lwd = 2, lty=6)
+
+```
+
+
+
+
+
+
 
 ### Coverage + the rest (except sum_len & num_seqs)
 
