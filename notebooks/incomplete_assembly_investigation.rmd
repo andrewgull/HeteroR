@@ -253,6 +253,9 @@ fit_coverage <- glm(Status ~ coverage, data=summary_coverage, family = "binomial
 summary(fit_coverage)
 ```
 
+Deviance decreases a lot which is very good (from 220 to 143 after inclusion of just a single parameter).
+Effect of coverage on incompleteness is negative.
+
 #### R-squared
 
 ```{r}
@@ -280,10 +283,12 @@ kw.coverage
 ```
 
 #### Odds ratio
-
+Prob. success / prob. failure
 ```{r}
 exp(coef(fit_coverage))
 ```
+
+Increasing "coverage" by a unit gives ~25% decrease in the odds (simply put - chances) that an assembly will be incomplete (remember that success is "incomplete" here).
 
 #### Choosing a probability cut-off
 
@@ -371,6 +376,39 @@ for_pred %>% arrange(-prob) %>% filter(prob > 0.63 & Status=="complete") %>% nro
 ```{r}
 for_pred %>% arrange(-prob) %>% filter(prob > 0.70 & Status=="complete") %>% nrow()
 ```
+
+#### Formula
+
+*glm()* outputs logits which being exponentiated give you odds ratios. OR is Prob.success/Prob.failure
+
+So there is an easy way to get probability out of OR and logits.
+
+Based on this probability I will decide to trim or not to trim
+
+```{r}
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+# if coverage = 5.10721
+# probability will be
+coverage_example <- 5.10721
+logit2prob(2.2401998 - 0.2889426*coverage_example)
+# or the same
+cf <- coef(fit_coverage)
+names(cf) <- NULL
+prob_example <- logit2prob(coef(cf)[1] + coef(cf)[2]*coverage_example)
+prob_example
+```
+Which is exactly what you have on the first line of **for_pred**
+
+Thr formula looks like this:
+
+$P(incomplete) = exp(2.2401998 - 0.2889426*coverage)/1+(exp(2.2401998 - 0.2889426*coverage))$
+
+You can put it in a function in the pipeline
 
 ### Coverage + the rest (except sum_len & num_seqs)
 
