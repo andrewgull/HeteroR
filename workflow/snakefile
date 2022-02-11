@@ -78,9 +78,9 @@ rule trim_illumina:
         # enable low complexity filter. The complexity is defined as the percentage of base that is
         # different from its next base (base[i] != base[i+1]).
         # -f, --trim_front1
-        # trimming how many bases in front for read1, default is 0 (int [=0])
+        # trimming how manythreads = snakemake.threads bases in front for read1, default is 0 (int [=0])
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} "
-        "--out2 {output.short_read_2} "
+        "--out2 {output.shothreads = snakemake.threadsrt_read_2} "
         "--thread {threads} --qualified_quality_phred {params.q} --cut_window_size {params.W} "
         "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --low_complexity_filter "
         "--html {output.report_html} --json {output.report_json} &> {log}"
@@ -99,7 +99,7 @@ rule smart_trim_nanopre:
     conda: "envs/filtlong.yaml"
     threads: 14
     params: genlen=5131220, intercept=2.2401998, coeff=-0.2889426, prob_cut_off=0.70,
-            min_len=5000, len_weight=1, perc=20, bases=260000000  # old filtlong trimming params
+            min_len=5000, len_weight=1, perc=20, bases=260000000, threads=14  # old filtlong trimming params
     script:
         "scripts/trim_nanopore.py"
 
