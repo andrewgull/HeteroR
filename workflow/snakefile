@@ -84,7 +84,9 @@ rule trim_illumina:
         "--thread {threads} --qualified_quality_phred {params.q} --cut_window_size {params.W} "
         "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --low_complexity_filter "
         "--html {output.report_html} --json {output.report_json} &> {log}"
-
+# coverage=$( seqkit stats -T resources/data_raw/DA62886/Nanopore/DA62886_all.fastq.gz | cut -f5 | tail -n 1 )
+# expr $coverage/5131220
+# exp(2.2401998 - 0.2889426*coverage)/1+(exp(2.2401998 - 0.2889426*coverage))
 rule filter_nanopore:
     input:
         "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
