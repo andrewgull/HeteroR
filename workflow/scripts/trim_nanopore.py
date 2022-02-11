@@ -20,10 +20,10 @@ def do_trim():
 # inputs and parameters
 input_file = snakemake.input[0]
 output_file = snakemake.output[0]
-genome_len = int(snakemake.params[0])  # 5131220
-intercept = float(snakemake.params[1])  # 2.2401998
-coefficient = float(snakemake.params[2])  # -0.2889426
-cut_off = float(snakemake.params[3])  # 0.70
+genome_len = snakemake.params[0]  # 5131220
+intercept = snakemake.params[1]  # 2.2401998
+coefficient = snakemake.params[2]  # -0.2889426
+cut_off = snakemake.params[3]  # 0.70
 
 proc = subprocess.Popen("seqkit stats %s -T | cut -f5 | tail -n 1" % input_file, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 out, err = proc.communicate()
