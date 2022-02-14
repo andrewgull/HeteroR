@@ -80,7 +80,7 @@ rule trim_illumina:
         # -f, --trim_front1
         # trimming how manythreads = snakemake.threads bases in front for read1, default is 0 (int [=0])
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} "
-        "--out2 {output.shothreads = snakemake.threadsrt_read_2} "
+        "--out2 {output.short_read_2} "
         "--thread {threads} --qualified_quality_phred {params.q} --cut_window_size {params.W} "
         "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --low_complexity_filter "
         "--html {output.report_html} --json {output.report_json} &> {log}"
