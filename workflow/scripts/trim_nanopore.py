@@ -21,7 +21,7 @@ cut_off = snakemake.params[3]  # 0.70
 # filtlong params
 min_len = snakemake.params[4]
 len_weight = snakemake.params[5]
-percent = snakemake.parmas[6]
+percent = snakemake.params[6]
 bases = snakemake.params[7]
 threads = snakemake.params[8]
 
@@ -31,15 +31,18 @@ log_messages = list()
 proc = subprocess.Popen("seqkit stats %s -T | cut -f5 | tail -n 1" % input_file, shell=True, stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE)
 out_cov, err_cov = proc.communicate()
+log_messages.append("retrieved total length:")
 log_messages.append(out_cov)
 log_messages.append(err_cov)
 
 sum_len = int(out_cov.decode("utf-8"))
 coverage = sum_len / genome_len
+log_messages.append("calculated coverage:" + str(coverage))
 # here comes the smart formula from the logistic regression model
 odds = math.exp(intercept + coefficient * coverage)
 # probability of being incomplete after trimming
 probability = odds / (1 + odds)
+log_messages.append("calculated probability of incomplete assembly:" + str(probability))
 
 # create output directories if they do not exits
 strain = output_file.split("/")[2]
