@@ -3,3 +3,4 @@ channels:
   - bioconda
 dependencies:
   - filtlong=0.2.1
+  - seqkit=2.0.0
