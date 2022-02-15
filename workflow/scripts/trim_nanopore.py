@@ -62,7 +62,7 @@ if probability >= cut_off:
 else:
     # output file directory should have been created
     # here piping may not work well, split in two commands if so
-    subprocess.Popen("filtlong --min_length %i --length_weight %i --keep_percent %i --target_bases %i %s "
+    proc = subprocess.Popen("filtlong --min_length %i --length_weight %i --keep_percent %i --target_bases %i %s "
                      "| pigz -c -p %i > %s" % (min_len, len_weight, percent, bases, input_file, threads, output_file),
                      shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # both go to the snakemake's log
