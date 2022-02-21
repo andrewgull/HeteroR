@@ -59,7 +59,7 @@ rule trim_illumina:
         report_html = "results/qualcheck_reads/fastp_reports/{strain}_report.html",
         report_json = "results/qualcheck_reads/fastp_reports/{strain}_report.json"
     wildcard_constraints: strain="DA[0-9]*"
-    threads: 14
+    threads: 18
     message: "executing fastp with {threads} threads on {wildcards.strain} short reads"
     log: "results/logs/{strain}_fastp.log"
     conda: "envs/fastp.yaml"
@@ -97,7 +97,7 @@ rule smart_trim_nanopre:
         "executing filtlong on {wildcards.strain} long reads using incompleteness prediction"
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
-    threads: 14
+    threads: 18
     params: genlen=5131220, intercept=2.2401998, coeff=-0.2889426, prob_cut_off=0.70,
             min_len=5000, len_weight=1, perc=20, bases=260000000, threads=14  # old filtlong trimming params
     script:
@@ -125,7 +125,7 @@ rule unicycler:
         long_read = "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
         directory("results/assemblies/{strain}")
-    threads: 14
+    threads: 18
     message:
         "executing Unicycler with {threads} threads on {wildcards.strain} reads"
     log:
@@ -140,7 +140,7 @@ rule QC_assembly:
         "resources/busco_downloads"
     output:
         directory("results/qualcheck_assembly/{strain}")
-    threads: 14
+    threads: 18
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
     conda: "envs/busco_quast.yaml"
     script:
@@ -154,7 +154,7 @@ rule bwa_map:
     output:
         # an output file marked as temp is deleted after all rules that use it as an input are completed
         temp("results/mapping/{strain}/assembly.sam")
-    threads: 14
+    threads: 18
     message: "executing BWA with {threads} threads on {wildcards.strain} assembly"
     log: mem = "results/logs/{strain}_bwa_mem.log",
          index = "results/logs/{strain}_bwa_index.log"
@@ -168,7 +168,7 @@ rule samtools:
         "results/mapping/{strain}/assembly.sam"
     output:
         "results/mapping/{strain}/assembly.bam"
-    threads: 14
+    threads: 18
     message: "executing SAMTOOLS: VIEW-SORT with {threads} threads on {wildcards.strain} mapping file"
     log: "results/logs/{strain}_samtools.log"
     conda: "envs/samtools.yaml"
@@ -181,7 +181,7 @@ rule unmapped:
     output:
         r1 = "results/mapping/{strain}/unmapped_1.fastq",
         r2 = "results/mapping/{strain}/unmapped_2.fastq"
-    threads: 14
+    threads: 18
     message: "executing SAMTOOLS: VIEW-FASTQ with {threads} threads on {wildcards.strain} BAM file"
     log: "results/logs/{strain}_unmapped.log"
     conda: "envs/samtools.yaml"
@@ -194,7 +194,7 @@ rule plasmid_assembly:
         r2 = "results/mapping/{strain}/unmapped_2.fastq"
     output:
         directory("results/plasmids/{strain}")
-    threads: 14
+    threads: 18
     message: "executing SPAdes in plasmid mode with {threads} threads on unmapped reads of {wildcards.strain}"
     log: "results/logs/{strain}_spades.log"
     conda: "envs/spades.yaml"
@@ -232,7 +232,7 @@ rule genome_annotation:
         "results/assemblies_joined/{strain}/assembly.fasta"
     output:
         directory("results/annotations/{strain}/prokka")
-    threads: 14
+    threads: 18
     message: "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
     log: "results/logs/{strain}_prokka.log"
     conda: "envs/prokka.yaml"
@@ -266,7 +266,7 @@ rule trna_annotation:
         bed = "results/annotations/{strain}/trna/trna_coords.bed",
         gff = "results/annotations/{strain}/trna/trna_feat.gff",
         fasta = "results/annotations/{strain}/trna/trna_seq.fasta"
-    threads: 14
+    threads: 18
     message: "executing tRNAScan-SE with {threads} threads on full assembly of {wildcards.strain} strain"
     log: "results/logs/{strain}_trnascan.log"
     conda: "envs/trnascan.yaml"
@@ -291,7 +291,7 @@ rule resistance_genes:
         "results/annotations/{strain}/prokka"
     output:
         "results/resistance_genes/{strain}/rgi_table.txt" # IT'S JUST A PREFIX!
-    threads: 14
+    threads: 18
     message: "executing RGI with {threads} threads on predicted genes/proteins from {wildcards.strain}"
     log: "results/logs/{strain}_rgi.log"
     conda: "envs/rgi.yaml"
@@ -379,7 +379,7 @@ rule direct_repeats:
         "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
     output:
         directory("results/direct_repeats/{strain}/repeats_no_mismatch")
-    threads: 14
+    threads: 18
     message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf_perfect.log"
     conda: "envs/grf.yaml"
