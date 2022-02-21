@@ -65,7 +65,10 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
 
     # find median gene length
     genes_lengths = [gene.location.end.position - gene.location.start.position for gene in genes]
-    median_gene = pd.Series(genes_lengths).median()
+    if len(genes) > 0:
+        median_gene = pd.Series(genes_lengths).median()
+    else:
+        median_gene = 0
     # adjust span_len according to the record length
     # span_len = (record_len - median_gene)/2, if 2*span_len > record_len
     record_length = len(gff_record.seq)
@@ -162,16 +165,25 @@ with open(snakemake.log[0], "w") as log:
         gff = [rec for rec in GFF.parse(f) if len(rec.seq) >= min_plasmid_size]
     gff_ids = [rec.id.split("_")[-1] for rec in gff]
     # read joined assembly file as dict
-    assembly = SeqIO.to_dict(SeqIO.parse(in_assembly, "fasta"))
+    # assembly = SeqIO.to_dict(SeqIO.parse(in_assembly, "fasta"))
     # filter it because not all of the records present in GFF
-    assembly_filtered = [assembly[key] for key in gff_ids]
+    # but you can not filter by ID because IDs coming from SPAdes (if it finished successfully) are different from
+    # IDs coming from Unicycler
+    # filter assembly using lengths
+    assembly_filtered = list()
+    for assembly_item in SeqIO.parse(in_assembly, "fasta"):
+        for gff_item in gff:
+            if len(assembly_item) == len(gff_item):
+                assembly_filtered.append(assembly_item)
+
+    # assembly_filtered = [assembly[key] for key in gff_ids]
 
     # iterate through chromosome and plasmids
     #
     bed_lol = [list(), list(), list()]
     messages = list()
     for i in range(len(gff)):
-        # i in assembly does not correspond to i in gff!
+        # i in assembly corresponds to i in gff
         record_len = len(assembly_filtered[i].seq)
         record_id = assembly_filtered[i].id
 
