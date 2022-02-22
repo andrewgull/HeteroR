@@ -72,8 +72,8 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
     # adjust span_len according to the record length
     # span_len = (record_len - median_gene)/2, if 2*span_len > record_len
     record_length = len(gff_record.seq)
-    if record_length < span_len*2:
-        span_len = round((record_length - median_gene)/2)
+    if record_length < span_len * 2:
+        span_len = round((record_length - median_gene) / 2)
         msg_len = "span length was adjusted to %i in record %s\n" % (span_len, item_id)
     else:
         msg_len = ""
@@ -107,12 +107,15 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
             rg_collection.append(row)
 
         # a table with span and resistance gene coordinates
-        rg_ranges = pd.DataFrame(columns=["chrom", "gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
-                                 data=rg_collection)
+        rg_ranges = pd.DataFrame(
+            columns=["chrom", "gene_id", "gene_start", "gene_end", "span_start", "span_end", "strand"],
+            data=rg_collection)
         # add columns for ranges crossing ends of a chromosome
-        rg_ranges["span_over_5_start"] = np.where(rg_ranges["span_start"] < 0, rg_ranges["span_start"] + dna_len, np.nan)
+        rg_ranges["span_over_5_start"] = np.where(rg_ranges["span_start"] < 0, rg_ranges["span_start"] + dna_len,
+                                                  np.nan)
         rg_ranges["span_over_5_end"] = np.where(np.isnan(rg_ranges["span_over_5_start"]), np.nan, dna_len)
-        rg_ranges["span_over_3_end"] = np.where(rg_ranges["span_end"] > dna_len, rg_ranges["span_end"] - dna_len, np.nan)
+        rg_ranges["span_over_3_end"] = np.where(rg_ranges["span_end"] > dna_len, rg_ranges["span_end"] - dna_len,
+                                                np.nan)
         rg_ranges["span_over_3_start"] = np.where(np.isnan(rg_ranges["span_over_3_end"]), np.nan, 0)
 
         # making a bed file for all ranges
@@ -128,6 +131,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
 
     # the output bed data frame contains negative and overly positive coordinates
     return bed_dataframes_list, msg_len + msg_count
+
 
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 # VARIABLES TEST NON CIRCULAR CHROMOSOME
@@ -188,12 +192,13 @@ with open(snakemake.log[0], "w") as log:
         record_id = assembly_filtered[i].id
 
         ranges_bed_list, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
-                                                       dna_len=record_len, span_len=range_len)
+                                                            dna_len=record_len, span_len=range_len)
         # turn 5-end crossing ranges' starts to zeros and 3-end crossing ranges to chromosome length
-        ranges_bed_list[0]["range_start"] = np.where(ranges_bed_list[0]["range_start"] < 0,
-                                                     0, ranges_bed_list[0]["range_start"])
-        ranges_bed_list[0]["range_end"] = np.where(ranges_bed_list[0]["range_end"] > record_len,
-                                                   record_len, ranges_bed_list[0]["range_end"])
+        for x in range(len(ranges_bed_list)):
+            ranges_bed_list[x]["range_start"] = np.where(ranges_bed_list[x]["range_start"] < 0,
+                                                         0, ranges_bed_list[x]["range_start"])
+            ranges_bed_list[x]["range_end"] = np.where(ranges_bed_list[x]["range_end"] > record_len,
+                                                       record_len, ranges_bed_list[x]["range_end"])
         # add bed data frames to the corresponding lists
         for j in range(len(ranges_bed_list)):
             bed_lol[j].append(ranges_bed_list[j])
