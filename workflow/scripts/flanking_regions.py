@@ -68,6 +68,7 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
     if len(genes) > 0:
         median_gene = pd.Series(genes_lengths).median()
     else:
+        # it can be 0 genes in record
         median_gene = 0
     # adjust span_len according to the record length
     # span_len = (record_len - median_gene)/2, if 2*span_len > record_len
@@ -167,7 +168,7 @@ with open(snakemake.log[0], "w") as log:
     # to retrieve chromosomal genes' coordinates and strand
     with open(in_gff) as f:
         gff = [rec for rec in GFF.parse(f) if len(rec.seq) >= min_plasmid_size]
-    gff_ids = [rec.id.split("_")[-1] for rec in gff]
+    # gff_ids = [rec.id.split("_")[-1] for rec in gff]
     # read joined assembly file as dict
     # assembly = SeqIO.to_dict(SeqIO.parse(in_assembly, "fasta"))
     # filter it because not all of the records present in GFF
@@ -180,10 +181,11 @@ with open(snakemake.log[0], "w") as log:
             if len(assembly_item) == len(gff_item):
                 assembly_filtered.append(assembly_item)
 
-    # assembly_filtered = [assembly[key] for key in gff_ids]
+    # sort both assembly and gff in order to iteration below worked
+    assembly_filtered = sorted(assembly_filtered, reverse=True, key=len)
+    gff = sorted(gff, reverse=True, key=len)
 
     # iterate through chromosome and plasmids
-    #
     bed_lol = [list(), list(), list()]
     messages = list()
     for i in range(len(gff)):
