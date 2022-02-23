@@ -92,3 +92,9 @@ repeat_df = pd.concat(df_lst)
 repeat_df.head()
 
 rgi_df = pd.read_csv(path_to_rgi, delimiter="\t")
+rgi_notLoose = rgi_df[rgi_df["Cut_Off"] != "Loose"]
+
+# filter macrolides resistant
+rgi_macrolides = rgi_notLoose[rgi_notLoose["Drug Class"].str.contains("macrolide")]
+rgi_fqn = rgi_notLoose[rgi_notLoose["Drug Class"].str.contains("fluoroquinolone")]
+
