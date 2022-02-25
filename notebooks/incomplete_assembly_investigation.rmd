@@ -39,7 +39,8 @@ summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longes
 summary_table
 ```
 ```{r, eval=FALSE}
-write.delim(summary_table %>% filter(Status == "incomplete"), "/home/andrei/Data/HeteroR/incomplete_assemblies.tsv", sep="\t", quote=F)
+print("here I'd write the incomplete assemblies table")
+#write.delim(summary_table %>% filter(Status == "incomplete"), "/home/andrei/Data/HeteroR/incomplete_assemblies.tsv", sep="\t", quote=F)
 ```
 ```{r}
 incomplete_assemblies <- read.delim("/home/andrei/Data/HeteroR/incomplete_assemblies.tsv")
