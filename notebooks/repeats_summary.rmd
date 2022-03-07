@@ -18,3 +18,90 @@ coordinates of repeat for each strain and each resistance gene
 
 From here on I will work with data from this table
 
+Read the data, currently it contains 237 strains
+
+```{r}
+df_path = "/home/andrei/Data/HeteroR/results/repeats_summary_table.csv"
+repeat_df = read.csv(df_path, header = TRUE)
+head(repeat_df)
+```
+
+```{r}
+dim(repeat_df)
+```
+
+```{r}
+length(unique(repeat_df$strain))
+```
+
+Sample 20 strains
+
+```{r}
+library(dplyr)
+
+set.seed(99)
+strains <- unique(repeat_df$strain)
+strains_sample <- sample(strains, 20, replace = FALSE)
+
+sample_df <- bind_rows(
+        lapply(strains_sample, function(x){
+          filter(repeat_df, strain == x)
+        })
+)
+dim(sample_df)
+```
+```{r}
+sample_df
+```
+
+## Repeat lengths distribution
+
+```{r}
+library(ggplot2)
+
+ggplot(sample_df, aes(strain, length)) +
+        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.2) +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("repeat length") +
+        scale_y_continuous(breaks=c(20, 100, 500, 1000, 2000, 4000, 6000), trans="log")
+```
+
+## Repeat count per strain
+
+```{r}
+repeat_counts <- sample_df %>% group_by(strain) %>% summarise("n_repeats"=n())
+repeat_counts
+```
+
+```{r}
+ggplot(repeat_counts, aes(strain, n_repeats)) +
+        geom_bar(stat="identity") +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("repeats count")
+```
+
+## Repeat count distribution around each RG
+
+```{r}
+repeat_counts <- sample_df %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
+repeat_counts
+```
+
+```{r}
+ggplot(repeat_counts, aes(strain, n_repeats)) +
+        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.5) +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("repeat counts per RG") +
+        coord_trans(y="sqrt") +
+        scale_y_continuous(breaks=c(10, 20, 50, 100, 500, 1000, 2000))
+```
+
+```{r}
+ggplot(repeat_counts, aes(strain, n_repeats)) +
+        geom_bar(stat="identity")
+```
+
+## Distances between repeat pairs aka AR length
