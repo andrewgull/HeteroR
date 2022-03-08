@@ -26,9 +26,22 @@ repeat_df = read.csv(df_path, header = TRUE)
 head(repeat_df)
 ```
 
+Table size
+
 ```{r}
 dim(repeat_df)
 ```
+
+Filter duplicates
+
+There is no identical coordinate pairs (if you consider gene name as well)
+
+```{r}
+repeat_df_dedup <- repeat_df %>% distinct(record_id, start_1, end_1, start_2, end_2, .keep_all = TRUE)
+dim(repeat_df_dedup)
+```
+
+Number of strains
 
 ```{r}
 length(unique(repeat_df$strain))
@@ -60,7 +73,8 @@ sample_df
 library(ggplot2)
 
 ggplot(sample_df, aes(strain, length)) +
-        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.2) +
+        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.2, size=0.2) +
+        geom_violin(alpha=0.2, size=0.2) +
         theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
         xlab("") +
         ylab("repeat length") +
@@ -91,17 +105,86 @@ repeat_counts
 
 ```{r}
 ggplot(repeat_counts, aes(strain, n_repeats)) +
-        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.5) +
+        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.5, size=0.2) +
+        geom_violin(alpha=0.2, size=0.2) +
         theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
         xlab("") +
         ylab("repeat counts per RG") +
         coord_trans(y="sqrt") +
-        scale_y_continuous(breaks=c(10, 20, 50, 100, 500, 1000, 2000))
+        scale_y_continuous(breaks=c(1, 10, 20, 50, 100, 500, 1000, 2000))
+```
+
+## Distances between repeat pairs aka "AR length"
+```{r}
+repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1
+sample_df$AR_length <- sample_df$start_2 - sample_df$end_1
+head(repeat_df)
 ```
 
 ```{r}
-ggplot(repeat_counts, aes(strain, n_repeats)) +
-        geom_bar(stat="identity")
+ggplot(sample_df, aes(strain, AR_length)) +
+        geom_boxplot(alpha=0.5, outlier.size = 1.0, outlier.alpha = 0.5, size=0.2) +
+        geom_violin(alpha=0.2, size=0.2) +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("AR length")
 ```
 
-## Distances between repeat pairs aka AR length
+## Repeats spanning the middle of every range
+
+the middle of th erange is the middle of the RG
+Those repeats that are on one side of it, are not interesting for us because they don't affect amplifications rate
+
+I need bed files: regions_within.bed
+there I can find regions around RGs - to find the middle of each region
+
+files are here:
+
+`results/direct_repeats/DA*/regions/regions_within.bed`
+
+```{r}
+bed_df <- bind_rows(lapply(strains, function (x){
+  filename <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
+  df <- read.delim(filename, header=FALSE)
+  return(df)
+}))
+
+bed_df$gene_center <- round((bed_df$V3 - bed_df$V2 + 1)/2)
+bed_df <- rename(bed_df, "record_id"=V4)
+bed_df <- select(bed_df, record_id, gene_center)
+
+head(bed_df)
+```
+
+Number of unique gene names equals number of rows in bed_df
+Which means I can join bed and repeats tables using gene names only
+
+```{r}
+length(unique(bed_df$record_id)) == nrow(bed_df)
+```
+
+
+```{r}
+# example
+#DA63746_bed <- read.delim("/home/andrei/Data/HeteroR/results/direct_repeats/DA63746/regions/regions_within.bed", header=FALSE)
+#DA63746_bed$gene_center <- round((DA63746_bed$V3 - DA63746_bed$V2 + 1)/2)
+#DA63746_bed <- rename(DA63746_bed, "record_id"=V4)
+#DA63746_bed <- select(DA63746_bed, record_id, gene_center)
+
+#DA63746_df <- filter(repeat_df, strain=="DA63746")
+#DA63746_df <- full_join(DA63746_bed, DA63746_df, by="record_id")
+#DA63746_df$spans_center <- if_else(DA63746_df$end_1 <= DA63746_df$gene_center & DA63746_df$start_2 >= DA63746_df$gene_center, "yes", "no")
+#DA63746_df
+
+repeat_df <- full_join(bed_df, repeat_df, by="record_id")
+repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
+
+head(repeat_df, n=20)
+```
+```{r}
+repeat_df_center <- repeat_df %>% filter(spans_center == "yes")
+length(unique(repeat_df_center$strain))
+```
+
+All strains have at least one repeat pair spanning gene center
+
