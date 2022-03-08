@@ -130,7 +130,7 @@ ggplot(sample_df, aes(strain, AR_length)) +
         ylab("AR length")
 ```
 
-## Repeats spanning the middle of every range
+# Filter out repeats not spanning the center of every range
 
 the middle of th erange is the middle of the RG
 Those repeats that are on one side of it, are not interesting for us because they don't affect amplifications rate
@@ -188,3 +188,67 @@ length(unique(repeat_df_center$strain))
 
 All strains have at least one repeat pair spanning gene center
 
+# Only repeats spanning RG's center
+
+get sample
+
+```{r}
+sample_df_center <- bind_rows(
+        lapply(strains_sample, function(x){
+          filter(repeat_df_center, strain == x)
+        })
+)
+dim(sample_df_center)
+```
+
+## Repeat length
+
+```{r}
+ggplot(sample_df_center, aes(strain, length)) +
+        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.2, size=0.2, varwidth = TRUE) +
+        geom_violin(alpha=0.2, size=0.2) +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("repeat length") +
+        scale_y_continuous(breaks=c(20, 100, 500, 1000, 2000, 4000, 5000), trans="log")
+```
+
+## Repeat counts
+
+```{r}
+repeat_counts_center <- sample_df_center %>% group_by(strain) %>% summarise("n_repeats"=n())
+repeat_counts_center
+```
+
+```{r}
+ggplot(repeat_counts_center, aes(strain, n_repeats)) +
+        geom_bar(stat="identity") +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("repeats count")
+```
+
+## Repeat numbers around each RG
+```{r}
+repeat_counts_center2 <- sample_df_center %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
+
+ggplot(repeat_counts_center2, aes(strain, n_repeats)) +
+        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.5, size=0.2, varwidth=TRUE) +
+        geom_violin(alpha=0.2, size=0.2) +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("repeat counts per RG") +
+        coord_trans(y="sqrt") +
+        scale_y_continuous(breaks=c(1, 10, 20, 50, 100, 500, 1000, 2000))
+```
+
+## AR length distribution
+
+```{r}
+ggplot(sample_df_center, aes(strain, AR_length)) +
+        geom_boxplot(alpha=0.5, outlier.size = 1.0, outlier.alpha = 0.5, size=0.2, varwidth=TRUE) +
+        geom_violin(alpha=0.2, size=0.2) +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        xlab("") +
+        ylab("AR length")
+```
