@@ -6,3 +6,4 @@ resources/*
 .idea/rSettings.xml
 .idea/rAvailablePackageCache.xml
 workflow/scripts/testing_negative_coords.py
+shiny_apps/data/*
