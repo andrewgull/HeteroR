@@ -16,7 +16,7 @@ library(shiny)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-library(hrbrthemes)
+library(viridis)
 
 # Define UI for application
 ui <- fluidPage(
@@ -28,13 +28,13 @@ ui <- fluidPage(
         sidebarPanel(
             style = "position:fixed;width:inherit;",
             "Inputs",
-            width = 3,
-            checkboxGroupInput("AMR_family", label = "AMR family", choices = families, selected = families[1:3])
+            width = 2,
+            checkboxGroupInput("AMR_family", label = "AMR family", choices = families, selected = families)
         ),
 
         # Show a plot of the generated distribution
         mainPanel(
-           plotOutput("heatmap")
+           plotOutput("heatmap", width="100%")
         )
     )
 )
@@ -50,10 +50,11 @@ server <- function(input, output) {
     output$heatmap <- renderPlot({
         ggplot(sample_data(), aes(strain, gene)) + 
             geom_tile(aes(fill=n)) +
-            scale_fill_gradient(low="white", high="steelblue", breaks=c(0, 1, 2)) +
-            theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1, size=5)) +
+            #scale_fill_gradient(low="white", high="steelblue", breaks=c(0, 1, 2)) +
+            scale_fill_viridis() +
+            theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1, size=8)) +
             xlab("")
-    })
+    }, height=1200, width=2800)
 }
 
 # Run the application 
