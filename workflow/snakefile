@@ -405,7 +405,7 @@ rule dr2gff:
 rule dr2csv:
     # make a csv file with coordinates of each repeat pair (no duplicates)
     input:
-        "results/direct_repeats/{strain}/repeats_no_mismatch/perfect.spacer.id
+        "results/direct_repeats/{strain}/repeats_no_mismatch/perfect.spacer.id"
     output:
         "results/direct_repeats/{strain}/repeats_no_mismatch/perfect.spacer.csv"
     message: "making CSV files for repeat pairs in strain {wildcards.strain}"
