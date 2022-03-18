@@ -395,8 +395,9 @@ rule dr2gff:
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch",
         "results/assemblies_joined/{strain}/assembly.fasta"
-    output: "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
-            "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff"
+    output:
+        "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
+        "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff"
     message: "executing GFF_parser.py on {wildcards.strain} perfect repeats data"
     params: min_len=20
     log: "results/logs/{strain}_gff_perfect.log"
@@ -407,9 +408,9 @@ rule dr2csv:
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch"
     output:
-        "results/direct_repeats/{strain}/repeats_no_mismatch/perfect.spacer.csv"
+        "results/annotations/{strain}/repeats/{strain}_repeats.csv"
     message: "making CSV files for repeat pairs in strain {wildcards.strain}"
-    log: "results/logs/{strain}_csv_perfect.log"
+    log: "results/logs/{strain}_repeats_csv.log"
     script: "scripts/make_repeat_tables.py"
 
 rule final:
@@ -429,7 +430,8 @@ rule final:
         #dr_imperfect="results/direct_repeats/{strain}/repeats_imperfect",
         #gff_mism="results/annotations/{strain}/repeats/{strain}_repeats_mismatch_perfect.gff",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
-        renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk"
+        renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
+        dr_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
