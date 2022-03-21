@@ -283,7 +283,7 @@ if __name__ == '__main__':
     # 4. Create a config file
     print("\n4. Create config file...")
     config_dict = create_config(strain_file=args.strains, no_reads=no_files)
-    print("%i of %i strains are being written to the config file" % (len(config_dict['strains']), len(args.strains)))
+    print("%i strains have been written to the config file" % len(config_dict['strains']))
     # write as yaml
     with open(args.config, 'w') as outfile:
         yaml.dump(config_dict, outfile, default_flow_style=False)
