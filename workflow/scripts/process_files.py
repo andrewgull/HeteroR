@@ -90,6 +90,7 @@ def new_name(path_string):
 
 
 def prepare_files(strain_file, threads):
+    strains_w_no_files = list()
     messages = ["\n"]
     # 1. COMPRESSING FILES
     # check uncompressed files and compress them
@@ -127,9 +128,11 @@ def prepare_files(strain_file, threads):
         # there can be a case when there's no nanopore or illumina files - we report these cases
         if len(illumina_files) == 0:
             messages.append("No Illumina reads found for %s" % strain)
+            strains_w_no_files.append(strain)
             # print("No Illumina reads found for %s" % strain)
         if len(nanopore_files) == 0:
             messages.append("No Nanopore reads found for %s" % strain)
+            strains_w_no_files.append(strain)
             # print("No Nanopore reads found for %s" % strain)
             nanopore_clean = list()
         else:
@@ -198,7 +201,7 @@ def prepare_files(strain_file, threads):
         for file in gz_files:
             os.remove(file)
 
-    return messages
+    return messages, strains_w_no_files
 
 
 def coverage(strain_file, genome_length):
@@ -227,17 +230,27 @@ def coverage(strain_file, genome_length):
     return nanopore_df
 
 
-def create_config(strain_file):
-    """create config dictionary"""
+def create_config(strain_file, no_reads):
+    """create config dictionary
+    :param strain_file: file with strains one per line
+    :param no_reads: list of strains that don't have full set of reads; comes from prepare_files()
+    :return: config dictionary
+    """
     # read file
     with open(strain_file, 'r') as f:
         strains = [line.rstrip() for line in f.readlines()]
+    if len(no_reads) > 0:
+        # remove strains that don't have full set of reads from
+        # strains list
+        strains_clean = set(strains) - set(no_reads)
+    else:
+        strains_clean = strains
 
     # create dict
     config = dict({"strains": {}})
 
     # fill in the dict
-    for strain in strains:
+    for strain in strains_clean:
         config["strains"][strain] = strain
 
     return config
@@ -254,7 +267,7 @@ if __name__ == '__main__':
 
     # 2. Prepare files
     print("\n2. Prepare files...")
-    info_messages = prepare_files(strain_file=args.strains, threads=args.threads)
+    info_messages, no_files = prepare_files(strain_file=args.strains, threads=args.threads)
     for msg in info_messages:
         print(msg)
 
@@ -270,6 +283,7 @@ if __name__ == '__main__':
     # 4. Create a config file
     print("\n4. Create config file...")
     config_dict = create_config(strain_file=args.strains)
+    print("%i of %i strains to the config file are being written" % (len(config_dict['strains']), len(args.strains)))
     # write as yaml
     with open(args.config, 'w') as outfile:
         yaml.dump(config_dict, outfile, default_flow_style=False)
