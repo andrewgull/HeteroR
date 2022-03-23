@@ -196,17 +196,30 @@ The environments are described using YAML files that can be found in ``workflow/
 
 ### List of tools used in the pipeline
 
-1. Unicycler
+1. FastQC
+2. fastp
+3. filtlong
+4. Unicycler
+5. BUSCO
+6. QUAST
+7. BWA
+8. SAMtools
+9. SPAdes
+10. PROKKA
+11. tRANscan-SE
+12. RGI
+13. BEDtools
+14. GRF
 
 ## Current workflow's DAG
 
 ![dag](images/dag_new.png)
 
 ## Heatmap example
+NB: more advanced and user-friendly heatmap can be found in `shiny_apps` directory
 
-the most recent version
 
-The most recent version of RGI heatmap
+The entire heatmap looks like this 
 ![resistance genes heatmap](images/heatmap-146.png)
 
 AMR genes categorised by AMR Gene Family and samples have been clustered hierarchically (see SciPy documentation). 
