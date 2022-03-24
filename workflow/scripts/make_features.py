@@ -20,11 +20,11 @@ import pandas as pd
 strains = ["DA63084", "DA63186", "DA63322", "DA63946", "DA64026"]
 
 # paths to tables with repeats and RGs
-path_to_repeats_csv = "results/annotations/{strain}/repeats/%s_repeats.csv"
+path_to_repeats_csv = "results/annotations/%s/repeats/%s_repeats.csv"
 path_to_rgi = "/home/andrei/Data/HeteroR/results/resistance_genes/%s/rgi_table.txt"
 
 # make full tables
-repeats_df_lst = [pd.read_csv(path_to_repeats_csv % strain, delimiter="\t") for strain in strains]
+repeats_df_lst = [pd.read_csv(path_to_repeats_csv % (strain, strain)) for strain in strains]
 rgi_df_list = [pd.read_csv(path_to_rgi % strain, delimiter="\t") for strain in strains]
 
 repeat_df = pd.concat(repeats_df_lst)
