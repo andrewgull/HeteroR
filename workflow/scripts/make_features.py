@@ -35,6 +35,11 @@ repeat_df.head()
 
 # get list of all available ABs
 antibiotics = list(set(rgi_notLoose["Drug Class"]))
+# also, might be useful: "resistance mechanism" or "AMR-gene family"
+
+# make a feature table for each item (AB in antibiotics, mechanism in 'resistance mechanism'
+# or family in 'AMR-gene family')
+
 
 # filter macrolides resistant
 rgi_macrolides = rgi_notLoose[rgi_notLoose["Drug Class"].str.contains("macrolide")]
