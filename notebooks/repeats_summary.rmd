@@ -13,16 +13,20 @@ output:
       highlight: github
 ---
 
-This notebook relies on results from ipython notebook 'repeats_summary.ipynb' - *repeat_df* in particular which contains
+This notebook relies on results from *make_repeat_tables.py* that creates tables which contain
 coordinates of repeat for each strain and each resistance gene
 
 From here on I will work with data from this table
 
-Read the data, currently it contains 237 strains
+Read the data, currently it contains 238 strains
 
 ```{r}
-df_path = "/home/andrei/Data/HeteroR/results/repeats_summary_table.csv"
-repeat_df = read.csv(df_path, header = TRUE)
+# a new way of getting repeat data frame across all strains
+library(dplyr)
+strains <- dir("results/direct_repeats")
+repeat_csv_paths <- sapply(strains, function(x){paste0("results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
+
+repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x){read.csv(x)}))
 head(repeat_df)
 ```
 
@@ -55,7 +59,6 @@ library(dplyr)
 set.seed(99)
 strains <- unique(repeat_df$strain)
 strains_sample <- sample(strains, 20, replace = FALSE)
-
 sample_df <- bind_rows(
         lapply(strains_sample, function(x){
           filter(repeat_df, strain == x)
@@ -63,6 +66,8 @@ sample_df <- bind_rows(
 )
 dim(sample_df)
 ```
+
+
 ```{r}
 sample_df
 ```
