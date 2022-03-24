@@ -167,6 +167,11 @@ The project home directory is `/home/andrei/Data/HetroR`
    rgi heatmap -i linked -o heatmap -cat gene_family -clus samples
    ```
 
+Steps with species-specific parameters:
+- PROKKA (genus, species)
+- QC_assembly.py (taxonomic dataset, to find available BUSCO datasets run busco --list-datasets)
+- trim_nanopore.py (parameter genlen)
+
 ## Installation
 
 The basic requirement is `snakemake`, install it using `conda` or `mamba`:
