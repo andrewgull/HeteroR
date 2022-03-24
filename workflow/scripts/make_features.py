@@ -1,5 +1,5 @@
 # script for making the feature table - should it be SQLite?
-# list of features:
+# list of features (per strain, per AB):
 # 1. number of RG
 # 2. number of RG on plasmids
 # 3. nearest distance to oriC
