@@ -65,7 +65,8 @@ def gff_object(features_df, record, strand=1, feature_type="direct_repeat"):
     :return: SeqRecord with features for GFF.write()
     """
     # take features found in provided record
-    features_in_record = features_df[features_df.record_id == record.id]
+    # record_id in features_df contains "_gene"
+    features_in_record = features_df[features_df.record_id == record.id + "_gene"]
     # init repeat IDs
     repeat_id = 0
     for row in features_in_record.iterrows():
@@ -86,7 +87,7 @@ def main(input_assembly, input_grf, min_len):
     with open(input_grf) as f:
         repeat_ids = [line.rstrip() for line in f.readlines()]
 
-    # read assembly
+    # read assembly - fasta with annotated proteins/genes
     assembly = [rec for rec in SeqIO.parse(input_assembly, "fasta")]
 
     # make features rows from spacer IDs
@@ -95,7 +96,7 @@ def main(input_assembly, input_grf, min_len):
     gff_df.drop_duplicates(inplace=True)
 
     # filter out too short repeats
-    gff_df = gff_df[gff_df.length > min_len]
+    gff_df = gff_df[gff_df.length >= min_len]
 
     # make a gff object from this filtered data frame
     # one SeqRecord with features per record in assembly
@@ -119,12 +120,16 @@ if __name__ == '__main__':
 
     # create gff records from perfect.spacer.id
     gff_records_perfect = main(in_assembly, in_perfect, min_len=min_repeat_length)
+    # remove records (genes) with 0 repeats
+    gff_records_perfect = [rec for rec in gff_records_perfect if len(rec.features) > 0]
     # write to a GFF file
     with open(out_gff_perfect, 'w') as out:
         GFF.write(recs=gff_records_perfect, out_handle=out, include_fasta=False)
 
     # create gff records from imperfect.id
     gff_records_imperfect = main(in_assembly, in_imperfect, min_len=min_repeat_length)
+    # remove records (genes) with 0 repeats
+    gff_records_imperfect = [rec for rec in gff_records_imperfect if len(rec.features) > 0]
     # write them to a file
     with open(out_gff_imperfect, 'w') as out:
         GFF.write(recs=gff_records_imperfect, out_handle=out, include_fasta=False)
