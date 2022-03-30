@@ -394,7 +394,7 @@ rule dr2gff:
     # not the entire genome
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch",
-        "results/assemblies_joined/{strain}/assembly.fasta"
+        "results/annotations/{strain}/prokka/{strain}_genomic.faa"
     output:
         "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
         "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff"
