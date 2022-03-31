@@ -1,6 +1,6 @@
 # script to filter out repeat pairs that do not span a region's center
 
-filter_center <- function(bed_file, repeat_table, output_table){
+filter_center <- function(bed_file, repeat_table){
   # function to filter out repeat pairs not spanning a region's center
   # bed_file: results/direct_repeats/{strain}/regions/regions_within.bed
   # repeat_table: results/annotations/{strain}/repeats/{strain}_repeats.csv
@@ -13,7 +13,8 @@ filter_center <- function(bed_file, repeat_table, output_table){
   repeat_df <- full_join(bed_df, repeat_df, by="record_id")
   repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
   repeat_df_center <- filter(repeat_df, spans_center == "yes")
-  write.csv(x=repeat_df_center, file=output_table, row.names = FALSE)
+  return(repeat_df_center)
 }
 
-filter_center(snakemake@input[[1]], snakemake@input[[2]], snakemake@output[[1]])
+centered_repeats_df <- filter_center(snakemake@input[[1]], snakemake@input[[2]])
+write.csv(x=centered_repeats_df, file=snakemake@output[[1]], row.names = FALSE)
