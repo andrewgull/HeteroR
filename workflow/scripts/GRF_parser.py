@@ -110,9 +110,10 @@ if __name__ == '__main__':
     # in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
     # out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
     # grf_out_filename = "perfect.spacer.id"  # IT CAN BE CHANGED
+    strain = snakemake.input[1].split("/")[-2]
     in_perfect = os.path.join(snakemake.input[0], "perfect.spacer.id")
     in_imperfect = os.path.join(snakemake.input[0], "imperfect.id")
-    in_assembly = snakemake.input[1]
+    in_assembly = os.path.join(snakemake.input[1], strain + "_genomic.faa")
     out_gff_perfect = snakemake.output[0]
     out_gff_imperfect = snakemake.output[1]
     # set minimal repeat length
