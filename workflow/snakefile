@@ -413,6 +413,15 @@ rule dr2csv:
     log: "results/logs/{strain}_repeats_csv.log"
     script: "scripts/make_repeat_tables.py"
 
+rule dr2centered:
+    input:
+        "results/direct_repeats/{strain}/regions/regions_within.bed",
+        "results/annotations/{strain}/repeats/{strain}_repeats.csv"
+    output:
+        "results/annotations/{strain}/repeats/{strain}_repeats_centered.csv"
+    message: "filtering repeats spanning gene center in strains {wildcards.strain}"
+    script: "scripts/filter_repeat_tables.R"
+
 rule final:
     input:
         qc_ass="results/qualcheck_assembly/{strain}",
