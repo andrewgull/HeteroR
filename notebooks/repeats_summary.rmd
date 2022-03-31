@@ -137,7 +137,7 @@ ggplot(sample_df, aes(strain, AR_length)) +
 
 # Filter out repeats not spanning the center of every range
 
-the middle of th erange is the middle of the RG
+the middle of the range is the middle of the RG
 Those repeats that are on one side of it, are not interesting for us because they don't affect amplifications rate
 
 I need bed files: regions_within.bed
