@@ -257,3 +257,36 @@ ggplot(sample_df_center, aes(strain, AR_length)) +
         xlab("") +
         ylab("AR length")
 ```
+
+## Mean number of repeats per AB group
+
+For time being I will use a few strains that have been processed: "DA63084", "DA63186", "DA63322", "DA63946", "DA64026"
+Later you will change it
+
+```{r}
+example_strains <- c("DA63084", "DA63186", "DA63322", "DA63946", "DA64026")
+# read in RG tables of these strains
+rg_df <- bind_rows(lapply(example_strains, function(x){
+  df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"))
+  df$strain <- x
+  return(df)
+}) )
+
+
+```
+
+### Example: Isoniazid
+
+Nothing - no repeats around Isoniazid resistance genes
+
+```{r}
+rg_isoniazid <- filter(rg_df, grepl("isoniazid", Drug.Class))
+rg_isoniazid <- select(rg_isoniazid, ORF_ID, strain, Drug.Class)
+
+# unify gene names
+repeat_counts_center2$record_id <- sub("_gene", "", repeat_counts_center2$record_id)
+rg_isoniazid$record_id <- sapply(strsplit(rg_isoniazid$ORF_ID, " "), function(x){x[1]})
+
+# join repeat counts
+count_per_ab <- left_join(rg_isoniazid, repeat_counts_center2, by="record_id")
+```
