@@ -300,6 +300,6 @@ ggplot(count_per_ab, aes(strain.x, n_repeats)) +
         coord_trans(y="sqrt") +
         theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
         ylab("n") +
-        xlab("")
+        xlab("") +
         ggtitle("repeats count around macrolide resistance genes")
 ```
