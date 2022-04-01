@@ -264,7 +264,7 @@ For time being I will use a few strains that have been processed: "DA63084", "DA
 Later you will change it
 
 ```{r}
-example_strains <- c("DA63084", "DA63186", "DA63322", "DA63946", "DA64026")
+example_strains <- unique(repeat_counts_center2$strain)[!grepl("DA70", unique(repeat_counts_center2$strain))]
 # read in RG tables of these strains
 rg_df <- bind_rows(lapply(example_strains, function(x){
   df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"))
@@ -272,21 +272,34 @@ rg_df <- bind_rows(lapply(example_strains, function(x){
   return(df)
 }) )
 
-
+ab_groups <- unique(rg_df$Drug.Class)
 ```
 
 ### Example: Isoniazid
 
-Nothing - no repeats around Isoniazid resistance genes
+no repeats around Isoniazid resistance genes
+some repeats around Macrolide resistance genes
 
 ```{r}
-rg_isoniazid <- filter(rg_df, grepl("isoniazid", Drug.Class))
-rg_isoniazid <- select(rg_isoniazid, ORF_ID, strain, Drug.Class)
+rg_ab <- filter(rg_df, grepl("macrolide", Drug.Class))
+rg_ab <- select(rg_ab, ORF_ID, strain, Drug.Class)
 
 # unify gene names
 repeat_counts_center2$record_id <- sub("_gene", "", repeat_counts_center2$record_id)
-rg_isoniazid$record_id <- sapply(strsplit(rg_isoniazid$ORF_ID, " "), function(x){x[1]})
+rg_ab$record_id <- sapply(strsplit(rg_ab$ORF_ID, " "), function(x){x[1]})
 
 # join repeat counts
-count_per_ab <- left_join(rg_isoniazid, repeat_counts_center2, by="record_id")
+count_per_ab <- left_join(repeat_counts_center2, rg_ab, by="record_id") %>% filter(!is.na(Drug.Class))
+count_per_ab
+```
+
+```{r}
+ggplot(count_per_ab, aes(strain.x, n_repeats)) +
+        geom_boxplot(alpha=0.5, outlier.size = 1.0, outlier.alpha = 0.5, size=0.2, varwidth=TRUE) +
+        geom_violin(alpha=0.2, size=0.2) +
+        coord_trans(y="sqrt") +
+        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+        ylab("n") +
+        xlab("")
+        ggtitle("repeats count around macrolide resistance genes")
 ```
