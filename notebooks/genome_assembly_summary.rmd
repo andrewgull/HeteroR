@@ -89,7 +89,7 @@ length(plasmids_count$Strain)
 
 I was unable to find plasmid in 50 strains
 
-```{r, warning = FALSE, message = FALSE, fig.width = 18, fig.asp = 0.6}
+```{r, warning = FALSE, message = FALSE, fig.dim = c(16, 8), out.width='150%'}
 library(ggplot2)
 
 plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col(fill="steelblue") +
@@ -99,7 +99,7 @@ plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), 
 plot_plasmids_per_strain
 ```
 
-```{r, warning = FALSE, message = FALSE, fig.width = 8, fig.asp = 0.6}
+```{r, warning = FALSE, message = FALSE, fig.width = 8, fig.asp = 0.6, out.width='100%'}
 ggplot(plasmids_count, aes(Type, Count)) +
         geom_boxplot() +
         geom_violin(alpha=0.3) +
