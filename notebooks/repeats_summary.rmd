@@ -23,11 +23,11 @@ Read the data, currently it contains 238 strains
 ```{r}
 # a new way of getting repeat data frame across all strains
 library(dplyr)
-strains <- dir("results/direct_repeats")
-repeat_csv_paths <- sapply(strains, function(x){paste0("results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
+strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
+repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
 
 repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x){read.csv(x)}))
-head(repeat_df)
+repeat_df
 ```
 
 Table size
@@ -52,6 +52,8 @@ length(unique(repeat_df$strain))
 ```
 
 Sample 20 strains
+
+To get different strains, go to shiny_apps
 
 ```{r}
 library(dplyr)
@@ -95,7 +97,7 @@ repeat_counts
 
 ```{r}
 ggplot(repeat_counts, aes(strain, n_repeats)) +
-        geom_bar(stat="identity") +
+        geom_bar(stat="identity", fill="steelblue") +
         theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
         xlab("") +
         ylab("repeats count")
@@ -227,7 +229,7 @@ repeat_counts_center
 
 ```{r}
 ggplot(repeat_counts_center, aes(strain, n_repeats)) +
-        geom_bar(stat="identity") +
+        geom_bar(stat="identity", fill="steelblue") +
         theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
         xlab("") +
         ylab("repeats count")
@@ -275,7 +277,7 @@ rg_df <- bind_rows(lapply(example_strains, function(x){
 ab_groups <- unique(rg_df$Drug.Class)
 ```
 
-### Example: Isoniazid
+### Example: Macrolide
 
 no repeats around Isoniazid resistance genes
 some repeats around Macrolide resistance genes

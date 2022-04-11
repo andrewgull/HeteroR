@@ -34,6 +34,11 @@ summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longes
 summary_table
 ```
 
+
+```{r}
+summary(summary_table$Type)
+```
+
 ## Incomplete assemblies
 
 ```{r}
@@ -50,7 +55,10 @@ length(unique(summary_table$Strain))
 ```{r}
 length(summary_files)
 ```
-why the difference?
+
+No difference
+
+It has existed before
 
 ```{r}
 summary_files_strains <- sapply(summary_files, function(x){strsplit(x, "/")[[1]][1]})
@@ -79,12 +87,12 @@ Total number of strains with plasmids identified
 length(plasmids_count$Strain)
 ```
 
-I was unable to find plasmid in 20 strains
+I was unable to find plasmid in 50 strains
 
-```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
+```{r, warning = FALSE, message = FALSE, fig.width = 18, fig.asp = 0.6}
 library(ggplot2)
 
-plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col() +
+plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col(fill="steelblue") +
         theme(axis.text.x = element_text(size = 6, angle = 90)) +
         scale_y_continuous(breaks=seq(0, 10, 1)) +
         xlab("strains") +
@@ -97,14 +105,13 @@ ggplot(plasmids_count, aes(Type, Count)) +
         geom_boxplot() +
         geom_violin(alpha=0.3) +
         geom_jitter() +
-        scale_y_continuous(breaks=seq(0, 11, 2)) +
         xlab("") +
         ylab("plasmid count") +
         theme(axis.text.y = element_text(size=15), text = element_text(size=13))
 ```
 
 ```{r}
-ggplot(plasmids_count, aes(Count)) + geom_histogram(stat="bin", bins = 12)
+ggplot(plasmids_count, aes(Count)) + geom_histogram(stat="bin", bins = 20, fill="steelblue")
 ```
 
 ## Number of complete and incomplete segments per strain
@@ -113,10 +120,10 @@ ggplot(plasmids_count, aes(Count)) + geom_histogram(stat="bin", bins = 12)
 complete_incomplete <- summary_table %>% group_by(Strain, Status) %>% summarise(Count = n())
 complete_incomplete
 ```
-```{r, warning = FALSE, message = FALSE, fig.width = 14, fig.asp = 0.6}
+```{r, warning = FALSE, message = FALSE, fig.width = 18, fig.asp = 0.6}
  ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) +
           geom_col(aes(fill=Status), position = "stack") +
-         theme(axis.text.x = element_text(size = 8, angle = 90),
+         theme(axis.text.x = element_text(size = 6, angle = 90),
                axis.text.y = element_text(size = 13), text = element_text(size=13),
                legend.text = element_text(size=16), legend.title = element_blank(), legend.position = c(0.8, 0.8)) +
          xlab("") +
@@ -129,9 +136,8 @@ complete_incomplete
 
 "incomplete" - linear assembly (Unicycler)
 
-"scaffold" - linear assembly (SPAdes plasmid)
+"NA" - linear assembly (SPAdes plasmid)
 
-There is indeed just one scaffold, i.e. plasmid assembles by SPAdes
 
 ```{r}
 summary_table %>% filter(Status=="scaffold")
@@ -182,13 +188,15 @@ Same here...
 
 ```{r}
 ggplot(summary_table, aes(Length)) +
-        geom_histogram(stat="bin", aes(fill=Type)) +
+        geom_histogram(stat="bin", fill="steelblue", bins = 50) +
+        facet_grid(rows=vars(Type)) +
         theme(axis.text.y = element_text(size=15),
               text = element_text(size=13),
               axis.text.x = element_text(size=13),
               legend.title = element_blank(),
               legend.text = element_text(size=16)) +
         xlab("Length, bp") +
+        coord_trans(y="sqrt") +
         scale_fill_manual(values=c("#E69F00", "#56B4E9")) +
         scale_x_continuous(breaks=seq(0, 6e+06, 1e+06))
 ```
