@@ -94,7 +94,6 @@ library(ggplot2)
 
 plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col(fill="steelblue") +
         theme(axis.text.x = element_text(size = 6, angle = 90)) +
-        scale_y_continuous(breaks=seq(0, 10, 1)) +
         xlab("strains") +
         ylab("plasmids count")
 plot_plasmids_per_strain
