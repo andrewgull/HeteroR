@@ -1,5 +1,7 @@
 **/*.html
 **/*.log
+**/*.Rhistory
+**/*.RData
 results/*
 resources/*
 .idea/*
