@@ -32,7 +32,7 @@ library(data.table)
 # repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1
 # repeat_df <- full_join(bed_df, repeat_df, by="record_id")
 # repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
-# write.csv()
+# write.csv(repeat_df, "/home/andrei/Data/HeteroR/results/repeats_summary_table.csv")
 
 get_table <- function(table_path, filt=FALSE){
   df <- fread(table_path)
@@ -59,7 +59,7 @@ ui <- fluidPage(
             sliderInput("sample_size",
                         "Sample size:",
                         min = 1,
-                        max =237,
+                        max =370,
                         value = 10),
             sliderInput("seed", 
                        "Set seed:",
