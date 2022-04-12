@@ -12,6 +12,27 @@ library(dplyr)
 library(ggplot2)
 library(data.table)
 
+# run tthi code to get tha table in ./data (taken from repeats_summary.rmd)
+#####################
+# library(dplyr)
+# strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
+# repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
+# bed_df <- bind_rows(lapply(strains, function (x){
+#   filename <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
+#   df <- read.delim(filename, header=FALSE)
+#   return(df)
+# }))
+# bed_df$gene_center <- round((bed_df$V3 - bed_df$V2 + 1)/2)
+# bed_df <- rename(bed_df, "record_id"=V4)
+# bed_df <- select(bed_df, record_id, gene_center)
+# repeat_df <- full_join(bed_df, repeat_df, by="record_id")
+# repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
+# repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x){read.csv(x)}))
+# length(unique(repeat_df$strain))
+# repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1
+# repeat_df <- full_join(bed_df, repeat_df, by="record_id")
+# repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
+# write.csv()
 
 get_table <- function(table_path, filt=FALSE){
   df <- fread(table_path)
