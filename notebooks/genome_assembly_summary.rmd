@@ -1,6 +1,6 @@
 ---
 title: "Genome assemblies summary"
-author: "AG"
+author: "by AG"
 date: "last update: `r format(Sys.time(), format = '%d %B %Y, %H:%M CET')`"
 output:
   html_document:
@@ -13,9 +13,7 @@ output:
       highlight: github
 ---
 
-Here you'll find a summary of `results/assemblies_joined/{strain}/summary.tsv` files
-
-# Read the data
+# Assemblies summary table
 
 ```{r, message = FALSE, warning = FALSE}
 library(dplyr)
@@ -31,13 +29,20 @@ summary_table <- bind_rows(summary_table)
 summary_table$Length <- as.integer(gsub(",", "", summary_table$Length, fixed=TRUE))
 summary_table$N50 <- as.integer(gsub(",", "", summary_table$N50, fixed=TRUE))
 summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longest_component, fixed=TRUE))
+```
+
+Assembly summary information has been taken from Unicycler log files, total number of summary files `r length(summary_files)`
+
+```{r}
 summary_table
 ```
 
+## Short summary of the full table
 
 ```{r}
-summary(summary_table$Type)
+summary(summary_table)
 ```
+
 
 ## Incomplete assemblies
 
@@ -46,74 +51,48 @@ incomplete_assemblies <- summary_table %>% filter(Status=="incomplete")
 incomplete_assemblies
 ```
 
-Number of incomplete assemblies (strains) N=`r length(unique(incomplete_assemblies$Strain))`
+Total number of strains `r length(unique(summary_table$Strain))`
 
+Number of strains with at least one incomplete assembly `r length(unique(incomplete_assemblies$Strain))`
 
-```{r}
-length(unique(summary_table$Strain))
-```
-```{r}
-length(summary_files)
-```
-
-No difference
-
-It has existed before
-
-```{r}
-summary_files_strains <- sapply(summary_files, function(x){strsplit(x, "/")[[1]][1]})
-setdiff(summary_files_strains, summary_table$Strain)
-```
-These summary files are empty - there are only headers
-it happens because I remove first two lines of a summary table in assembly_summary.py
-**fixed now**
-
-# Summaries
-```{r}
-summary(summary_table)
-```
 
 ## Number of plasmids per strain
-
 
 ```{r, message = FALSE}
 plasmids_count <- summary_table %>% group_by(Strain, Type) %>% summarise(Count = n()) %>% filter(Type=="Plasmid")
 plasmids_count
 ```
 
-Total number of strains with plasmids identified
+Total number of strains with plasmids identified `r length(plasmids_count$Strain)`
 
-```{r}
-length(plasmids_count$Strain)
-```
-
-I was unable to find plasmid in 50 strains
-
-```{r, warning = FALSE, message = FALSE, fig.dim = c(16, 8), out.width='150%'}
-library(ggplot2)
-
-plot_plasmids_per_strain <- ggplot(plasmids_count, aes(reorder(Strain, -Count), Count)) + geom_col(fill="steelblue") +
-        theme(axis.text.x = element_text(size = 6, angle = 90)) +
-        xlab("strains") +
-        ylab("plasmids count")
-plot_plasmids_per_strain
-```
-
-```{r, warning = FALSE, message = FALSE, fig.width = 8, fig.asp = 0.6, out.width='100%'}
-ggplot(plasmids_count, aes(Type, Count)) +
-        geom_boxplot() +
-        geom_violin(alpha=0.3) +
-        geom_jitter() +
-        xlab("") +
-        ylab("plasmid count") +
-        theme(axis.text.y = element_text(size=15), text = element_text(size=13))
-```
+Could not find any plasmids in `r length(unique(summary_table$Strain)) - length(plasmids_count$Strain)` strains
 
 
-```{r}
+### Plasmid counts per strain
+
+**All following plots are interactive (zoomable, clickable and draggable), in case of problems reload the page**
+
+```{r, message=FALSE, warning=FALSE, fig.width=12}
 library(plotly)
 
-fig <- plasmids_count %>%
+plasmids_count <- arrange(plasmids_count, -Count)
+
+bar_plasmid <- plot_ly(
+  x = plasmids_count$Strain,
+  y = plasmids_count$Count,
+  type = "bar" 
+)
+
+bar_plasmid %>% layout(title="Plasmids count per strain")
+```
+
+
+### Plasmid counts distribution
+
+
+```{r, message=FALSE, warning=FALSE, fig.width=12}
+# boxplot and violin plot
+box_plasmid <- plasmids_count %>%
   plot_ly(
     y = ~Count,
     type = 'violin',
@@ -126,49 +105,56 @@ fig <- plasmids_count %>%
     x0 = 'Plasmid'
   )
 
-fig <- fig %>%
+box_plasmid <- box_plasmid %>%
   layout(
     yaxis = list(
-      title = "",
+      title = "Count",
       zeroline = F
     )
   )
 
+box_plasmid <- box_plasmid %>% layout(title="Distribuiton of plasmid counts")
+
+# histogram
+hist_plasmids <- plasmids_count %>% 
+  plot_ly(y = ~Count, type = "histogram") %>% 
+  layout(title="Distribuiton of plasmid counts")
+
+# combined
+fig <- subplot(box_plasmid, hist_plasmids) %>% 
+
+  layout(title = 'Plasmids counts distribution', showlegend=FALSE)
+
 fig
 ```
 
-
-
-```{r}
-library(plotly)
-fig <- plot_ly(x = plasmids_count$Count, type = "histogram")
-fig
-```
 
 ## Number of complete and incomplete segments per strain
 
-```{r, warning = FALSE, message = FALSE}
+```{r, warning = FALSE, message = FALSE, fig.width=12}
 complete_incomplete <- summary_table %>% group_by(Strain, Status) %>% summarise(Count = n())
-complete_incomplete
+
+bar_complete <- plot_ly(data = complete_incomplete,
+  x = ~Strain,
+  y = ~Count,
+  type = "bar",
+  color = ~Status
+)
+
+bar_complete <- bar_complete %>% layout(yaxis = list(title='Count'), barmode='stack', legend = list(title=list(text='<b> Assembly type </b>')), title = "Number of assembly types per strain") 
+
+bar_complete
 ```
-```{r, warning = FALSE, message = FALSE, fig.width = 18, fig.asp = 0.6}
- ggplot(complete_incomplete, aes(reorder(Strain, -Count), Count)) +
-          geom_col(aes(fill=Status), position = "stack") +
-         theme(axis.text.x = element_text(size = 6, angle = 90),
-               axis.text.y = element_text(size = 13), text = element_text(size=13),
-               legend.text = element_text(size=16), legend.title = element_blank(), legend.position = c(0.8, 0.8)) +
-         xlab("") +
-         ylab("number of contigs") +
-        scale_fill_brewer(palette="Dark2", labels=c("circular", "linear"))
 
-```
+Note:
 
-"complete" - circular assembly (Unicycler)
+- "complete" - circular assembly (by Unicycler)
 
-"incomplete" - linear assembly (Unicycler)
+- "incomplete" - linear assembly (by Unicycler)
 
-"NA" - linear assembly (SPAdes plasmid)
+- "scaffold" - linear assembly (assembly made by SPAdes in a 'plasmid' mode)
 
+## Summary table of plasmids assembled by SPAdes 
 
 ```{r}
 summary_table %>% filter(Status=="scaffold")
@@ -176,38 +162,38 @@ summary_table %>% filter(Status=="scaffold")
 
 ## Genome length distribution
 
-### Chromosomes
+Both chromosomes and plasmids
 
-```{r, warning = FALSE, message = FALSE}
-summary_chrom <- summary_table %>% filter(Type=='Chromosome')
-ggplot(summary_chrom, aes(Length)) +
-        geom_histogram(stat="bin", fill="#065c2a") +
-        theme(axis.text.y = element_text(size=15), text = element_text(size=13), axis.text.x = element_text(size=13)) +
-        xlab("Length, bp")
+```{r, fig.width=10}
+hist_chrom_plasm_len <- plot_ly(data = summary_table,
+        alpha=0.9,
+        x=~Length,
+        color = ~Type,
+        colors = c("#377EB8", "#FF7F00"),
+        type = "histogram") %>% 
+  layout(barmode = "overlay")
 
+hist_chrom_plasm_len
 ```
 
-### Plasmids
 
-```{r}
-summary_plasmids <- summary_table %>% filter(Type=='Plasmid')
-ggplot(summary_plasmids, aes(Length)) +
-        geom_histogram(stat="bin", fill="#062d5c") +
-        theme(axis.text.y = element_text(size=15), text = element_text(size=13), axis.text.x = element_text(size=13)) +
-        xlab("Length, bp")
+These longest outliers among plasmids (250k, 400k, 700k and 900k) are parts of incomplete chromosomes
 
-```
+### "Plasmids" sorted by length
 
-These longest outliers (250k, 400k, 700k and 900k) - are they really plasmids?
 ```{r}
 summary_table %>% filter(Type=='Plasmid') %>% arrange(-Length)
 ```
+
+#### Summary table for DA63676
+
 ```{r}
 summary_table %>% filter(Strain=="DA63676")
 ```
 
-Chromosome is incomplete and adds up to 5 Mbp with the longest plasmid...
+Chromosome is incomplete and adds up to 5 Mbp together with the longest 'plasmid'
 
+#### Summary table for DA63676
 
 ```{r}
 summary_table %>% filter(Strain=="DA63914")
@@ -215,26 +201,12 @@ summary_table %>% filter(Strain=="DA63914")
 
 Same here...
 
-### Together
 
-```{r}
-ggplot(summary_table, aes(Length)) +
-        geom_histogram(stat="bin", fill="steelblue", bins = 50) +
-        facet_grid(rows=vars(Type)) +
-        theme(axis.text.y = element_text(size=15),
-              text = element_text(size=13),
-              axis.text.x = element_text(size=13),
-              legend.title = element_blank(),
-              legend.text = element_text(size=16)) +
-        xlab("Length, bp") +
-        coord_trans(y="sqrt") +
-        scale_fill_manual(values=c("#E69F00", "#56B4E9")) +
-        scale_x_continuous(breaks=seq(0, 6e+06, 1e+06))
-```
+# Benchmarking Universal Single-Copy Orthologue
 
-# Assembly completeness
+[Link](https://busco.ezlab.org/busco_userguide.html#interpreting-the-results) to the tool description.
 
-Parse BUSCO summary files and summarize the results
+## Summary table of BUSCO-analysis results
 
 ```{r}
 busco_path <- "/home/andrei/Data/HeteroR/results/qualcheck_assembly/"
@@ -250,37 +222,75 @@ busco_list <- lapply(busco_files, function(x){
 })
 
 busco_table <- bind_rows(busco_list) %>% select(-c(V1, V4, V5, V6))
+names(busco_table) <- c("Count", "Category", "Strain")
+
+busco_table <- busco_table %>% filter(!grepl("DA70*", Strain))
 
 busco_table
 ```
 
-## Distribution of complete BUSCOs
+### Barplot
+
+```{r, fig.width=12}
+
+bar_busco <- plot_ly(data = busco_table %>% filter(Category != "Total BUSCO groups searched"),
+  x = ~Strain,
+  y = ~Count,
+  type = "bar",
+  color = ~Category
+)
+
+bar_busco <- bar_busco %>% 
+  layout(yaxis = list(title='Count'), 
+         barmode='group', 
+         legend = list(title=list(text='<b> BUSCO categories count </b>')), 
+         title = "Assembly completeness as assessed by BUSCO") 
+
+bar_busco
+```
+
+
+## Summary by category
 
 ### Complete
 
+>If found to be complete, whether single-copy or duplicated, the BUSCO matches have scored within the expected range of scores and within the expected range of length alignments to the BUSCO profile. If in fact an ortholog is not present in the input dataset, or the ortholog is only partially present (highly fragmented), and a high-identity full-length homolog is present, it is possible that this homolog could be mistakenly identified as the complete BUSCO. The score thresholds are optimised to minimise this possibility, but it can still occur.
+
+Counts
+
 ```{r}
-busco_table %>% filter(V3 == "Complete BUSCOs (C)") %>% summary()
+busco_table %>% filter(Category == "Complete BUSCOs (C)") %>% summary()
 ```
 
 ### Complete and single-copy
 
+Counts
+
 ```{r}
-busco_table %>% filter(V3 == "Complete and single-copy BUSCOs (S)") %>% summary()
+busco_table %>% filter(Category == "Complete and single-copy BUSCOs (S)") %>% summary()
 ```
 
 ### Fragmented
 
+>If found to be fragmented, the BUSCO matches have scored within the range of scores but not within the range of length alignments to the BUSCO profile. For genome assemblies this could indicate either that the gene is only partially present or that the sequence search and gene prediction steps failed to produce a full-length gene model even though the full gene could indeed be present in the assembly.
+
+Counts
+
 ```{r}
-busco_table %>% filter(V3 == "Fragmented BUSCOs (F)") %>% summary()
+busco_table %>% filter(Category == "Fragmented BUSCOs (F)") %>% summary()
 ```
 
 ```{r}
-busco_table %>% filter(V3 == "Fragmented BUSCOs (F)" & V2 > 0)
+busco_table %>% filter(Category == "Fragmented BUSCOs (F)" & Count > 0)
 ```
 
 ### Missing
 
+>If found to be missing, there were either no significant matches at all, or the BUSCO matches scored below the range of scores for the BUSCO profile. For genome assemblies this could indicate either that these orthologs are indeed missing, or that the sequence search step failed to identify any significant matches, or that the gene prediction step failed to produce even a partial gene model that might have been recognised as a fragmented BUSCO match.
+
+Counts
+
 ```{r}
-busco_table %>% filter(V3 == "Missing BUSCOs (MFragmented)") %>% summary()
+busco_table %>% filter(Category == "Missing BUSCOs (MFragmented)") %>% summary()
 ```
 
