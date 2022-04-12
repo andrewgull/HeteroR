@@ -7,8 +7,8 @@
 #    http://shiny.rstudio.com/
 #
 
-df <- read.csv("data/heatmap-250.csv")
-df_tidy <- gather(df, "strain", "n", 3:252)
+df <- read.csv("data/heatmap-370.csv")
+df_tidy <- gather(df, "strain", "n", 3:372)
 df_tidy$strain <- sub("_rgi_table", "", df_tidy$strain)
 families <- unique(df$gene_family)
 
