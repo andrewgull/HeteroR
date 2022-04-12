@@ -109,8 +109,40 @@ ggplot(plasmids_count, aes(Type, Count)) +
         theme(axis.text.y = element_text(size=15), text = element_text(size=13))
 ```
 
+
 ```{r}
-ggplot(plasmids_count, aes(Count)) + geom_histogram(stat="bin", bins = 20, fill="steelblue")
+library(plotly)
+
+fig <- plasmids_count %>%
+  plot_ly(
+    y = ~Count,
+    type = 'violin',
+    box = list(
+      visible = T
+    ),
+    meanline = list(
+      visible = T
+    ),
+    x0 = 'Plasmid'
+  )
+
+fig <- fig %>%
+  layout(
+    yaxis = list(
+      title = "",
+      zeroline = F
+    )
+  )
+
+fig
+```
+
+
+
+```{r}
+library(plotly)
+fig <- plot_ly(x = plasmids_count$Count, type = "histogram")
+fig
 ```
 
 ## Number of complete and incomplete segments per strain
