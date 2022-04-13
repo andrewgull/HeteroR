@@ -20,7 +20,7 @@ From here on I will work with data from this table
 
 Read the data, currently it contains 370 strains
 
-```{r}
+```{r, message = FALSE, warning = FALSE}
 # a new way of getting repeat data frame across all strains
 library(dplyr)
 strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
