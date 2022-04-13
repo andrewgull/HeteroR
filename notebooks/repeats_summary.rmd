@@ -16,9 +16,7 @@ output:
 This notebook relies on results from *make_repeat_tables.py* that creates tables which contain
 coordinates of repeat for each strain and each resistance gene
 
-From here on I will work with data from this table
-
-Read the data, currently it contains 370 strains
+# Summary repeat table
 
 ```{r, message = FALSE, warning = FALSE}
 # a new way of getting repeat data frame across all strains
@@ -30,63 +28,97 @@ repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x){read.csv(x)}))
 repeat_df
 ```
 
-Table size
+Number of rows: `r nrow(repeat_df)`
 
-```{r}
-dim(repeat_df)
-```
+Number of strains: `r length(unique(repeat_df$strain))`
 
-Filter duplicates
+## Filter duplicates
 
 There is no identical coordinate pairs (if you consider gene name as well)
 
 ```{r}
 repeat_df_dedup <- repeat_df %>% distinct(record_id, start_1, end_1, start_2, end_2, .keep_all = TRUE)
-dim(repeat_df_dedup)
+
 ```
 
-Number of strains
+Number of rows: `r nrow(repeat_df_dedup)`
 
-```{r}
-length(unique(repeat_df$strain))
-```
+Number of strains: `r length(unique(repeat_df_dedup$strain))`
 
-Sample 20 strains
+# Sample 40 strains
 
-To get different strains, go to shiny_apps
+To see fully interactive plots, go check `shiny_apps`
 
 ```{r}
 library(dplyr)
 
 set.seed(99)
 strains <- unique(repeat_df$strain)
-strains_sample <- sample(strains, 20, replace = FALSE)
+strains_sample <- sample(strains, 40, replace = FALSE)
 sample_df <- bind_rows(
         lapply(strains_sample, function(x){
           filter(repeat_df, strain == x)
         })
 )
-dim(sample_df)
-```
 
-
-```{r}
 sample_df
 ```
 
+
 ## Repeat lengths distribution
 
-```{r}
-library(ggplot2)
+```{r, message=FALSE, warning=FALSE, fig.width=12}
+library(plotly)
 
-ggplot(sample_df, aes(strain, length)) +
-        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.2, size=0.2) +
-        geom_violin(alpha=0.2, size=0.2) +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("repeat length") +
-        scale_y_continuous(breaks=c(20, 100, 500, 1000, 2000, 4000, 6000), trans="log")
+box.rep.len <- plot_ly(data = sample_df, 
+                       x = ~strain, 
+                       y = ~length,
+                       type = "box") %>%  
+  layout(yaxis = list(type="log"), title="Repeat lengths")
+
+box.rep.len
 ```
+
+```{r, eval=FALSE}
+# sliders
+sample.size <- list(
+
+  list(args = list("marker.color", "red"), 
+
+                    label = "Red", 
+
+                    method = "restyle", 
+
+                    value = "1"
+
+                    ),
+
+  list(args = list("marker.color", "green"), 
+
+                    label = "Green", 
+
+                    method = "restyle", 
+
+                    value = "2"
+
+                    ),
+
+  list(args = list("marker.color", "blue"), 
+
+                    label = "Blue", 
+
+                    method = "restyle", 
+
+                    value = "3"
+
+                    )
+
+  )
+
+
+box.rep.len %>% layout(sliders = list())
+```
+
 
 ## Repeat count per strain
 
@@ -95,57 +127,76 @@ repeat_counts <- sample_df %>% group_by(strain) %>% summarise("n_repeats"=n())
 repeat_counts
 ```
 
-```{r}
-ggplot(repeat_counts, aes(strain, n_repeats)) +
-        geom_bar(stat="identity", fill="steelblue") +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("repeats count")
+```{r, fig.width=12}
+bar.rep.counts <- plot_ly(data=repeat_counts,
+                          x = ~strain,
+                          y = ~n_repeats,
+                          type = 'bar') %>% 
+  layout(title="Number of repeats per strain")
+
+bar.rep.counts
 ```
 
-## Repeat count distribution around each RG
+## Repeat count around each RG
 
 ```{r}
 repeat_counts <- sample_df %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
 repeat_counts
 ```
 
-```{r}
-ggplot(repeat_counts, aes(strain, n_repeats)) +
-        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.5, size=0.2) +
-        geom_violin(alpha=0.2, size=0.2) +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("repeat counts per RG") +
-        coord_trans(y="sqrt") +
-        scale_y_continuous(breaks=c(1, 10, 20, 50, 100, 500, 1000, 2000))
+```{r, fig.width=12}
+box.rep.counts.rg <- plot_ly(data=repeat_counts,
+                          x = ~strain,
+                          y = ~n_repeats,
+                          type = 'box')
+
+# violin plots have misleading KDE below zero
+viol.rep.counts.rg <-  plot_ly(data=repeat_counts,
+                          x = ~strain,
+                          y = ~n_repeats,
+                          type = 'violin',
+                          box = list(visible = T),
+                          meanline = list(visible = T))
+
+box.rep.counts.rg %>% layout(yaxis = list(type="log"), title="Repeat counts around resistance genes")
 ```
 
 ## Distances between repeat pairs aka "AR length"
+
 ```{r}
 repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1
 sample_df$AR_length <- sample_df$start_2 - sample_df$end_1
-head(repeat_df)
+
 ```
 
-```{r}
-ggplot(sample_df, aes(strain, AR_length)) +
-        geom_boxplot(alpha=0.5, outlier.size = 1.0, outlier.alpha = 0.5, size=0.2) +
-        geom_violin(alpha=0.2, size=0.2) +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("AR length")
+
+```{r, fig.width=12}
+box.ar.len <- plot_ly(data = sample_df,
+                      x = ~strain,
+                      y = ~AR_length,
+                      type = "box") %>% layout(title="Length of amplifiable region")
+
+# violin plots have misleading KDE below zero
+viol.ar.len <-  plot_ly(data=sample_df,
+                          x = ~strain,
+                          y = ~AR_length,
+                          type = 'violin',
+                          box = list(visible = T),
+                          meanline = list(visible = T))
+
+box.ar.len
 ```
+
+
 
 # Filter out repeats not spanning the center of every range
 
-the middle of the range is the middle of the RG
-Those repeats that are on one side of it, are not interesting for us because they don't affect amplifications rate
+The middle of the range is the middle of the RG
+Those repeats that are located on the same side of it, are not interesting for us because they don't affect amplifications rate
 
-I need bed files: regions_within.bed
-there I can find regions around RGs - to find the middle of each region
+To get repeat coordinates I need bed files: regions_within.bed
 
-files are here:
+The files are here:
 
 `results/direct_repeats/DA*/regions/regions_within.bed`
 
@@ -160,16 +211,16 @@ bed_df$gene_center <- round((bed_df$V3 - bed_df$V2 + 1)/2)
 bed_df <- rename(bed_df, "record_id"=V4)
 bed_df <- select(bed_df, record_id, gene_center)
 
-head(bed_df)
+bed_df
 ```
 
-Number of unique gene names equals number of rows in bed_df
-Which means I can join bed and repeats tables using gene names only
+Number of gene names: `r length(unique(bed_df$record_id))`
 
-```{r}
-length(unique(bed_df$record_id)) == nrow(bed_df)
-```
+Number of rows: `r nrow(bed_df)`
 
+Number of unique gene names equals number of rows in bed_df, which means I can join bed and repeats tables using gene names only
+
+## Joined repeat summary table and coordinates table
 
 ```{r}
 # example
@@ -186,18 +237,21 @@ length(unique(bed_df$record_id)) == nrow(bed_df)
 repeat_df <- full_join(bed_df, repeat_df, by="record_id")
 repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
 
-head(repeat_df, n=20)
+repeat_df
 ```
+
+## Filter out repeat pairs that don't span region's center
+
 ```{r}
 repeat_df_center <- repeat_df %>% filter(spans_center == "yes")
-length(unique(repeat_df_center$strain))
+repeat_df_center
 ```
 
-All strains have at least one repeat pair spanning gene center
+Number of strains: `r length(unique(repeat_df_center$strain))`, i.e. all strains have at least one repeat pair spanning gene center.
 
-# Only repeats spanning RG's center
+# Analysis of repeat pairs spanning region center
 
-get sample
+## Sample 40 strains
 
 ```{r}
 sample_df_center <- bind_rows(
@@ -205,68 +259,75 @@ sample_df_center <- bind_rows(
           filter(repeat_df_center, strain == x)
         })
 )
-dim(sample_df_center)
+
+sample_df_center
 ```
 
 ## Repeat length
 
-```{r}
-ggplot(sample_df_center, aes(strain, length)) +
-        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.2, size=0.2, varwidth = TRUE) +
-        geom_violin(alpha=0.2, size=0.2) +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("repeat length") +
-        scale_y_continuous(breaks=c(20, 100, 500, 1000, 2000, 4000, 5000), trans="log")
+```{r, fig.width=12}
+box.rep.len.c <- plot_ly(data = sample_df_center,
+                      x = ~strain,
+                      y = ~length,
+                      type = "box") %>% layout(title="Repeat length", yaxis=list(type="log"))
+box.rep.len.c
 ```
 
-## Repeat counts
+
+## Repeat count per strain
 
 ```{r}
 repeat_counts_center <- sample_df_center %>% group_by(strain) %>% summarise("n_repeats"=n())
 repeat_counts_center
 ```
 
-```{r}
-ggplot(repeat_counts_center, aes(strain, n_repeats)) +
-        geom_bar(stat="identity", fill="steelblue") +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("repeats count")
+```{r, fig.width=12}
+bar.rep.counts.c <- plot_ly(data=repeat_counts_center,
+                          x = ~strain,
+                          y = ~n_repeats,
+                          type = 'bar') %>% 
+  layout(title="Number of repeats")
+
+bar.rep.counts.c
 ```
 
-## Repeat numbers around each RG
-```{r}
+
+## Repeat count around each RG
+
+```{r, message=FALSE, warning=F, fig.width=12}
+
 repeat_counts_center2 <- sample_df_center %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
 
-ggplot(repeat_counts_center2, aes(strain, n_repeats)) +
-        geom_boxplot(outlier.size = 1.0, outlier.alpha = 0.5, size=0.2, varwidth=TRUE) +
-        geom_violin(alpha=0.2, size=0.2) +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("repeat counts per RG") +
-        coord_trans(y="sqrt") +
-        scale_y_continuous(breaks=c(1, 10, 20, 50, 100, 500, 1000, 2000))
+box.rep.count.c <- plot_ly(data = repeat_counts_center2,
+                      x = ~strain,
+                      y = ~n_repeats,
+                      type = "box") %>% layout(title="Repeat count around RGs", yaxis=list(type="log"))
+box.rep.count.c
 ```
+
 
 ## AR length distribution
 
-```{r}
-ggplot(sample_df_center, aes(strain, AR_length)) +
-        geom_boxplot(alpha=0.5, outlier.size = 1.0, outlier.alpha = 0.5, size=0.2, varwidth=TRUE) +
-        geom_violin(alpha=0.2, size=0.2) +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        xlab("") +
-        ylab("AR length")
+```{r, fig.width=12}
+box.ar.len.c <- plot_ly(data = sample_df_center,
+                      x = ~strain,
+                      y = ~AR_length,
+                      type = "box") %>% layout(title="Length of amplifiable region")
+box.ar.len.c
 ```
 
-## Mean number of repeats per AB group
+
+# Number of repeats per AB group
 
 For time being I will use a few strains that have been processed: "DA63084", "DA63186", "DA63322", "DA63946", "DA64026"
+
 Later you will change it
+
+## Resistance Gene Identifier results table
 
 ```{r}
 example_strains <- unique(repeat_counts_center2$strain)[!grepl("DA70", unique(repeat_counts_center2$strain))]
+
 # read in RG tables of these strains
 rg_df <- bind_rows(lapply(example_strains, function(x){
   df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"))
@@ -275,12 +336,15 @@ rg_df <- bind_rows(lapply(example_strains, function(x){
 }) )
 
 ab_groups <- unique(rg_df$Drug.Class)
+
+rg_df
 ```
 
-### Example: Macrolide
+look at number of repeats around genes conferring resistance to each AB group
 
-no repeats around Isoniazid resistance genes
-some repeats around Macrolide resistance genes
+## Example: Macrolides
+
+Let's get some repeats around Macrolide-resistance genes
 
 ```{r}
 rg_ab <- filter(rg_df, grepl("macrolide", Drug.Class))
@@ -295,13 +359,16 @@ count_per_ab <- left_join(repeat_counts_center2, rg_ab, by="record_id") %>% filt
 count_per_ab
 ```
 
-```{r}
-ggplot(count_per_ab, aes(strain.x, n_repeats)) +
-        geom_boxplot(alpha=0.5, outlier.size = 1.0, outlier.alpha = 0.5, size=0.2, varwidth=TRUE) +
-        geom_violin(alpha=0.2, size=0.2) +
-        coord_trans(y="sqrt") +
-        theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-        ylab("n") +
-        xlab("") +
-        ggtitle("repeats count around macrolide resistance genes")
+```{r, fig.width=12}
+box.rep.n.ab <- plot_ly(data = count_per_ab,
+                      x = ~strain.x,
+                      y = ~n_repeats,
+                      type = "box") %>% layout(title="Repeat numbers around macrolide-resistance genes", yaxis=list(type="log"))
+box.rep.n.ab
 ```
+
+## Isoniazid
+
+no repeats around Isoniazid resistance genes
+
+tbc
