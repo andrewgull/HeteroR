@@ -143,6 +143,7 @@ rule QC_assembly:
     threads: 18
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
     conda: "envs/busco_quast.yaml"
+    params: tax_dataset="gammaproteobacteria_odb10"
     script:
         "scripts/QC_assembly.py"
 

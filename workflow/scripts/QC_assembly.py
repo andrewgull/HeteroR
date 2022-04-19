@@ -22,24 +22,29 @@ def write_logs(output, tool, strain_name):
         pass
 
 
-def main(indir, outdir, cpus, db_path):
+def main(in_dir, out_dir, cpus, db_path, tax_ds):
     """
     function to run busco and quast with logging
+    :param in_dir: input directory
+    :param out_dir: output directory
+    :param cpus: number of threads
+    :param db_path: path to BUSCO database
+    :param tax_ds: taxonomic data set, t.ex. gammaproteobacteria_odb10
     """
 
     # INPUT looks like "results/assemblies/{strain}" but you need "results/assemblies/{strain}/assembly.fasta"
-    infile = os.path.join(indir, "assembly.fasta")
+    infile = os.path.join(in_dir, "assembly.fasta")
     # for QUAST we need a special output_dir
-    output_dir = os.path.join(outdir, "quast_results")
+    output_dir = os.path.join(out_dir, "quast_results")
     # for logs we need a strain name
-    strain = indir.split("/")[1]
+    strain = in_dir.split("/")[1]
 
     # run BUSCO
     # subprocess.call(["busco", "-m", "genome", "-i", infile, "-o", "busco_results", "--out_path", outdir,
     #                 "-l", "gammaproteobacteria_odb10", "--cpu", cpus])
-    proc_busco = subprocess.Popen("busco -m genome -i %s -o busco_results --out_path %s -l gammaproteobacteria_odb10 "
+    proc_busco = subprocess.Popen("busco -m genome -i %s -o busco_results --out_path %s -l %s "
                                   "--cpu %s --download_path %s"
-                                  % (infile, outdir, cpus, db_path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                  % (infile, out_dir, tax_ds, cpus, db_path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     busco_stdout, busco_stderr = proc_busco.communicate()
 
     # run QUAST
@@ -55,4 +60,4 @@ def main(indir, outdir, cpus, db_path):
             write_logs(item, software, strain)
 
 
-main(indir=snakemake.input[0], outdir=snakemake.output[0], cpus=str(snakemake.threads), db_path=snakemake.input[1])
+main(indir=snakemake.input[0], outdir=snakemake.output[0], cpus=str(snakemake.threads), db_path=snakemake.input[1], tax_ds=snakemake.params[0])
