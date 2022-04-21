@@ -441,7 +441,8 @@ rule final:
         #gff_mism="results/annotations/{strain}/repeats/{strain}_repeats_mismatch_perfect.gff",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
-        dr_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv"
+        dr_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
+        dr_centered_csv="results/annotations/{strain}/repeats/{strain}_repeats_centered.csv"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
