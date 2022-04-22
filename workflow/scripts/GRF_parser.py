@@ -49,9 +49,9 @@ def parse_grf_output_no_ranges(header):
     record_id = first_split[0][1:]
     repeat_len = int(first_split[-1].split("m")[0])
     repeat_1_start_in_range = int(first_split[1])
-    repeat_1_end_in_range = repeat_1_start_in_range + repeat_len
+    repeat_1_end_in_range = repeat_1_start_in_range + repeat_len - 1  # to make coordinates inclusive like [1,2]
     repeat_2_end_in_range = int(first_split[2])
-    repeat_2_start_in_range = repeat_2_end_in_range - repeat_len
+    repeat_2_start_in_range = repeat_2_end_in_range - repeat_len + 1  # same here
     return [record_id, repeat_1_start_in_range, repeat_1_end_in_range, repeat_2_start_in_range, repeat_2_end_in_range,
             repeat_len]
 
