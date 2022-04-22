@@ -421,6 +421,7 @@ rule dr2centered:
     output:
         "results/annotations/{strain}/repeats/{strain}_repeats_centered.csv"
     message: "filtering repeats spanning gene center in strains {wildcards.strain}"
+    log: "results/logs/{strain}_repeats_centered_csv.log"
     script: "scripts/filter_repeat_tables.R"
 
 rule final:
