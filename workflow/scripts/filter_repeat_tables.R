@@ -17,5 +17,8 @@ filter_center <- function(bed_file, repeat_table){
   return(repeat_df_center)
 }
 
+# run the script with logging
+log <- file(snakemake@log[[1]], open="wt")
+sink(log)
 centered_repeats_df <- filter_center(snakemake@input[[1]], snakemake@input[[2]])
 write.csv(x=centered_repeats_df, file=snakemake@output[[1]], row.names = FALSE)
