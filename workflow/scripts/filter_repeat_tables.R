@@ -1,4 +1,5 @@
 # script to filter out repeat pairs that do not span a region's center
+library(dplyr)
 
 filter_center <- function(bed_file, repeat_table){
   # function to filter out repeat pairs not spanning a region's center
