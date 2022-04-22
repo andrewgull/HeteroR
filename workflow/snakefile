@@ -384,10 +384,10 @@ rule direct_repeats:
     message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf_perfect.log"
     conda: "envs/grf.yaml"
-    params: mode=2, min_size=20, format=1, mism=0, seed_mism=0, max_spacer=205000, min_spacer=100
+    params: mode=2, min_size=20, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=100
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
-        "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_spacer_len {params.max_spacer} --min_spacer_len {params.min_spacer} &> {log} "
+        "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
 
 rule dr2gff:
