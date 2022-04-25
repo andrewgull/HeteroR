@@ -6,17 +6,16 @@
 #
 #    http://shiny.rstudio.com/
 #
-
-df <- read.csv("data/heatmap.csv")
-df_tidy <- gather(df, "strain", "n", 3:405)  # the last number equals number of strains plus 2
-df_tidy$strain <- sub("_rgi_table", "", df_tidy$strain)
-families <- unique(df$gene_family)
-
 library(shiny)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(viridis)
+
+df <- read.csv("data/heatmap.csv")
+df_tidy <- gather(df, "strain", "n", 3:ncol(df))  # the last number equals number of strains plus 2
+df_tidy$strain <- sub("_rgi_table", "", df_tidy$strain)
+families <- unique(df$gene_family)
 
 # Define UI for application
 ui <- fluidPage(
