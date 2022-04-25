@@ -1,10 +1,46 @@
-# script to filter out repeat pairs that do not span a region's center
-# run the script with logging
-log <- file(snakemake@log[[1]], open="wt")
-sink(log)
+# filter out repeat pairs that do not span a region's center
 
+# libraries
 library(dplyr)
+library(optparse)
 
+# CLI parsing
+option_list = list(
+   make_option(c("-b", "--bed"),
+               type = "character",
+               default = NULL,
+               help = "A path to a bed file",
+               metavar = "character"),
+   make_option(c("-r", "--table"),
+               type = "character",
+               default = NULL,
+               help = "A path to a table with repeat pairs (csv)",
+               metavar = "character"),
+	make_option(c("-o", "--out"),
+                type = "character",
+                default = NULL,
+                help = "output file name",
+                metavar = "character")
+);
+
+opt_parser = OptionParser(option_list = option_list);
+opt = parse_args(opt_parser);
+
+if (is.null(opt$bed)){
+ print_help(opt_parser)
+ stop("A filepath to a bed file must be provided", call. = FALSE)
+}
+if (is.null(opt$table)){
+ print_help(opt_parser)
+ stop("A filepath to a repeat table must be provided", call. = FALSE)
+}
+
+# get file paths
+bed_file_path <- opt$bed
+repeat_table_path <- opt$table
+output_file <- opt$out
+
+# main function
 filter_center <- function(bed_file, repeat_table){
   # function to filter out repeat pairs not spanning a region's center
   # bed_file: results/direct_repeats/{strain}/regions/regions_within.bed
@@ -21,5 +57,10 @@ filter_center <- function(bed_file, repeat_table){
   return(repeat_df_center)
 }
 
-centered_repeats_df <- filter_center(snakemake@input[[1]], snakemake@input[[2]])
-write.csv(x=centered_repeats_df, file=snakemake@output[[1]], row.names = FALSE)
+# old way to execute the function via snakemake object
+# centered_repeats_df <- filter_center(snakemake@input[[1]], snakemake@input[[2]])
+# write.csv(x=centered_repeats_df, file=snakemake@output[[1]], row.names = FALSE)
+
+# newer way - via Rscript (from @lanchlandeer github)
+centered_repeats_df <- filter_center(bed_file_path, repeat_table_path)
+write.csv(x=centered_repeats_df, file=output_file, row.names = FALSE)
