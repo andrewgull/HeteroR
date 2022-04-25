@@ -122,7 +122,7 @@ box.rep.len %>% layout(sliders = list())
 
 ## Repeat count per strain
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 repeat_counts <- sample_df %>% group_by(strain) %>% summarise("n_repeats"=n())
 repeat_counts
 ```
