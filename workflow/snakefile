@@ -416,13 +416,15 @@ rule dr2csv:
 
 rule dr2centered:
     input:
-        "results/direct_repeats/{strain}/regions/regions_within.bed",
-        "results/annotations/{strain}/repeats/{strain}_repeats.csv"
+        script="workflow/scripts/filter_repeat_tables.R",
+        bed="results/direct_repeats/{strain}/regions/regions_within.bed",
+        table="results/annotations/{strain}/repeats/{strain}_repeats.csv"
     output:
-        "results/annotations/{strain}/repeats/{strain}_repeats_centered.csv"
+        table="results/annotations/{strain}/repeats/{strain}_repeats_centered.csv"
     message: "filtering repeats spanning gene center in strains {wildcards.strain}"
+    conda: "envs/rscripts.yaml"
     log: "results/logs/{strain}_repeats_centered_csv.log"
-    script: "scripts/filter_repeat_tables.R"
+    shell: "Rscript {input.script} --bed {input.bed} --table {input.table} --out {output.table} &> {log}"
 
 rule final:
     input:
