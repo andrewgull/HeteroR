@@ -12,7 +12,7 @@ library(dplyr)
 library(ggplot2)
 library(data.table)
 
-# run tthi code to get tha table in ./data (taken from repeats_summary.rmd)
+# run this code to get the table in ./data (taken from repeats_summary.rmd)
 #####################
 # library(dplyr)
 # strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
@@ -59,8 +59,8 @@ ui <- fluidPage(
             sliderInput("sample_size",
                         "Sample size:",
                         min = 1,
-                        max =370,
-                        value = 10),
+                        max = 403,
+                        value = 20),
             sliderInput("seed", 
                        "Set seed:",
                        min = 1,
