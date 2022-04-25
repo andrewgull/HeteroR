@@ -222,20 +222,14 @@ Number of unique gene names equals number of rows in bed_df, which means I can j
 
 ## Joined repeat summary table and coordinates table
 
+This table has been written to a file `/home/andrei/Data/HeteroR/results/repeats_summary_table.csv` and will be used in the Shiny app "repeats_statistic"
+
 ```{r}
-# example
-#DA63746_bed <- read.delim("/home/andrei/Data/HeteroR/results/direct_repeats/DA63746/regions/regions_within.bed", header=FALSE)
-#DA63746_bed$gene_center <- round((DA63746_bed$V3 - DA63746_bed$V2 + 1)/2)
-#DA63746_bed <- rename(DA63746_bed, "record_id"=V4)
-#DA63746_bed <- select(DA63746_bed, record_id, gene_center)
-
-#DA63746_df <- filter(repeat_df, strain=="DA63746")
-#DA63746_df <- full_join(DA63746_bed, DA63746_df, by="record_id")
-#DA63746_df$spans_center <- if_else(DA63746_df$end_1 <= DA63746_df$gene_center & DA63746_df$start_2 >= DA63746_df$gene_center, "yes", "no")
-#DA63746_df
-
 repeat_df <- full_join(bed_df, repeat_df, by="record_id")
 repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
+
+# write it to a file for that Shiny app
+write.csv(repeat_df, "/home/andrei/Data/HeteroR/results/repeats_summary_table.csv")
 
 repeat_df
 ```
