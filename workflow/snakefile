@@ -16,7 +16,7 @@ rule QC_illumina_raw:
     output:
         "results/qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv"
     threads: 18
-    message: "executing FastQC with {threads} on {wildcards.strain} raw Illumina files"
+    message: "executing FastQC with {threads} threads on {wildcards.strain} raw Illumina files"
     log: "results/logs/{strain}_illumina_qc.log"
     conda: "envs/rscripts.yaml"
     params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
@@ -30,7 +30,7 @@ rule QC_illumina_trimmed:
     output:
         "results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv"
     threads: 18
-    message: "executing FastQC with {threads} on {wildcards.strain} trimmed Illumina files"
+    message: "executing FastQC with {threads} threads on {wildcards.strain} trimmed Illumina files"
     log: "results/logs/{strain}_trimmed_qc.log"
     conda: "envs/rscripts.yaml"
     params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
@@ -44,7 +44,7 @@ rule QC_nanopore_raw:  # also builds length distribution plots
     output:
         "results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv"
     threads: 18
-    message: "executing FastQC with {threads} on {wildcards.strain} raw Nanopore files"
+    message: "executing FastQC with {threads} threads on {wildcards.strain} raw Nanopore files"
     log: "results/logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
     params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
@@ -58,7 +58,7 @@ rule QC_nanopore_filtered:
     output:
         "results/qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv"
     threads: 18
-    message: "executing FastQC with {threads} on {wildcards.strain} filtered Nanopore files"
+    message: "executing FastQC with {threads} threads on {wildcards.strain} filtered Nanopore files"
     log: "results/logs/{strain}_filtered_qc.log"
     conda: "envs/rscripts.yaml"
     params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
