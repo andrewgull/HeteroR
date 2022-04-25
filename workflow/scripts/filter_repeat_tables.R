@@ -5,7 +5,7 @@ library(dplyr)
 library(optparse)
 
 # CLI parsing
-option_list = list(
+option_list <- list(
    make_option(c("-b", "--bed"),
                type = "character",
                default = NULL,
@@ -21,10 +21,10 @@ option_list = list(
                 default = NULL,
                 help = "output file name",
                 metavar = "character")
-);
+)
 
-opt_parser = OptionParser(option_list = option_list);
-opt = parse_args(opt_parser);
+opt_parser <- OptionParser(option_list = option_list)
+opt <- parse_args(opt_parser)
 
 if (is.null(opt$bed)){
  print_help(opt_parser)
