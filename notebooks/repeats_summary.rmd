@@ -139,7 +139,7 @@ bar.rep.counts
 
 ## Repeat count around each RG
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 repeat_counts <- sample_df %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
 repeat_counts
 ```
