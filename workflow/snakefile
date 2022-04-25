@@ -11,43 +11,59 @@ rule all:
 
 rule QC_illumina_raw:
     input:
-        "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
+        script = "workflow/scripts/run_qualcheck.R",
+        fastq = "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
     output:
         "results/qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv"
+    threads: 18
+    message: "executing FastQC with {threads} on {wildcards.strain} raw Illumina files"
     log: "results/logs/{strain}_illumina_qc.log"
     conda: "envs/rscripts.yaml"
-    script:
-        "scripts/run_qualcheck.R"
+    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
+    shell:
+        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
 rule QC_illumina_trimmed:
     input:
-        "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz"
+        script = "workflow/scripts/run_qualcheck.R",
+        fastq = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz"
     output:
         "results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv"
+    threads: 18
+    message: "executing FastQC with {threads} on {wildcards.strain} trimmed Illumina files"
     log: "results/logs/{strain}_trimmed_qc.log"
     conda: "envs/rscripts.yaml"
-    script:
-        "scripts/run_qualcheck.R"
+    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
+    shell:
+        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
 rule QC_nanopore_raw:  # also builds length distribution plots
     input:
-        "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
+        script = "workflow/scripts/run_qualcheck.R",
+        fastq = "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
         "results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv"
+    threads: 18
+    message: "executing FastQC with {threads} on {wildcards.strain} raw Nanopore files"
     log: "results/logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
-    script:
-        "scripts/run_qualcheck.R"
+    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
+    shell:
+        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
 rule QC_nanopore_filtered:
     input:
-        "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+        script = "workflow/scripts/run_qualcheck.R",
+        fastq = "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
         "results/qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv"
+    threads: 18
+    message: "executing FastQC with {threads} on {wildcards.strain} filtered Nanopore files"
     log: "results/logs/{strain}_filtered_qc.log"
     conda: "envs/rscripts.yaml"
-    script:
-        "scripts/run_qualcheck.R"
+    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
+    shell:
+        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
 rule trim_illumina:
     input:
