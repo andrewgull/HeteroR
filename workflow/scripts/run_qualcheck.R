@@ -1,10 +1,61 @@
-#!/usr/bin/env Rscript
+# to run fastqc on all four read data sets
+# libraries
 library(fastqcr)
 library(stringr)
 library(ggplot2)
+library(optparse)
 
+
+# CLI parsing
+option_list <- list(
+   make_option(c("-f", "--fastq"),
+               type = "character",
+               default = NULL,
+               help = "A path to one fastq file (gzipped)",
+               metavar = "character"),
+   make_option(c("-o", "--out"),
+               type = "character",
+               default = NULL,
+               help = "A path to output file (summary file)",
+               metavar = "character"),
+   make_option(c("-e", "--exe"),
+               type = "character",
+               default = "/home/andrei/miniconda3/bin/fastqc",
+               help = "A path to fastqc executable",
+               metavar = "character"
+               ),
+   make_option(c("-t", "--threads"),
+               type = "integer",
+               default = 2,
+               help = "number of threads to use with fastqc",
+               metavar = "integer")
+)
+
+opt_parser <- OptionParser(option_list = option_list)
+opt <- parse_args(opt_parser)
+
+if (is.null(opt$fastq)){
+ print_help(opt_parser)
+ stop("A path to fastq file must be provided", call. = FALSE)
+}
+if (is.null(opt$out)){
+ print_help(opt_parser)
+ stop("A path to output table must be provided", call. = FALSE)
+}
+if (is.null(opt$exe)){
+  print_help(opt_parser)
+  stop("A path to fastqc executable must be provided", call. = FALSE)
+}
+
+# get file paths and params
+fastq_file_path <- opt$fastq
+output_file <- opt$out
+fastqc_path <- opt$exe
+threads <- opt$threads
+
+# functions
 keyword <- function(file_out){
-  # this function returns keyword depending on the provided utput file path
+  # this function returns keyword depending on the provided input file path
   if (grepl("Illumina", file_out) & !grepl("trimmed", file_out)){
     key_word <- "Illumina"
     }
@@ -79,10 +130,4 @@ quality_reports <- function(file_in, file_out, fastqc_exe, cpus){
   }
 }
 
-# run the script with logging
-log <- file(snakemake@log[[1]], open="wt")
-sink(log)
-quality_reports(file_in = snakemake@input[[1]],
-                    file_out = snakemake@output[[1]],
-                    fastqc_exe = "/home/andrei/miniconda3/bin/fastqc",
-                    cpus = 4)
+quality_reports(file_in = fastq_file_path, file_out = output_file, fastqc_exe = fastqc_path, cpus = threads)
