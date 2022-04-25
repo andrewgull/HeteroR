@@ -22,13 +22,17 @@ library(dplyr)
 setwd("/home/andrei/Data/HeteroR/notebooks")
 
 summary_files <- dir(path="../results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
-summary_table <- lapply(summary_files, function(x){read.delim(paste0("../results/assemblies_joined/", x), stringsAsFactors = TRUE)})
+summary_table <- lapply(summary_files, function(x){
+  df <- read.delim(paste0("../results/assemblies_joined/", x), stringsAsFactors = TRUE)
+  df$Links <- as.integer(gsub(",", "", df$Links, fixed=TRUE))
+  df$Length <- as.integer(gsub(",", "", df$Length, fixed=TRUE))
+  df$N50 <- as.integer(gsub(",", "", df$N50, fixed=TRUE))
+  df$Longest_component <- as.integer(gsub(",", "", df$Longest_component, fixed=TRUE))
+  return(df)
+  })
 
 summary_table <- bind_rows(summary_table)
 # replace commas in Length, N50 and Longest component
-summary_table$Length <- as.integer(gsub(",", "", summary_table$Length, fixed=TRUE))
-summary_table$N50 <- as.integer(gsub(",", "", summary_table$N50, fixed=TRUE))
-summary_table$Longest_component <- as.integer(gsub(",", "", summary_table$Longest_component, fixed=TRUE))
 ```
 
 Assembly summary information has been taken from Unicycler log files, total number of summary files `r length(summary_files)`
