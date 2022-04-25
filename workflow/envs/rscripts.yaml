@@ -7,3 +7,5 @@ dependencies:
   - r-stringr=1.4.0
   - r-fastqcr=0.1.2
   - fastqc=0.11.9
+  - r-dplyr=1.0.8
+  - r-optparse=1.7.1
