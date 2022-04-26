@@ -20,6 +20,7 @@ coordinates of repeat for each strain and each resistance gene
 
 ```{r, message = FALSE, warning = FALSE}
 # a new way of getting repeat data frame across all strains
+# on linux desktop load("/home/andrei/Data/HeteroR/.RDataFiles/725233088.RData")
 library(dplyr)
 strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
 repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
@@ -74,7 +75,9 @@ box.rep.len <- plot_ly(data = sample_df,
                        x = ~strain, 
                        y = ~length,
                        type = "box") %>%  
-  layout(yaxis = list(type="log"), title="Repeat lengths")
+  layout(yaxis = list(type="log"),
+         title="Repeat lengths",
+         plot_bgcolor='#e5ecf6')
 
 box.rep.len
 ```
@@ -132,7 +135,8 @@ bar.rep.counts <- plot_ly(data=repeat_counts,
                           x = ~strain,
                           y = ~n_repeats,
                           type = 'bar') %>% 
-  layout(title="Number of repeats per strain")
+  layout(title="Number of repeats per strain",
+         plot_bgcolor='#e5ecf6')
 
 bar.rep.counts
 ```
@@ -158,7 +162,7 @@ viol.rep.counts.rg <-  plot_ly(data=repeat_counts,
                           box = list(visible = T),
                           meanline = list(visible = T))
 
-box.rep.counts.rg %>% layout(yaxis = list(type="log"), title="Repeat counts around resistance genes")
+box.rep.counts.rg %>% layout(yaxis = list(type="log"), title="Repeat counts around resistance genes", plot_bgcolor='#e5ecf6')
 ```
 
 ## Distances between repeat pairs aka "AR length"
@@ -174,7 +178,9 @@ sample_df$AR_length <- sample_df$start_2 - sample_df$end_1
 box.ar.len <- plot_ly(data = sample_df,
                       x = ~strain,
                       y = ~AR_length,
-                      type = "box") %>% layout(title="Length of amplifiable region")
+                      type = "box") %>%
+  layout(title="Length of amplifiable region",
+         plot_bgcolor='#e5ecf6')
 
 # violin plots have misleading KDE below zero
 viol.ar.len <-  plot_ly(data=sample_df,
@@ -263,7 +269,11 @@ sample_df_center
 box.rep.len.c <- plot_ly(data = sample_df_center,
                       x = ~strain,
                       y = ~length,
-                      type = "box") %>% layout(title="Repeat length", yaxis=list(type="log"))
+                      type = "box") %>%
+  layout(title="Repeat length",
+         yaxis=list(type="log"),
+         plot_bgcolor='#e5ecf6')
+
 box.rep.len.c
 ```
 
@@ -280,7 +290,8 @@ bar.rep.counts.c <- plot_ly(data=repeat_counts_center,
                           x = ~strain,
                           y = ~n_repeats,
                           type = 'bar') %>% 
-  layout(title="Number of repeats")
+  layout(title="Number of repeats",
+         plot_bgcolor='#e5ecf6')
 
 bar.rep.counts.c
 ```
@@ -295,7 +306,11 @@ repeat_counts_center2 <- sample_df_center %>% group_by(record_id, strain) %>% su
 box.rep.count.c <- plot_ly(data = repeat_counts_center2,
                       x = ~strain,
                       y = ~n_repeats,
-                      type = "box") %>% layout(title="Repeat count around RGs", yaxis=list(type="log"))
+                      type = "box") %>%
+  layout(title="Repeat count around RGs",
+         yaxis=list(type="log"),
+         plot_bgcolor='#e5ecf6')
+
 box.rep.count.c
 ```
 
@@ -306,7 +321,7 @@ box.rep.count.c
 box.ar.len.c <- plot_ly(data = sample_df_center,
                       x = ~strain,
                       y = ~AR_length,
-                      type = "box") %>% layout(title="Length of amplifiable region")
+                      type = "box") %>% layout(title="Length of amplifiable region", plot_bgcolor='#e5ecf6')
 box.ar.len.c
 ```
 
@@ -319,27 +334,28 @@ Or group AB by mechanisms?
 
 ## Main groups of AB
 
->   Penicillins - for example, phenoxymethylpenicillin, flucloxacillin and amoxicillin.
-    Cephalosporins - for example, cefaclor, cefadroxil and cefalexin.
-    Tetracyclines - for example, tetracycline, doxycycline and lymecycline.
-    Aminoglycosides - for example, gentamicin and tobramycin.
-    Macrolides - for example, erythromycin, azithromycin and clarithromycin.
-    Clindamycin.
-    Sulfonamides and trimethoprim - for example, co-trimoxazole.
-    Metronidazole and tinidazole.
-    Quinolones - for example, ciprofloxacin, levofloxacin and norfloxacin.
-    Nitrofurantoin - used for urinary infections.
+ - Penicillins - for example, phenoxymethylpenicillin, flucloxacillin and amoxicillin.
+ - Cephalosporins - for example, cefaclor, cefadroxil and cefalexin.
+ - Tetracyclines - for example, tetracycline, doxycycline and lymecycline.
+ - Aminoglycosides - for example, gentamicin and tobramycin.
+ - Macrolides - for example, erythromycin, azithromycin and clarithromycin.
+ - Clindamycin.
+ - Sulfonamides and trimethoprim - for example, co-trimoxazole.
+ - Metronidazole and tinidazole.
+ - Quinolones - for example, ciprofloxacin, levofloxacin and norfloxacin.
+ - Nitrofurantoin - used for urinary infections.
 
 Let's have a look at 40 strains that I have sampled before
 
-## Resistance Gene Identifier results table
+## Resistance Gene Identifier results table: sample of stains
 
 ```{r}
 # sampled strains n=40
-example_strains <- unique(repeat_counts_center2$strain)
+#example_strains <- unique(repeat_counts_center2$strain)
+#sample_strains <- sample(repeat_df$strain, 40)
 
 # read in RG tables of these strains
-rg_df <- bind_rows(lapply(example_strains, function(x){
+rg_df <- bind_rows(lapply(strains_sample, function(x){
   df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"))
   df$strain <- x
   return(df)
@@ -377,41 +393,125 @@ look at number of repeats around genes conferring resistance to each AB group
 ```{r}
 # "[M,m]etronidazole and [T,t]inidazole"
 # "[S,s]ulfonamide[s] and [T,t]rimethoprim"
-ab_groups <- c("[P,p]enicillin[s]", "[C,c]ephalosporin[s]", "[T,t]etracycline[s]", "[A,a]minoglycoside[s]", "[M,m]acrolide[s]", "[C,c]lindamycin", "[S,s]ulfonamide[s]", "[T,t]rimethoprim", "[M,m]etronidazole", "[T,t]inidazole", "[Q,q]uinolone[s]", "[N,n]itrofurantoin")
+ab_groups <- c("penicillin", "cephalosporin", "tetracycline", "aminoglycoside", "macrolide", "clindamycin", "sulfonamide", "trimethoprim", "metronidazole", "tinidazole", "quinolone", "nitrofurantoin")
 
-for (group in ab_groups){
-  x <- filter(rg_df_notLoose, grepl(group, Drug.Class)) %>% nrow()
-  print(x)
-}
+ab_counts_vec <- sapply(ab_groups, function (x){
+  filter(rg_df_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% nrow()
+})
+
+ab_counts_df <- data.frame("count" = ab_counts_vec, "AB.group" = names(ab_counts_vec))
+rownames(ab_counts_df) <- NULL
+
+ab_counts_df
 ```
 
-## Example: Macrolides
-
-Let's get some repeats around Macrolide-resistance genes (from notLoose table)
 
 ```{r}
-rg_ab <- filter(rg_df_notLoose, grepl("macrolide", Drug.Class))
-rg_ab <- select(rg_ab, ORF_ID, strain, Drug.Class)
+ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
+```
 
-# unify gene names
+## Repeat counts per AB group
+
+```{r}
+rg_ab_found_df <- bind_rows(
+  lapply(ab_found, function (x){
+  df <- filter(rg_df_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% select(ORF_ID, strain, Drug.Class)
+  df$AB.group <- x
+  return(df)
+  })
+)
+
+# unify gene names in the repeats table
 repeat_counts_center2$record_id <- sub("_gene", "", repeat_counts_center2$record_id)
-rg_ab$record_id <- sapply(strsplit(rg_ab$ORF_ID, " "), function(x){x[1]})
+rg_ab_found_df$record_id <- sapply(strsplit(rg_ab_found_df$ORF_ID, " "), function(x){x[1]})
 
 # join repeat counts
-count_per_ab <- left_join(repeat_counts_center2, rg_ab, by="record_id") %>% filter(!is.na(Drug.Class))
+count_per_ab <- left_join(repeat_counts_center2, rg_ab_found_df, by="record_id") %>% filter(!is.na(Drug.Class))
 count_per_ab
 ```
 
-```{r, fig.width=12}
+Boxplot
+
+```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
 box.rep.n.ab <- plot_ly(data = count_per_ab,
                       x = ~strain.x,
                       y = ~n_repeats,
-                      type = "box") %>% layout(title="Repeat numbers around macrolide-resistance genes", yaxis=list(type="log"))
+                      color = ~AB.group,
+                      type = "box") %>%
+  layout(title="Repeat counts around resistance genes",
+         yaxis=list(type="sqrt", title="repeat count"),
+         boxmode="group",
+         xaxis=list(title=""),
+         plot_bgcolor='#e5ecf6')
 box.rep.n.ab
 ```
 
-## Isoniazid
+## Plot all strains
 
-no repeats around Isoniazid resistance genes
+### Make a table
 
-tbc
+```{r}
+
+# read in RG tables of all strains
+rg_df_all <- bind_rows(lapply(strains, function(x){
+  df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"))
+  df$strain <- x
+  return(df)
+}) )
+
+ab_groups_all <- unique(rg_df_all$Drug.Class)
+
+rg_df_all_notLoose <- rg_df_all %>% filter( Cut_Off != "Loose")
+
+
+# "[M,m]etronidazole and [T,t]inidazole"
+# "[S,s]ulfonamide[s] and [T,t]rimethoprim"
+ab_groups <- c("penicillin", "cephalosporin", "tetracycline", "aminoglycoside", "macrolide", "clindamycin", "sulfonamide", "trimethoprim", "metronidazole", "tinidazole", "quinolone", "nitrofurantoin")
+
+ab_counts_vec_all <- sapply(ab_groups, function (x){
+  filter(rg_df_all_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% nrow()
+})
+
+ab_counts_df_all <- data.frame("count" = ab_counts_vec_all, "AB.group" = names(ab_counts_vec_all))
+rownames(ab_counts_df_all) <- NULL
+
+ab_found_all <- names(ab_counts_vec_all[ab_counts_vec_all != 0])
+
+rg_ab_found_df_all <- bind_rows(
+  lapply(ab_found_all, function (x){
+  df <- filter(rg_df_all_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% select(ORF_ID, strain, Drug.Class)
+  df$AB.group <- x
+  return(df)
+  })
+)
+
+# reepat counts for all strains
+repeat_counts_center_all <- repeat_df_center %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
+
+# unify gene names in the repeats table
+repeat_counts_center_all$record_id <- sub("_gene", "", repeat_counts_center_all$record_id)
+rg_ab_found_df_all$record_id <- sapply(strsplit(rg_ab_found_df_all$ORF_ID, " "), function(x){x[1]})
+
+# join repeat counts
+count_per_ab_all <- left_join(repeat_counts_center_all, rg_ab_found_df_all, by="record_id") %>% filter(!is.na(Drug.Class))
+count_per_ab_all
+```
+
+Overall numer of entries in Drug.Class `r length(unique(rg_df_all_notLoose$Drug.Class))`
+
+
+### Plot
+
+```{r, fig.width=20, fig.height = 8, message = FALSE, warning = FALSE}
+box.rep.n.ab.all <- plot_ly(data = count_per_ab_all,
+                      x = ~strain.x,
+                      y = ~n_repeats,
+                      color = ~AB.group,
+                      type = "box") %>%
+  layout(title="Repeat counts around resistance genes",
+         yaxis=list(type="sqrt", title="repeat count"),
+         boxmode="group",
+         xaxis=list(title=""),
+         plot_bgcolor='#e5ecf6')
+box.rep.n.ab.all
+```
