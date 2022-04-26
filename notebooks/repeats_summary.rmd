@@ -313,14 +313,30 @@ box.ar.len.c
 
 # Number of repeats per AB group
 
-For time being I will use a few strains that have been processed: "DA63084", "DA63186", "DA63322", "DA63946", "DA64026"
+Take AB classes from rgi tables?
+Or from known AB classes?
+Or group AB by mechanisms?
 
-Later you will change it
+## Main groups of AB
+
+>   Penicillins - for example, phenoxymethylpenicillin, flucloxacillin and amoxicillin.
+    Cephalosporins - for example, cefaclor, cefadroxil and cefalexin.
+    Tetracyclines - for example, tetracycline, doxycycline and lymecycline.
+    Aminoglycosides - for example, gentamicin and tobramycin.
+    Macrolides - for example, erythromycin, azithromycin and clarithromycin.
+    Clindamycin.
+    Sulfonamides and trimethoprim - for example, co-trimoxazole.
+    Metronidazole and tinidazole.
+    Quinolones - for example, ciprofloxacin, levofloxacin and norfloxacin.
+    Nitrofurantoin - used for urinary infections.
+
+Let's have a look at 40 strains that I have sampled before
 
 ## Resistance Gene Identifier results table
 
 ```{r}
-example_strains <- unique(repeat_counts_center2$strain)[!grepl("DA70", unique(repeat_counts_center2$strain))]
+# sampled strains n=40
+example_strains <- unique(repeat_counts_center2$strain)
 
 # read in RG tables of these strains
 rg_df <- bind_rows(lapply(example_strains, function(x){
@@ -334,14 +350,47 @@ ab_groups <- unique(rg_df$Drug.Class)
 rg_df
 ```
 
+Number of rows `r nrow(rg_df)`
+
+### Resistance Gene Identifier results table - filter out 'Loose' hits
+
+```{r}
+rg_df_notLoose <- rg_df %>% filter( Cut_Off != "Loose")
+```
+
+Number of rows `r nrow(rg_df_notLoose)`
+
+Still some left...
+
+## Number of entries in Drug.Class
+
+Number of entries in Drug.Class: `r length(unique(rg_df_notLoose$Drug.Class))`
+
+```{r}
+unique(rg_df_notLoose$Drug.Class)
+```
+
 look at number of repeats around genes conferring resistance to each AB group
+
+## Number of entries per AB group
+
+```{r}
+# "[M,m]etronidazole and [T,t]inidazole"
+# "[S,s]ulfonamide[s] and [T,t]rimethoprim"
+ab_groups <- c("[P,p]enicillin[s]", "[C,c]ephalosporin[s]", "[T,t]etracycline[s]", "[A,a]minoglycoside[s]", "[M,m]acrolide[s]", "[C,c]lindamycin", "[S,s]ulfonamide[s]", "[T,t]rimethoprim", "[M,m]etronidazole", "[T,t]inidazole", "[Q,q]uinolone[s]", "[N,n]itrofurantoin")
+
+for (group in ab_groups){
+  x <- filter(rg_df_notLoose, grepl(group, Drug.Class)) %>% nrow()
+  print(x)
+}
+```
 
 ## Example: Macrolides
 
-Let's get some repeats around Macrolide-resistance genes
+Let's get some repeats around Macrolide-resistance genes (from notLoose table)
 
 ```{r}
-rg_ab <- filter(rg_df, grepl("macrolide", Drug.Class))
+rg_ab <- filter(rg_df_notLoose, grepl("macrolide", Drug.Class))
 rg_ab <- select(rg_ab, ORF_ID, strain, Drug.Class)
 
 # unify gene names
