@@ -154,7 +154,7 @@ The project home directory is `/home/andrei/Data/HetroR`
 
 `config.yaml` - a list of strains to be processed
 
-## How to run an analysis:
+## How to run the analysis:
 
 1. mount ARGOS
 2. run `workflow/scripts/process_files.py` to transfer read files from ARGOS, rename them, calculate coverage and create config file.
@@ -172,6 +172,11 @@ Steps with species-specific parameters:
 - QC_assembly.py (taxonomic dataset, to find available BUSCO datasets run busco --list-datasets)
 - trim_nanopore.py (parameter genlen)
 
+NB. It might be useful to change memory limitations in FastQC script which is used by quality check steps of the pipeline.
+Current settings are: 
+
+`memory = 1250 * threads, stack = 1000 * threads; if no threads specified, max memory 10000m, min 5000m`
+
 ## Installation
 
 The basic requirement is `snakemake`, install it using `conda` or `mamba`:
@@ -179,6 +184,8 @@ The basic requirement is `snakemake`, install it using `conda` or `mamba`:
 ```
 mamba create -c conda-forge -c bioconda -n snakemake snakemake
 ```
+
+Additionally install FastQC, path to the fastqc executable file must be provided to quality check scripts in the pipeline.
 
 ### RGI Database installation
 
