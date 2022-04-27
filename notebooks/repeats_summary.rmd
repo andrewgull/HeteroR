@@ -450,7 +450,7 @@ box.rep.n.ab
 
 ### Make a table
 
-```{r}
+```{r, warning = FALSE, message=FALSE}
 
 # read in RG tables of all strains
 rg_df_all <- bind_rows(lapply(strains, function(x){
@@ -464,8 +464,8 @@ ab_groups_all <- unique(rg_df_all$Drug.Class)
 rg_df_all_notLoose <- rg_df_all %>% filter( Cut_Off != "Loose")
 
 
-# "[M,m]etronidazole and [T,t]inidazole"
-# "[S,s]ulfonamide[s] and [T,t]rimethoprim"
+# "metronidazole and tinidazole"
+# "sulfonamide and trimethoprim"
 ab_groups <- c("penicillin", "cephalosporin", "tetracycline", "aminoglycoside", "macrolide", "clindamycin", "sulfonamide", "trimethoprim", "metronidazole", "tinidazole", "quinolone", "nitrofurantoin")
 
 ab_counts_vec_all <- sapply(ab_groups, function (x){
@@ -485,7 +485,7 @@ rg_ab_found_df_all <- bind_rows(
   })
 )
 
-# reepat counts for all strains
+# repeat counts for all strains
 repeat_counts_center_all <- repeat_df_center %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
 
 # unify gene names in the repeats table
@@ -502,7 +502,7 @@ Overall numer of entries in Drug.Class `r length(unique(rg_df_all_notLoose$Drug.
 
 ### Plot
 
-```{r, fig.width=20, fig.height = 8, message = FALSE, warning = FALSE}
+```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
 box.rep.n.ab.all <- plot_ly(data = count_per_ab_all,
                       x = ~strain.x,
                       y = ~n_repeats,
@@ -514,4 +514,39 @@ box.rep.n.ab.all <- plot_ly(data = count_per_ab_all,
          xaxis=list(title=""),
          plot_bgcolor='#e5ecf6')
 box.rep.n.ab.all
+```
+
+## AR length per AB group all strains
+
+### Join tables
+
+```{r}
+# join repeat_df_center and rg_ab_found_all by record_id
+# prepare record_id in repeat_df_center
+repeat_df_center$record_id <- sub("_gene", "", repeat_df_center$record_id)
+# join
+repeat_df_center_ab_ar <- left_join(repeat_df_center, rg_ab_found_df_all, by="record_id") %>% filter(!is.na(Drug.Class))
+repeat_df_center_ab_ar
+```
+
+### Plot
+
+```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
+box.ar.ab.all <- plot_ly(data = repeat_df_center_ab_ar,
+                      x = ~strain.x,
+                      y = ~AR_length,
+                      color = ~AB.group,
+                      type = "box") %>%
+  layout(title="AR size variation per AB group",
+         yaxis=list(type="sqrt", title="AR length"),
+         boxmode="group",
+         xaxis=list(title=""),
+         plot_bgcolor='#e5ecf6')
+box.ar.ab.all
+```
+
+# Save workspace
+
+```{r}
+save.image(f="/home/andrei/Data/HeteroR/notebooks/repeats_summary.RData")
 ```
