@@ -36,11 +36,31 @@ OperonSet <- read_delim("~/GoogleDrive/HeteroR/RegulonDB/OperonSet.txt", col_nam
 OperonSet
 ```
 
-Type any R code in the chunk, for example:
-```{r}
-mycars <- within(mtcars, { cyl <- ordered(cyl) })
-mycars
+How to make sense out of it?
+
+```{r, message = FALSE}
+library(dplyr)
+# read one prokka table
+prokka_names <- read_delim("/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.tsv",
+                     delim = "\t", show_col_types = FALSE) %>% filter(!is.na(gene) & ftype == "gene")
+prokka_names
 ```
 
-Now, click the **Run** button on the chunk toolbar to [execute](https://www.jetbrains.com/help/pycharm/r-markdown.html#run-r-code) the chunk code. The result should be placed under the chunk.
-Click the **Knit and Open Document** to build and preview an output.
+```{r}
+# find any names shared in both prokka and OperonSet
+operon_appearance_vec <- sapply(prokka_names$gene, function(x){sum(grepl(x, OperonSet$Gene_name))})
+operon_appearance_df <- data.frame("gene" = names(operon_appearance_vec), "count" = operon_appearance_vec)
+operon_appearance_df %>% arrange(-count)
+```
+
+Let's look at *sra* which appears 4 times
+
+```{r}
+filter(OperonSet, grepl("sra", Gene_name))
+```
+
+and at *mgsA* which appears once but have a more specific name
+
+```{r}
+filter(OperonSet, grepl("mgsA", Gene_name))
+```
