@@ -1,0 +1,46 @@
+---
+title: "RegulonDB overview"
+author: "AG"
+date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    toc: true
+    toc_float: true
+    rmdformats:
+      theme: readthedown
+      highlight: github
+---
+
+# Intro
+
+[RegulonDB](https://regulondb.ccg.unam.mx/) is the only functioning and maintained DB with operon data sets out there.
+
+In **Downloads** section you can find a file `OperonSet.txt`
+
+`wget https://regulondb.ccg.unam.mx/menu/download/datasets/files/OperonSet.txt`
+
+There is a full version of the database available upon registration. I have registered but have no access to the full version.
+
+Read the local version of `OperonSet.txt`
+
+```{r}
+library(readr)
+# move OperonSet.txt to resources dir if the DB is useful
+# the local copy is on GoogleDrive
+col_names <- c("Operon_name", "First_gene-position_left", "Last_gene-position_right", "DNA_strand", "Number_of_genes",
+               "Gene_name", "Evidence", "Confidence")
+OperonSet <- read_delim("~/GoogleDrive/HeteroR/RegulonDB/OperonSet.txt", col_names = col_names, comment = "#",
+                        delim = "\t", show_col_types = FALSE)
+OperonSet
+```
+
+Type any R code in the chunk, for example:
+```{r}
+mycars <- within(mtcars, { cyl <- ordered(cyl) })
+mycars
+```
+
+Now, click the **Run** button on the chunk toolbar to [execute](https://www.jetbrains.com/help/pycharm/r-markdown.html#run-r-code) the chunk code. The result should be placed under the chunk.
+Click the **Knit and Open Document** to build and preview an output.
