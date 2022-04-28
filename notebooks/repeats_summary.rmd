@@ -269,7 +269,8 @@ sample_df_center
 box.rep.len.c <- plot_ly(data = sample_df_center,
                       x = ~strain,
                       y = ~length,
-                      type = "box") %>%
+                      type = "box",
+                      color=I("#0B5394")) %>%
   layout(title="Repeat length",
          yaxis=list(type="log"),
          plot_bgcolor='#e5ecf6')
@@ -289,7 +290,8 @@ repeat_counts_center
 bar.rep.counts.c <- plot_ly(data=repeat_counts_center,
                           x = ~strain,
                           y = ~n_repeats,
-                          type = 'bar') %>% 
+                          type = 'bar',
+                          color=I("#0B5394")) %>%
   layout(title="Number of repeats",
          plot_bgcolor='#e5ecf6')
 
@@ -306,7 +308,8 @@ repeat_counts_center2 <- sample_df_center %>% group_by(record_id, strain) %>% su
 box.rep.count.c <- plot_ly(data = repeat_counts_center2,
                       x = ~strain,
                       y = ~n_repeats,
-                      type = "box") %>%
+                      type = "box",
+                      color=I("#0B5394")) %>%
   layout(title="Repeat count around RGs",
          yaxis=list(type="log"),
          plot_bgcolor='#e5ecf6')
@@ -321,10 +324,24 @@ box.rep.count.c
 box.ar.len.c <- plot_ly(data = sample_df_center,
                       x = ~strain,
                       y = ~AR_length,
-                      type = "box") %>% layout(title="Length of amplifiable region", plot_bgcolor='#e5ecf6')
+                      type = "box",
+                      color=I("#0B5394")) %>%
+  layout(title="Length of amplifiable region", plot_bgcolor='#e5ecf6')
+
 box.ar.len.c
 ```
 
+## All together
+
+```{r, fig.height = 10, fig.width = 14}
+annotations <- list(
+  list(text="Repeat lengths", x=0.2, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
+  list(text="Repeat counts", x=0.8, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
+  list(text="Repeat counts around RGs", x=0.2, y=0.48, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
+  list(text="AR lengths", x=0.8, y=0.48, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE))
+
+subplot(box.rep.len.c, bar.rep.counts.c, box.rep.count.c, box.ar.len.c, nrows=2, shareX = T) %>% layout(showlegend=FALSE, annotations=annotations, title="")
+```
 
 # Statistics by main groups of AB
 
@@ -492,6 +509,13 @@ box.rl.ab <- plot_ly(data = repeat_df_center_ab_ar,
 box.rl.ab
 
 ```
+
+## All together
+
+```{r}
+
+```
+
 
 # Save workspace
 
