@@ -326,13 +326,7 @@ box.ar.len.c
 ```
 
 
-# Number of repeats per AB group
-
-Take AB classes from rgi tables?
-Or from known AB classes?
-Or group AB by mechanisms?
-
-## Main groups of AB
+# Statistics by main groups of AB
 
  - Penicillins - for example, phenoxymethylpenicillin, flucloxacillin and amoxicillin.
  - Cephalosporins - for example, cefaclor, cefadroxil and cefalexin.
@@ -347,7 +341,15 @@ Or group AB by mechanisms?
 
 Let's have a look at 40 strains that I have sampled before
 
-## Resistance Gene Identifier results table: sample of stains
+## Number of repeats per AB group
+
+Take AB classes from rgi tables?
+Or from known AB classes?
+Or group AB by mechanisms?
+
+## RGI results table
+
+Remove "Loose" hits
 
 ```{r}
 # sampled strains n=40
@@ -363,24 +365,17 @@ rg_df <- bind_rows(lapply(strains_sample, function(x){
 
 ab_groups <- unique(rg_df$Drug.Class)
 
-rg_df
-```
-
-Number of rows `r nrow(rg_df)`
-
-### Resistance Gene Identifier results table - filter out 'Loose' hits
-
-```{r}
 rg_df_notLoose <- rg_df %>% filter( Cut_Off != "Loose")
+rg_df_notLoose
 ```
 
-Number of rows `r nrow(rg_df_notLoose)`
-
-Still some left...
+Number of rows in the full table `r nrow(rg_df)`, number of rows without "Loose" hits `r nrow(rg_df_notLoose)`
 
 ## Number of entries in Drug.Class
 
-Number of entries in Drug.Class: `r length(unique(rg_df_notLoose$Drug.Class))`
+Number of unique entries in Drug.Class: `r length(unique(rg_df_notLoose$Drug.Class))`
+
+Unique entries in Drug.CLass
 
 ```{r}
 unique(rg_df_notLoose$Drug.Class)
@@ -393,7 +388,8 @@ look at number of repeats around genes conferring resistance to each AB group
 ```{r}
 # "[M,m]etronidazole and [T,t]inidazole"
 # "[S,s]ulfonamide[s] and [T,t]rimethoprim"
-ab_groups <- c("penicillin", "cephalosporin", "tetracycline", "aminoglycoside", "macrolide", "clindamycin", "sulfonamide", "trimethoprim", "metronidazole", "tinidazole", "quinolone", "nitrofurantoin")
+ab_groups <- c("penicillin", "cephalosporin", "tetracycline", "aminoglycoside", "macrolide", "clindamycin",
+               "sulfonamide", "trimethoprim", "metronidazole", "tinidazole", "quinolone", "nitrofurantoin")
 
 ab_counts_vec <- sapply(ab_groups, function (x){
   filter(rg_df_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% nrow()
@@ -413,6 +409,7 @@ ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
 ## Repeat counts per AB group
 
 ```{r}
+# add AB labels to each gene in RGI table
 rg_ab_found_df <- bind_rows(
   lapply(ab_found, function (x){
   df <- filter(rg_df_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% select(ORF_ID, strain, Drug.Class)
@@ -446,93 +443,25 @@ box.rep.n.ab <- plot_ly(data = count_per_ab,
 box.rep.n.ab
 ```
 
-## Plot all strains
+## AR length by AB group
 
-### Make a table
+On the same sample of strains
 
-```{r, warning = FALSE, message=FALSE}
-
-# read in RG tables of all strains
-rg_df_all <- bind_rows(lapply(strains, function(x){
-  df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"))
-  df$strain <- x
-  return(df)
-}) )
-
-ab_groups_all <- unique(rg_df_all$Drug.Class)
-
-rg_df_all_notLoose <- rg_df_all %>% filter( Cut_Off != "Loose")
-
-
-# "metronidazole and tinidazole"
-# "sulfonamide and trimethoprim"
-ab_groups <- c("penicillin", "cephalosporin", "tetracycline", "aminoglycoside", "macrolide", "clindamycin", "sulfonamide", "trimethoprim", "metronidazole", "tinidazole", "quinolone", "nitrofurantoin")
-
-ab_counts_vec_all <- sapply(ab_groups, function (x){
-  filter(rg_df_all_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% nrow()
-})
-
-ab_counts_df_all <- data.frame("count" = ab_counts_vec_all, "AB.group" = names(ab_counts_vec_all))
-rownames(ab_counts_df_all) <- NULL
-
-ab_found_all <- names(ab_counts_vec_all[ab_counts_vec_all != 0])
-
-rg_ab_found_df_all <- bind_rows(
-  lapply(ab_found_all, function (x){
-  df <- filter(rg_df_all_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% select(ORF_ID, strain, Drug.Class)
-  df$AB.group <- x
-  return(df)
-  })
-)
-
-# repeat counts for all strains
-repeat_counts_center_all <- repeat_df_center %>% group_by(record_id, strain) %>% summarise("n_repeats"=n())
-
-# unify gene names in the repeats table
-repeat_counts_center_all$record_id <- sub("_gene", "", repeat_counts_center_all$record_id)
-rg_ab_found_df_all$record_id <- sapply(strsplit(rg_ab_found_df_all$ORF_ID, " "), function(x){x[1]})
-
-# join repeat counts
-count_per_ab_all <- left_join(repeat_counts_center_all, rg_ab_found_df_all, by="record_id") %>% filter(!is.na(Drug.Class))
-count_per_ab_all
-```
-
-Overall numer of entries in Drug.Class `r length(unique(rg_df_all_notLoose$Drug.Class))`
-
-
-### Plot
-
-```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
-box.rep.n.ab.all <- plot_ly(data = count_per_ab_all,
-                      x = ~strain.x,
-                      y = ~n_repeats,
-                      color = ~AB.group,
-                      type = "box") %>%
-  layout(title="Repeat counts around resistance genes",
-         yaxis=list(type="sqrt", title="repeat count"),
-         boxmode="group",
-         xaxis=list(title=""),
-         plot_bgcolor='#e5ecf6')
-box.rep.n.ab.all
-```
-
-## AR length per AB group all strains
-
-### Join tables
+### Table
 
 ```{r}
-# join repeat_df_center and rg_ab_found_all by record_id
-# prepare record_id in repeat_df_center
+# join repeat_df_center (contains AR lengths) and rg_ab_found (contains AB labels for each gene) by record_id
+# prepare "record_id" column in repeat_df_center
 repeat_df_center$record_id <- sub("_gene", "", repeat_df_center$record_id)
 # join
-repeat_df_center_ab_ar <- left_join(repeat_df_center, rg_ab_found_df_all, by="record_id") %>% filter(!is.na(Drug.Class))
+repeat_df_center_ab_ar <- left_join(rg_ab_found_df, repeat_df_center, by="record_id") %>% filter(!is.na(Drug.Class) & !is.na(spans_center))
 repeat_df_center_ab_ar
 ```
 
-### Plot
+### Boxplot
 
 ```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
-box.ar.ab.all <- plot_ly(data = repeat_df_center_ab_ar,
+box.ar.ab <- plot_ly(data = repeat_df_center_ab_ar,
                       x = ~strain.x,
                       y = ~AR_length,
                       color = ~AB.group,
@@ -542,7 +471,26 @@ box.ar.ab.all <- plot_ly(data = repeat_df_center_ab_ar,
          boxmode="group",
          xaxis=list(title=""),
          plot_bgcolor='#e5ecf6')
-box.ar.ab.all
+
+box.ar.ab
+```
+
+## Repeat lengths variation by AB group
+
+```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
+box.rl.ab <- plot_ly(data = repeat_df_center_ab_ar,
+                      x = ~strain.x,
+                      y = ~length,
+                      color = ~AB.group,
+                      type = "box") %>%
+  layout(title="Repeat length variation per AB group",
+         yaxis=list(type="log", title="AR length"),
+         boxmode="group",
+         xaxis=list(title=""),
+         plot_bgcolor='#e5ecf6')
+
+box.rl.ab
+
 ```
 
 # Save workspace
