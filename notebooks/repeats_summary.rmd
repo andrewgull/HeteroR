@@ -517,6 +517,56 @@ box.rl.ab
 ```
 
 
+# Include resistance information
+
+I have some (preliminary) resistacne/susceptebility information for several strains in `resources/resistance_testing.csv`
+
+```{r}
+resistance_df <- read.csv("/home/andrei/Data/HeteroR/resources/resistance_testing.csv", na.strings = "")
+resistance_df
+```
+
+Columns with *SIR* contain susceptibility test results, S - susceptible, R - resistant.
+
+Let's leave only them in the data table
+
+```{r}
+resistance_df <- select(resistance_df, contains("SIR") | contains("strain"))
+resistance_df
+```
+
+```{r}
+resistance_df_td <- gather(resistance_df, key="AB", value="condition", 1:8)
+resistance_df_td$AB <- as.factor(resistance_df_td$AB)
+resistance_df_td$condition <- factor(resistance_df_td$condition, ordered=T, levels = c("S", "I", "R"))
+
+resistance_df_td
+```
+
+## Resistance heatmap
+
+### Entire table
+
+```{r, fig.width=16, fig.height=4}
+ggplot(resistance_df_td, aes(strain, AB)) + 
+  geom_tile(aes(fill=condition)) +
+  theme(axis.text.x = element_text(angle=45, size=4, vjust=0.5))
+
+```
+### Sample subset
+
+```{r}
+res_df_sample <- filter(resistance_df_td, strain %in% strains_sample)
+res_df_sample
+```
+
+```{r, fig.width=8}
+ggplot(res_df_sample, aes(strain, AB)) + 
+  geom_tile(aes(fill=condition)) +
+  theme(axis.text.x = element_text(angle=45, vjust=0.5))
+```
+## Repeat number, length, AR length between R and S
+
 # Save workspace
 
 ```{r}
