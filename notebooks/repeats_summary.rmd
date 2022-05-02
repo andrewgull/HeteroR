@@ -22,6 +22,7 @@ coordinates of repeat for each strain and each resistance gene
 # a new way of getting repeat data frame across all strains
 # on linux desktop load("/home/andrei/Data/HeteroR/.RDataFiles/725233088.RData")
 library(dplyr)
+library(tidyr)
 strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
 repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
 
@@ -528,6 +529,26 @@ resistance_df
 
 Columns with *SIR* contain susceptibility test results, S - susceptible, R - resistant.
 
+---
+
+CFX - Cefotaxime
+
+TZP - ?, look in the newer version of the table
+
+GM - Gentamicin
+
+AMP - Ampiciliin
+
+TBM - Tobramycin
+
+TMP - Trimethoprim
+
+NFT - Nitrofurantoin
+
+MCN - Mecillinam
+
+---
+
 Let's leave only them in the data table
 
 ```{r}
@@ -535,7 +556,7 @@ resistance_df <- select(resistance_df, contains("SIR") | contains("strain"))
 resistance_df
 ```
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 resistance_df_td <- gather(resistance_df, key="AB", value="condition", 1:8)
 resistance_df_td$AB <- as.factor(resistance_df_td$AB)
 resistance_df_td$condition <- factor(resistance_df_td$condition, ordered=T, levels = c("S", "I", "R"))
@@ -553,6 +574,7 @@ ggplot(resistance_df_td, aes(strain, AB)) +
   theme(axis.text.x = element_text(angle=45, size=4, vjust=0.5))
 
 ```
+
 ### Sample subset
 
 ```{r}
@@ -565,6 +587,7 @@ ggplot(res_df_sample, aes(strain, AB)) +
   geom_tile(aes(fill=condition)) +
   theme(axis.text.x = element_text(angle=45, vjust=0.5))
 ```
+
 ## Repeat number, length, AR length between R and S
 
 # Save workspace
