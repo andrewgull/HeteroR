@@ -527,17 +527,17 @@ resistance_df <- read.csv("/home/andrei/Data/HeteroR/resources/resistance_testin
 resistance_df
 ```
 
-Columns with *SIR* contain susceptibility test results, S - susceptible, R - resistant.
+Columns with *SIR* contain susceptibility test results, S - susceptible, R - resistant, I - intermediate.
 
 ---
 
-CFX - Cefotaxime
+CFX - Cefotaxime, Beta-lactam group
 
-TZP - ?, look in the newer version of the table
+TZP - Pip-Taz
 
-GM - Gentamicin
+GM - Gentamicin, Aminoglycoside family
 
-AMP - Ampiciliin
+AMP - Ampicillin, Penicillin family, Aminopenicillin group
 
 TBM - Tobramycin
 
@@ -569,10 +569,11 @@ resistance_df_td
 ### Entire table
 
 ```{r, fig.width=16, fig.height=4}
-ggplot(resistance_df_td, aes(strain, AB)) + 
+htmp_res_all <- ggplot(resistance_df_td, aes(strain, AB)) +
   geom_tile(aes(fill=condition)) +
   theme(axis.text.x = element_text(angle=45, size=4, vjust=0.5))
 
+htmp_res_all
 ```
 
 ### Sample subset
@@ -583,12 +584,64 @@ res_df_sample
 ```
 
 ```{r, fig.width=8}
-ggplot(res_df_sample, aes(strain, AB)) + 
+htmp_res_sample <- ggplot(res_df_sample, aes(strain, AB)) +
   geom_tile(aes(fill=condition)) +
   theme(axis.text.x = element_text(angle=45, vjust=0.5))
+
+htmp_res_sample
 ```
 
 ## Repeat number, length, AR length between R and S
+
+I have genes conferring resistance to Gentamicin (GM) - *Aminoglycoside antibiotic* in the RGI results table.
+
+Also, I have resistant and susceptible strains to GM in my collection - see the heatmaps above
+
+Let's explore differences between R and S
+
+### Gentamicin
+
+Collect strains that have information on GM-resistance
+
+```{r}
+gm_res_df <- resistance_df %>% select(GM.SIR, strain) %>% filter(!is.na(GM.SIR))
+
+gm_res_repeat_df_center <- inner_join(gm_res_df, repeat_df_center, by="strain")
+gm_res_repeat_df_center
+```
+
+#### Repeat length
+
+```{r}
+ggplot(gm_res_repeat_df_center, aes(GM.SIR, length)) +
+  geom_boxplot(varwidth = T, notch = T) +
+  coord_trans(y="log") +
+  ylab("repeat length") +
+  xlab("") +
+  ggtitle("Gentamicin")
+```
+
+#### AR length
+
+```{r}
+ggplot(gm_res_repeat_df_center, aes(GM.SIR, AR_length)) +
+  geom_boxplot(notch = T, varwidth = T)  +
+  ylab("AR length") +
+  xlab("") +
+  ggtitle("Gentamicin")
+```
+
+#### Repeat number
+
+```{r, message=F}
+gm_res_rep_count <- gm_res_repeat_df_center %>%
+  group_by(GM.SIR, strain) %>%
+  summarize(n=n()) %>%
+  filter(GM.SIR != "I")  # there are too little I's
+
+ggplot(gm_res_rep_count, aes(GM.SIR, n)) +
+  geom_boxplot(varwidth = T, notch = T)
+```
 
 # Save workspace
 
