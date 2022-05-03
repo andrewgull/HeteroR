@@ -591,7 +591,7 @@ htmp_res_sample <- ggplot(res_df_sample, aes(strain, AB)) +
 htmp_res_sample
 ```
 
-## Repeat number, length, AR length between R and S
+## Repeat number, length, AR length differences between R and S strains
 
 I have genes conferring resistance to Gentamicin (GM) - *Aminoglycoside antibiotic* in the RGI results table.
 
@@ -599,48 +599,96 @@ Also, I have resistant and susceptible strains to GM in my collection - see the 
 
 Let's explore differences between R and S
 
-### Gentamicin
+...
 
-Collect strains that have information on GM-resistance
+Prepare the data
 
 ```{r}
-gm_res_df <- resistance_df %>% select(GM.SIR, strain) %>% filter(!is.na(GM.SIR))
+ab_res_repeat_df <- inner_join(resistance_df_td, repeat_df_center, by="strain") %>%
+  filter(!is.na(condition)) %>%
+  filter(condition != "I")
 
-gm_res_repeat_df_center <- inner_join(gm_res_df, repeat_df_center, by="strain")
-gm_res_repeat_df_center
+ab_res_repeat_df
 ```
 
-#### Repeat length
+### Repeat length
 
-```{r}
-ggplot(gm_res_repeat_df_center, aes(GM.SIR, length)) +
-  geom_boxplot(varwidth = T, notch = T) +
+```{r, warning = F, message = F, fig.width = 8}
+ggbox.rl.ab <- ggplot(ab_res_repeat_df, aes(AB , length)) +
+  geom_boxplot(aes(fill=condition), varwidth=T, notch=T) +
   coord_trans(y="log") +
-  ylab("repeat length") +
-  xlab("") +
-  ggtitle("Gentamicin")
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("Repeat length")
+
+box.rl.res <- plot_ly(data = ab_res_repeat_df,
+                      x = ~AB,
+                      y = ~length,
+                      color = ~condition,
+                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
+                      type = "box") %>%
+                  layout(title="Repeat length in resistant and susceptible strains",
+                         yaxis=list(type="log", title="Repeat length"),
+                         boxmode="group",
+                         xaxis=list(title=""),
+                         plot_bgcolor='#e5ecf6')
+
+box.rl.res
 ```
 
-#### AR length
+### AR length
 
-```{r}
-ggplot(gm_res_repeat_df_center, aes(GM.SIR, AR_length)) +
-  geom_boxplot(notch = T, varwidth = T)  +
-  ylab("AR length") +
-  xlab("") +
-  ggtitle("Gentamicin")
+```{r, warning = F, message = F, fig.width = 8}
+ggbox.arlen.res <- ggplot(ab_res_repeat_df, aes(AB , AR_length)) +
+  geom_boxplot(aes(fill=condition), varwidth=T, notch=T) +
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("AR length")
+
+box.arlen.res <- plot_ly(data = ab_res_repeat_df,
+                      x = ~AB,
+                      y = ~AR_length,
+                      color = ~condition,
+                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
+                      type = "box") %>%
+                  layout(title="Amplifiable region length in resistant and susceptible strains",
+                         yaxis=list(title="AR length"),
+                         boxmode="group",
+                         xaxis=list(title=""),
+                         plot_bgcolor='#e5ecf6')
+
+box.arlen.res
 ```
 
-#### Repeat number
+### Repeat count
 
-```{r, message=F}
-gm_res_rep_count <- gm_res_repeat_df_center %>%
-  group_by(GM.SIR, strain) %>%
+Prepare data
+
+```{r, message=FALSE}
+ab_res_rep_count <- ab_res_repeat_df %>%
+  group_by(AB, condition, strain) %>%
   summarize(n=n()) %>%
-  filter(GM.SIR != "I")  # there are too little I's
+  filter(condition != "I")
+```
 
-ggplot(gm_res_rep_count, aes(GM.SIR, n)) +
-  geom_boxplot(varwidth = T, notch = T)
+Plot
+
+```{r, warning = F, message = F, fig.width = 8}
+ggbox.rc.res <- ggplot(ab_res_rep_count, aes(AB, n)) +
+  geom_boxplot(aes(fill = condition)) +
+  scale_fill_brewer(palette = "Set2")
+
+box.rc.res <- plot_ly(data = ab_res_rep_count,
+                      x = ~AB,
+                      y = ~n,
+                      color = ~condition,
+                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
+                      type = "box") %>%
+                  layout(title="Repeat numbers in resistant and susceptible strains",
+                         yaxis=list(title="n"),
+                         boxmode="group",
+                         xaxis=list(title=""),
+                         plot_bgcolor='#e5ecf6')
+
+box.rc.res
 ```
 
 # Save workspace
