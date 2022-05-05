@@ -4,28 +4,29 @@ author: "AG"
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
   html_document:
+    fig_width: 10
+    fig_height: 6
     code_folding: hide
     df_print: paged
     toc: true
     toc_float: true
-    rmdformats:
-      theme: readthedown
-      highlight: github
+    theme: cerulean 
+    highlight: kate
 ---
 
-This notebook relies on results from *make_repeat_tables.py* that creates tables which contain
-coordinates of repeat for each strain and each resistance gene
+This notebook relies on results from *make_repeat_tables.py* that creates tables which contain coordinates of repeat for each strain and each resistance gene
 
 UPDATE: other results will also be here
 
 # Make a table of all repeat tables
 
-```{r, message = FALSE, warning = FALSE}
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
 # a new way of getting repeat data frame across all strains
 library(dplyr)
 library(tidyr)
 library(plotly)
 library(ggplot2)
+library(ggpubr)
 
 strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
 repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
@@ -69,8 +70,6 @@ sample_df <- filter(repeat_df, strain %in% strains_sample)
 sample_df
 ```
 
-
-
 # Label repeats spanning their gene's center
 
 The middle of the range is the middle of the RG.
@@ -83,7 +82,7 @@ The files are here:
 
 `results/direct_repeats/DA*/regions/regions_within.bed`
 
-```{r}
+```{r, cache=TRUE}
 bed_df <- bind_rows(lapply(strains, function (x){
   filename <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
   df <- read.delim(filename, header=FALSE)
@@ -107,7 +106,7 @@ Number of unique gene names equals number of rows in bed_df, which means I can j
 
 This table has been written to a file `/home/andrei/Data/HeteroR/results/repeats_summary_table.csv` and will be used in the Shiny app "repeats_statistic"
 
-```{r}
+```{r, cache=TRUE}
 repeat_df <- full_join(bed_df, repeat_df, by="record_id")
 repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
 
@@ -129,7 +128,7 @@ sample_df
 
 ## Repeat length
 
-```{r, message=F, warning=F, fig.width=12}
+```{r, message=F, warning=F, fig.width=12, eval = F}
 box.rep.len <- plot_ly(data = sample_df,
                   x = ~strain,
                   y = ~length,
@@ -144,9 +143,24 @@ box.rep.len <- plot_ly(data = sample_df,
 box.rep.len
 ```
 
+Boxplot
+
+```{r, warning = F, message = F, fig.width = 8}
+ggbox.rep.len <- ggplot(sample_df, aes(strain, length)) +
+  geom_boxplot(aes(fill=spans_center), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette = "Set2") +
+  theme(axis.text.x = element_text(angle=90)) +
+  ggtitle("Repeat length variation") +
+  ylab("length") +
+  xlab("")
+
+ggbox.rep.len
+```
+
 ## AR length distribution
 
-```{r, message=F, warning=F, fig.width=12}
+```{r, message=F, warning=F, fig.width=12, eval=FALSE}
 box.ar.len <- plot_ly(data = sample_df,
                       x = ~strain,
                       y = ~AR_length,
@@ -160,6 +174,21 @@ box.ar.len <- plot_ly(data = sample_df,
 box.ar.len
 ```
 
+Boxplot
+
+```{r, warning = F, message = F, fig.width = 8}
+ggbox.ar.len <- ggplot(sample_df, aes(strain, AR_length)) +
+  geom_boxplot(aes(fill=spans_center), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette = "Set2") +
+  theme(axis.text.x = element_text(angle=90)) +
+  ggtitle("AR length variation") +
+  ylab("length") +
+  xlab("")
+
+ggbox.ar.len
+```
+
 ## Repeat count per strain
 
 ```{r, message=F, warning=F}
@@ -167,7 +196,7 @@ repeat_counts_sample <- sample_df %>% group_by(strain, spans_center) %>% summari
 repeat_counts_sample
 ```
 
-```{r, message=F, warning=F, fig.width=12}
+```{r, message=F, warning=F, fig.width=12, eval=FALSE}
 bar.rep.counts <- plot_ly(data=repeat_counts_sample,
                           x = ~strain,
                           y = ~n_repeats,
@@ -181,6 +210,19 @@ bar.rep.counts <- plot_ly(data=repeat_counts_sample,
 bar.rep.counts
 ```
 
+Barplot
+
+```{r, warning = F, message = F, fig.width = 8}
+ggbar.rep.counts <- ggplot(repeat_counts_sample, aes(strain, n_repeats)) +
+  geom_col(aes(fill=spans_center), position="dodge") + 
+  scale_fill_brewer(palette = "Set2") +
+  theme(axis.text.x = element_text(angle=90)) +
+  ggtitle("Number of found repeats") +
+  ylab("n") +
+  xlab("")
+
+ggbar.rep.counts
+```
 
 ## Repeat count around each RG
 
@@ -193,10 +235,9 @@ repeat_counts_gene_sample <- sample_df %>% group_by(strain, record_id, spans_cen
 repeat_counts_gene_sample
 ```
 
-
 ### Make aplot
 
-```{r, message=FALSE, warning=F, fig.width=12}
+```{r, message=FALSE, warning=F, fig.width=12, eval=FALSE}
 box.rep.counts.gene <- plot_ly(data = repeat_counts_gene_sample,
                       x = ~strain,
                       y = ~n_repeats,
@@ -211,10 +252,24 @@ box.rep.counts.gene <- plot_ly(data = repeat_counts_gene_sample,
 box.rep.counts.gene
 ```
 
+Boxplot
+
+```{r, warning = F, message = F, fig.width = 8}
+ggbox.rep.counts.gene <- ggplot(repeat_counts_gene_sample, aes(strain, n_repeats)) +
+  geom_boxplot(aes(fill=spans_center), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette = "Set2") +
+  theme(axis.text.x = element_text(angle=90)) +
+  ggtitle("Number of repeats around RGs") +
+  ylab("n") +
+  xlab("")
+
+ggbox.rep.counts.gene
+```
 
 ## All together
 
-```{r, message=F, warning=F, fig.height = 10, fig.width = 14}
+```{r, message=F, warning=F, fig.height = 10, fig.width = 14, eval=FALSE}
 annotations <- list(
   list(text="Repeat lengths", x=0.2, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
   list(text="Repeat counts", x=0.8, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
@@ -224,32 +279,44 @@ annotations <- list(
 subplot(box.rep.len, bar.rep.counts, box.rep.counts.gene, box.ar.len, nrows=2, shareX = T) %>% layout(showlegend=FALSE, annotations=annotations, title="")
 ```
 
-# Statistics by main groups of AB
+Plots
 
- - Penicillins - for example, phenoxymethylpenicillin, flucloxacillin and amoxicillin.
- - Cephalosporins - for example, cefaclor, cefadroxil and cefalexin.
- - Tetracyclines - for example, tetracycline, doxycycline and lymecycline.
- - Aminoglycosides - for example, gentamicin and tobramycin.
- - Macrolides - for example, erythromycin, azithromycin and clarithromycin.
- - Clindamycin.
- - Sulfonamides and trimethoprim - for example, co-trimoxazole.
- - Metronidazole and tinidazole.
- - Quinolones - for example, ciprofloxacin, levofloxacin and norfloxacin.
- - Nitrofurantoin - used for urinary infections.
+```{r,  message=F, warning=F, fig.height = 10, fig.width = 14}
+
+ggarrange(plotlist=list(ggbox.rep.len, ggbox.ar.len, ggbar.rep.counts, ggbox.rep.counts.gene), 
+          ncol=2, nrow = 2, 
+          align="v", 
+          common.legend = T, 
+          legend = "bottom")
+
+```
+
+# Ananlysis of repeat pairs in various AB groups
+
+Here you find repeat statistics in AB groups.
+
+For each strain and gene AB group is defined by RGI's classification of that gene.
+
+Majir groups of AB:
+
+-   Penicillins - for example, phenoxymethylpenicillin, flucloxacillin and amoxicillin.
+-   Cephalosporins - for example, cefaclor, cefadroxil and cefalexin.
+-   Tetracyclines - for example, tetracycline, doxycycline and lymecycline.
+-   Aminoglycosides - for example, gentamicin and tobramycin.
+-   Macrolides - for example, erythromycin, azithromycin and clarithromycin.
+-   Clindamycin.
+-   Sulfonamides and trimethoprim - for example, co-trimoxazole.
+-   Metronidazole and tinidazole.
+-   Quinolones - for example, ciprofloxacin, levofloxacin and norfloxacin.
+-   Nitrofurantoin - used for urinary infections.
 
 Let's have a look at 40 strains that I have sampled before
-
-## Number of repeats per AB group
-
-Take AB classes from rgi tables? 
-Or from known AB classes? 
-Or group AB by mechanisms?
 
 ## RGI results table
 
 Remove "Loose" hits
 
-```{r}
+```{r, cache=TRUE}
 # sampled strains n=40
 #example_strains <- unique(repeat_counts_center2$strain)
 #sample_strains <- sample(repeat_df$strain, 40)
@@ -272,10 +339,11 @@ Number of rows in the full table `r nrow(rg_df)`, number of rows without "Loose"
 For *Strict* hits you may consider *Identity_percent* as another filtering criterion, hits with too low identities should be discarded.
 
 ```{r, message=F}
-ggplot(rg_df %>% filter(Cut_Off == "Strict") %>% select(Best_Identities), aes(Best_Identities)) +
+hit.distr <-ggplot(rg_df %>% filter(Cut_Off == "Strict") %>% select(Best_Identities), aes(Best_Identities)) +
   geom_histogram(bins = 100, fill="steelblue") +
   ggtitle("Distribution of identity percentages among Strict hits")
 
+hit.distr
 ```
 
 ## Number of entries in Drug.Class
@@ -292,7 +360,7 @@ look at number of repeats around genes conferring resistance to each AB group
 
 ## Number of entries per AB group
 
-```{r}
+```{r, cache=TRUE}
 # "[M,m]etronidazole and [T,t]inidazole"
 # "[S,s]ulfonamide[s] and [T,t]rimethoprim"
 ab_groups <- c("penicillin", "cephalosporin", "tetracycline", "aminoglycoside", "macrolide", "clindamycin",
@@ -308,14 +376,15 @@ rownames(ab_counts_df) <- NULL
 ab_counts_df
 ```
 
-
 ```{r}
 ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
 ```
 
 ## Repeat counts per AB group
 
-```{r}
+Make a table
+
+```{r, cache=TRUE}
 # add AB labels to each gene in RGI table
 rg_ab_found_df <- bind_rows(
   lapply(ab_found, function (x){
@@ -334,9 +403,7 @@ count_per_ab <- left_join(repeat_counts_gene_sample, rg_ab_found_df, by="record_
 count_per_ab
 ```
 
-Boxplot
-
-```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
+```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE, eval=FALSE}
 box.rep.n.ab <- plot_ly(data = count_per_ab %>% filter(spans_center == "yes"),
                       x = ~strain.x,
                       y = ~n_repeats,
@@ -351,13 +418,29 @@ box.rep.n.ab <- plot_ly(data = count_per_ab %>% filter(spans_center == "yes"),
 box.rep.n.ab
 ```
 
+Boxplot
+
+```{r, warning = F, message = F, fig.width = 12}
+
+ggbox.rep.n.ab <- ggplot(count_per_ab, aes(strain.x, n_repeats)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") + 
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat counts")
+
+ggbox.rep.n.ab
+```
+
 ## AR length by AB group
 
 On the same sample of strains
 
-### Table
+Make a table
 
-```{r}
+```{r, cache=TRUE}
 # join repeat_df_center (contains AR lengths) and rg_ab_found (contains AB labels for each gene) by record_id
 # prepare "record_id" column in repeat_df_center
 repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
@@ -366,9 +449,9 @@ repeat_df_center_ab_ar <- left_join(rg_ab_found_df, repeat_df %>% filter(spans_c
 repeat_df_center_ab_ar
 ```
 
-### Boxplot
+Boxplot
 
-```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
+```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE, eval=FALSE}
 box.ar.ab <- plot_ly(data = repeat_df_center_ab_ar,
                       x = ~strain.x,
                       y = ~AR_length,
@@ -383,9 +466,21 @@ box.ar.ab <- plot_ly(data = repeat_df_center_ab_ar,
 box.ar.ab
 ```
 
+```{r, warning = F, message = F, fig.width = 12}
+ggbox.ar.ab <- ggplot(repeat_df_center_ab_ar, aes(strain.x, AR_length)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") + 
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("AR size variation")
+
+ggbox.ar.ab
+```
+
 ## Repeat lengths variation by AB group
 
-```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE}
+```{r, fig.width=16, fig.height = 8, message = FALSE, warning = FALSE, eval = FALSE}
 box.rl.ab <- plot_ly(data = repeat_df_center_ab_ar,
                       x = ~strain.x,
                       y = ~length,
@@ -401,23 +496,41 @@ box.rl.ab
 
 ```
 
+Boxplot
+
+```{r, warning = F, message = F, fig.width = 12}
+ggbox.rl.ab <- ggplot(repeat_df_center_ab_ar, aes(strain.x, length)) + 
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") + 
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat size variation")
+
+ggbox.rl.ab
+```
+
 ## NB
 
 This section might not be of a big value since we have Resistance/Susceptibility testing results in a separate data frame.
 
-
-# Difference between resistant and susceptible strains
+# Analysis of resistant and susceptible strains
 
 I have some (preliminary) resistance/susceptibility information for 400+ strains in `resources/resistance_testing.csv` (taken from Resilio storage).
 
-```{r}
-resistance_df <- read.csv("/home/andrei/Data/HeteroR/resources/resistance_testing.csv", na.strings = "")
+## Get the data
+
+```{r, cache=TRUE}
+resistance_df <- read.csv("/home/andrei/Data/HeteroR/resources/resistance_testing.csv", na.strings = "", stringsAsFactors = T)
+resistance_df <- select(resistance_df, contains("SIR") | contains("strain"))
+names(resistance_df) <- sub(".SIR", "", names(resistance_df))
 resistance_df
 ```
 
 Columns with *SIR* contain susceptibility test results, S - susceptible, R - resistant, I - intermediate.
 
----
+------------------------------------------------------------------------
 
 CFX - Cefotaxime, Beta-lactam group
 
@@ -435,17 +548,19 @@ NFT - Nitrofurantoin
 
 MCN - Mecillinam
 
----
+------------------------------------------------------------------------
 
-Let's leave only them in the data table
+### Data overview
 
 ```{r}
-resistance_df <- select(resistance_df, contains("SIR") | contains("strain"))
-names(resistance_df) <- sub(".SIR", "", names(resistance_df))
-resistance_df
+summary(resistance_df)
 ```
 
-```{r, message=FALSE, warning=FALSE}
+N.B.: Number of resistant strains is smaller than number of susceptible ones.
+
+### Make a tidy version
+
+```{r, message=FALSE, warning=FALSE, cache=TRUE}
 resistance_df_td <- gather(resistance_df, key="AB", value="condition", 1:8)
 resistance_df_td$AB <- as.factor(resistance_df_td$AB)
 resistance_df_td$condition <- factor(resistance_df_td$condition, ordered=T, levels = c("S", "I", "R"))
@@ -469,7 +584,7 @@ htmp_res_all <- ggplot(resistance_df_td, aes(strain, AB)) +
   geom_tile(aes(fill=condition)) +
   theme(axis.text.x = element_text(angle=45, size=4, vjust=0.5))
 
-
+# plotly version
 hm_res_all <- plot_ly(data = resistance_df_td,
                             x = ~ strain,
                             y = ~ AB,
@@ -479,7 +594,6 @@ hm_res_all <- plot_ly(data = resistance_df_td,
 
 hm_res_all
 ```
-
 
 ### Sample subset
 
@@ -493,7 +607,7 @@ htmp_res_sample <- ggplot(res_df_sample, aes(strain, AB)) +
   geom_tile(aes(fill=condition)) +
   theme(axis.text.x = element_text(angle=45, vjust=0.5))
 
-
+# plotly version
 hm_res_sample <- plot_ly(data = res_df_sample,
                             x = ~ strain,
                             y = ~ AB,
@@ -518,7 +632,7 @@ I exclude I-strains since there's too few of them
 
 ### Prepare the data
 
-```{r}
+```{r, cache=TRUE}
 ab_res_repeat_df <- inner_join(resistance_df_td, repeat_df, by="strain") %>%
   filter(!is.na(condition)) %>%
   filter(condition != "I")
@@ -528,7 +642,7 @@ ab_res_repeat_df
 
 ### Repeat length
 
-```{r, warning = F, message = F, fig.width = 14, fig.height = 6}
+```{r, warning = F, message = F, fig.width = 14, fig.height = 6, eval=FALSE}
 
 box.rl.res.y <- plot_ly(data = ab_res_repeat_df %>% filter(spans_center == "yes"),
                       x = ~AB,
@@ -562,70 +676,47 @@ subplot(box.rl.res.y, box.rl.res.n, nrows=1, shareX = T, shareY = T) %>% layout(
 
 ```
 
-ggplot
+Boxplot
 
-```{r}
+Including repeat pairs both spanning ("yes") and not spanning ("no") corresponding gene's center
+
+```{r, fig.width = 10, fig.height = 5}
 ggbox.rl.ab <- ggplot(ab_res_repeat_df, aes(AB , length)) +
-  geom_boxplot(aes(fill=condition), varwidth=T, notch=T) +
+  geom_boxplot(aes(fill=condition), notch=T, outlier.size = 0.5, outlier.alpha = 0.5) +
   coord_trans(y="log") +
   facet_grid(spans_center ~ .) +
   scale_fill_brewer(palette = "Set2") +
-  ggtitle("Repeat length")
+  ggtitle("Repeat length")+
+  ylab("length") +
+  xlab("antibiotic")
 
 ggbox.rl.ab
 ```
 
-
 ### AR length
 
-```{r, fig.width = 8, fig.height = 5}
+Including repeat pairs both spanning ("yes") and not spanning ("no") corresponding gene's center
+
+```{r, fig.width = 10, fig.height = 5}
 ggbox.arlen.res <- ggplot(ab_res_repeat_df, aes(AB , AR_length)) +
-  geom_boxplot(aes(fill=condition), varwidth=T, notch=T) +
+  geom_boxplot(aes(fill=condition), notch=T, outlier.size = 0.5, outlier.alpha = 0.5) +
+  coord_trans(y="sqrt") +
   facet_grid(spans_center ~ .) +
   scale_fill_brewer(palette = "Set2") +
-  ggtitle("AR length")
+  ggtitle("Amplifiable region length") +
+  ylab("length") +
+  xlab("antibiotic")
 
 ggbox.arlen.res
 ```
 
-```{r, warning = F, message = F, fig.width = 8}
-
-box.arlen.res.y <- plot_ly(data = ab_res_repeat_df %>% filter(spans_center == "yes"),
-                      x = ~AB,
-                      y = ~AR_length,
-                      color = ~condition,
-                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
-                      type = "box") %>%
-                  layout(title="Amplifiable region length in resistant and susceptible strains",
-                         yaxis=list(title="AR length"),
-                         boxmode="group",
-                         xaxis=list(title=""),
-                         plot_bgcolor='#e5ecf6')
-
-box.arlen.res.n <- plot_ly(data = ab_res_repeat_df %>% filter(spans_center == "no"),
-                      x = ~AB,
-                      y = ~AR_length,
-                      color = ~condition,
-                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
-                      type = "box") %>%
-                  layout(title="Amplifiable region length in resistant and susceptible strains",
-                         yaxis=list(title="AR length"),
-                         boxmode="group",
-                         xaxis=list(title=""),
-                         plot_bgcolor='#e5ecf6')
-
-annotations <- list(
-  list(text="Spanning center", x=0.2, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
-  list(text="Not spanning center", x=0.2, y=0.475, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE))
-
-subplot(box.arlen.res.y, box.arlen.res.n, nrows=2, shareX = T) %>% layout(showlegend=FALSE, annotations=annotations, title="AR lengths")
-```
-
 ### Repeat count
+
+Including repeat pairs both spanning ("yes") and not spanning ("no") corresponding gene's center.
 
 Prepare data
 
-```{r, message=FALSE}
+```{r, message=FALSE, cache=TRUE}
 ab_res_rep_count <- ab_res_repeat_df %>%
   group_by(AB, condition, strain, spans_center) %>%
   summarize(n=n()) %>%
@@ -634,9 +725,9 @@ ab_res_rep_count <- ab_res_repeat_df %>%
 ab_res_rep_count
 ```
 
-Plot
+Boxplot
 
-```{r, warning = F, message = F, fig.width = 8}
+```{r, warning = F, message = F, fig.width = 10, fig.height = 5}
 ggbox.rc.res <- ggplot(ab_res_rep_count, aes(AB, n)) +
         geom_boxplot(aes(fill = condition)) +
         coord_trans(y="sqrt") +
@@ -645,39 +736,6 @@ ggbox.rc.res <- ggplot(ab_res_rep_count, aes(AB, n)) +
 
 ggbox.rc.res
 ```
-
-```{r, mesaage=F, warning=F, fig.width=12, fig.height=6}
-box.rc.res.y <- plot_ly(data = ab_res_rep_count %>% filter(spans_center == "yes"),
-                      x = ~AB,
-                      y = ~n,
-                      color = ~condition,
-                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
-                      type = "box") %>%
-                  layout(title="Repeat numbers in resistant and susceptible strains",
-                         yaxis=list(title="n"),
-                         boxmode="group",
-                         xaxis=list(title=""),
-                         plot_bgcolor='#e5ecf6')
-
-box.rc.res.n <- plot_ly(data = ab_res_rep_count %>% filter(spans_center == "no"),
-                      x = ~AB,
-                      y = ~n,
-                      color = ~condition,
-                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
-                      type = "box") %>%
-                  layout(title="Repeat numbers in resistant and susceptible strains",
-                         yaxis=list(title="n"),
-                         boxmode="group",
-                         xaxis=list(title=""),
-                         plot_bgcolor='#e5ecf6')
-
-annotations <- list(
-  list(text="Spanning center", x=0.2, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
-  list(text="Not spanning center", x=0.2, y=0.475, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE))
-
-subplot(box.rc.res.y, box.rc.res.n, nrows=2, shareX = T) %>% layout(showlegend=FALSE, annotations=annotations, title="Repeat counts")
-```
-
 
 # Save workspace
 
