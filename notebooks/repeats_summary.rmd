@@ -273,7 +273,7 @@ For *Strict* hits you may consider *Identity_percent* as another filtering crite
 
 ```{r, message=F}
 ggplot(rg_df %>% filter(Cut_Off == "Strict") %>% select(Best_Identities), aes(Best_Identities)) +
-  geom_histogram(bins = 100) +
+  geom_histogram(bins = 100, fill="steelblue") +
   ggtitle("Distribution of identity percentages among Strict hits")
 
 ```
@@ -528,44 +528,69 @@ ab_res_repeat_df
 
 ### Repeat length
 
-```{r, warning = F, message = F, fig.width = 8}
-ggbox.rl.ab <- ggplot(ab_res_repeat_df, aes(AB , length)) +
-  geom_boxplot(aes(fill=condition), varwidth=T, notch=T) +
-  coord_trans(y="log") +
-  scale_fill_brewer(palette = "Set2") +
-  ggtitle("Repeat length")
+```{r, warning = F, message = F, fig.width = 14, fig.height = 6}
 
-box.rl.res <- plot_ly(data = ab_res_repeat_df,
+box.rl.res.y <- plot_ly(data = ab_res_repeat_df %>% filter(spans_center == "yes"),
                       x = ~AB,
                       y = ~length,
                       color = ~condition,
                       colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
                       type = "box") %>%
-                  layout(title="Repeat length in resistant and susceptible strains",
+                  layout(title="Lengths of repeats spanning region's center in resistant and susceptible strains",
                          yaxis=list(type="log", title="Repeat length"),
                          boxmode="group",
                          xaxis=list(title=""),
                          plot_bgcolor='#e5ecf6')
 
-box.rl.res
+box.rl.res.n <- plot_ly(data = ab_res_repeat_df %>% filter(spans_center == "no"),
+                      x = ~AB,
+                      y = ~length,
+                      color = ~condition,
+                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
+                      type = "box") %>%
+                  layout(title="Lengths of repeats not spanning region's center in resistant and susceptible strains",
+                         yaxis=list(type="log", title="Repeat length"),
+                         boxmode="group",
+                         xaxis=list(title=""),
+                         plot_bgcolor='#e5ecf6')
+
+annotations <- list(
+  list(text="Spanning center", x=0.2, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
+  list(text="Not spanning center", x=0.85, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE))
+
+subplot(box.rl.res.y, box.rl.res.n, nrows=1, shareX = T, shareY = T) %>% layout(showlegend=FALSE, annotations=annotations, title="Repeat lengths")
+
 ```
 
+ggplot
+
 ```{r}
-group_by(ab_res_repeat_df, spans_center) %>%
-  group_map(~ plot_ly(data=., x = ~AB, y = ~length, color = ~condition, type = "box"), keep=TRUE) %>%
-  subplot(nrows = 2, shareX = TRUE, shareY=TRUE)
+ggbox.rl.ab <- ggplot(ab_res_repeat_df, aes(AB , length)) +
+  geom_boxplot(aes(fill=condition), varwidth=T, notch=T) +
+  coord_trans(y="log") +
+  facet_grid(spans_center ~ .) +
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("Repeat length")
+
+ggbox.rl.ab
 ```
 
 
 ### AR length
 
-```{r, warning = F, message = F, fig.width = 8}
+```{r, fig.width = 8, fig.height = 5}
 ggbox.arlen.res <- ggplot(ab_res_repeat_df, aes(AB , AR_length)) +
   geom_boxplot(aes(fill=condition), varwidth=T, notch=T) +
+  facet_grid(spans_center ~ .) +
   scale_fill_brewer(palette = "Set2") +
   ggtitle("AR length")
 
-box.arlen.res <- plot_ly(data = ab_res_repeat_df,
+ggbox.arlen.res
+```
+
+```{r, warning = F, message = F, fig.width = 8}
+
+box.arlen.res.y <- plot_ly(data = ab_res_repeat_df %>% filter(spans_center == "yes"),
                       x = ~AB,
                       y = ~AR_length,
                       color = ~condition,
@@ -577,7 +602,23 @@ box.arlen.res <- plot_ly(data = ab_res_repeat_df,
                          xaxis=list(title=""),
                          plot_bgcolor='#e5ecf6')
 
-box.arlen.res
+box.arlen.res.n <- plot_ly(data = ab_res_repeat_df %>% filter(spans_center == "no"),
+                      x = ~AB,
+                      y = ~AR_length,
+                      color = ~condition,
+                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
+                      type = "box") %>%
+                  layout(title="Amplifiable region length in resistant and susceptible strains",
+                         yaxis=list(title="AR length"),
+                         boxmode="group",
+                         xaxis=list(title=""),
+                         plot_bgcolor='#e5ecf6')
+
+annotations <- list(
+  list(text="Spanning center", x=0.2, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
+  list(text="Not spanning center", x=0.2, y=0.475, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE))
+
+subplot(box.arlen.res.y, box.arlen.res.n, nrows=2, shareX = T) %>% layout(showlegend=FALSE, annotations=annotations, title="AR lengths")
 ```
 
 ### Repeat count
@@ -586,19 +627,27 @@ Prepare data
 
 ```{r, message=FALSE}
 ab_res_rep_count <- ab_res_repeat_df %>%
-  group_by(AB, condition, strain) %>%
+  group_by(AB, condition, strain, spans_center) %>%
   summarize(n=n()) %>%
   filter(condition != "I")
+
+ab_res_rep_count
 ```
 
 Plot
 
 ```{r, warning = F, message = F, fig.width = 8}
 ggbox.rc.res <- ggplot(ab_res_rep_count, aes(AB, n)) +
-  geom_boxplot(aes(fill = condition)) +
-  scale_fill_brewer(palette = "Set2")
+        geom_boxplot(aes(fill = condition)) +
+        coord_trans(y="sqrt") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2")
 
-box.rc.res <- plot_ly(data = ab_res_rep_count,
+ggbox.rc.res
+```
+
+```{r, mesaage=F, warning=F, fig.width=12, fig.height=6}
+box.rc.res.y <- plot_ly(data = ab_res_rep_count %>% filter(spans_center == "yes"),
                       x = ~AB,
                       y = ~n,
                       color = ~condition,
@@ -610,8 +659,25 @@ box.rc.res <- plot_ly(data = ab_res_rep_count,
                          xaxis=list(title=""),
                          plot_bgcolor='#e5ecf6')
 
-box.rc.res
+box.rc.res.n <- plot_ly(data = ab_res_rep_count %>% filter(spans_center == "no"),
+                      x = ~AB,
+                      y = ~n,
+                      color = ~condition,
+                      colors = c("#66C2A5", "#FC8D62"),  # taken from Set2
+                      type = "box") %>%
+                  layout(title="Repeat numbers in resistant and susceptible strains",
+                         yaxis=list(title="n"),
+                         boxmode="group",
+                         xaxis=list(title=""),
+                         plot_bgcolor='#e5ecf6')
+
+annotations <- list(
+  list(text="Spanning center", x=0.2, y=1.0, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE),
+  list(text="Not spanning center", x=0.2, y=0.475, xref = "paper", yref = "paper", xanchor = "center", yanchor = "bottom", showarrow = FALSE))
+
+subplot(box.rc.res.y, box.rc.res.n, nrows=2, shareX = T) %>% layout(showlegend=FALSE, annotations=annotations, title="Repeat counts")
 ```
+
 
 # Save workspace
 
