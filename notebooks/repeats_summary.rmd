@@ -705,7 +705,7 @@ ggbox.rl.ab.100 <- ggplot(ab_res_repeat_df %>% filter(length >= 100), aes(AB , l
   coord_trans(y="log") +
   facet_grid(spans_center ~ .) +
   scale_fill_brewer(palette = "Set2") +
-  ggtitle("Repeat length")+
+  ggtitle("Repeat length", subtitle="Repeats shorter than 100 bp were removed")+
   ylab("length") +
   xlab("antibiotic")
 
@@ -739,7 +739,7 @@ ggbox.arlen.res.100 <- ggplot(ab_res_repeat_df %>% filter(length >= 100), aes(AB
   coord_trans(y="sqrt") +
   facet_grid(spans_center ~ .) +
   scale_fill_brewer(palette = "Set2") +
-  ggtitle("Amplifiable region length") +
+  ggtitle(label="Amplifiable region length", subtitle="For repeats longer than 100 bp") +
   ylab("length") +
   xlab("antibiotic")
 
