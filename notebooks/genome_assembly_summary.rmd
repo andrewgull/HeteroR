@@ -4,6 +4,7 @@ author: "by AG"
 date: "last update: `r format(Sys.time(), format = '%d %B %Y, %H:%M CET')`"
 output:
   html_document:
+    fig_width: 8
     code_folding: hide
     df_print: paged
     toc: true
@@ -31,8 +32,11 @@ summary_table <- lapply(summary_files, function(x){
   return(df)
   })
 
+
 summary_table <- bind_rows(summary_table)
 # replace commas in Length, N50 and Longest component
+
+write.csv(summary_table, "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")
 ```
 
 Assembly summary information has been taken from Unicycler log files, total number of summary files `r length(summary_files)`
@@ -158,6 +162,19 @@ Note:
 
 - "scaffold" - linear assembly (assembly made by SPAdes in a 'plasmid' mode)
 
+
+### Strain DA68966 sticks out
+
+```{r}
+DA68966_summary <- summary_table %>% filter(Strain=="DA68966")
+DA68966_summary
+```
+
+### DA68966 assembly graph
+
+![assembly graph](/home/andrei/Data/HeteroR/results/assemblies/DA68966/graph.png){width=100%}
+
+
 ## Summary table of plasmids assembled by SPAdes 
 
 ```{r}
@@ -206,7 +223,7 @@ summary_table %>% filter(Strain=="DA63914")
 Same here...
 
 
-# Benchmarking Universal Single-Copy Orthologue
+# Benchmarking Universal Single-Copy Orthologues
 
 [Link](https://busco.ezlab.org/busco_userguide.html#interpreting-the-results) to the tool description.
 
@@ -298,3 +315,8 @@ Counts
 busco_table %>% filter(Category == "Missing BUSCOs (MFragmented)") %>% summary()
 ```
 
+# Save workspace
+
+```{r}
+save.image(f="/home/andrei/Data/HeteroR/notebooks/genome_assembly_summary.RData")
+```
