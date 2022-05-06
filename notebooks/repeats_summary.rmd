@@ -680,7 +680,7 @@ subplot(box.rl.res.y, box.rl.res.n, nrows=1, shareX = T, shareY = T) %>% layout(
 
 ```
 
-Boxplot
+#### All repeats
 
 Including repeat pairs both spanning ("yes") and not spanning ("no") corresponding gene's center
 
@@ -697,9 +697,26 @@ ggbox.rl.ab <- ggplot(ab_res_repeat_df, aes(AB , length)) +
 ggbox.rl.ab
 ```
 
+#### Repeats longer 100 bp
+
+```{r, fig.width = 10, fig.height = 5}
+ggbox.rl.ab.100 <- ggplot(ab_res_repeat_df %>% filter(length >= 100), aes(AB , length)) +
+  geom_boxplot(aes(fill=condition), notch=F, outlier.size = 0.5, outlier.alpha = 0.5) +
+  coord_trans(y="log") +
+  facet_grid(spans_center ~ .) +
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("Repeat length")+
+  ylab("length") +
+  xlab("antibiotic")
+
+ggbox.rl.ab.100
+```
+
 ### AR length
 
 Including repeat pairs both spanning ("yes") and not spanning ("no") corresponding gene's center
+
+#### All
 
 ```{r, fig.width = 10, fig.height = 5}
 ggbox.arlen.res <- ggplot(ab_res_repeat_df, aes(AB , AR_length)) +
@@ -712,6 +729,21 @@ ggbox.arlen.res <- ggplot(ab_res_repeat_df, aes(AB , AR_length)) +
   xlab("antibiotic")
 
 ggbox.arlen.res
+```
+
+#### Repeats longer than 100 bp
+
+```{r, fig.width = 10, fig.height = 5}
+ggbox.arlen.res.100 <- ggplot(ab_res_repeat_df %>% filter(length >= 100), aes(AB , AR_length)) +
+  geom_boxplot(aes(fill=condition), notch=T, outlier.size = 0.5, outlier.alpha = 0.5) +
+  coord_trans(y="sqrt") +
+  facet_grid(spans_center ~ .) +
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("Amplifiable region length") +
+  ylab("length") +
+  xlab("antibiotic")
+
+ggbox.arlen.res.100
 ```
 
 ### Repeat count
@@ -733,12 +765,38 @@ Boxplot
 
 ```{r, warning = F, message = F, fig.width = 10, fig.height = 5}
 ggbox.rc.res <- ggplot(ab_res_rep_count, aes(AB, n)) +
-        geom_boxplot(aes(fill = condition)) +
+        geom_boxplot(aes(fill = condition), notch=F) +
         coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2")
 
 ggbox.rc.res
+```
+
+#### Longer than 100 bp
+
+Prepare the data
+
+```{r, message = F, cache = T}
+ab_res_rep_count.100 <- ab_res_repeat_df %>%
+        filter(length >= 100) %>%
+        group_by(AB, condition, strain, spans_center) %>%
+        summarize(n=n()) %>%
+        filter(condition != "I")
+
+ab_res_rep_count.100
+```
+
+Boxplot
+
+```{r, message=F, warning = F, fig.width = 10, fig.height = 5}
+ggbox.rc.res.100 <- ggplot(ab_res_rep_count.100, aes(AB, n)) +
+        geom_boxplot(aes(fill = condition), notch=F) +
+        coord_trans(y="sqrt") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2")
+
+ggbox.rc.res.100
 ```
 
 # Save workspace
