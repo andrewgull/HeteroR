@@ -14,6 +14,10 @@ output:
     highlight: kate
 ---
 
+```{r, include=F}
+knitr::opts_chunk$set(fig.width=10, fig.height=5)
+```
+
 This notebook relies on results from *make_repeat_tables.py* that creates tables which contain coordinates of repeat for each strain and each resistance gene
 
 UPDATE: other results will also be here
@@ -128,7 +132,7 @@ sample_df
 
 ## Repeat length
 
-```{r, message=F, warning=F, fig.width=12, eval = F}
+```{r, message=F, warning=F, eval = F}
 box.rep.len <- plot_ly(data = sample_df,
                   x = ~strain,
                   y = ~length,
@@ -145,7 +149,7 @@ box.rep.len
 
 Boxplot
 
-```{r, warning = F, message = F, fig.width = 8}
+```{r, warning = F, message = F}
 ggbox.rep.len <- ggplot(sample_df, aes(strain, length)) +
   geom_boxplot(aes(fill=spans_center), outlier.alpha = 0.5, outlier.size = 0.5)+
   coord_trans(y="log") +
@@ -160,7 +164,7 @@ ggbox.rep.len
 
 ## AR length distribution
 
-```{r, message=F, warning=F, fig.width=12, eval=FALSE}
+```{r, message=F, warning=F, eval=FALSE}
 box.ar.len <- plot_ly(data = sample_df,
                       x = ~strain,
                       y = ~AR_length,
@@ -176,7 +180,7 @@ box.ar.len
 
 Boxplot
 
-```{r, warning = F, message = F, fig.width = 8}
+```{r, warning = F, message = F}
 ggbox.ar.len <- ggplot(sample_df, aes(strain, AR_length)) +
   geom_boxplot(aes(fill=spans_center), outlier.alpha = 0.5, outlier.size = 0.5)+
   coord_trans(y="sqrt") +
