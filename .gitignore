@@ -9,3 +9,5 @@ resources/*
 .idea/rAvailablePackageCache.xml
 workflow/scripts/testing_negative_coords.py
 shiny_apps/data/*
+*_cache/*
+*_files/*
