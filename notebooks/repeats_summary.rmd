@@ -295,13 +295,13 @@ ggarrange(plotlist=list(ggbox.rep.len, ggbox.ar.len, ggbar.rep.counts, ggbox.rep
 
 ```
 
-# Ananlysis of repeat pairs in various AB groups
+# Analysis of repeat pairs in various AB groups
 
-Here you find repeat statistics in AB groups.
+Here you find repeat statistics broken down by AB groups.
 
 For each strain and gene AB group is defined by RGI's classification of that gene.
 
-Majir groups of AB:
+The major groups of AB:
 
 -   Penicillins - for example, phenoxymethylpenicillin, flucloxacillin and amoxicillin.
 -   Cephalosporins - for example, cefaclor, cefadroxil and cefalexin.
@@ -364,17 +364,6 @@ rg_df_notLoose <- rg_df_notLoose %>%
   filter(Best_Identities >= 70.00)
 ```
 
-
-### Filter out genes with SNPs
-
-**OBS!** Evoking this filtering will remove majority found AB groups
-
-```{r, eval=FALSE}
-rg_df_notLoose <- rg_df_notLoose %>% 
-  filter(!is.na(SNPs_in_Best_Hit_ARO))
-```
-
-
 ## Number of entries in Drug.Class
 
 Number of unique entries in Drug.Class: `r length(unique(rg_df_notLoose$Drug.Class))`
@@ -389,7 +378,7 @@ look at number of repeats around genes conferring resistance to each AB group
 
 ## Number of entries per AB group
 
-**N.B.** The following table is made with an assumption that entries in *Drug.Class* contain the following names of AB groups:
+**NB:** The following table is made with an assumption that entries in *Drug.Class* contain the following names of AB groups:
 
  - penicillin 
  - cephalosporin
@@ -431,21 +420,33 @@ ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
 Make a table
 
 ```{r, cache=TRUE}
-# add AB labels to each gene in RGI table
-rg_ab_found_df <- bind_rows(
-  lapply(ab_found, function (x){
-  df <- filter(rg_df_notLoose, grepl(x, Drug.Class, ignore.case = TRUE)) %>% select(ORF_ID, strain, Drug.Class)
-  df$AB.group <- x
-  return(df)
-  })
-)
+# function to add AB labels to each gene in RGI table
+# requires vector of AB and RGI results table
+# returns a table with TGI and AB joined
+add_rgi_to_ab <- function (ab.found, rgi.results){
+  rg.ab.found.df <- bind_rows(
+    lapply(ab.found, function (x){
+    df <- filter(rgi.results, grepl(x, Drug.Class, ignore.case = TRUE)) %>% select(ORF_ID, strain, Drug.Class)
+    df$AB.group <- x
+    return(df)
+    })
+  )
+  return(rg.ab.found.df)
+}
 
-# unify gene names in the repeats table
-repeat_counts_gene_sample$record_id <- sub("_gene", "", repeat_counts_gene_sample$record_id)
-rg_ab_found_df$record_id <- sapply(strsplit(rg_ab_found_df$ORF_ID, " "), function(x){x[1]})
+# function to join RGI results table and repeat counts tibel for each AB found
+# requires 3 args: vector of AB found, RGI table, repeat counts table
+join_RGI_repeatCounts <- function(rg.ab.found.df, rgi.results, repeat.counts){
+  # unify gene names in the repeats table
+  repeat.counts$record_id <- sub("_gene", "", repeat.counts$record_id)
+  rg.ab.found.df$record_id <- sapply(strsplit(rg.ab.found.df$ORF_ID, " "), function(x){x[1]})
+  # join repeat counts
+  count.per.ab <- left_join(repeat.counts, rg.ab.found.df, by="record_id") %>% filter(!is.na(Drug.Class))
+  return(count.per.ab)
+}
 
-# join repeat counts
-count_per_ab <- left_join(repeat_counts_gene_sample, rg_ab_found_df, by="record_id") %>% filter(!is.na(Drug.Class))
+rg_ab_found_df <- add_rgi_to_ab(ab_found, rg_df_notLoose)
+count_per_ab <- join_RGI_repeatCounts(rg_ab_found_df, rg_df_notLoose, repeat_counts_gene_sample)
 count_per_ab
 ```
 
@@ -557,9 +558,20 @@ ggbox.rl.ab <- ggplot(repeat_df_center_ab_ar, aes(strain.x, length)) +
 ggbox.rl.ab
 ```
 
+## Filter out genes with SNPs
+
+Remove RGs that have SNP as a cause of resistance
+
+```{r, eval=FALSE}
+rg_df_notLoose_noSNP <- rg_df_notLoose %>%
+  filter(is.na(SNPs_in_Best_Hit_ARO))
+
+
+```
+
 ## NB
 
-This section might not be of a big value since we have Resistance/Susceptibility testing results in a separate data frame.
+This sections might not be of a big value since we have Resistance/Susceptibility testing results in a separate data frame.
 
 # Analysis of resistant and susceptible strains
 
