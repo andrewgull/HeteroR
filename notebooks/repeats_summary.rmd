@@ -239,7 +239,7 @@ repeat_counts_gene_sample <- sample_df %>% group_by(strain, record_id, spans_cen
 repeat_counts_gene_sample
 ```
 
-### Make aplot
+### Make a plot
 
 ```{r, message=FALSE, warning=F, fig.width=12, eval=FALSE}
 box.rep.counts.gene <- plot_ly(data = repeat_counts_gene_sample,
@@ -327,14 +327,18 @@ Remove "Loose" hits
 
 # read in RG tables of these strains
 rg_df <- bind_rows(lapply(strains_sample, function(x){
-  df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"))
+  df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na.strings = "n/a")
   df$strain <- x
   return(df)
 }) )
 
 ab_groups <- unique(rg_df$Drug.Class)
 
-rg_df_notLoose <- rg_df %>% filter( Cut_Off != "Loose")
+# filter rg_df
+rg_df_notLoose <- rg_df %>% 
+  filter( Cut_Off != "Loose" ) %>% 
+  select(-c(Predicted_Protein, CARD_Protein_Sequence))
+
 rg_df_notLoose
 ```
 
@@ -350,6 +354,27 @@ hit.distr <-ggplot(rg_df %>% filter(Cut_Off == "Strict") %>% select(Best_Identit
 hit.distr
 ```
 
+
+### Filter by Identity percent
+
+Remove hits with less than 70% identity
+
+```{r}
+rg_df_notLoose <- rg_df_notLoose %>% 
+  filter(Best_Identities >= 70.00)
+```
+
+
+### Filter out genes with SNPs
+
+**OBS!** Evoking this filtering will remove majority found AB groups
+
+```{r, eval=FALSE}
+rg_df_notLoose <- rg_df_notLoose %>% 
+  filter(!is.na(SNPs_in_Best_Hit_ARO))
+```
+
+
 ## Number of entries in Drug.Class
 
 Number of unique entries in Drug.Class: `r length(unique(rg_df_notLoose$Drug.Class))`
@@ -363,6 +388,21 @@ unique(rg_df_notLoose$Drug.Class)
 look at number of repeats around genes conferring resistance to each AB group
 
 ## Number of entries per AB group
+
+**N.B.** The following table is made with an assumption that entries in *Drug.Class* contain the following names of AB groups:
+
+ - penicillin 
+ - cephalosporin
+ - tetracycline 
+ - aminoglycoside
+ - macrolide 
+ - clindamycin 
+ - sulfonamide 
+ - trimethoprim 
+ - metronidazole 
+ - tinidazole 
+ - quinolone 
+ - nitrofurantoin
 
 ```{r, cache=TRUE}
 # "[M,m]etronidazole and [T,t]inidazole"
@@ -379,6 +419,8 @@ rownames(ab_counts_df) <- NULL
 
 ab_counts_df
 ```
+
+This section must be re-written
 
 ```{r}
 ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
