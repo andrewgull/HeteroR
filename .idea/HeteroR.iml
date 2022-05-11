@@ -1,7 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/resources/busco_downloads" />
+      <excludeFolder url="file://$MODULE_DIR$/resources/data_raw" />
+      <excludeFolder url="file://$MODULE_DIR$/resources/localDB" />
+      <excludeFolder url="file://$MODULE_DIR$/resources/strain_lists" />
+      <excludeFolder url="file://$MODULE_DIR$/results/annotations" />
+      <excludeFolder url="file://$MODULE_DIR$/results/assemblies" />
+      <excludeFolder url="file://$MODULE_DIR$/results/assemblies_joined" />
+      <excludeFolder url="file://$MODULE_DIR$/results/coverage" />
+      <excludeFolder url="file://$MODULE_DIR$/results/data_filtered" />
+      <excludeFolder url="file://$MODULE_DIR$/results/final" />
+      <excludeFolder url="file://$MODULE_DIR$/results/logs" />
+      <excludeFolder url="file://$MODULE_DIR$/results/mapping" />
+      <excludeFolder url="file://$MODULE_DIR$/results/plasmids" />
+      <excludeFolder url="file://$MODULE_DIR$/results/qualcheck_assembly" />
+      <excludeFolder url="file://$MODULE_DIR$/results/qualcheck_reads" />
+      <excludeFolder url="file://$MODULE_DIR$/results/resistance_genes" />
+    </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (snakemake)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

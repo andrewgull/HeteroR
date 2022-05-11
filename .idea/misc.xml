@@ -4,13 +4,6 @@
   <component name="RMarkdownSettings">
     <option name="renderProfiles">
       <map>
-        <entry key="file://$USER_HOME$/GoogleDrive/Science/ripcm/EBV/EBV.Rmd">
-          <value>
-            <RMarkdownRenderProfile>
-              <option name="outputDirectoryUrl" value="file://$USER_HOME$/GoogleDrive/Science/ripcm/EBV" />
-            </RMarkdownRenderProfile>
-          </value>
-        </entry>
         <entry key="file://$PROJECT_DIR$/notebooks/genome_assembly_summary.rmd">
           <value>
             <RMarkdownRenderProfile>
@@ -26,9 +19,17 @@
             </RMarkdownRenderProfile>
           </value>
         </entry>
+        <entry key="file://$PROJECT_DIR$/notebooks/regulon_db_overview.rmd">
+          <value>
+            <RMarkdownRenderProfile>
+              <option name="outputDirectoryUrl" value="file://$PROJECT_DIR$/notebooks" />
+            </RMarkdownRenderProfile>
+          </value>
+        </entry>
         <entry key="file://$PROJECT_DIR$/notebooks/repeats_summary.rmd">
           <value>
             <RMarkdownRenderProfile>
+              <option name="lastOutput" value="$PROJECT_DIR$/notebooks/repeats_summary.html" />
               <option name="outputDirectoryUrl" value="file://$PROJECT_DIR$/notebooks" />
             </RMarkdownRenderProfile>
           </value>
@@ -44,6 +45,13 @@
           <value>
             <RMarkdownRenderProfile>
               <option name="outputDirectoryUrl" value="file://$PROJECT_DIR$/notebooks" />
+            </RMarkdownRenderProfile>
+          </value>
+        </entry>
+        <entry key="file://$USER_HOME$/GoogleDrive/Science/ripcm/EBV/EBV.Rmd">
+          <value>
+            <RMarkdownRenderProfile>
+              <option name="outputDirectoryUrl" value="file://$USER_HOME$/GoogleDrive/Science/ripcm/EBV" />
             </RMarkdownRenderProfile>
           </value>
         </entry>
