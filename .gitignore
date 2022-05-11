@@ -4,7 +4,7 @@
 **/*.RData
 results/*
 resources/*
-.idea/*
+.idea/*.*
 .idea/rSettings.xml
 .idea/rAvailablePackageCache.xml
 workflow/scripts/testing_negative_coords.py
@@ -12,3 +12,7 @@ shiny_apps/data/*
 *_cache/*
 *_files/*
 .Rproj.user
+.RDataFiles/*.*
+.snakemake/*.*
+notebooks/repeats_summary_cache/*.*
+notebooks/repeats_summary_files/*.*
