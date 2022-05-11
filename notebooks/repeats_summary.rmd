@@ -431,22 +431,22 @@ add_rgi_to_ab <- function (ab.found, rgi.results){
     return(df)
     })
   )
+  rg.ab.found.df$record_id <- sapply(strsplit(rg.ab.found.df$ORF_ID, " "), function(x){x[1]})
   return(rg.ab.found.df)
 }
 
 # function to join RGI results table and repeat counts tibel for each AB found
 # requires 3 args: vector of AB found, RGI table, repeat counts table
-join_RGI_repeatCounts <- function(rg.ab.found.df, rgi.results, repeat.counts){
+join_RGI_repeatCounts <- function(rg.ab.found.df, repeat.counts){
   # unify gene names in the repeats table
   repeat.counts$record_id <- sub("_gene", "", repeat.counts$record_id)
-  rg.ab.found.df$record_id <- sapply(strsplit(rg.ab.found.df$ORF_ID, " "), function(x){x[1]})
   # join repeat counts
   count.per.ab <- left_join(repeat.counts, rg.ab.found.df, by="record_id") %>% filter(!is.na(Drug.Class))
   return(count.per.ab)
 }
 
 rg_ab_found_df <- add_rgi_to_ab(ab_found, rg_df_notLoose)
-count_per_ab <- join_RGI_repeatCounts(rg_ab_found_df, rg_df_notLoose, repeat_counts_gene_sample)
+count_per_ab <- join_RGI_repeatCounts(rg_ab_found_df, repeat_counts_gene_sample)
 count_per_ab
 ```
 
@@ -565,8 +565,45 @@ Remove RGs that have SNP as a cause of resistance
 ```{r, eval=FALSE}
 rg_df_notLoose_noSNP <- rg_df_notLoose %>%
   filter(is.na(SNPs_in_Best_Hit_ARO))
+```
 
+### Number of entries in Drug.Class
 
+```{r}
+unique(rg_df_notLoose_noSNP$Drug.Class)
+```
+
+### Number of entries per AB group
+
+```{r}
+ab_counts_vec <- sapply(ab_groups, function (x){
+  filter(rg_df_notLoose_noSNP, grepl(x, Drug.Class, ignore.case = TRUE)) %>% nrow()
+})
+
+ab_counts_df <- data.frame("count" = ab_counts_vec, "AB.group" = names(ab_counts_vec))
+rownames(ab_counts_df) <- NULL
+
+ab_counts_df
+```
+
+```{r}
+ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
+```
+### Repeat counts per AB group
+
+```{r}
+rg_ab_found_df <- add_rgi_to_ab(ab_found, rg_df_notLoose_noSNP)
+counts_per_ab <- join_RGI_repeatCounts(rg_ab_found_df, repeat_counts_gene_sample)
+ggbox.rep.n.ab.noSNP <- ggplot(count_per_ab, aes(strain.x, n_repeats)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat counts", subtitle = "SNPs removed")
+
+ggbox.rep.n.ab.noSNP
 ```
 
 ## NB
