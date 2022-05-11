@@ -8,6 +8,7 @@ resources/*
 .idea/rSettings.xml
 .idea/rAvailablePackageCache.xml
 workflow/scripts/testing_negative_coords.py
+workflow/scripts/compare_grf_outputs.py
 shiny_apps/data/*
 *_cache/*
 *_files/*
@@ -15,4 +16,5 @@ shiny_apps/data/*
 .RDataFiles/*.*
 .snakemake/*.*
 notebooks/repeats_summary_cache/html/*.*
+notebooks/repeats_summary_cache/html/__packages
 notebooks/repeats_summary_files/figure-html/*.*
