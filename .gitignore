@@ -14,5 +14,5 @@ shiny_apps/data/*
 .Rproj.user
 .RDataFiles/*.*
 .snakemake/*.*
-notebooks/repeats_summary_cache/*.*
-notebooks/repeats_summary_files/*.*
+notebooks/repeats_summary_cache/html/*.*
+notebooks/repeats_summary_files/figure-html/*.*
