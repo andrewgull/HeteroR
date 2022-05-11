@@ -1,6 +1,6 @@
 ---
 title: "Repeat Summary"
-author: "AG"
+author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
   html_document:
@@ -9,6 +9,7 @@ output:
     code_folding: hide
     df_print: paged
     toc: true
+    number_sections: true
     toc_float: true
     theme: cerulean 
     highlight: kate
@@ -16,22 +17,21 @@ output:
 
 ```{r, include=F}
 knitr::opts_chunk$set(fig.width=10, fig.height=5)
-```
-
-This notebook relies on results from *make_repeat_tables.py* that creates tables which contain coordinates of repeat for each strain and each resistance gene
-
-UPDATE: other results will also be here
-
-# Make a table of all repeat tables
-
-```{r, message = FALSE, warning = FALSE, cache=TRUE}
-# a new way of getting repeat data frame across all strains
 library(dplyr)
 library(tidyr)
 library(plotly)
 library(ggplot2)
 library(ggpubr)
+```
 
+This notebook relies on results from *make_repeat_tables.py* that creates tables with coordinates of repeats for each strain and each resistance gene
+
+UPDATE: other predictor-related analysis will also be here.
+
+# Make a table of all repeat tables
+
+```{r, message = FALSE, warning = FALSE, cache=TRUE}
+# a new way of getting repeat data frame across all strains
 strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
 repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
 
@@ -562,10 +562,12 @@ ggbox.rl.ab
 
 Remove RGs that have SNP as a cause of resistance
 
-```{r, eval=FALSE}
+```{r, cache=TRUE}
 rg_df_notLoose_noSNP <- rg_df_notLoose %>%
   filter(is.na(SNPs_in_Best_Hit_ARO))
 ```
+
+Number of observations: `r nrow(rg_df_notLoose_noSNP)`
 
 ### Number of entries in Drug.Class
 
@@ -589,9 +591,10 @@ ab_counts_df
 ```{r}
 ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
 ```
+
 ### Repeat counts per AB group
 
-```{r}
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
 rg_ab_found_df <- add_rgi_to_ab(ab_found, rg_df_notLoose_noSNP)
 counts_per_ab <- join_RGI_repeatCounts(rg_ab_found_df, repeat_counts_gene_sample)
 ggbox.rep.n.ab.noSNP <- ggplot(count_per_ab, aes(strain.x, n_repeats)) +
@@ -604,6 +607,225 @@ ggbox.rep.n.ab.noSNP <- ggplot(count_per_ab, aes(strain.x, n_repeats)) +
   ggtitle("Repeat counts", subtitle = "SNPs removed")
 
 ggbox.rep.n.ab.noSNP
+```
+
+### AR length by AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+#repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
+# join
+repeat_df_center_ab_ar <- left_join(rg_ab_found_df, repeat_df %>% filter(spans_center == "yes"), by="record_id") %>% filter(!is.na(Drug.Class) & !is.na(spans_center))
+
+ggbox.ar.ab.noSNP <- ggplot(repeat_df_center_ab_ar, aes(strain.x, AR_length)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("AR size variation", subtitle = "SNPs removed")
+
+ggbox.ar.ab.noSNP
+```
+
+### Repeat lengths variation by AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+ggbox.rl.ab.noSNP <- ggplot(repeat_df_center_ab_ar, aes(strain.x, length)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat size variation", subtitle = "SNPs removed")
+
+ggbox.rl.ab.noSNP
+```
+
+## Filter out efflux and AB alteration genes
+
+In RGI results I have the following resistance mechanisms:
+
+```{r}
+unique(rg_df_notLoose$Resistance.Mechanism)
+```
+
+'efflux' and 'alteration' often go together
+
+I remove all rows in RGI results which contain word *efflux* and *alteration* in Resistance.Mechanism
+
+```{r, cache=TRUE}
+rg_df_notLoose_noEfflux <- rg_df_notLoose %>% 
+  filter(!grepl("efflux", Resistance.Mechanism)) %>% 
+  filter(!grepl("alteration", Resistance.Mechanism))
+```
+
+Number of observations: `r nrow(rg_df_notLoose_noEfflux)`
+
+Number of observations with SNPs: `r sum(!is.na(rg_df_notLoose_noEfflux$SNPs_in_Best_Hit_ARO))` (should be 0)
+
+### Number of entries in Drug.Class
+
+```{r}
+unique(rg_df_notLoose_noEfflux$Drug.Class)
+```
+
+### Number of entries per AB group
+
+```{r}
+ab_counts_vec <- sapply(ab_groups, function (x){
+  filter(rg_df_notLoose_noEfflux, grepl(x, Drug.Class, ignore.case = TRUE)) %>% nrow()
+})
+
+ab_counts_df <- data.frame("count" = ab_counts_vec, "AB.group" = names(ab_counts_vec))
+rownames(ab_counts_df) <- NULL
+
+ab_counts_df
+```
+
+```{r}
+ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
+```
+
+### Repeat counts per AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+rg_ab_found_df <- add_rgi_to_ab(ab_found, rg_df_notLoose_noEfflux)
+counts_per_ab <- join_RGI_repeatCounts(rg_ab_found_df, repeat_counts_gene_sample)
+
+ggbox.rep.n.ab.noEfflux <- ggplot(count_per_ab, aes(strain.x, n_repeats)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat counts", subtitle = "Efflux and alteration removed")
+
+ggbox.rep.n.ab.noEfflux
+```
+
+### AR length by AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+#repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
+# join
+repeat_df_center_ab_ar <- left_join(rg_ab_found_df, repeat_df %>% 
+                                      filter(spans_center == "yes"), by="record_id") %>% 
+  filter(!is.na(Drug.Class) & !is.na(spans_center))
+
+ggbox.ar.ab.noEfflux <- ggplot(repeat_df_center_ab_ar, aes(strain.x, AR_length)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("AR size variation", subtitle = "Efflux and alteration removed")
+
+ggbox.ar.ab.noEfflux
+```
+
+### Repeat lengths variation by AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+ggbox.rl.ab.noEfflux <- ggplot(repeat_df_center_ab_ar, aes(strain.x, length)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat size variation", subtitle = "Efflux and alteration removed")
+
+ggbox.rl.ab.noEfflux
+```
+
+
+## Only AB modification
+
+Leave only observations with *target inactivation* as resistance mechanism
+
+```{r, cache=TRUE}
+rg_df_notLoose_Tinact <- rg_df_notLoose %>% 
+  filter(grepl("inactivation", Resistance.Mechanism))
+```
+
+Number of observations: `r nrow(rg_df_notLoose_Tinact)`
+
+### Number of entries in  Drug.Class
+
+```{r}
+unique(rg_df_notLoose_Tinact$Drug.Class)
+```
+
+### Number of entries per AB group
+
+```{r}
+ab_counts_vec <- sapply(ab_groups, function (x){
+  filter(rg_df_notLoose_Tinact, grepl(x, Drug.Class, ignore.case = TRUE)) %>% nrow()
+})
+
+ab_counts_df <- data.frame("count" = ab_counts_vec, "AB.group" = names(ab_counts_vec))
+rownames(ab_counts_df) <- NULL
+
+ab_counts_df
+```
+
+```{r}
+ab_found <- names(ab_counts_vec[ab_counts_vec != 0])
+```
+
+### Repeat counts per AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+rg_ab_found_df <- add_rgi_to_ab(ab_found, rg_df_notLoose_Tinact)
+counts_per_ab <- join_RGI_repeatCounts(rg_ab_found_df, repeat_counts_gene_sample)
+
+ggbox.rep.n.ab.Tinact <- ggplot(count_per_ab, aes(strain.x, n_repeats)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat counts", subtitle = "Only 'AB inactivation'")
+
+ggbox.rep.n.ab.Tinact
+```
+
+### AR length by AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+#repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
+# join
+repeat_df_center_ab_ar <- left_join(rg_ab_found_df, repeat_df %>% 
+                                      filter(spans_center == "yes"), by="record_id") %>% 
+  filter(!is.na(Drug.Class) & !is.na(spans_center))
+
+ggbox.ar.ab.Tinact <- ggplot(repeat_df_center_ab_ar, aes(strain.x, AR_length)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("AR size variation", subtitle =  "Only 'AB inactivation'")
+
+ggbox.ar.ab.Tinact
+```
+
+### Repeat lengths variation by AB group
+
+```{r, cache=TRUE, warning = F, message = F, fig.width = 12}
+ggbox.rl.ab.Tinact <- ggplot(repeat_df_center_ab_ar, aes(strain.x, length)) +
+  geom_boxplot(aes(fill=AB.group), outlier.alpha = 0.5, outlier.size = 0.5)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette="Set2", name="AB\ngroups") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "top")+
+  xlab("") +
+  ylab("n") +
+  ggtitle("Repeat size variation", subtitle =  "Only 'AB inactivation'")
+
+ggbox.rl.ab.Tinact
 ```
 
 ## NB
@@ -796,7 +1018,7 @@ ggbox.rl.ab.100 <- ggplot(ab_res_repeat_df %>% filter(length >= 100), aes(AB , l
   coord_trans(y="log") +
   facet_grid(spans_center ~ .) +
   scale_fill_brewer(palette = "Set2") +
-  ggtitle("Repeat length", subtitle="Repeats shorter than 100 bp were removed")+
+  ggtitle("Repeat length", subtitle="Repeats longer than 100 bp only")+
   ylab("length") +
   xlab("antibiotic")
 
@@ -822,9 +1044,9 @@ ggbox.arlen.res <- ggplot(ab_res_repeat_df, aes(AB , AR_length)) +
 ggbox.arlen.res
 ```
 
-#### Repeats longer than 100 bp
+#### For repeats longer than 100 bp
 
-```{r, fig.width = 10, fig.height = 5}
+```{r, fig.width = 10, fig.height = 5, message=FALSE, warning=FALSE}
 ggbox.arlen.res.100 <- ggplot(ab_res_repeat_df %>% filter(length >= 100), aes(AB , AR_length)) +
   geom_boxplot(aes(fill=condition), notch=T, outlier.size = 0.5, outlier.alpha = 0.5) +
   coord_trans(y="sqrt") +
@@ -852,6 +1074,8 @@ ab_res_rep_count <- ab_res_repeat_df %>%
 ab_res_rep_count
 ```
 
+#### All
+
 Boxplot
 
 ```{r, warning = F, message = F, fig.width = 10, fig.height = 5}
@@ -859,12 +1083,13 @@ ggbox.rc.res <- ggplot(ab_res_rep_count, aes(AB, n)) +
         geom_boxplot(aes(fill = condition), notch=F) +
         coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2")
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat count") 
 
 ggbox.rc.res
 ```
 
-#### Longer than 100 bp
+#### Repeats longer than 100 bp
 
 Prepare the data
 
@@ -885,7 +1110,8 @@ ggbox.rc.res.100 <- ggplot(ab_res_rep_count.100, aes(AB, n)) +
         geom_boxplot(aes(fill = condition), notch=F) +
         coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2")
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat count", subtitle="Repeats longer than 100 bp only")
 
 ggbox.rc.res.100
 ```
