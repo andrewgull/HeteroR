@@ -1,0 +1,74 @@
+---
+title: "Feature Engineering"
+author: "by A.G."
+date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
+output:
+  html_notebook:
+    fig_width: 10
+    fig_height: 6
+    code_folding: hide
+    df_print: paged
+    toc: true
+    number_sections: true
+    toc_float: true
+    theme: cerulean 
+    highlight: kate
+---
+
+```{r, include=F}
+knitr::opts_chunk$set(fig.width=10, fig.height=5)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(ggplot2)
+library(ggpubr)
+```
+
+This is a notebook for creating various features and their exploration
+
+# Make the main table
+
+Which will contain all features and will be suitable for EDA
+
+It should contain the following variables:
+
+ - repeat length, 
+ - repeat counts, 
+ - AR length, 
+ - center spanning, 
+ - within gene location (of a repeat), 
+ - distance to oriC,
+ - density of matches,
+ - IS presence (?),
+ - IS length (=activity)
+ - number of plasmids,
+ - number of plasmids carrying RGs with repeats,
+ - is an RG located on a plasmid,
+ - "the black box" of AR
+ 
+Its tidy structure should look like this:
+
+Each strain contains:
+
+  - 1 value for plasmid count, 
+  - 1 value for a number plasmids carrying RGs
+  - hundreds of genes; each gene (e.g. region) contains:
+  
+    - 1 distance to oriC, 
+    - 1 density value, 
+    - 'on a plasmid' label,
+    - 1 value for IS count,
+    - value for max IS length
+    - a lot of repeat pairs; each repeat pair has:
+    
+        - 1 AR length, 
+        - 1 AR black box vector
+        - 1 repeat length, 
+        - 1 center spanning label, 
+        - 'inside the gene' label, 
+ 
+```{r}
+
+```
+ 
+ 
