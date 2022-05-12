@@ -3,20 +3,26 @@ title: "Feature Engineering"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
-  html_notebook:
+  html_document:
+    toc: yes
+    df_print: paged
+    code_folding: hide
     fig_width: 10
     fig_height: 6
-    code_folding: hide
+    theme: cerulean
+    highlight: kate
+    toc_float: yes
+  html_notebook:
     df_print: paged
-    toc: true
-    number_sections: true
-    toc_float: true
-    theme: cerulean 
+    toc: yes
+    number_sections: yes
+    toc_float: yes
+    theme: cerulean
     highlight: kate
 ---
 
 ```{r, include=F}
-knitr::opts_chunk$set(fig.width=10, fig.height=5)
+knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F)
 library(dplyr)
 library(tidyr)
 library(plotly)
@@ -26,49 +32,235 @@ library(ggpubr)
 
 This is a notebook for creating various features and their exploration
 
-# Make the main table
+# Structure of the main table
 
 Which will contain all features and will be suitable for EDA
 
 It should contain the following variables:
 
- - repeat length, 
- - repeat counts, 
- - AR length, 
- - center spanning, 
- - within gene location (of a repeat), 
- - distance to oriC,
- - density of matches,
- - IS presence (?),
- - IS length (=activity)
- - number of plasmids,
- - number of plasmids carrying RGs with repeats,
- - is an RG located on a plasmid,
- - "the black box" of AR
- 
+-   repeat length,
+-   repeat counts,
+-   AR length,
+-   center spanning,
+-   within gene location (of a repeat),
+-   distance to oriC,
+-   density of matches,
+-   IS presence (?),
+-   IS length (=activity)
+-   number of plasmids,
+-   number of plasmids carrying RGs with repeats,
+-   is an RG located on a plasmid,
+-   "the black box" of AR
+
 Its tidy structure should look like this:
 
 Each strain contains:
 
-  - 1 value for plasmid count, 
-  - 1 value for a number plasmids carrying RGs
-  - hundreds of genes; each gene (e.g. region) contains:
-  
-    - 1 distance to oriC, 
-    - 1 density value, 
-    - 'on a plasmid' label,
-    - 1 value for IS count,
-    - value for max IS length
-    - a lot of repeat pairs; each repeat pair has:
-    
-        - 1 AR length, 
-        - 1 AR black box vector
-        - 1 repeat length, 
-        - 1 center spanning label, 
-        - 'inside the gene' label, 
- 
-```{r}
+-   [x] 1 AB label
+
+-   [x] 1 resistance label
+
+-   [x] 1 value for plasmid count,
+
+-   [ ] 1 value for a number plasmids carrying RGs,
+
+-   [x] 1 value for repeat count,
+
+-   [ ] 1 value for repeat count adjusted by number of plasmids,
+
+-   [x] hundreds of genes; each gene (e.g. region) contains:
+
+    -   [ ] 1 distance to oriC,
+
+    -   [ ] 1 density value,
+
+    -   [ ] 'on a plasmid' label,
+
+    -   [x] 1 value for repeat count,
+
+    -   [ ] 1 value for IS count,
+
+    -   [ ] value for max IS length,
+
+    -   [ ] RGI resistance mechanism,
+
+    -   [ ] RGI resistance SNP,
+
+    -   [ ] RGI other SNP,
+
+    -   [ ] RGI cut-off,
+
+    -   [ ] RGI best identities,
+
+    -   [ ] RGI AMR gene family,
+
+    -   [ ] RGI Model type,
+
+    -   [ ] RGI Drug class,
+
+    -   [ ] RGI ORF ID,
+
+    -   [ ] RGI Percentage Length of Reference Sequence,
+
+    -   [x] a lot of repeat pairs; each repeat pair has:
+
+        -   [x] 1 AR length,
+        -   [ ] 1 AR black box vector
+        -   [x] 1 repeat length,
+        -   [x] 1 center spanning label,
+        -   [ ] 'inside the gene' label,
+
+# Making a table with features
+
+## Table with repeats
+
+This one will a basic table for the rest of the analysis.
+
+To build this table anew run the code chunk below (its evaluation is OFF by default)
+
+```{r, eval=FALSE}
+# a new way of getting repeat data frame across all strains
+strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
+repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
+
+repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x){read.csv(x)}))
+# calculate AR length
+repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1
+
+# read bed files to determine center spanning repeat pairs
+bed_df <- bind_rows(lapply(strains, function (x){
+  filename <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
+  df <- read.delim(filename, header=FALSE)
+  return(df)
+}))
+
+bed_df$gene_center <- round((bed_df$V3 - bed_df$V2 + 1)/2)
+bed_df <- rename(bed_df, "record_id"=V4)
+bed_df <- select(bed_df, record_id, gene_center)
+
+# join the two tables
+repeat_df <- full_join(bed_df, repeat_df, by="record_id")
+repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
 
 ```
- 
- 
+
+Or read it from the file *repeat_summary_table.csv* that was made during analysis in `repeat_summary.Rmd`
+
+It contains strains, gene names, repeat coordinates, repeat lengths, AR lengths and 'spans center' label.
+
+Each gene name (aka record_id) is unique.
+
+```{r}
+repeat_df <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/repeats_summary_table.csv")) %>% 
+  select(-c(X.1, X)) %>% 
+  relocate(strain, .before=record_id)
+
+repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
+```
+
+## Add repeat counts
+
+To each gene - repeats number in region around this gene
+
+To each strain - total repeat count
+
+```{r}
+repeat_counts_strain <- repeat_df %>% group_by(strain) %>% summarise("n_repeats_strain"=n())
+repeat_counts_gene <- repeat_df %>% group_by(record_id) %>% summarise("n_repeats_gene"=n())
+# join 
+features <- left_join(repeat_df, repeat_counts_strain, by="strain")
+features <- left_join(features, repeat_counts_gene, by="record_id")
+
+features
+```
+
+## Add AB testing data
+
+### Read and process AB testing table
+
+```{r}
+resistance_df <- as_tibble(read.csv("/home/andrei/Data/HeteroR/resources/resistance_testing.csv", na.strings = ""))
+resistance_df <- select(resistance_df, contains("SIR") | contains("strain"))
+names(resistance_df) <- sub(".SIR", "", names(resistance_df))
+resistance_df
+```
+
+### Make a tidy version
+
+```{r}
+resistance_df_td <- gather(resistance_df, key="AB", value="resistance", 1:8)
+resistance_df_td$AB <- as.factor(resistance_df_td$AB)
+resistance_df_td$resistance <- factor(resistance_df_td$resistance, ordered=T, levels = c("S", "I", "R"))
+```
+
+I'm not sure which version (regular or tidy) to add to `features`
+
+To use AB and results of testing in plots I need a tidy version
+
+### Add tidy version to features
+
+```{r}
+features <- left_join(features, resistance_df_td, by="strain")
+```
+
+**OBS!** Now `features` contain `r nrow(features)` rows.
+
+## Number of plasmids
+
+Per strain
+
+Info on plasmids is in tables `summary.tsv` in `results/assemblies_joined` and it has been collected in `genome_assembly_summary.Rmd`
+
+To build the table anew run the following chunk of code (by default its evaluation is OFF)
+
+```{r, eval=FALSE}
+summary_files <- dir(path="/home/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
+summary_table <- lapply(summary_files, function(x){
+  df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/assemblies_joined/", x), stringsAsFactors = TRUE)
+  df$Links <- as.integer(gsub(",", "", df$Links, fixed=TRUE))
+  df$Length <- as.integer(gsub(",", "", df$Length, fixed=TRUE))
+  df$N50 <- as.integer(gsub(",", "", df$N50, fixed=TRUE))
+  df$Longest_component <- as.integer(gsub(",", "", df$Longest_component, fixed=TRUE))
+  return(df)
+  })
+
+summary_table <- bind_rows(summary_table)
+```
+
+Or read the table from a file:
+
+```{r}
+assembly_summary <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")) %>% select(-X)
+
+plasmid_counts <- assembly_summary %>% group_by(Strain, Type) %>% 
+  summarise(n_plasmids=n()) %>% 
+  filter(Type=="Plasmid") %>% 
+  select(-Type) %>% 
+  rename("strain"=Strain)
+```
+
+and add it to `features`
+
+```{r}
+features <- left_join(features, plasmid_counts, by="strain")
+```
+
+Make a plot
+
+```{r}
+ggplot(features %>% filter(!is.na(resistance)) %>% filter(resistance !="I"), aes(AB, n_plasmids)) + 
+  geom_boxplot(aes(fill=resistance), notch=T) +
+  scale_fill_brewer(palette = "Set2") +
+  coord_trans(y="sqrt") +
+  xlab("")+
+  ylab("n") +
+  ggtitle("Plasmid number")
+```
+
+------------------------------------------------------------------------
+
+# Save the workspace
+
+```{r, eval=FALSE}
+save.image(f="/home/andrei/Data/HeteroR/notebooks/features.RData")
+```
