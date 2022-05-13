@@ -34,7 +34,14 @@ summary_table <- lapply(summary_files, function(x){
 
 
 summary_table <- bind_rows(summary_table)
-# replace commas in Length, N50 and Longest component
+
+# add wet-lab-biologist-readable Status
+status_new <- sub("incomplete", "linear", summary_table$Status)
+status_new <- sub("complete", "circular", status_new)
+status_new <- sub("scaffold", "additional_plasmid", status_new)
+status_new <- factor(status_new, levels = c("circular", "linear", "additional_plasmid"))
+
+summary_table$Status2 <- status_new
 
 write.csv(summary_table, "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")
 ```
@@ -140,13 +147,13 @@ fig
 ## Number of complete and incomplete segments per strain
 
 ```{r, warning = FALSE, message = FALSE, fig.width=12}
-complete_incomplete <- summary_table %>% group_by(Strain, Status) %>% summarise(Count = n())
+complete_incomplete <- summary_table %>% group_by(Strain, Status2) %>% summarise(Count = n())
 
 bar_complete <- plot_ly(data = complete_incomplete,
   x = ~Strain,
   y = ~Count,
   type = "bar",
-  color = ~Status
+  color = ~Status2
 )
 
 bar_complete <- bar_complete %>% layout(yaxis = list(title='Count'), barmode='stack', legend = list(title=list(text='<b> Assembly type </b>')), title = "Number of assembly types per strain") 
