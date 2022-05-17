@@ -45,6 +45,7 @@ It should contain the following variables:
 -   within gene location (of a repeat),
 -   distance to oriC,
 -   density of matches,
+-   density of RG (they often go together)
 -   IS presence (?),
 -   IS length (=activity)
 -   number of plasmids,
@@ -207,7 +208,7 @@ features <- left_join(features, resistance_df_td, by="strain")
 
 ## Number of plasmids
 
-Per strain
+Per strain 
 
 Info on plasmids is in tables `summary.tsv` in `results/assemblies_joined` and it has been collected in `genome_assembly_summary.Rmd`
 
@@ -229,9 +230,14 @@ summary_table <- bind_rows(summary_table)
 
 Or read the table from a file:
 
-```{r}
+```{r, eval=TRUE}
 assembly_summary <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")) %>% select(-X)
 
+```
+
+Get plasmid counts
+
+```{r}
 plasmid_counts <- assembly_summary %>% group_by(Strain, Type) %>% 
   summarise(n_plasmids=n()) %>% 
   filter(Type=="Plasmid") %>% 
@@ -239,23 +245,102 @@ plasmid_counts <- assembly_summary %>% group_by(Strain, Type) %>%
   rename("strain"=Strain)
 ```
 
+
 and add it to `features`
 
 ```{r}
 features <- left_join(features, plasmid_counts, by="strain")
+head(features)
 ```
 
-Make a plot
+## Add RGI annotations
+
+Add RGI annotations to features table
 
 ```{r}
+
+```
+
+
+## Filtering RGI results
+
+Criteria:
+
+1.
+
+2.
+
+3.
+
+# Plotting features
+
+## Number of plasmids
+
+```{r, fig.width=10, fig.height=4}
 ggplot(features %>% filter(!is.na(resistance)) %>% filter(resistance !="I"), aes(AB, n_plasmids)) + 
-  geom_boxplot(aes(fill=resistance), notch=T) +
+  geom_boxplot(aes(fill=resistance), notch=T, outlier.alpha = 0.5, outlier.size = 0.5) +
   scale_fill_brewer(palette = "Set2") +
   coord_trans(y="sqrt") +
   xlab("")+
   ylab("n") +
   ggtitle("Plasmid number")
 ```
+
+## Repeat count
+
+Repeats longer than 100 bp
+
+```{r, fig.width=10, fig.height=5}
+ggbox.rc.ab.100 <- ggplot(features %>% 
+                            filter(!is.na(resistance)) %>% 
+                            filter(resistance != "I") %>% 
+                            filter(length>=100), aes(AB, n_repeats_strain)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        coord_trans(y="sqrt") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat count", subtitle="Repeats > 100 bp")
+
+ggbox.rc.ab.100
+```
+
+## Repeat length
+
+Repeats longer than 100 bp
+
+```{r, fig.width=10, fig.height=5}
+ggbox.rl.ab.100 <- ggplot(features %>% 
+                            filter(!is.na(resistance)) %>% 
+                            filter(resistance != "I") %>% 
+                            filter(length>=100), aes(AB, length)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        coord_trans(y="log") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat length", subtitle="Repeats > 100 bp")
+
+ggbox.rl.ab.100
+```
+
+## AR length
+
+For repeats longer than 100 bp
+
+```{r, fig.width=10, fig.height=5}
+ggbox.arl.ab.100 <- ggplot(features %>% 
+                            filter(!is.na(resistance)) %>% 
+                            filter(resistance != "I") %>% 
+                            filter(length>=100), aes(AB, AR_length)) +
+        geom_boxplot(aes(fill = resistance), notch=T, outlier.alpha = 0.5, outlier.size = 0.5) +
+        coord_trans(y="sqrt") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="AR length", subtitle="Repeats > 100 bp")
+
+ggbox.arl.ab.100
+
+```
+
 
 ------------------------------------------------------------------------
 
