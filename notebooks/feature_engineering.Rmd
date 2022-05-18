@@ -250,6 +250,8 @@ and add it to `features`
 
 ```{r}
 features <- left_join(features, plasmid_counts, by="strain")
+# NA in n_plasmids means 0
+features$n_plasmids <- ifelse(is.na(features$n_plasmids), 0, features$n_plasmids)
 head(features)
 ```
 
@@ -341,6 +343,58 @@ ggbox.arl.ab.100
 
 ```
 
+log-reg model
+
+```{r}
+AMP.100.span <- features %>% filter(!is.na(resistance)) %>%
+  filter(resistance != "I") %>%
+  filter(length>=100) %>%
+  filter(spans_center == "yes") %>%
+  filter(AB=="AMP")
+
+fit.arl.AMP <- glm(resistance ~ AR_length, data=AMP.100.span, family = "binomial")
+
+summary(fit.arl.AMP)
+```
+
+R-squared
+
+```{r}
+rsquared <- function(created_model) {
+  dev <- created_model$deviance
+  null_dev <- created_model$null.deviance
+  model_n <- length(created_model$fitted.values)
+  R_l <- 1 - dev / null_dev
+  R_cs <- 1 - exp(-(null_dev - dev) / model_n)
+  R_n <- R_cs / (1 - exp(-(null_dev / model_n)))
+  cat("Pseudo R-squared for logistic regression model\n\n")
+  cat("Hosmer and Lemeshow R-squared\t", round(R_l, 3), "\n")
+  cat("Cox and Snell R-squared\t\t\t", round(R_cs, 3), "\n")
+  cat("Nagelkerke R-squared\t\t\t\t", round(R_n, 3), "\n")
+}
+
+rsquared(fit.arl.AMP)
+```
+
+## Model R ~ AR*RepCount*RepLength
+
+```{r}
+fit.AMP <- glm(resistance ~ AR_length*n_repeats_strain*length*n_plasmids, data=AMP.100.span, family = "binomial")
+summary(fit.AMP)
+```
+
+R-squared
+
+```{r}
+rsquared(fit.AMP)
+```
+
+Model validation
+
+```{r}
+pairs(~ AR_length + n_repeats_strain + length, data=AMP.100.span)
+plot(fit.arl.rc.rl.AMP)
+```
 
 ------------------------------------------------------------------------
 
