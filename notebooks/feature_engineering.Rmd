@@ -60,13 +60,17 @@ Each strain contains:
 -   [x] 1 AB label
 
 -   [x] 1 resistance label
+-   [ ] 1 label for presence of an RG
 
 -   [x] 1 value for plasmid count,
 
 -   [ ] 1 value for a number plasmids carrying RGs,
 
--   [x] 1 value for repeat count,
-
+-   [x] repeat count with min 100
+-   [ ] repeat count with min 500
+-   [ ] median repeat length with min 100
+-   [ ] median repeat length with min 500
+-   [ ] maximum repeat length
 -   [ ] 1 value for repeat count adjusted by number of plasmids,
 
 -   [x] hundreds of genes; each gene (e.g. region) contains:
