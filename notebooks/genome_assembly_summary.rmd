@@ -14,11 +14,21 @@ output:
       highlight: github
 ---
 
+```{r, include=F}
+knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(ggplot2)
+library(purrr)
+library(GGally)
+library(caret)
+#library(ggpubr)
+```
+
 # Assemblies summary table
 
 ```{r, message = FALSE, warning = FALSE}
-library(dplyr)
-
 # just in case
 setwd("/home/andrei/Data/HeteroR/notebooks")
 
@@ -70,6 +80,129 @@ Total number of strains `r length(unique(summary_table$Strain))`
 
 Number of strains with at least one incomplete assembly `r length(unique(incomplete_assemblies$Strain))`
 
+## Circular vs Coverage
+
+Is coverage affecting circularity?
+
+To calculate coverage use script `coverage.py`
+
+```{bash, eval=FALSE}
+# cd Data/HeteroR
+workflow/scripts/coverage.py strains414.txt 5131220 coverage_414.tsv raw
+
+# Batch coverage:
+# min = 0.871354
+# avg = 59.095106
+# max = 352.535841
+# Coverage ~25x or less is sparse, good for Unicycler.
+# Now you can create config and run the pipeline
+
+```
+
+## Data 
+
+Read and process coverage data
+
+```{r}
+coverage <- read.delim("~/Data/HeteroR/results/coverage/coverage_414.tsv")
+coverage$Strain <- map_chr(coverage$file, function(x) strsplit(x, "/")[[1]][3])
+coverage <- select(coverage, -c(file, type, format)) %>% filter(!is.na(Strain))
+```
+
+Join with summary
+
+```{r}
+summary_table <- left_join(summary_table, coverage, by="Strain")
+summary_table
+```
+
+
+Is circular == complete? Yes
+
+```{r}
+summary_table %>% filter(Status=="incomplete" & Status2 == "circular")
+```
+
+### Plots
+
+#### Pairs plot
+
+```{r, fig.width=12, fig.height=12}
+summary_num_scaled <- as.data.frame(
+  scale(
+    summary_table %>% 
+          filter(Status2 != "additional_plasmid") %>% 
+          select(names(summary_table)[c(2,3,4,5,6,11,12,13,14,15,16)])
+    ))
+
+ggpairs(summary_num_scaled)
+```
+
+Find linear combos
+
+```{r}
+findLinearCombos(summary_num_scaled)
+```
+
+
+#### Circularity vs Coverage
+
+```{r, fig.width=9, fig.height=4}
+ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, coverage)) +
+  geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+Coverage as well as Type may be good predictors for Circularity
+
+#### Circularity vs Longest component
+
+```{r, fig.width=9, fig.height=4}
+ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, Longest_component)) +
+  geom_boxplot(aes(fill=Type), notch=F, varwidth = T) +
+  coord_trans(y="log") +
+  scale_fill_brewer(palette = "Set2")
+```
+
+#### Circularity vs max length
+
+```{r, fig.width=9, fig.height=4}
+ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, max_len)) +
+  geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+
+### Model
+
+```{r}
+rsquared <- function(created_model) {
+  dev <- created_model$deviance
+  null_dev <- created_model$null.deviance
+  model_n <- length(created_model$fitted.values)
+  R_l <- 1 - dev / null_dev
+  R_cs <- 1 - exp(-(null_dev - dev) / model_n)
+  R_n <- R_cs / (1 - exp(-(null_dev / model_n)))
+  cat("Pseudo R-squared for logistic regression model\n\n")
+  cat("Hosmer and Lemeshow R-squared\t", round(R_l, 3), "\n")
+  cat("Cox and Snell R-squared\t\t\t", round(R_cs, 3), "\n")
+  cat("Nagelkerke R-squared\t\t\t\t", round(R_n, 3), "\n")
+}
+
+
+fit.coverage <- glm(Status2 ~ coverage + Type, data = summary_table %>% filter(Status2 != "additional_plasmid"), family="binomial")
+summary(fit.coverage)
+```
+
+R-squared
+
+```{r}
+rsquared(fit.coverage)
+```
+
+
 
 ## Number of plasmids per strain
 
@@ -88,8 +221,6 @@ Could not find any plasmids in `r length(unique(summary_table$Strain)) - length(
 **All following plots are interactive (zoomable, clickable and draggable), in case of problems reload the page**
 
 ```{r, message=FALSE, warning=FALSE, fig.width=12}
-library(plotly)
-
 plasmids_count <- arrange(plasmids_count, -Count)
 
 bar_plasmid <- plot_ly(
