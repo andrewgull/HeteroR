@@ -52,8 +52,6 @@ status_new <- sub("scaffold", "additional_plasmid", status_new)
 status_new <- factor(status_new, levels = c("circular", "linear", "additional_plasmid"))
 
 summary_table$Status2 <- status_new
-
-write.csv(summary_table, "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")
 ```
 
 Assembly summary information has been taken from Unicycler log files, total number of summary files `r length(summary_files)`
@@ -109,10 +107,11 @@ coverage$Strain <- map_chr(coverage$file, function(x) strsplit(x, "/")[[1]][3])
 coverage <- select(coverage, -c(file, type, format)) %>% filter(!is.na(Strain))
 ```
 
-Join with summary
+Join with summary and write results to a file
 
 ```{r}
 summary_table <- left_join(summary_table, coverage, by="Strain")
+write.csv(summary_table, "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")
 summary_table
 ```
 
@@ -125,25 +124,15 @@ summary_table %>% filter(Status=="incomplete" & Status2 == "circular")
 
 ### Plots
 
-#### Pairs plot
-
-```{r, fig.width=12, fig.height=12}
-summary_num_scaled <- as.data.frame(
-  scale(
-    summary_table %>% 
-          filter(Status2 != "additional_plasmid") %>% 
-          select(names(summary_table)[c(2,3,4,5,6,11,12,13,14,15,16)])
-    ))
-
-ggpairs(summary_num_scaled)
-```
 
 Find linear combos
 
-```{r}
+```{r, eval=F}
+require(caret)
 findLinearCombos(summary_num_scaled)
 ```
 
+It's too much
 
 #### Circularity vs Coverage
 
@@ -167,6 +156,10 @@ ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, L
 
 #### Circularity vs max length
 
+Ryan Wick writes the following:
+
+>... assuming that your reads are sufficiently long. Practically, this means longer than the longest repeat in the genome, as this will allow most assemblies to reach completion. For many bacterial genomes, the longest repeat will be the ribosomal RNA operon which is ~5.5 kbp, in which case a read N50 of 10 kbp is sufficient. However, some genomes have much longer repeats and will require longer reads. Overly-long reads rarely cause a problem, so you should aim for the longest reads you reasonably can.
+
 ```{r, fig.width=9, fig.height=4}
 ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, max_len)) +
   geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
@@ -174,34 +167,34 @@ ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, m
 
 ```
 
+#### Circularity and avg length
 
-### Model
+```{r, fig.width=9, fig.height=4}
+ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, avg_len)) +
+  geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
+  scale_fill_brewer(palette = "Set2")
 
-```{r}
-rsquared <- function(created_model) {
-  dev <- created_model$deviance
-  null_dev <- created_model$null.deviance
-  model_n <- length(created_model$fitted.values)
-  R_l <- 1 - dev / null_dev
-  R_cs <- 1 - exp(-(null_dev - dev) / model_n)
-  R_n <- R_cs / (1 - exp(-(null_dev / model_n)))
-  cat("Pseudo R-squared for logistic regression model\n\n")
-  cat("Hosmer and Lemeshow R-squared\t", round(R_l, 3), "\n")
-  cat("Cox and Snell R-squared\t\t\t", round(R_cs, 3), "\n")
-  cat("Nagelkerke R-squared\t\t\t\t", round(R_n, 3), "\n")
-}
-
-
-fit.coverage <- glm(Status2 ~ coverage + Type, data = summary_table %>% filter(Status2 != "additional_plasmid"), family="binomial")
-summary(fit.coverage)
 ```
 
-R-squared
+#### Circularity and N50
 
-```{r}
-rsquared(fit.coverage)
+```{r, fig.width=9, fig.height=4}
+ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, N50)) +
+  geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
+  scale_fill_brewer(palette = "Set2")
+
 ```
 
+## Numbers of assemblies with incomplete chromosomes
+
+To assemble with Trycycler
+
+```{r}
+summary_table %>% 
+  filter(Type=="Chromosome" & Status2 == "linear") %>% 
+  select(Strain, coverage) %>% 
+  arrange(-coverage)
+```
 
 
 ## Number of plasmids per strain
@@ -308,10 +301,7 @@ DA68966_summary <- summary_table %>% filter(Strain=="DA68966")
 DA68966_summary
 ```
 
-### DA68966 assembly graph
-
-![assembly graph](/home/andrei/Data/HeteroR/results/assemblies/DA68966/graph.png){width=100%}
-
+Very low coverage
 
 ## Summary table of plasmids assembled by SPAdes 
 
