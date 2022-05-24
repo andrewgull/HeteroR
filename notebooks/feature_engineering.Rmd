@@ -169,15 +169,67 @@ To each gene - repeats number in region around this gene
 
 To each strain - total repeat count
 
+### Based on all repeats
+
 ```{r}
-repeat_counts_strain <- repeat_df %>% group_by(strain) %>% summarise("n_repeats_strain"=n())
-repeat_counts_gene <- repeat_df %>% group_by(record_id) %>% summarise("n_repeats_gene"=n())
+repeat_counts_strain <- repeat_df %>% 
+  group_by(strain) %>% 
+  summarise("n_repeats_strain"=n())
+
+repeat_counts_gene <- repeat_df %>% 
+  group_by(record_id) %>% 
+  summarise("n_repeats_gene"=n())
+
 # join 
 features <- left_join(repeat_df, repeat_counts_strain, by="strain")
 features <- left_join(features, repeat_counts_gene, by="record_id")
 
+features <- rename(features, "repeat_length"=length)
+
 features
 ```
+
+### Based on repeats > 100 bp
+
+```{r}
+repeat_counts_strain_100 <- repeat_df %>% 
+  filter(length >= 100) %>% 
+  group_by(strain) %>% 
+  summarise("n_repeats_strain_min100"=n())
+
+repeat_counts_gene_100 <- repeat_df %>% 
+  filter(length >= 100) %>% 
+  group_by(record_id) %>% 
+  summarise("n_repeats_gene_min100"=n())
+
+# join 
+features <- left_join(features, repeat_counts_strain_100, by="strain")
+features <- left_join(features, repeat_counts_gene_100, by="record_id")
+
+features
+```
+
+
+### Based on repeats > 500 bp
+
+```{r}
+repeat_counts_strain_500 <- repeat_df %>% 
+  filter(length >= 500) %>% 
+  group_by(strain) %>% 
+  summarise("n_repeats_strain_min500"=n())
+
+repeat_counts_gene_500 <- repeat_df %>% 
+  filter(length >= 500) %>% 
+  group_by(record_id) %>% 
+  summarise("n_repeats_gene_min500"=n())
+
+# join 
+features <- left_join(features, repeat_counts_strain_500, by="strain")
+features <- left_join(features, repeat_counts_gene_500, by="record_id")
+
+features
+```
+
 
 ## Add AB testing data
 
@@ -304,6 +356,7 @@ n_RG <- rgi %>% group_by(strain) %>% summarize(n_res_genes=n())
 
 ggplot(n_RG, aes(n_res_genes))+ geom_histogram(fill="steelblue")
 ```
+
 ```{r}
 summary(n_RG$n_res_genes)
 ```
@@ -368,7 +421,7 @@ ggplot(n_RG_filt, aes(n_res_genes))+ geom_histogram(fill="steelblue")
 ```
 More filtering required!
 
-### Filtering Resistance.Mechanism
+### Filtering by Resistance.Mechanism
 
 How many resistance mechanisms do we have?
 
@@ -424,6 +477,7 @@ ggplot(n_RG_filt, aes(n_res_genes))+
   geom_histogram(fill="steelblue")+
   xlab("Number of RGs per strain")
 ```
+
 Summary
 
 ```{r}
@@ -454,7 +508,32 @@ Maybe you don't need some of the RGI columns in final `features` df...
 
 ```{r}
 features <- full_join(features, rgi_filt, by="record_id")
+# leave strain.x, remove strain.y
+features <- features %>% 
+  select(-strain.y) %>% 
+  rename("strain"=strain.x)
 ```
+
+### Remove features of excluded genes
+
+Since many genes were excluded from RGI results but their repeats, counts and AR stay in features,
+let's make `features_filtered` without these genes
+
+#### Remove rows in features without Resistance.Mechanism
+
+How many rows don't have resistance mechanisms (i.e. have been filtered outduring RGI filtering?)
+
+```{r}
+sum(is.na(features$Resistance.Mechanism))
+```
+
+
+```{r}
+features_filtered <- filter(features, !is.na(Resistance.Mechanism))
+features_filtered
+```
+
+380000 rows instead of 4,5 million
 
 
 # Plotting features
@@ -473,13 +552,21 @@ ggplot(features %>% filter(!is.na(resistance)) %>% filter(resistance !="I"), aes
 
 ## Repeat count
 
-Repeats longer than 100 bp
+### Based on unfiltered features table
+
+We already know that repeats shorter than 100 mainly make noise
+
+#### Repeats longer than 100 bp
 
 ```{r, fig.width=10, fig.height=5}
-ggbox.rc.ab.100 <- ggplot(features %>% 
-                            filter(!is.na(resistance)) %>% 
-                            filter(resistance != "I") %>% 
-                            filter(length>=100), aes(AB, n_repeats_strain)) +
+# prepare df
+feat_selected <- features %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, n_repeats_strain_min100, spans_center) %>% 
+                   distinct()
+
+ggbox.rc.ab.100 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min100)) +
         geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
         coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
@@ -489,33 +576,86 @@ ggbox.rc.ab.100 <- ggplot(features %>%
 ggbox.rc.ab.100
 ```
 
-Repeats longer than 500 bp
+#### Repeats longer than 500 bp
 
 ```{r, fig.width=10, fig.height=5}
-ggbox.rc.ab.500 <- ggplot(features %>% 
-                            filter(!is.na(resistance)) %>% 
-                            filter(resistance != "I") %>% 
-                            filter(length>=500), aes(AB, n_repeats_strain)) +
+# prepare df
+feat_selected <- features %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, n_repeats_strain_min500, spans_center) %>% 
+                   distinct()
+
+
+ggbox.rc.ab.500 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min500)) +
         geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        
         facet_grid(spans_center ~ .) +
+        coord_trans(y="sqrt") +
         scale_fill_brewer(palette = "Set2") +
         ggtitle(label="Repeat count", subtitle="Repeats > 500 bp")
 
 ggbox.rc.ab.500
 ```
 
+### Based on filtered features table
+
+#### Repeats longer than 100 bp
+
+```{r, fig.width=10, fig.height=5}
+# prepare df
+feat_selected <- features_filtered %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, n_repeats_strain_min100, spans_center) %>% 
+                   distinct()
+
+ggbox.rc.ab.filt.100 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min100)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        coord_trans(y="sqrt") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat count", subtitle="Filtered RG, Repeats > 100 bp")
+
+ggbox.rc.ab.filt.100
+```
+
+#### Repeats longer than 500 bp
+
+```{r, fig.width=10, fig.height=5}
+# prepare df
+feat_selected <- features_filtered %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, n_repeats_strain_min500, spans_center) %>% 
+                   distinct()
+
+ggbox.rc.ab.filt.500 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min500)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        coord_trans(y="sqrt") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat count", subtitle="Filtered RG, Repeats > 500 bp")
+
+ggbox.rc.ab.filt.500
+```
+
+
 ## Repeat length
 
 Repeats longer than 100 bp
 
 ```{r, fig.width=10, fig.height=5}
-ggbox.rl.ab.100 <- ggplot(features %>% 
-                            filter(!is.na(resistance)) %>% 
-                            filter(resistance != "I") %>% 
-                            filter(length>=100), aes(AB, length)) +
+# prepare df
+feat_selected <- features %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, repeat_length, spans_center) %>% 
+                   filter(repeat_length >= 100) %>% 
+                   distinct()
+
+ggbox.rl.ab.100 <- ggplot(feat_selected, aes(AB, repeat_length)) +
         geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        coord_trans(y="log") +
+        coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2") +
         ggtitle(label="Repeat length", subtitle="Repeats > 100 bp")
@@ -526,10 +666,15 @@ ggbox.rl.ab.100
 Repeats longer than 500 bp
 
 ```{r, fig.width=10, fig.height=5}
-ggbox.rl.ab.500 <- ggplot(features %>% 
-                            filter(!is.na(resistance)) %>% 
-                            filter(resistance != "I") %>% 
-                            filter(length>=500), aes(AB, length)) +
+# prepare df
+feat_selected <- features %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, repeat_length, spans_center) %>% 
+                   filter(repeat_length >= 500) %>% 
+                   distinct()
+
+ggbox.rl.ab.500 <- ggplot(feat_selected, aes(AB, repeat_length)) +
         geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
         coord_trans(y="log") +
         facet_grid(spans_center ~ .) +
@@ -545,71 +690,23 @@ ggbox.rl.ab.500
 For repeats longer than 100 bp
 
 ```{r, fig.width=10, fig.height=5}
-ggbox.arl.ab.100 <- ggplot(features %>% 
-                            filter(!is.na(resistance)) %>% 
-                            filter(resistance != "I") %>% 
-                            filter(length>=100), aes(AB, AR_length)) +
-        geom_boxplot(aes(fill = resistance), notch=T, outlier.alpha = 0.5, outlier.size = 0.5) +
-        coord_trans(y="sqrt") +
+# prepare df
+feat_selected <- features %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, AR_length, repeat_length, spans_center) %>% 
+                   filter(repeat_length >= 100) %>% 
+                   distinct()
+
+ggbox.arl.ab.100 <- ggplot(feat_selected, aes(AB, AR_length)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2") +
         ggtitle(label="AR length", subtitle="Repeats > 100 bp")
 
 ggbox.arl.ab.100
 
-```
-
-log-reg model
-
-```{r}
-AMP.100.span <- features %>% filter(!is.na(resistance)) %>%
-  filter(resistance != "I") %>%
-  filter(length>=100) %>%
-  filter(spans_center == "yes") %>%
-  filter(AB=="AMP")
-
-fit.arl.AMP <- glm(resistance ~ AR_length, data=AMP.100.span, family = "binomial")
-
-summary(fit.arl.AMP)
-```
-
-R-squared
-
-```{r}
-rsquared <- function(created_model) {
-  dev <- created_model$deviance
-  null_dev <- created_model$null.deviance
-  model_n <- length(created_model$fitted.values)
-  R_l <- 1 - dev / null_dev
-  R_cs <- 1 - exp(-(null_dev - dev) / model_n)
-  R_n <- R_cs / (1 - exp(-(null_dev / model_n)))
-  cat("Pseudo R-squared for logistic regression model\n\n")
-  cat("Hosmer and Lemeshow R-squared\t", round(R_l, 3), "\n")
-  cat("Cox and Snell R-squared\t\t\t", round(R_cs, 3), "\n")
-  cat("Nagelkerke R-squared\t\t\t\t", round(R_n, 3), "\n")
-}
-
-rsquared(fit.arl.AMP)
-```
-
-## Model R ~ AR*RepCount*RepLength
-
-```{r}
-fit.AMP <- glm(resistance ~ AR_length*n_repeats_strain*length*n_plasmids, data=AMP.100.span, family = "binomial")
-summary(fit.AMP)
-```
-
-R-squared
-
-```{r}
-rsquared(fit.AMP)
-```
-
-Model validation
-
-```{r}
-pairs(~ AR_length + n_repeats_strain + length, data=AMP.100.span)
-plot(fit.arl.rc.rl.AMP)
 ```
 
 ------------------------------------------------------------------------
