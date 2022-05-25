@@ -157,10 +157,12 @@ The project home directory is `/home/andrei/Data/HetroR`
 ## How to run the analysis:
 
 1. mount ARGOS
-2. run `workflow/scripts/process_files.py` to transfer read files from ARGOS, rename them, calculate coverage and create config file.
-3. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
-4. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
-5. run the following command to produce a nice heatmap of resistance hits in your strains:
+2. get list of strains on ARGOS `ls /home/andrei/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains/ > strains_on_argos.txt`
+3. get list of strains to process `bash workflow/scripts/get_new_strains_list.sh strains_on_argos.txt > strains_to_process.txt`
+4. run `workflow/scripts/process_files.py -s strains_to_process.txt` to transfer read files from ARGOS, rename them, calculate coverage and create config file.
+5. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
+6. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
+7. run the following command to produce a nice heatmap of resistance hits in your strains:
    ```
    cd results/resistance_genes; 
    for D in DA*; do ln -s "/home/andrei/Data/HeteroR/results/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/results/resistance_genes/linked/"$D"_rgi_table.json"; done && 
