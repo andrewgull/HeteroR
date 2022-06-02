@@ -243,7 +243,7 @@ For *Strict* hits you may consider *Identity_percent* as another filtering crite
 
 ##### Distribution of Identity percentages before filtering
 
-```{r, message=F, fig.width=10, fig.height=5}
+```{r, message=F}
 hit.ident <-ggplot(rgi %>% select(Cut_Off, Best_Identities), aes(Best_Identities)) +
   geom_histogram(bins = 100, aes(fill=Cut_Off), alpha=0.8) +
   ggtitle("Distribution of identity percentages")
@@ -264,7 +264,7 @@ summary(rgi_filt$Best_Identities)
 
 Before filtering (except for Best_Identities) it looks like this
 
-```{r, fig.width=10, fig.height=5}
+```{r}
 hist.len <-ggplot(rgi_filt %>% select(Cut_Off, Percentage.Length.of.Reference.Sequence), aes(Percentage.Length.of.Reference.Sequence)) +
   geom_histogram(bins = 100, aes(fill=Cut_Off), alpha=0.8) +
   geom_rug(aes(color=Cut_Off))+
@@ -476,6 +476,26 @@ features_filtered <- left_join(features_filtered, repeat_counts_gene_500, by="re
 head(features_filtered)
 ```
 
+### Based on repeats > 1000 bp
+
+```{r}
+repeat_counts_strain_1000 <- repeat_df %>% 
+  filter(repeat_length >= 1000) %>% 
+  group_by(strain) %>% 
+  summarise("n_repeats_strain_min1000"=n())
+
+repeat_counts_gene_1000 <- repeat_df %>% 
+  filter(repeat_length >= 1000) %>% 
+  group_by(record_id) %>% 
+  summarise("n_repeats_gene_min1000"=n())
+
+# join 
+features_filtered <- left_join(features_filtered, repeat_counts_strain_1000, by="strain")
+features_filtered <- left_join(features_filtered, repeat_counts_gene_1000, by="record_id")
+
+head(features_filtered)
+```
+
 ## Add AB testing data
 
 ### Read and process AB testing table
@@ -516,7 +536,7 @@ Info on plasmids is in tables `summary.tsv` in `results/assemblies_joined` and i
 
 To build the table anew run the following chunk of code (by default its evaluation is OFF)
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 assembly_summary_files <- dir(path="/home/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
 assembly_summary <- lapply(assembly_summary_files, function(x){
   df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/assemblies_joined/", x), stringsAsFactors = TRUE)
@@ -533,14 +553,25 @@ assembly_summary
 
 Or read the table from a file:
 
-```{r, eval=TRUE}
+```{r, eval=FALSE}
 assembly_summary <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")) %>% 
   select(-X)
 
 assembly_summary
 ```
 
-Get plasmid counts
+### Calculate plasmid counts
+
+Take into account relative coverage of plasmids (i.e. number of copies), which can be found in an assembly header
+
+```{r, eval=FALSE}
+require(data.table)
+assembly_files <- dir(path="/home/andrei/Data/HeteroR/results/assemblies_joined", pattern="assembly.fasta$", recursive=T)
+fasta <- fread('grep ">" /home/andrei/Data/HeteroR/results/assemblies_joined/DA68925/assembly.fasta', fill=TRUE)
+sapply(fasta$V3, function(x){round(as.numeric(substr(x, 7, 10)))})
+
+```
+
 
 ```{r}
 plasmid_counts <- assembly_summary %>% group_by(Strain, Type) %>% 
@@ -575,7 +606,7 @@ ggplot(features_filtered %>%
   coord_trans(y="sqrt") +
   xlab("")+
   ylab("n") +
-  ggtitle("Plasmid number")
+  ggtitle("Plasmids count")
 ```
 
 ## Repeat count
@@ -597,7 +628,10 @@ ggbox.rc.ab.100 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min100)) +
         coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat count", subtitle="Repeats > 100 bp")
+        ggtitle(label="Repeat count", subtitle="Repeats > 100 bp")+
+        xlab("")+
+        ylab("")
+
 
 ggbox.rc.ab.100
 ```
@@ -618,9 +652,36 @@ ggbox.rc.ab.500 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min500)) +
         facet_grid(spans_center ~ .) +
         coord_trans(y="sqrt") +
         scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat count", subtitle="Repeats > 500 bp")
+        ggtitle(label="Repeat count", subtitle="Repeats > 500 bp")+
+        xlab("")+
+        ylab("")
+
 
 ggbox.rc.ab.500
+```
+
+### Repeats longer than 1000 bp
+
+```{r, fig.width=10, fig.height=5}
+# prepare df
+feat_selected <- features_filtered %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, n_repeats_strain_min1000, spans_center) %>% 
+                   distinct()
+
+
+ggbox.rc.ab.1000 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min1000)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        facet_grid(spans_center ~ .) +
+        coord_trans(y="sqrt") +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat count", subtitle="Repeats > 1000 bp")+
+        xlab("")+
+        ylab("")
+
+
+ggbox.rc.ab.1000
 ```
 
 ## Repeat length
@@ -641,7 +702,10 @@ ggbox.rl.ab.100 <- ggplot(feat_selected, aes(AB, repeat_length)) +
         coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat length", subtitle="Repeats > 100 bp")
+        ggtitle(label="Repeat length", subtitle="Repeats > 100 bp")+
+        xlab("")+
+        ylab("")
+
 
 ggbox.rl.ab.100
 ```
@@ -662,15 +726,41 @@ ggbox.rl.ab.500 <- ggplot(feat_selected, aes(AB, repeat_length)) +
         coord_trans(y="log") +
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat length", subtitle="Repeats > 500 bp")
+        ggtitle(label="Repeat length", subtitle="Repeats > 500 bp")+
+        xlab("")+
+        ylab("")
+
 
 ggbox.rl.ab.500
 ```
 
+### Repeats longer than 1000 bp
 
-## AR length
+```{r, fig.width=10, fig.height=5}
+# prepare df
+feat_selected <- features_filtered %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, repeat_length, spans_center) %>% 
+                   filter(repeat_length >= 1000) %>% 
+                   distinct()
 
-For repeats longer than 100 bp
+ggbox.rl.ab.1000 <- ggplot(feat_selected, aes(AB, repeat_length)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        coord_trans(y="log") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat length", subtitle="Repeats > 1000 bp")+
+        xlab("")+
+        ylab("")
+
+
+ggbox.rl.ab.1000
+```
+
+## Amplifiable region size
+
+### For repeats longer than 100 bp
 
 ```{r, fig.width=10, fig.height=5}
 # prepare df
@@ -686,9 +776,60 @@ ggbox.arl.ab.100 <- ggplot(feat_selected, aes(AB, AR_length)) +
         
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="AR length", subtitle="Repeats > 100 bp")
+        ggtitle(label="Amplifiable region size", subtitle="Repeats > 100 bp")+
+        xlab("")+
+        ylab("")
+
 
 ggbox.arl.ab.100
+
+```
+
+### For repeats longer than 500 bp
+
+```{r, fig.width=10, fig.height=5}
+# prepare df
+feat_selected <- features_filtered %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, AR_length, repeat_length, spans_center) %>% 
+                   filter(repeat_length >= 500) %>% 
+                   distinct()
+
+ggbox.arl.ab.500 <- ggplot(feat_selected, aes(AB, AR_length)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Amplifiable region size", subtitle="Repeats > 500 bp")+
+        xlab("")+
+        ylab("")
+
+
+ggbox.arl.ab.500
+
+```
+
+### For repeats longer than 1000 bp
+
+```{r, fig.width=10, fig.height=5}
+# prepare df
+feat_selected <- features_filtered %>%
+                   filter(!is.na(resistance)) %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, AR_length, repeat_length, spans_center) %>% 
+                   filter(repeat_length >= 1000) %>% 
+                   distinct()
+
+ggbox.arl.ab.1000 <- ggplot(feat_selected, aes(AB, AR_length)) +
+        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Amplifiable region size", subtitle="Repeats > 1000 bp")+
+        xlab("")+
+        ylab("")
+
+ggbox.arl.ab.1000
 
 ```
 
