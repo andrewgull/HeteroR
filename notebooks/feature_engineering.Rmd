@@ -428,7 +428,7 @@ repeat_counts_gene <- repeat_df %>%
   group_by(record_id) %>% 
   summarise("n_repeats_gene"=n())
 
-# join 
+# join 683482
 features_filtered <- left_join(features_filtered, repeat_counts_strain, by="strain")
 features_filtered <- left_join(features_filtered, repeat_counts_gene, by="record_id")
 
@@ -562,12 +562,17 @@ assembly_summary
 
 ### Calculate plasmid counts
 
-Take into account relative coverage of plasmids (i.e. number of copies), which can be found in an assembly header
+#### Relative coverage of plasmids
+
+We should take into account relative coverage of plasmids (i.e. number of copies), which can be found in an assembly header, 
+but not very plasmid has this measure, since it is calculated y Unicycler but not by SPAdes.
 
 ```{r, eval=FALSE}
 require(data.table)
 assembly_files <- dir(path="/home/andrei/Data/HeteroR/results/assemblies_joined", pattern="assembly.fasta$", recursive=T)
+
 fasta <- fread('grep ">" /home/andrei/Data/HeteroR/results/assemblies_joined/DA68925/assembly.fasta', fill=TRUE)
+
 sapply(fasta$V3, function(x){round(as.numeric(substr(x, 7, 10)))})
 
 ```
@@ -591,7 +596,70 @@ features_filtered$n_plasmids <- ifelse(is.na(features_filtered$n_plasmids), 0, f
 head(features_filtered)
 ```
 
+# Beta-lactamases
 
+A special beta-lactamases section
+
+## Number of genes conferring resistance to Beta-lactams
+
+How many AMR gene families do we have?
+
+```{r}
+unique(features_filtered$AMR.Gene.Family)
+```
+
+Let's collect the beta-lactamases and analyze them
+
+```{r}
+beta_lac <- c("ampC-type beta-lactamase", "CTX-M beta-lactamase", "TEM beta-lactamase", "SHV beta-lactamase", "OXA beta-lactamase", "DHA beta-lactamase")
+# or you can just collect everything that contains 'beta-lactamase'
+features_betalac <- features_filtered %>% filter(grepl("beta-lactamase", AMR.Gene.Family))
+features_betalac
+```
+
+Make a separate table for Sofia
+
+```{r, eval=FALSE}
+strains_sofia <- read.csv("/home/andrei/Data/BSI_Ecoli/strains_uniq.txt", header = F)
+sofia_betalac <- filter(features_betalac, strain %in% strains_sofia$V1) %>% select(strain, Cut_Off, Best_Hit_ARO, Model_type, Drug.Class, Percentage.Length.of.Reference.Sequence, Best_Identities, SNPs_in_Best_Hit_ARO, Resistance.Mechanism, ORF_ID, AMR.Gene.Family, AB, resistance)
+write.csv(sofia_betalac, "/home/andrei/Data/BSI_Ecoli/resistance_genes_betalac.csv", row.names = F, na = "")
+```
+
+The table should look like this:
+
+| Strain | RG | Repeat | Length | AR |
+|--------|----|--------|--------|----|
+
+
+That's basically what we have
+
+```{r}
+features_betalac_amp <- features_betalac %>% filter(AB=="AMP")
+features_betalac_amp
+```
+## Plots
+
+
+```{r, fig.width=10, fig.height=5}
+# prepare df
+# filter(resistance != "I") %>% 
+feat_selected <- features_betalac_amp %>%
+                   filter(resistance != "I") %>% 
+                   select(strain, AB, resistance, n_repeats_strain_min100, spans_center) %>% 
+                   distinct()
+
+ggbox.rc.betalac.100 <- ggplot(feat_selected, aes(resistance, n_repeats_strain_min100)) +
+        geom_boxplot(notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        coord_trans(y="sqrt") +
+        facet_grid(spans_center ~ .) +
+        scale_fill_brewer(palette = "Set2") +
+        ggtitle(label="Repeat count Beta-lactamases", subtitle="Repeats > 100 bp")+
+        xlab("")+
+        ylab("")
+
+
+ggbox.rc.betalac.100
+```
 
 # Plotting features
 
