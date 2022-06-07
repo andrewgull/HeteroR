@@ -19,6 +19,9 @@ output:
     toc_float: yes
     theme: cerulean
     highlight: kate
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r, include=F}
@@ -28,6 +31,7 @@ library(tidyr)
 library(plotly)
 library(ggplot2)
 library(purrr)
+library(ggpubr)
 ```
 
 This is a notebook for creating various features and their exploration
@@ -60,6 +64,7 @@ Each strain contains:
 -   [x] 1 AB label
 
 -   [x] 1 resistance label
+
 -   [ ] 1 label for presence of an RG
 
 -   [x] 1 value for plasmid count,
@@ -67,10 +72,15 @@ Each strain contains:
 -   [ ] 1 value for a number plasmids carrying RGs,
 
 -   [x] repeat count with min 100
+
 -   [ ] repeat count with min 500
+
 -   [ ] median repeat length with min 100
+
 -   [ ] median repeat length with min 500
+
 -   [ ] maximum repeat length
+
 -   [ ] 1 value for repeat count adjusted by number of plasmids,
 
 -   [x] hundreds of genes; each gene (e.g. region) contains:
@@ -117,13 +127,14 @@ Each strain contains:
 
 # Making a table with features
 
-Start from a table with repeats...
+Start from a table with repeat.
 
 ## Read table with repeats - create Features
 
 This one will a basic table for the rest of the analysis.
 
-To build this table anew run the code chunk below (its evaluation is OFF by default)
+To build this table anew run the code chunk below (its evaluation is OFF
+by default)
 
 ```{r, eval=FALSE}
 # a new way of getting repeat data frame across all strains
@@ -152,16 +163,19 @@ repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
 repeat_df <- rename(repeat_df, "repeat_length"=length)
 
 # copy for features
+# and filter strains you want to exclude
 features <- as_tibble(repeat_df) %>% 
-  select(-c(gene_center, start_1, end_1, start_2, end_2))
+  select(-c(gene_center, start_1, end_1, start_2, end_2)) 
 
 # look at this!
 features
 ```
 
-Or read it from the file *repeat_summary_table.csv* that was made during analysis in `repeat_summary.Rmd`
+Or read it from the file *repeat_summary_table.csv* that was made during
+analysis in `repeat_summary.Rmd`
 
-It contains strains, gene names, repeat coordinates, repeat lengths, AR lengths and 'spans center' label.
+It contains strains, gene names, repeat coordinates, repeat lengths, AR
+lengths and 'spans center' label.
 
 Each gene name (aka record_id) is unique.
 
@@ -185,7 +199,7 @@ features
 
 They are required for filtering of resistance genes
 
-### Read RGI annotations 
+### Read RGI annotations
 
 'Loose' hits to be removed!
 
@@ -208,20 +222,21 @@ rgi <- rgi %>%
 rgi
 ```
 
-
 ### Filtering RGI results
 
-**OBS!** Minimum number of RGs found should be much lower than 60 per strain
+**OBS!** Minimum number of RGs found should be much lower than 60 per
+strain
 
 Criteria:
 
-1. Identity percent
+1.  Identity percent
 
-2. Percentage length of reference sequence
+2.  Percentage length of reference sequence
 
-3. efflux pumps should go; target alteration should go; permeability should go; inactivation and modification should stay
+3.  efflux pumps should go; target alteration should go; permeability
+    should go; inactivation and modification should stay
 
-4. genes with SNPs should go
+4.  genes with SNPs should go
 
 #### Number of RGs per strain: before filtering
 
@@ -239,7 +254,8 @@ These numbers should be lower!
 
 #### Identity percent
 
-For *Strict* hits you may consider *Identity_percent* as another filtering criterion, hits with too low identities should be discarded.
+For *Strict* hits you may consider *Identity_percent* as another
+filtering criterion, hits with too low identities should be discarded.
 
 ##### Distribution of Identity percentages before filtering
 
@@ -250,7 +266,6 @@ hit.ident <-ggplot(rgi %>% select(Cut_Off, Best_Identities), aes(Best_Identities
 
 hit.ident
 ```
-
 
 ##### Leave only 90% and higher
 
@@ -306,21 +321,21 @@ unique(rgi_filt$Resistance.Mechanism)
 
 What have we decided to filter out?
 
-- efflux
+-   efflux
 
-- target alteration
+-   target alteration
 
-- permeability
+-   permeability
 
 What should stay:
 
-- inactivation
+-   inactivation
 
-- modification
+-   modification
 
-- target replacement?
+-   target replacement?
 
-- target protection?
+-   target protection?
 
 **OBS!** Leave those records that *contain* what should stay
 
@@ -365,7 +380,8 @@ It's OK!
 
 Add by gene names since they are unique
 
-But first transform them: there should be a column *record_id* like in `features`
+But first transform them: there should be a column *record_id* like in
+`features`
 
 ```{r}
 # make record_id as in features
@@ -375,7 +391,6 @@ But first transform them: there should be a column *record_id* like in `features
 rgi_filt$record_id <- map_chr(rgi_filt$ORF_ID, function(x) strsplit(x, " ")[[1]][1])
 rgi_filt
 ```
-
 
 and make a full join with features
 
@@ -395,12 +410,15 @@ Number of rows in Features: `r nrow(features)`
 
 ### Remove features of excluded genes
 
-Since many genes were excluded from RGI results but their repeats, counts and AR stay in features,
-let's make `features_filtered` without these genes
+Since many genes were excluded from RGI results but their repeats,
+counts and AR stay in features, let's make `features_filtered` without
+these genes
 
 #### Remove rows in features without Resistance.Mechanism
 
-How many rows don't have resistance mechanisms (i.e. have been filtered out during RGI filtering?): `r sum(is.na(features$Resistance.Mechanism))`
+How many rows don't have resistance mechanisms (i.e. have been filtered
+out during RGI filtering?):
+`r sum(is.na(features$Resistance.Mechanism))`
 
 Filtering
 
@@ -435,7 +453,7 @@ features_filtered <- left_join(features_filtered, repeat_counts_gene, by="record
 head(features_filtered)
 ```
 
-### Based on repeats > 100 bp
+### Based on repeats \> 100 bp
 
 ```{r}
 repeat_counts_strain_100 <- repeat_df %>% 
@@ -455,8 +473,7 @@ features_filtered <- left_join(features_filtered, repeat_counts_gene_100, by="re
 head(features_filtered)
 ```
 
-
-### Based on repeats > 500 bp
+### Based on repeats \> 500 bp
 
 ```{r}
 repeat_counts_strain_500 <- repeat_df %>% 
@@ -476,7 +493,7 @@ features_filtered <- left_join(features_filtered, repeat_counts_gene_500, by="re
 head(features_filtered)
 ```
 
-### Based on repeats > 1000 bp
+### Based on repeats \> 1000 bp
 
 ```{r}
 repeat_counts_strain_1000 <- repeat_df %>% 
@@ -530,11 +547,14 @@ features_filtered
 
 ## Number of plasmids
 
-Per strain 
+Per strain
 
-Info on plasmids is in tables `summary.tsv` in `results/assemblies_joined` and it has been collected in `genome_assembly_summary.Rmd`
+Info on plasmids is in tables `summary.tsv` in
+`results/assemblies_joined` and it has been collected in
+`genome_assembly_summary.Rmd`
 
-To build the table anew run the following chunk of code (by default its evaluation is OFF)
+To build the table anew run the following chunk of code (by default its
+evaluation is OFF)
 
 ```{r, eval=TRUE}
 assembly_summary_files <- dir(path="/home/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
@@ -560,23 +580,7 @@ assembly_summary <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/genome
 assembly_summary
 ```
 
-### Calculate plasmid counts
-
-#### Relative coverage of plasmids
-
-We should take into account relative coverage of plasmids (i.e. number of copies), which can be found in an assembly header, 
-but not very plasmid has this measure, since it is calculated y Unicycler but not by SPAdes.
-
-```{r, eval=FALSE}
-require(data.table)
-assembly_files <- dir(path="/home/andrei/Data/HeteroR/results/assemblies_joined", pattern="assembly.fasta$", recursive=T)
-
-fasta <- fread('grep ">" /home/andrei/Data/HeteroR/results/assemblies_joined/DA68925/assembly.fasta', fill=TRUE)
-
-sapply(fasta$V3, function(x){round(as.numeric(substr(x, 7, 10)))})
-
-```
-
+### Calculate plasmid counts from summary files
 
 ```{r}
 plasmid_counts <- assembly_summary %>% group_by(Strain, Type) %>% 
@@ -586,7 +590,6 @@ plasmid_counts <- assembly_summary %>% group_by(Strain, Type) %>%
   rename("strain"=Strain)
 ```
 
-
 and add it to `features`
 
 ```{r}
@@ -594,6 +597,174 @@ features_filtered <- left_join(features_filtered, plasmid_counts, by="strain")
 # NA in n_plasmids means 0
 features_filtered$n_plasmids <- ifelse(is.na(features_filtered$n_plasmids), 0, features_filtered$n_plasmids)
 head(features_filtered)
+```
+
+### Calculate number of plasmids from fasta headers + their relative coverage
+
+We should take into account relative coverage of plasmids (i.e. number
+of copies), which can be found in an assembly header, but not very
+plasmid has this measure, since it is calculated y Unicycler but not by
+SPAdes.
+
+```{r, eval=TRUE}
+require(data.table)
+assemblies_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
+assembly_files <- dir(path=assemblies_path, pattern="assembly.fasta$", recursive=T)
+
+headers <- lapply(assembly_files, function(x){
+  df <- fread(cmd=paste0("grep '>' ", assemblies_path, x), fill=TRUE, header = F, sep = " ", drop = 1, na.strings = "")
+  df$strain <- strsplit(x, "/")[[1]][1]
+  return(df)
+})
+
+headers <- bind_rows(headers)
+
+headers$depth.rounded <- sapply(headers$V3, function(y){round(as.numeric(substr(y, 7, 10)))})
+headers$length <- sapply(headers$V2, function(y){round(as.numeric(strsplit(y, "=")[[1]][2]))})
+headers$circular <- sapply(headers$V4, function(y){strsplit(y, "=")[[1]][2]})
+
+# headers_df <- fread(cmd='grep ">" /home/andrei/Data/HeteroR/results/assemblies_joined/DA68966/assembly.fasta', fill=TRUE)
+
+# sapply(headers_df$V3, function(x){round(as.numeric(substr(x, 7, 10)))})
+# sapply(headers_df$V2, function(x){round(as.numeric(strsplit(x, "=")[[1]][2]))})
+
+headers <- headers %>% select(-c(V2, V3, V4))
+headers
+```
+
+From this table I can calculate number of plasmids as sum of depths
+
+First, remove DA68966 until it is resequenced.
+
+```{r}
+headers <- headers %>% 
+  filter(strain != "DA68966")
+```
+
+Let's look at the lengths distribution because length is the key to
+"smart" filtering of plasmids
+
+```{r, fig.width=12, fig.height=4}
+require(ggpubr)
+
+h1 <- ggplot(headers, aes(length)) + 
+  geom_histogram(fill="steelblue", bins = 200)+
+  geom_rug() + 
+  ggtitle("assembly segments lengths")
+
+h2 <- ggplot(headers %>% filter(length >= 1000), aes(length)) + 
+  geom_histogram(fill="steelblue", bins = 200)+
+  geom_rug() + 
+  ggtitle("assembly segments lengths, min length = 1000")
+
+ggarrange(h1, h2, ncol=2, nrow=1)
+```
+
+Let's remove all segments shorter than 1000 bp
+
+```{r}
+headers <- headers %>% 
+  filter(length >= 1000)
+```
+
+Distribution of longest segments in each strain
+
+```{r}
+headers.longest <- headers %>% group_by(strain) %>% summarise(max.length=max(length))
+
+ggplot(headers.longest, aes(max.length))+
+  geom_histogram(fill="steelblue")+
+  ggtitle("Longest segments in each strain")
+```
+
+So...
+
+How to distinguish between segmented chromosomes and real plasmids?
+
+I can try to count a segment as "plasmid" if this segment goes after
+other segments that sum up to 4.5 Mpb
+
+Pseudo code looks like this:
+
+For each strain:
+
+set N=0
+
+for each segment: if N \> 4.5 Mbp N =+ segment length mark segment as
+chromosome
+
+if unmarked segments left: mark them as plasmids
+
+Let's try
+
+```{r}
+df.tmp <- headers %>% filter(strain=="DA62886")
+sum.len <- 0
+marks <- c()
+for (L in df.tmp$length){
+  if (sum.len < 4500000){
+    sum.len <- sum.len + L
+    marks <- c(marks, "chromosome")
+  } else {
+    marks <- c(marks, "plasmid")
+  }
+}
+
+df.tmp$type <- marks
+
+df.tmp
+```
+
+Apply it to full headers table
+
+```{r}
+# Naive algorithm will look like this
+
+get.labels <- function(lengths.vec, max.sum.len){
+  sum.len <- 0
+  marks <- c()
+  
+  for (L in lengths.vec){
+    if (sum.len < max.sum.len){
+    sum.len <- sum.len + L
+    marks <- c(marks, "chromosome")
+    } else {
+    marks <- c(marks, "plasmid")
+    }
+  }
+  
+  return(marks)
+}
+
+# apply this function to each strain's subset of the headers table
+labels.total <- c()
+for (S in unique(headers$strain)){
+  sub.df <- filter(headers, strain==S)
+  labels.sub.df <- get.labels(sub.df$length, 4500000)
+  labels.total <- c(labels.total, labels.sub.df)
+}
+
+headers$label <- labels.total
+
+headers
+```
+
+Now, I can calculate "real" plasmid count per strain and add it to the
+features table
+
+```{r}
+plasmid_counts_alt <- headers %>% 
+  filter(label=="plasmid") %>% 
+  group_by(strain) %>% 
+  summarise(n_plasmids_alt=sum(depth.rounded))
+
+plasmid_counts_alt
+```
+
+Add this data set to filtered features
+
+```{r}
+features_filtered <- left_join(features_filtered, plasmid_counts_alt, by="strain")
 ```
 
 # Beta-lactamases
@@ -627,9 +798,8 @@ write.csv(sofia_betalac, "/home/andrei/Data/BSI_Ecoli/resistance_genes_betalac.c
 
 The table should look like this:
 
-| Strain | RG | Repeat | Length | AR |
-|--------|----|--------|--------|----|
-
+| Strain | RG  | Repeat | Length | AR  |
+|--------|-----|--------|--------|-----|
 
 That's basically what we have
 
@@ -637,8 +807,8 @@ That's basically what we have
 features_betalac_amp <- features_betalac %>% filter(AB=="AMP")
 features_betalac_amp
 ```
-## Plots
 
+## Plots
 
 ```{r, fig.width=10, fig.height=5}
 # prepare df
@@ -649,7 +819,8 @@ feat_selected <- features_betalac_amp %>%
                    distinct()
 
 ggbox.rc.betalac.100 <- ggplot(feat_selected, aes(resistance, n_repeats_strain_min100)) +
-        geom_boxplot(notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
+        geom_boxplot(notch=T, outlier.alpha = 0.5, outlier.size = 0.5, varwidth = T) +
+        geom_violin(alpha=0.1) +
         coord_trans(y="sqrt") +
         facet_grid(spans_center ~ .) +
         scale_fill_brewer(palette = "Set2") +
@@ -665,6 +836,8 @@ ggbox.rc.betalac.100
 
 ## Number of plasmids
 
+### From summaries
+
 ```{r, fig.width=10, fig.height=4}
 ggplot(features_filtered %>% 
          filter(!is.na(resistance)) %>% 
@@ -675,6 +848,23 @@ ggplot(features_filtered %>%
   xlab("")+
   ylab("n") +
   ggtitle("Plasmids count")
+```
+
+### From headers
+
+Here plasmid numbers are calculated using relative depth of coverage
+taken from assembly's fasta headers
+
+```{r, fig.width=10, fig.height=4}
+ggplot(features_filtered %>% 
+         filter(!is.na(resistance)) %>% 
+         filter(resistance !="I"), aes(AB, n_plasmids_alt)) + 
+  geom_boxplot(aes(fill=resistance), notch=T, outlier.alpha = 0.5, outlier.size = 0.5) +
+  scale_fill_brewer(palette = "Set2") +
+  coord_trans(y="sqrt") +
+  xlab("")+
+  ylab("n") +
+  ggtitle("Plasmids count (alternative count)")
 ```
 
 ## Repeat count
