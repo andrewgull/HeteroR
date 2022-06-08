@@ -69,6 +69,8 @@ Each strain contains:
 
 -   [x] 1 value for plasmid count,
 
+-   [x] 1 value for alternate plasmid count,
+
 -   [ ] 1 value for a number plasmids carrying RGs,
 
 -   [x] repeat count with min 100
@@ -83,7 +85,7 @@ Each strain contains:
 
 -   [ ] 1 value for repeat count adjusted by number of plasmids,
 
--   [x] hundreds of genes; each gene (e.g. region) contains:
+-   [x] tens of genes; each gene (e.g. region) contains:
 
     -   [ ] 1 distance to oriC,
 
@@ -97,30 +99,30 @@ Each strain contains:
 
     -   [ ] value for max IS length,
 
-    -   [ ] RGI resistance mechanism,
+    -   [x] RGI resistance mechanism,
 
-    -   [ ] RGI resistance SNP,
+    -   [x] RGI resistance SNP,
 
-    -   [ ] RGI other SNP,
+    -   [x] RGI other SNP,
 
-    -   [ ] RGI cut-off,
+    -   [x] RGI cut-off,
 
-    -   [ ] RGI best identities,
+    -   [x] RGI best identities,
 
-    -   [ ] RGI AMR gene family,
+    -   [x] RGI AMR gene family,
 
-    -   [ ] RGI Model type,
+    -   [x] RGI Model type,
 
-    -   [ ] RGI Drug class,
+    -   [x] RGI Drug class,
 
-    -   [ ] RGI ORF ID,
+    -   [x] RGI ORF ID,
 
-    -   [ ] RGI Percentage Length of Reference Sequence,
+    -   [x] RGI Percentage Length of Reference Sequence,
 
     -   [x] a lot of repeat pairs; each repeat pair has:
 
         -   [x] 1 AR length,
-        -   [ ] 1 AR black box vector
+        -   [ ] 1 AR black box vector/home/andrei/Data/HeteroR/results/repeats_summary_table.csv
         -   [x] 1 repeat length,
         -   [x] 1 center spanning label,
         -   [ ] 'inside the gene' label,
@@ -128,6 +130,10 @@ Each strain contains:
 # Making a table with features
 
 Start from a table with repeat.
+
+```{r, eval=FALSE}
+load("/home/andrei/Data/HeteroR/notebooks/features.RData")
+```
 
 ## Read table with repeats - create Features
 
@@ -195,9 +201,14 @@ features <- as_tibble(repeat_df) %>%
 features
 ```
 
-## Add RGI annotations
 
-They are required for filtering of resistance genes
+I this table we have `r length(unique(features$record_id))` resistance genes with detected repeats from `r length(unique(features$strain))` strains.
+
+Number of repeat pairs detected `r nrow(features)`.
+
+## Add RGI annotations$
+
+They are required for filtering of resistance genes and much more...
 
 ### Read RGI annotations
 
@@ -221,6 +232,20 @@ rgi <- rgi %>%
 
 rgi
 ```
+
+In this table `r length(unique(rgi$ORF_ID))` resistance genes have been detected from `r length(unique(rgi$strain))` strains
+
+### How many RG don't have repeats?
+
+Difference between rgi genes record ID and repeat_df record if (= features)
+See the code below
+
+```{r}
+rgi$record_id <- map_chr(rgi$ORF_ID, function(x) strsplit(x, " ")[[1]][1])
+setdiff(rgi$record_id, features$record_id)
+setdiff(rgi_filt$record_id, features$record_id)
+```
+
 
 ### Filtering RGI results
 
@@ -394,7 +419,7 @@ rgi_filt
 
 and make a full join with features
 
-Maybe you don't need some of the RGI columns in final `features` df...
+Since RGI results have been filtered, they are much smaller than original features that came from data frames with repeats.
 
 ```{r}
 features <- full_join(features, rgi_filt, by="record_id")
