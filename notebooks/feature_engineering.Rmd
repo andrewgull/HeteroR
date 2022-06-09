@@ -142,37 +142,46 @@ This one will a basic table for the rest of the analysis.
 To build this table anew run the code chunk below (its evaluation is OFF
 by default)
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 # a new way of getting repeat data frame across all strains
 strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
 repeat_csv_paths <- sapply(strains, function(x){paste0("/home/andrei/Data/HeteroR/results/annotations/",x ,"/repeats/", x, "_repeats.csv")})
 
 repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x){read.csv(x)}))
 # calculate AR length
-repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1
+repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1 + 1
 
 # read bed files to determine center spanning repeat pairs
 bed_df <- bind_rows(lapply(strains, function (x){
   filename <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
   df <- read.delim(filename, header=FALSE)
+  df$strain <- x
   return(df)
 }))
 
+# find gene center
 bed_df$gene_center <- round((bed_df$V3 - bed_df$V2 + 1)/2)
 bed_df <- rename(bed_df, "record_id"=V4)
-bed_df <- select(bed_df, record_id, gene_center)
+bed_df <- select(bed_df, strain, record_id, gene_center)
+
+# bed_df contains slightly more genes than repeat_df (+624)
+# BUT repeat_df is important, that's why I use left_join() below
 
 # join the two tables
-repeat_df <- full_join(bed_df, repeat_df, by="record_id")
+repeat_df <- left_join(repeat_df, bed_df, by="record_id")
 repeat_df$spans_center <- if_else(repeat_df$end_1 <= repeat_df$gene_center & repeat_df$start_2 >= repeat_df$gene_center, "yes", "no")
 repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
-repeat_df <- rename(repeat_df, "repeat_length"=length)
+repeat_df <- repeat_df %>% 
+  rename("repeat_length"=length) %>% 
+  select(-strain.y) %>% 
+  rename("strain"=strain.x) %>% 
+  relocate(strain, .before=record_id)
+
 
 # copy for features
 # and filter strains you want to exclude
 features <- as_tibble(repeat_df) %>% 
-  select(-c(gene_center, start_1, end_1, start_2, end_2, X)) %>%
-  relocate(strain, .before=record_id)
+  select(-c(gene_center, start_1, end_1, start_2, end_2, X))
 
 # look at this!
 features
@@ -186,7 +195,7 @@ lengths and 'spans center' label.
 
 Each gene name (aka record_id) is unique.
 
-```{r}
+```{r, eval=FALSE}
 repeat_df <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/repeats_summary_table.csv")) %>% 
   select(-c(X.1, X)) %>% 
   relocate(strain, .before=record_id)
@@ -250,10 +259,12 @@ It's the difference between record IDs from RGI and record IDs from Features (or
 RGI - Features:
 
 ```{r}
-setdiff(rgi$record_id, features$record_id)
+length(setdiff(rgi$record_id, features$record_id))
 ```
 
-Just 3 resistant genes don't have repeats around them.
+`r length(setdiff(rgi$record_id, features$record_id))` resistant genes don't have repeats around them.
+
+Since all record IDs in both tables are unique, difference between record IDs of both tables should equal the same number: `r length(unique(rgi$record_id)) - length(unique(features$record_id))`
 
 ### Filtering RGI results
 
@@ -417,38 +428,61 @@ Same approach as above: it's the difference between filtered RGI's genes IDs and
 Filtered RGI - Features:
 
 ```{r}
-setdiff(rgi_filt$record_id, features$record_id)
+length(setdiff(rgi_filt$record_id, features$record_id))
 ```
 
-All resistance genes after filtering have repeats around them.
+`r length(setdiff(rgi_filt$record_id, features$record_id))` resistance genes after filtering don't have repeats around them.
+
+### Any NAs in features?
+
+```{r}
+apply(features, 2, function(x){sum(is.na(x))})
+```
+
+### Any NAs in filtered RGI?
+
+```{r}
+apply(rgi_filt, 2, function(x){sum(is.na(x))})
+# nrow(rgi_filt) 1996
+```
 
 ### Add filtered RGI annotations to Features
 
 Use gene names as key since they are unique and make a full join with features.
 
-*OBS!* Since RGI results have been filtered, they are much smaller than original features that came from data frames with repeats.
+**OBS!** N genes in RGI don't have repeats => N rows in Features won't have repeat_length (N = Filtered RGI - Features)
 
 ```{r}
-features <- full_join(features, rgi_filt, by="record_id")
+features <- full_join(features, rgi_filt, by=c("strain", "record_id"))
 
-features %>% filter(is.na(repeat_length)) %>% select(strain.x, strain.y, record_id, ORF_ID)
-# leave strain.x, remove strain.y
-# features <- features %>%
-#   select(-strain.y) %>%
-#   rename("strain"=strain.x)
-#
-# head(features)
+features %>% filter(is.na(repeat_length)) %>% select(strain, record_id, ORF_ID, repeat_length)
 ```
+
+Number of rows here should be equal to Filtered RGI - Features (see above)
 
 Number of rows in Features: `r nrow(features)`
 
-### Remove features of excluded genes
+### Remove RGI columns that we don't need for prediction
+
+Like ARO, Cut_Off etc.
+
+```{r}
+features <- features %>% 
+  select(-c(ARO, Cut_Off, Pass_Bitscore, Best_Hit_Bitscore, Best_Hit_ARO, 
+            Best_Identities, Model_ID, Model_type, Nudged, SNPs_in_Best_Hit_ARO,
+            Other_SNPs, ID, Percentage.Length.of.Reference.Sequence))
+features
+```
+
+**OBS!** Features still contain resistance genes without repeats!
+
+### Remove rows with excluded genes
 
 Since many genes were excluded from RGI results but their repeats,
-counts and AR stay in features, let's make `features_filtered` without
+counts and AR lengths stay in Features, let's make `features_filtered` without
 these genes
 
-#### Remove rows in features without Resistance.Mechanism
+#### Remove rows in Features without Resistance.Mechanism
 
 How many rows don't have resistance mechanisms (i.e. have been filtered
 out during RGI filtering?):
@@ -460,6 +494,17 @@ Filtering
 features_filtered <- filter(features, !is.na(Resistance.Mechanism))
 features_filtered
 ```
+
+#### Remove rows in features without repeat length
+
+Those genes that don't have repeats
+
+So far I decided to keep them but to replace NAs with 0 in gene repeat counts
+
+```{r, eval=FALSE}
+features_filtered <- filter(features, !is.na(repeat_length))
+```
+
 
 Number of rows in Features after filtering: `r nrow(features_filtered)`
 
@@ -481,8 +526,14 @@ repeat_counts_gene <- repeat_df %>%
   summarise("n_repeats_gene"=n())
 
 # join 683482
-features_filtered <- left_join(features_filtered, repeat_counts_strain, by="strain")
+features_filtered <- left_join(features_filtered, repeat_counts_strain, by="strain") 
 features_filtered <- left_join(features_filtered, repeat_counts_gene, by="record_id")
+
+# NAs to 0s
+features_filtered$n_repeats_gene <- ifelse(is.na(features_filtered$n_repeats_gene), 0, features_filtered$n_repeats_gene)
+
+# locate
+features_filtered <- features_filtered %>% relocate(n_repeats_strain, n_repeats_gene, .before="ORF_ID")
 
 head(features_filtered)
 ```
@@ -504,6 +555,12 @@ repeat_counts_gene_100 <- repeat_df %>%
 features_filtered <- left_join(features_filtered, repeat_counts_strain_100, by="strain")
 features_filtered <- left_join(features_filtered, repeat_counts_gene_100, by="record_id")
 
+# NAs to 0s
+features_filtered$n_repeats_gene_min100 <- ifelse(is.na(features_filtered$n_repeats_gene_min100), 0, features_filtered$n_repeats_gene_min100)
+
+# locate
+features_filtered <- features_filtered %>% relocate(n_repeats_strain_min100, n_repeats_gene_min100, .before="ORF_ID")
+
 head(features_filtered)
 ```
 
@@ -523,6 +580,12 @@ repeat_counts_gene_500 <- repeat_df %>%
 # join 
 features_filtered <- left_join(features_filtered, repeat_counts_strain_500, by="strain")
 features_filtered <- left_join(features_filtered, repeat_counts_gene_500, by="record_id")
+
+# NAs to 0s
+features_filtered$n_repeats_gene_min500 <- ifelse(is.na(features_filtered$n_repeats_gene_min500), 0, features_filtered$n_repeats_gene_min500)
+
+# locate
+features_filtered <- features_filtered %>% relocate(n_repeats_strain_min500, n_repeats_gene_min500, .before="ORF_ID")
 
 head(features_filtered)
 ```
@@ -544,12 +607,40 @@ repeat_counts_gene_1000 <- repeat_df %>%
 features_filtered <- left_join(features_filtered, repeat_counts_strain_1000, by="strain")
 features_filtered <- left_join(features_filtered, repeat_counts_gene_1000, by="record_id")
 
+# NAs to 0s
+features_filtered$n_repeats_gene_min1000 <- ifelse(is.na(features_filtered$n_repeats_gene_min1000), 0, features_filtered$n_repeats_gene_min1000)
+
+# locate
+features_filtered <- features_filtered %>% relocate(n_repeats_strain_min1000, n_repeats_gene_min1000, .before="ORF_ID")
+
 head(features_filtered)
 ```
+
+## Add Repeat density
+
+'repeat density' suggested by me and 'total length of repeats' proposed by Dan, are essentially the same metrics reflecting how many bases on each side of a resistance gene constitute repeats.
+
+'repeat density' has meaning only if calculated using repeats spanning the gene's center
+
+```{r}
+# example
+features_filtered_DA62886 <- features_filtered %>% filter(strain=="DA62886")
+rep_len_sum <- features_filtered_DA62886 %>% filter(spans_center=="yes") %>% group_by(record_id) %>% summarise(rep_len_sum=sum(repeat_length))
+
+features_filtered_DA62886 <- left_join(features_filtered_DA62886, rep_len_sum, by="record_id") %>% relocate(rep_len_sum, .before = "AR_length")
+features_filtered_DA62886
+```
+
+```{r}
+
+```
+
 
 ## Add AB testing data
 
 ### Read and process AB testing table
+
+**OBS!** *resistance_testing.csv* may be updated
 
 ```{r}
 resistance_df <- as_tibble(read.csv("/home/andrei/Data/HeteroR/resources/resistance_testing.csv", na.strings = ""))
