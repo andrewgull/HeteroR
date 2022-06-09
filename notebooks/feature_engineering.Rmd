@@ -171,7 +171,8 @@ repeat_df <- rename(repeat_df, "repeat_length"=length)
 # copy for features
 # and filter strains you want to exclude
 features <- as_tibble(repeat_df) %>% 
-  select(-c(gene_center, start_1, end_1, start_2, end_2)) 
+  select(-c(gene_center, start_1, end_1, start_2, end_2, X)) %>%
+  relocate(strain, .before=record_id)
 
 # look at this!
 features
@@ -202,7 +203,7 @@ features
 ```
 
 
-I this table we have `r length(unique(features$record_id))` resistance genes with detected repeats from `r length(unique(features$strain))` strains.
+In this table we have `r length(unique(features$record_id))` resistance genes with detected repeats from `r length(unique(features$strain))` strains.
 
 Number of repeat pairs detected `r nrow(features)`.
 
@@ -225,10 +226,17 @@ rgi <- bind_rows(lapply(strains, function(x){
 
 ab_groups <- unique(rgi$Drug.Class)
 
-# filter rg_df
+# filter out Loose hits and some columns
 rgi <- rgi %>% 
   filter( Cut_Off != "Loose" ) %>% 
   select(-c(Predicted_Protein, CARD_Protein_Sequence, Contig, Start, Stop, Orientation, Predicted_DNA, Note))
+
+# turn into a tibble
+rgi <- as_tibble(rgi)
+
+# add record id and put it in front of the table
+rgi$record_id <- map_chr(rgi$ORF_ID, function(x) strsplit(x, " ")[[1]][1])
+rgi <- relocate(rgi, strain, record_id, .before=ORF_ID)
 
 rgi
 ```
@@ -237,15 +245,15 @@ In this table `r length(unique(rgi$ORF_ID))` resistance genes have been detected
 
 ### How many RG don't have repeats?
 
-Difference between rgi genes record ID and repeat_df record if (= features)
-See the code below
+It's the difference between record IDs from RGI and record IDs from Features (or repeat_df).
+
+RGI - Features:
 
 ```{r}
-rgi$record_id <- map_chr(rgi$ORF_ID, function(x) strsplit(x, " ")[[1]][1])
 setdiff(rgi$record_id, features$record_id)
-setdiff(rgi_filt$record_id, features$record_id)
 ```
 
+Just 3 resistant genes don't have repeats around them.
 
 ### Filtering RGI results
 
@@ -296,7 +304,6 @@ hit.ident
 
 ```{r}
 rgi_filt <- rgi %>% filter(Best_Identities >= 90)
-rgi_filt <- as_tibble(rgi_filt)
 summary(rgi_filt$Best_Identities)
 ```
 
@@ -381,7 +388,7 @@ How many SNPs do we have now?
 filter(rgi_filt, !is.na(SNPs_in_Best_Hit_ARO))
 ```
 
-Zero
+No SNPs in the filtered RGI table.
 
 ### Number of RGs per strain: after the 2nd filtering
 
@@ -400,6 +407,18 @@ summary(n_RG_filt$n_res_genes)
 ```
 
 It's OK!
+
+### How many genes from filtered RGI don't have repeats?
+
+Same approach as above: it's the difference between filtered RGI's genes IDs and gene IDs from features (=repeat_df)
+
+Filtered RGI - Features:
+
+```{r}
+setdiff(rgi_filt$record_id, features$record_id)
+```
+
+All resistance genes after filtering have repeats around them.
 
 ### Add filtered RGI annotations to Features
 
