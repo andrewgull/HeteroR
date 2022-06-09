@@ -408,6 +408,8 @@ summary(n_RG_filt$n_res_genes)
 
 It's OK!
 
+In total, I have `r length(unique(rgi_filt$record_id))` Resistance Genes in the filtered RGI
+
 ### How many genes from filtered RGI don't have repeats?
 
 Same approach as above: it's the difference between filtered RGI's genes IDs and gene IDs from features (=repeat_df)
@@ -422,32 +424,20 @@ All resistance genes after filtering have repeats around them.
 
 ### Add filtered RGI annotations to Features
 
-Add by gene names since they are unique
+Use gene names as key since they are unique and make a full join with features.
 
-But first transform them: there should be a column *record_id* like in
-`features`
-
-```{r}
-# make record_id as in features
-# transformation example:
-# strsplit(rgi_filt$ORF_ID[1], " ")[[1]][1]
-
-rgi_filt$record_id <- map_chr(rgi_filt$ORF_ID, function(x) strsplit(x, " ")[[1]][1])
-rgi_filt
-```
-
-and make a full join with features
-
-Since RGI results have been filtered, they are much smaller than original features that came from data frames with repeats.
+*OBS!* Since RGI results have been filtered, they are much smaller than original features that came from data frames with repeats.
 
 ```{r}
 features <- full_join(features, rgi_filt, by="record_id")
-# leave strain.x, remove strain.y
-features <- features %>% 
-  select(-strain.y) %>% 
-  rename("strain"=strain.x)
 
-head(features)
+features %>% filter(is.na(repeat_length)) %>% select(strain.x, strain.y, record_id, ORF_ID)
+# leave strain.x, remove strain.y
+# features <- features %>%
+#   select(-strain.y) %>%
+#   rename("strain"=strain.x)
+#
+# head(features)
 ```
 
 Number of rows in Features: `r nrow(features)`
