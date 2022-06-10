@@ -632,7 +632,13 @@ features_filtered_DA62886
 ```
 
 ```{r}
+rep_len_sum <- features_filtered %>%
+  filter(spans_center=="yes") %>%
+  group_by(record_id) %>%
+  summarise(total_repeat_length=sum(repeat_length))
 
+features_filtered <- left_join(features_filtered, rep_len_sum, by="record_id") %>%
+  relocate(total_repeat_length, .before = "AR_length")
 ```
 
 
@@ -957,6 +963,31 @@ ggbox.rc.betalac.100 <- ggplot(feat_selected, aes(resistance, n_repeats_strain_m
 ggbox.rc.betalac.100
 ```
 
+### Total repeat length
+
+```{r}
+ggplot(features_betalac %>%
+         select(record_id, AB, resistance, total_repeat_length) %>%
+         filter(resistance!="I") %>%
+         distinct(), aes(AB, total_repeat_length))+
+  geom_boxplot(aes(fill=resistance))+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette = "Set2")
+```
+
+### All beta-lactamases
+
+```{r}
+ggplot(features_filtered %>%
+         select(record_id, AB, resistance, total_repeat_length) %>%
+         filter(resistance!="I", AB=="AMP") %>%
+         distinct(), aes(AB, total_repeat_length))+
+  geom_boxplot(aes(fill=resistance), notch=T)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette = "Set2")
+```
+
+
 # Plotting features
 
 ## Number of plasmids
@@ -1139,6 +1170,18 @@ ggbox.rl.ab.1000 <- ggplot(feat_selected, aes(AB, repeat_length)) +
 
 
 ggbox.rl.ab.1000
+```
+
+### Total repeat length
+
+```{r}
+ggplot(features_filtered %>%
+         select(record_id, AB, resistance, total_repeat_length) %>%
+         filter(resistance!="I") %>%
+         distinct(), aes(AB, total_repeat_length))+
+  geom_boxplot(aes(fill=resistance))+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette = "Set2")
 ```
 
 ## Amplifiable region size
