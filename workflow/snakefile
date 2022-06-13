@@ -442,6 +442,11 @@ rule dr2centered:
     log: "results/logs/{strain}_repeats_centered_csv.log"
     shell: "Rscript {input.script} --bed {input.bed} --table {input.table} --out {output.table} &> {log}"
 
+rule repeat_summary:
+    input: ""
+    output: ""
+    shell: ""
+
 rule final:
     input:
         qc_ass="results/qualcheck_assembly/{strain}",
