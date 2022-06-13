@@ -1,6 +1,6 @@
 from snakemake.io import touch, directory, temp, expand
 
-configfile: "config.yaml"
+# configfile: specify via command line
 # command to run the pipeline on 14 threads and 10Gb of RAM:
 # snakemake --use-conda --cores 14 --resources mem_mb=10000
 # snakemake --dag results/final/DA63360_all.done | dot -Tpng > dag_new.png
