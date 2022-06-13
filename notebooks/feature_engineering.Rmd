@@ -75,13 +75,21 @@ Each strain contains:
 
 -   [x] repeat count with min 100
 
--   [ ] repeat count with min 500
+-   [x] repeat count with min 500
 
--   [ ] median repeat length with min 100
+-   [x] median repeat length
 
--   [ ] median repeat length with min 500
+-   [x] median repeat length with min 100
+
+-   [x] median repeat length with min 500
 
 -   [ ] maximum repeat length
+
+-   [x] median AR length
+
+-   [x] median AR length with min 100
+
+-   [x] median AR length with min 500
 
 -   [ ] 1 value for repeat count adjusted by number of plasmids,
 
@@ -620,26 +628,12 @@ features_filtered <- features_filtered %>% relocate(n_repeats_strain_min1000, n_
 head(features_filtered)
 ```
 
-## Add Repeat density
+## Add total repeat length
 
-'repeat density' suggested by me and 'total length of repeats' proposed by Dan, are essentially the same metrics reflecting how many bases on each side of a resistance gene constitute repeats.
-
-'repeat density' has meaning only if calculated using repeats spanning the gene's center
-
-NO
-
-how close shorter repeats are to each other!
+total repeat length = sum of all repeats on one side of a gene from center-spanning repeat pairs
 
 ```{r}
-# example
-features_filtered_DA62886 <- features_filtered %>% filter(strain=="DA62886")
-rep_len_sum <- features_filtered_DA62886 %>% filter(spans_center=="yes") %>% group_by(record_id) %>% summarise(rep_len_sum=sum(repeat_length))
-
-features_filtered_DA62886 <- left_join(features_filtered_DA62886, rep_len_sum, by="record_id") %>% relocate(rep_len_sum, .before = "AR_length")
-features_filtered_DA62886
-```
-
-```{r}
+# calculate summarized repeat sum
 rep_len_sum <- features_filtered %>%
   filter(spans_center=="yes") %>%
   group_by(record_id) %>%
@@ -649,6 +643,101 @@ features_filtered <- left_join(features_filtered, rep_len_sum, by="record_id") %
   relocate(total_repeat_length, .before = "AR_length")
 ```
 
+## Add repeat density
+
+This metric reflects maximum number of repeats per sliding window...
+
+## Add median repeat length per strain
+
+### All repeats
+
+```{r}
+med_rep_len <- features_filtered %>% 
+  select(strain, repeat_length) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  summarize(median_repeat_length=median(repeat_length, na.rm = T))
+
+features_filtered <- left_join(features_filtered, med_rep_len, by="strain") %>% relocate(median_repeat_length, .before = "AR_length")
+```
+
+414 observations
+
+### Repeats min 100
+
+```{r}
+med_rep_len_min100 <- features_filtered %>% 
+  select(strain, repeat_length) %>% 
+  filter(repeat_length >= 100) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  summarize(median_repeat_length_m100=median(repeat_length, na.rm = T))
+
+features_filtered <- left_join(features_filtered, med_rep_len_min100, by="strain") %>% relocate(median_repeat_length_m100, .before = "AR_length")
+```
+
+302 observations
+
+### Repeats min 500
+
+```{r}
+med_rep_len_min500 <- features_filtered %>% 
+  select(strain, repeat_length) %>% 
+  filter(repeat_length >= 500) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  summarize(median_repeat_length_m500=median(repeat_length, na.rm = T))
+
+features_filtered <- left_join(features_filtered, med_rep_len_min500, by="strain") %>% relocate(median_repeat_length_m500, .before = "AR_length")
+```
+
+155 observations
+
+## Add median AR length
+
+### All repeat pairs
+
+```{r}
+med_ar_len <- features_filtered %>% 
+  select(strain, AR_length) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  summarize(median_AR_length=median(AR_length, na.rm = T))
+
+features_filtered <- left_join(features_filtered, med_ar_len, by="strain") %>% relocate(median_AR_length, .before = "spans_center")
+```
+
+414 observations
+
+### Repeats min 100
+
+```{r}
+med_ar_len_m100 <- features_filtered %>%
+  filter(repeat_length >= 100) %>% 
+  select(strain, AR_length) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  summarize(median_AR_length_m100=median(AR_length, na.rm = T))
+
+features_filtered <- left_join(features_filtered, med_ar_len_m100, by="strain") %>% relocate(median_AR_length_m100, .before = "spans_center")
+```
+
+302 observations
+
+### Repeats min 500
+
+```{r}
+med_ar_len_m500 <- features_filtered %>%
+  filter(repeat_length >= 500) %>% 
+  select(strain, AR_length) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  summarize(median_AR_length_m500=median(AR_length, na.rm = T))
+
+features_filtered <- left_join(features_filtered, med_ar_len_m500, by="strain") %>% relocate(median_AR_length_m500, .before = "spans_center")
+```
+
+155 observations
 
 ## Add AB testing data
 
@@ -948,42 +1037,6 @@ features_betalac_amp <- features_betalac %>% filter(AB=="AMP")
 features_betalac_amp
 ```
 
-## Plots
-
-```{r, fig.width=10, fig.height=5}
-# prepare df
-# filter(resistance != "I") %>% 
-feat_selected <- features_betalac_amp %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, n_repeats_strain_min100, spans_center) %>% 
-                   distinct()
-
-ggbox.rc.betalac.100 <- ggplot(feat_selected, aes(resistance, n_repeats_strain_min100)) +
-        geom_boxplot(notch=T, outlier.alpha = 0.5, outlier.size = 0.5, varwidth = T) +
-        geom_violin(alpha=0.1) +
-        coord_trans(y="sqrt") +
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat count Beta-lactamases", subtitle="Repeats > 100 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.rc.betalac.100
-```
-
-### Total repeat length
-
-```{r}
-ggplot(features_betalac %>%
-         select(record_id, AB, resistance, total_repeat_length) %>%
-         filter(resistance!="I") %>%
-         distinct(), aes(AB, total_repeat_length))+
-  geom_boxplot(aes(fill=resistance))+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set2")
-```
-
 # Plotting features for AMP
 
 Let's have a closer look at ampicillins only.
@@ -1002,6 +1055,19 @@ features_amp <- features_filtered %>% filter(AB=="AMP") %>% distinct()
 features_amp
 ```
 
+## Gene presence
+
+```{r, eval=FALSE}
+# check if some rows don't have beta-lactamase
+# sum(grepl("beta-lactamase", features_amp$AMR.Gene.Family))
+
+features_amp$contains_beta_lactamase <- ifelse(grepl("beta-lactamase", features_amp$AMR.Gene.Family), "yes", "no")
+features_amp <- features_amp %>% relocate(contains_beta_lactamase, .before="AB")
+
+features_amp_strain <- select(features_amp, strain, AB, contains_beta_lactamase) %>% distinct() %>% group_by(strain) %>% summarise(N=n())
+```
+
+## Number of plasmids
 
 ## Repeat length
 
@@ -1066,6 +1132,50 @@ ggarrange(plot.rl.all.amp, plot.rl.100.amp, plot.rl.500.amp, plot.rl.m100.amp,
           common.legend = T, legend = "bottom")
 ```
 
+## Median repeat length
+
+```{r, fig.height=12, fig.width=9}
+
+# all repeat length plot
+plot.mrl.all.amp <- ggplot(features_amp %>% 
+                            select(strain, median_repeat_length, AB, resistance) %>% 
+                            filter(!is.na(resistance), resistance != "I") %>% 
+                            distinct(), 
+                          aes(AB, median_repeat_length)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ylab("median repeat length") +
+  ggtitle("Median repeat length per strain")
+
+plot.mrl.100.amp <- ggplot(features_amp %>% 
+                            select(strain, median_repeat_length_m100, AB, resistance) %>% 
+                            filter(!is.na(resistance), resistance != "I") %>% 
+                            distinct(), 
+                          aes(AB, median_repeat_length_m100)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ ylab("Median repeat length, min 100 bp")
+
+
+plot.mrl.500.amp <- ggplot(features_amp %>% 
+                            select(strain, median_repeat_length_m500, AB, resistance) %>% 
+                            filter(!is.na(resistance), resistance != "I") %>% 
+                            distinct(), 
+                          aes(AB, median_repeat_length_m500)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  coord_trans(y="log") +
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ ylab("Median repeat length, min 500 bp")
+
+ggarrange(plot.mrl.all.amp, plot.mrl.100.amp, plot.mrl.500.amp, 
+          ncol=1, nrow=3, 
+          common.legend = T, legend = "bottom")
+```
 
 ## Repeat counts
 
@@ -1094,7 +1204,7 @@ plot.rc.s.100.amp <- ggplot(features_amp %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ylab("N")+
+  xlab("")+ylab("")+
   ggtitle("Repeat count per strain, min 100 bp")
 
 
@@ -1119,7 +1229,7 @@ plot.rc.s.1000.amp <- ggplot(features_amp %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ylab("N")+
+  xlab("")+ylab("")+
   ggtitle("Repeat count per strain, min 1000 bp")
 
 ggarrange(plot.rc.s.all.amp, plot.rc.s.100.amp, plot.rc.s.500.amp, plot.rc.s.1000.amp, 
@@ -1137,7 +1247,7 @@ plot.rc.g.all.amp <- ggplot(features_amp %>%
                             distinct(), 
                           aes(AB, n_repeats_gene)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
   xlab("")+ylab("N") +
@@ -1150,10 +1260,10 @@ plot.rc.g.100.amp <- ggplot(features_amp %>%
                             distinct(), 
                           aes(AB, n_repeats_gene_min100)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ylab("N")+
+  xlab("")+ylab("")+
   ggtitle("Repeat count per gene, min 100 bp")
 
 
@@ -1163,7 +1273,7 @@ plot.rc.g.500.amp <- ggplot(features_amp %>%
                             distinct(), 
                           aes(AB, n_repeats_gene_min500)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
   xlab("")+ylab("N")+
@@ -1175,15 +1285,101 @@ plot.rc.g.1000.amp <- ggplot(features_amp %>%
                             distinct(), 
                           aes(AB, n_repeats_gene_min1000)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ylab("N")+
+  xlab("")+ylab("")+
   ggtitle("Repeat count per gene, min 1000 bp")
 
 ggarrange(plot.rc.g.all.amp, plot.rc.g.100.amp, plot.rc.g.500.amp, plot.rc.g.1000.amp, 
           ncol=2, nrow=2, 
           common.legend = T, legend = "bottom")
+```
+
+## Amplifiable region size
+
+```{r, fig.height=9, fig.width=9}
+plot.ar.all.amp <- ggplot(features_amp %>% 
+                            select(record_id, AR_length, AB, resistance, spans_center) %>% 
+                            filter(!is.na(resistance), !is.na(spans_center), resistance != "I") %>% 
+                            distinct(), 
+                          aes(AB, AR_length)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  coord_trans(y="sqrt") +
+  facet_grid(. ~ spans_center, labeller = label_both) +
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ylab("Length") +
+  ggtitle("AR size per repeat pair")
+
+
+plot.mar.all.amp <- ggplot(features_amp %>% 
+                            select(strain, median_AR_length, AB, resistance) %>% 
+                            filter(!is.na(resistance), resistance != "I") %>% 
+                            distinct(), 
+                          aes(AB, median_AR_length)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  coord_trans(y="sqrt")+
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ylab("Median")+
+  ggtitle("Median AR size per strain")
+
+
+plot.mar.100.amp <- ggplot(features_amp %>% 
+                            select(strain, median_AR_length_m100, AB, resistance) %>% 
+                            filter(!is.na(resistance), resistance != "I") %>% 
+                            distinct(), 
+                          aes(AB, median_AR_length_m100)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ylab("Median")+
+  ggtitle("Median AR size per strain, repeat min 100 bp")
+
+plot.mar.500.amp <- ggplot(features_amp %>% 
+                            select(strain, median_AR_length_m500, AB, resistance) %>% 
+                            filter(!is.na(resistance), resistance != "I") %>% 
+                            distinct(), 
+                          aes(AB, median_AR_length_m500)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  coord_trans(y="sqrt") +
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ylab("")+
+  ggtitle("Median AR size per strain, repeat min 500 bp")
+
+ggarrange(plot.ar.all.amp, plot.mar.all.amp, plot.mar.100.amp, plot.mar.500.amp, 
+          ncol=2, nrow=2, 
+          common.legend = T, legend = "bottom")
+```
+
+## Combination of features
+
+```{r, fig.height=8, fig.width=12}
+feat_plot <- features_amp %>% 
+  select(strain, median_repeat_length, total_repeat_length, median_AR_length, resistance) %>% 
+  filter(!is.na(resistance), resistance != "I") %>% 
+  distinct()
+
+plot.comb.1 <- ggplot(feat_plot %>% 
+                        select(median_AR_length, median_repeat_length, resistance) %>% 
+                        distinct(), 
+                      aes(median_repeat_length,  median_AR_length)) + 
+  geom_point(aes(color=resistance), alpha=0.5)+ 
+  coord_trans(x="sqrt", y="sqrt")+
+  scale_color_brewer(palette = "Set2")
+
+
+plot.comb.2 <- ggplot(feat_plot %>% 
+                        select(total_repeat_length, median_AR_length, resistance) %>% 
+                        distinct(), 
+                      aes(total_repeat_length,  median_AR_length)) + 
+  geom_point(aes(color=resistance), alpha=0.5)+ 
+  coord_trans(x="sqrt", y="sqrt")+
+  scale_color_brewer(palette = "Set2")
+
+ggarrange(plot.comb.1, plot.comb.2, ncol=1, nrow=2,  common.legend = T, legend = "bottom")
 ```
 
 
