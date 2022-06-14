@@ -443,10 +443,13 @@ rule dr2centered:
     shell: "Rscript {input.script} --bed {input.bed} --table {input.table} --out {output.table} &> {log}"
 
 rule repeat_summary:
-    input: expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
-           expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"])
-    output: "results/tables/repeats_summary.csv"
+    input:
+        expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
+        expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"])
+    output:
+        "results/tables/repeats_summary.csv"
     log: "results/logs/repeat_summary.log"
+    message: "making summary table with repeat coordinates for all strains"
     script: "scripts/make_repeat_summary_table.py"
 
 rule final:
