@@ -1054,6 +1054,40 @@ features_amp <- features_filtered %>% filter(AB=="AMP") %>% distinct()
 features_amp
 ```
 
+## RG counts distribution
+
+### In strains tested for AMP
+
+```{r}
+amp_n_genes <- features_amp %>% select(strain, record_id) %>% distinct() %>% group_by(strain) %>% summarise(N=n())
+
+ggplot(amp_n_genes, aes(N)) + 
+  geom_histogram(fill="steelblue", binwidth = 0.5)+
+  xlab("RG count")+
+  ylab("number of strains")
+
+
+```
+```{r}
+summary(amp_n_genes$N)
+```
+### In strains with beta-lactamases genes only
+
+```{r}
+betaL_n_genes <- features_amp %>% filter(grepl("beta-lactamase", AMR.Gene.Family)) %>% select(strain, record_id) %>% distinct() %>% group_by(strain) %>% summarise(N=n())
+
+ggplot(betaL_n_genes, aes(N)) + 
+  geom_histogram(fill="steelblue", binwidth = 0.5)+
+  xlab("RG count")+
+  ylab("number of strains")
+
+```
+
+```{r}
+summary(betaL_n_genes$N)
+```
+
+
 ## Gene presence
 
 ```{r, eval=FALSE}
@@ -1379,6 +1413,12 @@ plot.comb.2 <- ggplot(feat_plot %>%
   scale_color_brewer(palette = "Set2")
 
 ggarrange(plot.comb.1, plot.comb.2, ncol=1, nrow=2,  common.legend = T, legend = "bottom")
+```
+
+# Write AMP features table to a file
+
+```{r}
+write.csv(features_amp, "/home/andrei/Data/HeteroR/results/tables/features_amp.csv", row.names = F)
 ```
 
 
