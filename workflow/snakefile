@@ -443,9 +443,11 @@ rule dr2centered:
     shell: "Rscript {input.script} --bed {input.bed} --table {input.table} --out {output.table} &> {log}"
 
 rule repeat_summary:
-    input: ""
-    output: ""
-    shell: ""
+    input: expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
+           expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"])
+    output: "results/tables/repeats_summary.csv"
+    log: "results/logs/repeat_summary.log"
+    script: "scripts/make_repeat_summary_table.py"
 
 rule final:
     input:
@@ -466,7 +468,8 @@ rule final:
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
         dr_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
-        dr_centered_csv="results/annotations/{strain}/repeats/{strain}_repeats_centered.csv"
+        dr_centered_csv="results/annotations/{strain}/repeats/{strain}_repeats_centered.csv",
+        rep_sum="results/tables/repeats_summary.csv"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
