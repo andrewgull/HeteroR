@@ -195,8 +195,7 @@ features <- as_tibble(repeat_df) %>%
 features
 ```
 
-Or read it from the file *repeat_summary_table.csv* that was made during
-analysis in `repeat_summary.Rmd`
+Or read it from the file *repeat_summary.csv* that was made during the pipeline run.
 
 It contains strains, gene names, repeat coordinates, repeat lengths, AR
 lengths and 'spans center' label.
@@ -204,8 +203,8 @@ lengths and 'spans center' label.
 Each gene name (aka record_id) is unique.
 
 ```{r, eval=FALSE}
-repeat_df <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/repeats_summary_table.csv")) %>% 
-  select(-c(X.1, X)) %>% 
+repeat_df <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/tables/repeats_summary.csv")) %>% 
+  select(-X) %>% 
   relocate(strain, .before=record_id)
 
 repeat_df$record_id <- sub("_gene", "", repeat_df$record_id)
