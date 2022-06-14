@@ -227,7 +227,7 @@ The environments are described using YAML files that can be found in ``workflow/
 
 ## Current workflow's DAG
 
-![dag](images/dag_new.png)
+![dag](images/dag.png)
 
 ## Heatmap example
 NB: more advanced and user-friendly heatmap can be found in `shiny_apps` directory
