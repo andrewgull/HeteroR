@@ -784,10 +784,15 @@ Here I will analyse only strains tested for resistance to AMP
 
 ## Create a data set
 
+**OBS!** Only per strain features should be kept in this table
+
 ```{r}
 # filter those strains that were tested for AMP
+# keep for per gene feature calculations
 features_amp <- features_filtered %>% filter(AB=="AMP") %>% distinct()
-features_amp
+# this df is for per strain calculation
+features_amp_strain <- features_amp %>% select(strain, n_plasmids, AB, resistance) %>% distinct()
+head(features_amp_strain)
 ```
 
 Number of strains tested for AMP resistance `r length(unique(features_amp$strain))`
@@ -805,17 +810,21 @@ f_amp_filt <- features_amp %>%
 
 f_amp_filt$is_beta_lac <- grepl("beta-lactamase", f_amp_filt$AMR.Gene.Family)
 
-n.beta.lac <- f_amp_filt %>% group_by(strain) %>% summarise(n_beta_lac=sum(is_beta_lac))
+n.beta.lac <- f_amp_filt %>% group_by(strain) %>% summarise(n.beta.lac=sum(is_beta_lac))
 
-# join with features_amp
-features_amp <- left_join(features_amp, n.beta.lac, by="strain") %>%
-  relocate(AMR.Gene.Family, n_beta_lac, .before="repeat_length")
+# join with features_amp_strain
+features_amp_strain <- left_join(features_amp_strain, n.beta.lac, by="strain")
 
+# add is beta lac to features amp for future calculations
 features_amp <- left_join(features_amp, f_amp_filt %>% select(record_id, is_beta_lac), by="record_id") %>% 
-  relocate(is_beta_lac, .before="n_beta_lac")
+  relocate(is_beta_lac, .before="AB")
+
+head(features_amp_strain)
 ```
 
 ## Repeat count
+
+**OBS!** Repeat in the current context is *a pair of identical regions of a certain length*.
 
 ### Add total repeat count
 
@@ -826,10 +835,25 @@ Repeats from around non-beta-lactamase genes should not be counted!
 # in features_amp every row is a repeat, to find number of repeats per strain,
 # count number of rows per strains
 # exclude non-beta-lac genes
+# according to the current repeat definition distinct() should not be used
 repeat_counts_strain <- features_amp %>% 
   filter(is_beta_lac) %>% 
   group_by(strain) %>%
-  summarise("n_repeats_strain"=n())
+  summarise("n.rep.total"=n())
+
+features_amp_strain <- left_join(features_amp_strain, repeat_counts_strain, by="strain")
+
+# count number of repeats spanning center
+rep_count_center_strain <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
+  group_by(strain) %>%
+  summarise("n.rep.tot.cen"=n())
+
+features_amp_strain <- left_join(features_amp_strain, rep_count_center_strain, by="strain")
+
+# number of repeats not spanning center
+features_amp_strain$n.rep.tot.non.cen <- features_amp_strain$n.rep.total - features_amp_strain$n.rep.tot.cen
+
 
 # repeats per gene = number of rows per record_id
 # exclude non-beta-lac genes
@@ -839,7 +863,6 @@ repeat_counts_gene <- features_amp %>%
   summarise("n_repeats_gene"=n())
 
 # join only those counts that are in features_amp
-features_amp <- left_join(features_amp, repeat_counts_strain, by="strain") 
 features_amp <- left_join(features_amp, repeat_counts_gene, by="record_id")
 
 # NAs to 0s
@@ -848,7 +871,7 @@ features_amp <- left_join(features_amp, repeat_counts_gene, by="record_id")
 #features_amp$n_repeats_strain <- ifelse(is.na(features_amp$n_repeats_strain), 0, features_amp$n_repeats_strain)
 
 # locate
-features_amp <- features_amp %>% relocate(n_repeats_strain, n_repeats_gene, .before="ORF_ID")
+features_amp <- features_amp %>% relocate(n_repeats_gene, .before="ORF_ID")
 
 
 ```
@@ -856,11 +879,35 @@ features_amp <- features_amp %>% relocate(n_repeats_strain, n_repeats_gene, .bef
 ### Add repeat count, min length 100 bp
 
 ```{r}
+# n reads longer than 100 bp
 repeat_counts_strain_100 <- features_amp %>% 
   filter(is_beta_lac) %>%
   filter(repeat_length >= 100) %>% 
   group_by(strain) %>% 
-  summarise("n_repeats_strain_min100"=n())
+  summarise("n.rep.100"=n())
+
+# add
+features_amp_strain <- left_join(features_amp_strain, repeat_counts_strain_100, by="strain")
+# NAs to 0s
+features_amp_strain$n.rep.100 <- ifelse(is.na(features_amp_strain$n.rep.100), 0, features_amp_strain$n.rep.100)
+
+# n repeats longer than 100 and spanning center
+repeat_counts_strain_100_center <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes", repeat_length >= 100) %>%
+  group_by(strain) %>% 
+  summarise("n.rep.100.cen"=n())
+
+# add to the table, there will be NAs
+features_amp_strain <- left_join(features_amp_strain, repeat_counts_strain_100_center, by="strain")
+# replace NAs with 0s
+features_amp_strain$n.rep.100.cen <- ifelse(is.na(features_amp_strain$n.rep.100.cen), 0, features_amp_strain$n.rep.100.cen)
+
+## non spanning center
+features_amp_strain$n.rep.100.non.cen <- features_amp_strain$n.rep.100 - features_amp_strain$n.rep.100.cen
+
+#############################
+## PER GENE
+#############################
 
 repeat_counts_gene_100 <- features_amp %>% 
   filter(is_beta_lac) %>% 
@@ -869,97 +916,108 @@ repeat_counts_gene_100 <- features_amp %>%
   summarise("n_repeats_gene_min100"=n())
 
 # join 
-features_amp <- left_join(features_amp, repeat_counts_strain_100, by="strain")
 features_amp <- left_join(features_amp, repeat_counts_gene_100, by="record_id")
 
 # not all beta-lac genes/strains have repeats longer than 100
 # they are NA
 # turn these NAs to 0s
 features_amp$n_repeats_gene_min100 <- ifelse(is.na(features_amp$n_repeats_gene_min100), 0, features_amp$n_repeats_gene_min100)
-features_amp$n_repeats_strain_min100 <- ifelse(is.na(features_amp$n_repeats_strain_min100), 0, features_amp$n_repeats_strain_min100)
 
 # locate
-features_amp <- features_amp %>% relocate(n_repeats_strain_min100, n_repeats_gene_min100, .before="ORF_ID")
+features_amp <- features_amp %>% relocate(n_repeats_gene_min100, .before="ORF_ID")
 
+##################################
+## SHOW FEATURES STRAIN
+##################################
 
+head(features_amp_strain)
 ```
 
 ### Add repeat count, min length 500 bp
 
 ```{r}
+# n reads longer than 500 bp
 repeat_counts_strain_500 <- features_amp %>% 
-  filter(is_beta_lac) %>% 
+  filter(is_beta_lac) %>%
   filter(repeat_length >= 500) %>% 
   group_by(strain) %>% 
-  summarise("n_repeats_strain_min500"=n())
+  summarise("n.rep.500"=n())
+
+# add
+features_amp_strain <- left_join(features_amp_strain, repeat_counts_strain_500, by="strain")
+# NAs to 0s
+features_amp_strain$n.rep.500 <- ifelse(is.na(features_amp_strain$n.rep.500), 0, features_amp_strain$n.rep.500)
+
+# n repeats longer than 500 and spanning center
+repeat_counts_strain_500_center <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes", repeat_length >= 500) %>%
+  group_by(strain) %>% 
+  summarise("n.rep.500.cen"=n())
+
+# add to the table, there will be NAs
+features_amp_strain <- left_join(features_amp_strain, repeat_counts_strain_500_center, by="strain")
+# replace NAs with 0s
+features_amp_strain$n.rep.500.cen <- ifelse(is.na(features_amp_strain$n.rep.500.cen), 0, features_amp_strain$n.rep.500.cen)
+
+## non spanning center
+features_amp_strain$n.rep.500.non.cen <- features_amp_strain$n.rep.500 - features_amp_strain$n.rep.500.cen
+
+#############################
+## PER GENE
+#############################
 
 repeat_counts_gene_500 <- features_amp %>% 
-  filter(is_beta_lac) %>%
+  filter(is_beta_lac) %>% 
   filter(repeat_length >= 500) %>% 
   group_by(record_id) %>% 
   summarise("n_repeats_gene_min500"=n())
 
 # join 
-features_amp <- left_join(features_amp, repeat_counts_strain_500, by="strain")
 features_amp <- left_join(features_amp, repeat_counts_gene_500, by="record_id")
 
 # not all beta-lac genes/strains have repeats longer than 500
 # they are NA
 # turn these NAs to 0s
 features_amp$n_repeats_gene_min500 <- ifelse(is.na(features_amp$n_repeats_gene_min500), 0, features_amp$n_repeats_gene_min500)
-features_amp$n_repeats_strain_min500 <- ifelse(is.na(features_amp$n_repeats_strain_min500), 0, features_amp$n_repeats_strain_min500)
 
 # locate
-features_amp <- features_amp %>% relocate(n_repeats_strain_min500, n_repeats_gene_min500, .before="ORF_ID")
+features_amp <- features_amp %>% relocate(n_repeats_gene_min500, .before="ORF_ID")
+
+##################################
+## SHOW FEATURES STRAIN
+##################################
+
+head(features_amp_strain)
 
 ```
 
-### Add repeat count, min length 1000 bp
+## Median sum of repeat length
 
-```{r}
-repeat_counts_strain_1000 <-  features_amp %>% 
-  filter(is_beta_lac) %>% 
-  filter(repeat_length >= 1000) %>% 
-  group_by(strain) %>% 
-  summarise("n_repeats_strain_min1000"=n())
-
-repeat_counts_gene_1000 <-  features_amp %>% 
-  filter(is_beta_lac) %>%  
-  filter(repeat_length >= 1000) %>% 
-  group_by(record_id) %>% 
-  summarise("n_repeats_gene_min1000"=n())
-
-# join 
-features_amp <- left_join(features_amp, repeat_counts_strain_1000, by="strain")
-features_amp <- left_join(features_amp, repeat_counts_gene_1000, by="record_id")
-
-# not all beta-lac genes/strains have repeats longer than 500
-# they are NA
-# turn these NAs to 0s
-features_amp$n_repeats_gene_min1000 <- ifelse(is.na(features_amp$n_repeats_gene_min1000), 0, features_amp$n_repeats_gene_min1000)
-features_amp$n_repeats_strain_min1000 <- ifelse(is.na(features_amp$n_repeats_strain_min1000), 0, features_amp$n_repeats_strain_min1000)
-
-# locate
-features_amp <- features_amp %>% relocate(n_repeats_strain_min1000, n_repeats_gene_min1000, .before="ORF_ID")
-
-head(features_amp)
-```
-
-## Total repeat length
-
-per gene
+total repeat length in each gene divided by number of genes
 
 total repeat length = sum of all repeats on one side of a gene from center-spanning repeat pairs
 
 ```{r}
 # calculate summarized repeat sum
-rep_len_sum <- features_amp %>% filter(is_beta_lac) %>% 
-  filter(spans_center=="yes") %>%
+rep_len_sum_strain <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
+  group_by(strain, record_id) %>%
+  summarise(total_repeat_length=sum(repeat_length)) %>% 
+  group_by(strain) %>% 
+  summarise(med.tot.rep.len=median(total_repeat_length))
+
+features_amp_strain <- left_join(features_amp_strain, rep_len_sum_strain, by="strain")
+
+# per gene
+rep_len_sum <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
   group_by(record_id) %>%
   summarise(total_repeat_length=sum(repeat_length))
 
 features_amp <- left_join(features_amp, rep_len_sum, by="record_id") %>%
   relocate(total_repeat_length, .before = "AR_length")
+
+head(features_amp_strain)
 ```
 
 ## Repeat density
@@ -968,112 +1026,160 @@ Under construction.
 
 This metric reflects maximum number of repeats per sliding window.
 
-## Median repeat length per strain
+## Median repeat length
+
+Only repeats found around beta-lactamase genes should be taken into account.
+
+According to the current definition of *repeat*, `distinct()` should not be used.
 
 ### All repeats
 
 ```{r}
+# I have removed distinct() and added filter(spans_center=="yes")
+# it significantly changes everything
 med_rep_len <- features_amp %>% 
   filter(is_beta_lac) %>% 
   select(strain, repeat_length) %>% 
-  distinct() %>% 
   group_by(strain) %>% 
-  summarize(median_repeat_length=median(repeat_length, na.rm = T))
+  summarize(med.rep.len=median(repeat_length, na.rm = T))
 
-features_amp <- left_join(features_amp, med_rep_len, by="strain") %>% 
-  relocate(median_repeat_length, .before = "AR_length")
+# spanning gene center
+med_rep_len_center <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
+  select(strain, repeat_length) %>% 
+  group_by(strain) %>% 
+  summarize(med.rep.len.cen=median(repeat_length, na.rm = T))
+
+# non spanning
+med_rep_len_non_center <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="no") %>% 
+  select(strain, repeat_length) %>% 
+  group_by(strain) %>% 
+  summarize(med.rep.len.non.cen=median(repeat_length, na.rm = T))
+
+# add
+features_amp_strain <- left_join(features_amp_strain, med_rep_len_center, by="strain")
+features_amp_strain <- left_join(features_amp_strain, med_rep_len_non_center, by="strain")
+features_amp_strain <- left_join(features_amp_strain, med_rep_len, by="strain") # features_amp_strain <- features_amp_strain %>% relocate(med.rep.len, .before = "med.rep.len.cen")
+
+
+# NAs to 0s
+features_amp_strain$med.rep.len.cen <- ifelse(is.na(features_amp_strain$med.rep.len.cen), 0, features_amp_strain$med.rep.len.cen)
+features_amp_strain$med.rep.len.non.cen <- ifelse(is.na(features_amp_strain$med.rep.len.non.cen), 0, features_amp_strain$med.rep.len.non.cen)
+
+# older way of counting
+# med_rep_len_old <- features_amp %>% 
+#   filter(is_beta_lac) %>% 
+#   select(strain, repeat_length) %>% 
+#   distinct() %>% 
+#   group_by(strain) %>% 
+#   summarize(median_repeat_length=median(repeat_length, na.rm = T))
+
+head(features_amp_strain)
 ```
-
-380 observations
 
 ### Repeats min 100
 
 ```{r}
-med_rep_len_min100 <- features_amp %>% 
-  filter(is_beta_lac) %>% 
+med_rep_len_m100 <- features_amp %>% 
+  filter(is_beta_lac, repeat_length >= 100) %>% 
   select(strain, repeat_length) %>% 
-  filter(repeat_length >= 100) %>% 
-  distinct() %>% 
   group_by(strain) %>% 
-  summarize(median_repeat_length_m100=median(repeat_length, na.rm = T))
+  summarize(med.rep.len.100=median(repeat_length, na.rm = T))
 
-features_amp <- left_join(features_amp, med_rep_len_min100, by="strain") %>% relocate(median_repeat_length_m100, .before = "AR_length")
-```
-
-268 observations
-
-### Repeats min 500
-
-```{r}
-med_rep_len_min500 <- features_amp %>% 
-  filter(is_beta_lac) %>% 
+# spanning gene center
+med_rep_len_center_m100 <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes", repeat_length >= 100) %>% 
   select(strain, repeat_length) %>% 
-  filter(repeat_length >= 500) %>% 
-  distinct() %>% 
   group_by(strain) %>% 
-  summarize(median_repeat_length_m500=median(repeat_length, na.rm = T))
+  summarize(med.rep.len.cen.100=median(repeat_length, na.rm = T))
 
-features_amp <- left_join(features_amp, med_rep_len_min500, by="strain") %>% relocate(median_repeat_length_m500, .before = "AR_length")
+# non spanning
+med_rep_len_non_center_m100 <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="no", repeat_length >= 100) %>% 
+  select(strain, repeat_length) %>% 
+  group_by(strain) %>% 
+  summarize(med.rep.len.non.cen.100=median(repeat_length, na.rm = T))
+
+# add
+features_amp_strain <- left_join(features_amp_strain, med_rep_len_m100, by="strain")
+features_amp_strain <- left_join(features_amp_strain, med_rep_len_center_m100, by="strain")
+features_amp_strain <- left_join(features_amp_strain, med_rep_len_non_center_m100, by="strain")
+
+# replace NAs
+features_amp_strain$med.rep.len.100 <- ifelse(is.na(features_amp_strain$med.rep.len.100), 0, features_amp_strain$med.rep.len.100)
+features_amp_strain$med.rep.len.cen.100 <- ifelse(is.na(features_amp_strain$med.rep.len.cen.100), 0, features_amp_strain$med.rep.len.cen.100)
+features_amp_strain$med.rep.len.non.cen.100 <- ifelse(is.na(features_amp_strain$med.rep.len.non.cen.100), 0, features_amp_strain$med.rep.len.non.cen.100)
+
+# show
+head(features_amp_strain)
 ```
-
-135 observations
 
 ## Median amplifiable region size
 
 ### All repeat pairs
 
+`distinct()` should not be used again
+
 ```{r}
-med_ar_len <- features_amp %>% 
-  filter(is_beta_lac) %>% 
+med_ar_len_cen <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
   select(strain, AR_length) %>% 
-  distinct() %>% 
   group_by(strain) %>% 
-  summarize(median_AR_length=median(AR_length, na.rm = T))
+  summarize(med.AR.len.cen=median(AR_length, na.rm = T))
 
-features_amp <- left_join(features_amp, med_ar_len, by="strain") %>% relocate(median_AR_length, .before = "spans_center")
+med_ar_len_non_cen <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="no") %>% 
+  select(strain, AR_length) %>% 
+  group_by(strain) %>% 
+  summarize(med.AR.len.non.cen=median(AR_length, na.rm = T))
+
+
+features_amp_strain <- left_join(features_amp_strain, med_ar_len_cen, by="strain")
+features_amp_strain <- left_join(features_amp_strain, med_ar_len_non_cen, by="strain")
+
+head(features_amp_strain)
 ```
-
-380 observations
 
 ### Repeats min 100
 
 ```{r}
-med_ar_len_m100 <- features_amp %>%
-  filter(is_beta_lac) %>% 
-  filter(repeat_length >= 100) %>% 
+med_ar_len_cen_m100 <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="yes", repeat_length >= 100) %>% 
   select(strain, AR_length) %>% 
-  distinct() %>% 
   group_by(strain) %>% 
-  summarize(median_AR_length_m100=median(AR_length, na.rm = T))
+  summarize(med.AR.len.cen.100=median(AR_length, na.rm = T))
 
-features_amp <- left_join(features_amp, med_ar_len_m100, by="strain") %>% relocate(median_AR_length_m100, .before = "spans_center")
+med_ar_len_non_cen_m100 <- features_amp %>% 
+  filter(is_beta_lac, spans_center=="no", repeat_length >= 100) %>% 
+  select(strain, AR_length) %>% 
+  group_by(strain) %>% 
+  summarize(med.AR.len.non.cen.100=median(AR_length, na.rm = T))
+
+# add
+# NA can appear
+features_amp_strain <- left_join(features_amp_strain, med_ar_len_cen_m100, by="strain")
+features_amp_strain <- left_join(features_amp_strain, med_ar_len_non_cen_m100, by="strain")
+
+# replace NAs with 0
+features_amp_strain$med.AR.len.cen.100 <- ifelse(is.na(features_amp_strain$med.AR.len.cen.100), 0, features_amp_strain$med.AR.len.cen.100)
+features_amp_strain$med.AR.len.non.cen.100 <- ifelse(is.na(features_amp_strain$med.AR.len.non.cen.100), 0, features_amp_strain$med.AR.len.non.cen.100)
+
+head(features_amp_strain)
 ```
 
-268 observations
+## Final version
 
-### Repeats min 500
+Remove intermediate resistance and not tested strains
 
 ```{r}
-med_ar_len_m500 <- features_amp %>%
-  filter(is_beta_lac) %>% 
-  filter(repeat_length >= 500) %>% 
-  select(strain, AR_length) %>% 
-  distinct() %>% 
-  group_by(strain) %>% 
-  summarize(median_AR_length_m500=median(AR_length, na.rm = T))
-
-features_amp <- left_join(features_amp, med_ar_len_m500, by="strain") %>% relocate(median_AR_length_m500, .before = "spans_center")
+# add plasmids if you forgot
+# features_amp_strain <- left_join(features_amp_strain, features_amp %>% select(strain, n_plasmids) %>% distinct(), by="strain") %>% relocate(n_plasmids, .before="n.rep.total")
+features_amp_strain <- features_amp_strain %>% filter(resistance != "I", !is.na(resistance))
+features_amp_strain
 ```
 
-135 observations
-
-## AMP data set final
-
-```{r}
-features_amp
-```
-
-# Plotting features for AMP
+# EDA
 
 From Features I have selected all the strains tested for AMP resistance, repeat-related features have been calculated based on beta-lactamase genes only.
 
@@ -1096,6 +1202,7 @@ ggplot(amp_n_genes, aes(N)) +
 ```{r}
 summary(amp_n_genes$N)
 ```
+
 It's almost the same number of RGs as in the total data set, because this data set size is 380 strains and total data set size is 414 strains.
 
 ### In strains with beta-lactamases genes only
@@ -1131,7 +1238,7 @@ We should not count repeats around other genes than beta-lactamases
 Table ordered by number of beta-lactamases
 
 ```{r, eval=FALSE}
-n.beta.lac %>% arrange(n_beta_lac)
+n.beta.lac %>% arrange(n.beta.lac)
 ```
 
 Every strain has at least one beta-lactamase gene.
@@ -1146,7 +1253,7 @@ n.beta.lac <- left_join(n.beta.lac, features_amp %>%
                           select(strain, resistance) %>% 
                           distinct(), by="strain") %>% filter(resistance != "I", !is.na(resistance))
 
-ggplot(n.beta.lac, aes(resistance, n_beta_lac))+
+ggplot(n.beta.lac, aes(resistance, n.beta.lac))+
   
   geom_violin(aes(fill=resistance), alpha=0.6, draw_quantiles = c(0.25, 0.5, 0.75))+
   geom_jitter(alpha=0.2, width=0.25, height = 0.1)+
@@ -1157,6 +1264,7 @@ ggplot(n.beta.lac, aes(resistance, n_beta_lac))+
 # geom_boxplot(aes(fill=resistance))+
   
 ```
+
 Susceptible strains have less beta-lactamase genes on average compared to resistance strains.
 
 ## Number of plasmids
@@ -1164,198 +1272,132 @@ Susceptible strains have less beta-lactamase genes on average compared to resist
 Per strain, doesn't depend on beta-lactamase presence or absence
 
 ```{r}
-feat_plot <- features_amp %>% 
-  select(strain, n_plasmids, resistance) %>% 
-  distinct() %>% 
-  filter(resistance != "I", !is.na(resistance))
-
-ggplot(feat_plot, aes(resistance, n_plasmids))+
+ggplot(features_amp_strain, aes(resistance, n_plasmids))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set2")
+  scale_fill_brewer(palette = "Set2")+
+  ggtitle("Number of plasmids")+
+  ylab("N")+
+  guides(fill="none")
 
 ```
 
 ## Repeat length
 
+Distribution of repeat length around beta-lactamase genes in strains tested for AMP resistance
+
 ```{r, fig.height=14, fig.width=10}
 
 # all repeat length plot
-# we don't consider repeats of non beta-lactamase genes
-###########################################
-feat_plot <- features_amp %>% 
-  filter(is_beta_lac) %>% 
-  select(record_id, repeat_length, AB, resistance, spans_center, is_beta_lac) %>% 
-  filter(!is.na(resistance), !is.na(spans_center), resistance != "I") %>% 
-  distinct()
 
-plot.rl.all.amp <- ggplot(feat_plot, aes(resistance, repeat_length)) + 
+###########################################
+plot.mrl.all <- ggplot(features_amp_strain, aes(resistance, med.rep.len)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   coord_trans(y="log") +
-  facet_grid(. ~ spans_center, labeller = label_both) +
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ylab("repeat length") +
-  ggtitle(label="Repeat length distribution among strains tested for AMP resistance", subtitle = "repeats around beta-lactamase genes only")
+  xlab("")+ylab("length, bp") +
+  ggtitle(label="Median repeat length", subtitle = "All repeats")+
+  guides(fill="none")
 
 ######################################
-feat_plot <- features_amp %>% 
-  filter(is_beta_lac) %>% 
-  select(record_id, repeat_length, AB, resistance, spans_center, is_beta_lac) %>% 
-  filter(!is.na(resistance), !is.na(spans_center), resistance != "I") %>% 
-  filter(repeat_length >= 100) %>% 
-  distinct()
 
-
-plot.rl.100.amp <- ggplot(feat_plot, aes(resistance, repeat_length)) + 
+plot.mrl.cen <- ggplot(features_amp_strain, aes(resistance, med.rep.len.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth=T)+
-  coord_trans(y="sqrt") +
-  facet_grid(. ~ spans_center, labeller = label_both) +
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ ylab("repeat length")+
-  ggtitle("Repeat length distribution among strains tested for AMP resistance", subtitle = "minimal repeat length 100 bp, repeats around beta-lactamase genes only")
+  xlab("")+ ylab("length, bp")+
+  ggtitle("", subtitle = "repeats spanning center")+
+  guides(fill="none")
 
 #####################################
-feat_plot <- features_amp %>% 
-  filter(is_beta_lac) %>% 
-  select(record_id, repeat_length, AB, resistance, spans_center, is_beta_lac) %>% 
-  filter(!is.na(resistance), !is.na(spans_center), resistance != "I") %>% 
-  filter(repeat_length >= 500) %>% 
-  distinct()
 
-
-plot.rl.500.amp <- ggplot(feat_plot, aes(resistance, repeat_length)) + 
+plot.mrl.non.cen <- ggplot(features_amp_strain, aes(resistance, med.rep.len.non.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   coord_trans(y="sqrt") +
-  facet_grid(. ~ spans_center, labeller = label_both) +
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ ylab("repeat length")+
-  ggtitle("Repeat length distribution among strains tested for AMP resistance", subtitle = "minimal repeat length 100 bp, repeats around beta-lactamase genes only")
+  xlab("")+ ylab("length, bp")+
+  ggtitle("", subtitle = "repeats not spanning center")+
+  guides(fill="none")
 
 #######################################
-feat_plot <- features_amp %>% 
-  filter(is_beta_lac) %>% 
-  select(record_id, repeat_length, AB, resistance, spans_center, is_beta_lac) %>% 
-  filter(!is.na(resistance), !is.na(spans_center), resistance != "I") %>% 
-  filter(repeat_length < 100) %>% 
-  distinct()
 
-
-plot.rl.m100.amp <- ggplot(feat_plot, aes(resistance, repeat_length)) + 
+plot.mrl.all.100 <- ggplot(features_amp_strain, aes(resistance, med.rep.len.100)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  coord_trans(y="sqrt") +
-  facet_grid(. ~ spans_center, labeller = label_both) +
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Set2") +
-  xlab("")+ ylab("repeat length, max 100 bp")
+  xlab("")+ylab("length, bp") +
+  ggtitle(label="Median repeat length", subtitle = "minimum 100")+
+  guides(fill="none")
 
-ggarrange(plot.rl.all.amp, plot.rl.100.amp, plot.rl.500.amp, plot.rl.m100.amp, 
-          ncol=1, nrow=4, 
+#######################################
+
+plot.mrl.cen.100 <- ggplot(features_amp_strain, aes(resistance, med.rep.len.cen.100)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth=T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ ylab("length, bp")+
+  ggtitle("", subtitle = "repeats spanning center, min 100")+
+  guides(fill="none")
+
+###########################################
+
+plot.mrl.non.cen.100 <- ggplot(features_amp_strain, aes(resistance, med.rep.len.non.cen.100)) + 
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set2") +
+  xlab("")+ ylab("length, bp")+
+  ggtitle("", subtitle = "repeats not spanning center, min 100")+
+  guides(fill="none")
+
+##########################################
+ggarrange(plot.mrl.all, plot.mrl.cen, plot.mrl.non.cen, plot.mrl.all.100, plot.mrl.cen.100, plot.mrl.non.cen.100,
+          ncol=3, nrow=2, 
           common.legend = T, legend = "bottom")
 ```
 
-## Median repeat length
-
-```{r, fig.height=12, fig.width=9}
-
-# all repeat length plot
-plot.mrl.all.amp <- ggplot(features_amp %>% 
-                            select(strain, median_repeat_length, AB, resistance) %>% 
-                            filter(!is.na(resistance), resistance != "I") %>% 
-                            distinct(), 
-                          aes(AB, median_repeat_length)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set2") +
-  xlab("")+ylab("median repeat length") +
-  ggtitle("Median repeat length per strain")
-
-plot.mrl.100.amp <- ggplot(features_amp %>% 
-                            select(strain, median_repeat_length_m100, AB, resistance) %>% 
-                            filter(!is.na(resistance), resistance != "I") %>% 
-                            distinct(), 
-                          aes(AB, median_repeat_length_m100)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set2") +
-  xlab("")+ ylab("Median repeat length, min 100 bp")
-
-
-plot.mrl.500.amp <- ggplot(features_amp %>% 
-                            select(strain, median_repeat_length_m500, AB, resistance) %>% 
-                            filter(!is.na(resistance), resistance != "I") %>% 
-                            distinct(), 
-                          aes(AB, median_repeat_length_m500)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  coord_trans(y="log") +
-  scale_fill_brewer(palette = "Set2") +
-  xlab("")+ ylab("Median repeat length, min 500 bp")
-
-ggarrange(plot.mrl.all.amp, plot.mrl.100.amp, plot.mrl.500.amp, 
-          ncol=1, nrow=3, 
-          common.legend = T, legend = "bottom")
-```
 
 ## Repeat counts
 
 ### Per strain
 
 ```{r, fig.height=9, fig.width=9}
-plot.rc.s.all.amp <- ggplot(features_amp %>% 
-                            select(strain, n_repeats_strain, AB, resistance) %>% 
-                            filter(!is.na(resistance), resistance != "I") %>% 
-                            distinct(), 
-                          aes(AB, n_repeats_strain)) + 
+plot.rc.s.all.amp <- ggplot(features_amp_strain, aes(resistance, n.rep.total)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
   xlab("")+ylab("N") +
   ggtitle("Repeat count per strain")
 
 
-plot.rc.s.100.amp <- ggplot(features_amp %>% 
-                            select(strain, n_repeats_strain_min100, AB, resistance) %>% 
-                            filter(!is.na(resistance), resistance != "I") %>% 
-                            distinct(), 
-                          aes(AB, n_repeats_strain_min100)) + 
+plot.rc.s.100.amp <- ggplot(features_amp_strain, aes(resistance, n.rep.tot.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
   xlab("")+ylab("")+
-  ggtitle("Repeat count per strain, min 100 bp")
+  ggtitle("Repeat count, spanning center")
 
-
-plot.rc.s.500.amp <- ggplot(features_amp %>% 
-                            select(strain, n_repeats_strain_min500, AB, resistance) %>% 
-                            filter(!is.na(resistance), resistance != "I") %>% 
-                            distinct(), 
-                          aes(AB, n_repeats_strain_min500)) + 
+plot.rc.s.100.amp <- ggplot(features_amp_strain, aes(resistance, n.rep.tot.non.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set2") +
-  xlab("")+ylab("N")+
-  ggtitle("Repeat count per strain, min 500 bp")
-
-plot.rc.s.1000.amp <- ggplot(features_amp %>% 
-                            select(strain, n_repeats_strain_min1000, AB, resistance) %>% 
-                            filter(!is.na(resistance), resistance != "I") %>% 
-                            distinct(), 
-                          aes(AB, n_repeats_strain_min1000)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   coord_trans(y="sqrt") +
   scale_fill_brewer(palette = "Set2") +
   xlab("")+ylab("")+
-  ggtitle("Repeat count per strain, min 1000 bp")
+  ggtitle("Repeat count, not spanning center")
+
 
 ggarrange(plot.rc.s.all.amp, plot.rc.s.100.amp, plot.rc.s.500.amp, plot.rc.s.1000.amp, 
           ncol=2, nrow=2, 
@@ -1510,7 +1552,7 @@ ggarrange(plot.comb.1, plot.comb.2, ncol=1, nrow=2,  common.legend = T, legend =
 # Write AMP features table to a file
 
 ```{r}
-write.csv(features_amp, "/home/andrei/Data/HeteroR/results/tables/features_amp.csv", row.names = F)
+write.csv(features_amp_strain, "/home/andrei/Data/HeteroR/results/tables/features_amp.csv", row.names = F)
 ```
 
 
