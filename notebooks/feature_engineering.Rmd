@@ -1206,6 +1206,16 @@ features_amp_strain$med.AR.len.100 <- ifelse(is.na(features_amp_strain$med.AR.le
 head(features_amp_strain)
 ```
 
+## Situation around ampC
+
+Under construction
+
+```{r}
+features_amp %>% select(strain, record_id, AMR.Gene.Family) %>% distinct() %>% group_by(strain, record_id) %>% summarise(n.ampC = sum(grepl("ampC", AMR.Gene.Family))) %>% group_by(strain) %>% summarize(n.ampC = sum(n.ampC)) %>% filter(n.ampC == 0)
+```
+
+All strains have ampC
+
 ## Final version
 
 Remove intermediate resistance and not tested strains
@@ -1295,6 +1305,8 @@ Every strain has at least one beta-lactamase gene.
 
 I remove intermediate resistance (just 2 observations) and not tested strains (several observations)
 
+#### As boxplots
+
 ```{r}
 # add resistance testing results
 n.beta.lac <- left_join(n.beta.lac, features_amp %>% 
@@ -1312,8 +1324,24 @@ ggplot(n.beta.lac, aes(resistance, n.beta.lac))+
 # geom_boxplot(aes(fill=resistance))+
   
 ```
-
 Susceptible strains have less beta-lactamase genes on average compared to resistance strains.
+
+#### As a bar plot 
+
+since nyumber of BL genes is count data.
+
+```{r}
+#feat_amp$resistance <- factor()
+
+ggplot(features_amp_strain, aes(n.beta.lac))+
+  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  scale_fill_brewer(palette="Set1")+
+  xlab("number of beta-lactamase genes")+
+  ylab("number of strains")
+```
+
+More accurate conclusion from this plot: if number of beta-lactamases is greater than 3 then strain is resistant. The chance a strain with more than 3 BL genes to be susceptible is 0.0143 (1.43%).
+
 
 ## Number of plasmids
 
@@ -2033,6 +2061,6 @@ ggbox.arl.ab.1000
 
 # Save the workspace
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 save.image(f="/home/andrei/Data/HeteroR/notebooks/features.RData")
 ```
