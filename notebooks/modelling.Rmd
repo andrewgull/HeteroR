@@ -40,22 +40,29 @@ Data set `features_amp_strain` has been made previously in `feature_engineering.
 ```{r}
 feat_amp <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv"))
 feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total")
+
+# create dummy from original taret
 feat_amp$resistance_dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
+# BL counts as an ordered factor
+feat_amp$n.beta.lac.f <- factor(feat_amp$n.beta.lac, ordered = T, levels=c(1,2,3,4,5,6))
+# resistance as factor
+feat_amp$resistance <- as.factor(feat_amp$resistance)
 feat_amp
 ```
 
 Selected variables (based on plots in feature_engineering)
 
 ```{r}
-feat_selected <- feat_amp %>% select(c(strain, resistance, n.beta.lac, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
+feat_selected <- feat_amp %>% select(c(strain, resistance, n.beta.lac, n.beta.lac.f, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
 
-feat_selected
+summary(feat_selected)
 ```
 
+Response (resistance) classes are equally represented in the data set.
 
 ```{r, fig.width=10, fig.height=10}
 ggpairs(feat_selected, 
-        columns=c(3:9), 
+        columns=c(3:10), 
         aes(color=resistance, alpha=0.2, dotsize=0.02), 
         upper = list(continuous = wrap("cor", size = 2.5)),
         diag=list(continuous ="barDiag"))+
@@ -63,22 +70,62 @@ ggpairs(feat_selected,
   scale_fill_brewer(palette = "Set1")
 ```
 
-# Model 1
-
-Let's try to build a simple model and then run its diagnostics
+# Model 0: ~ 1
 
 ```{r}
-fit1 <- lm(formula = resistance_dummy ~ n.beta.lac+n.plasmids+med.rep.len+med.tot.rep.len+max.rep.len+n.rep.total+med.AR.len.cen, data=feat_amp, family = "binomial")
+fit0 <- lm(formula = resistance_dummy ~ 1, data=feat_amp, family = binomial(link="logit"))
 
-summary(fit1)
+summary(fit0)
+```
+
+
+# Model 1: BL-genes
+
+Let's try to build a simple model and then run its diagnostics.
+
+We assume that beta-lactamases is the main predictor of resistance (HR?). Let's check it out.
+
+## Model 1a: n.beta.lac as discrete variable
+
+```{r}
+fit1a <- lm(formula = resistance_dummy ~ n.beta.lac, data=feat_amp, family = binomial(link="logit"))
+
+summary(fit1a)
 
 ```
 
+Credibility intervals:
+
 ```{r}
-confint(fit1)
+confint(fit1a)
+```
+Looks quite good: significant slope and intercept, F-statistic and CIs
+
+## Model 1b: n.beta.lac as ordered factor here.
+
+```{r}
+# n.beta.lac+n.plasmids+med.rep.len+med.tot.rep.len+max.rep.len+n.rep.total+med.AR.len.cen
+#prop.R <- (feat_amp %>% filter(resistance=="R") %>% nrow())/nrow(feat_amp)
+
+fit1b <- glm(formula = resistance_dummy ~ n.beta.lac.f, data=feat_amp, family = binomial(link="logit"))
+
+summary(fit1b)
+
 ```
 
-# Diagnostics
+Credibility intervals:
+
+```{r}
+confint(fit1b)
+```
+
+```{r}
+anova(fit0, fit1b, test = "Chisq")
+```
+
+fit1b is no better than fit0
+
+## Diagnostics
 
 ```{r,  fig.width=6, fig.height=4}
 qqPlot(fit1, labels=feat_amp$strain, id.method="identify", simulate=T, main="Q-Q plot")
