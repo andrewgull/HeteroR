@@ -25,9 +25,9 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F)
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F)
 library(dplyr)
-library(caret)
+#library(caret)
 library(car)
 library(ggplot2)
 library(GGally)
@@ -43,8 +43,10 @@ feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .
 
 # create dummy from original taret
 feat_amp$resistance_dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
+feat_amp <- relocate(feat_amp, resistance_dummy, .before="n.beta.lac")
 # BL counts as an ordered factor
-feat_amp$n.beta.lac.f <- factor(feat_amp$n.beta.lac, ordered = T, levels=c(1,2,3,4,5,6))
+feat_amp$n.beta.lac.f <- factor(feat_amp$n.beta.lac, ordered = T, levels = c(1,2,3,4,5,6))
+feat_amp <- relocate(feat_amp, n.beta.lac.f, .before="n.plasmids")
 # resistance as factor
 feat_amp$resistance <- as.factor(feat_amp$resistance)
 feat_amp
@@ -70,16 +72,16 @@ ggpairs(feat_selected,
   scale_fill_brewer(palette = "Set1")
 ```
 
-# Model 0: ~ 1
+# Model 0: Null model
 
 ```{r}
-fit0 <- lm(formula = resistance_dummy ~ 1, data=feat_amp, family = binomial(link="logit"))
+fit0 <- glm(formula = resistance_dummy ~ 1, data=feat_amp, family = binomial(link="logit"))
 
 summary(fit0)
 ```
 
 
-# Model 1: BL-genes
+# Model 1: add BL-genes
 
 Let's try to build a simple model and then run its diagnostics.
 
@@ -123,8 +125,131 @@ confint(fit1b)
 anova(fit0, fit1b, test = "Chisq")
 ```
 
-fit1b is no better than fit0
+fit1b is better than fit0: residual deviance is lower, models are significantly different (p < 2.2e-16).
 
+## Model 2: add AR size
+
+median AR size of repeat pairs should work well according to boxplots.
+
+### n.beta.lac + med.AR.len
+
+```{r}
+fit2a <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len, data = feat_amp, family = binomial(link = "logit"))
+
+summary(fit2a)
+```
+
+```{r}
+anova(fit0, fit1b, fit2a, test = "Chisq")
+```
+
+### med.AR.len.cen
+
+for repeats spanning center it might be better but there are NAs. Replace them with 0?
+
+```{r}
+feat_amp %>% select(resistance_dummy, n.beta.lac.f, med.AR.len.cen) %>% filter(is.na(med.AR.len.cen))
+```
+
+```{r}
+feat_amp$med.AR.len.cen <- ifelse(is.na(feat_amp$med.AR.len.cen), 0, feat_amp$med.AR.len.cen)
+```
+
+```{r}
+fit2b <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen, data = feat_amp, family = binomial(link = "logit"))
+
+summary(fit2b)
+```
+
+```{r}
+anova(fit0, fit1b, fit2b, test = "Chisq")
+```
+
+### med.AR.len.100
+
+```{r}
+fit2c <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.100, data = feat_amp, family = binomial(link = "logit"))
+
+anova(fit2b, fit2c)
+```
+
+```{r}
+fit2d <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen.100, data = feat_amp, family = binomial(link = "logit"))
+
+anova(fit2b, fit2d)
+```
+
+filtered AR do not make the model better, plus they are correlated with med.AR.len.cen
+
+```{r}
+plot(feat_amp$med.AR.len.cen, feat_amp$med.AR.len.cen.100)
+```
+
+
+## Model 3: add maximum repeat length
+
+### Not spanning center
+
+```{r}
+fit3a <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len, data = feat_amp, family = binomial(link = "logit"))
+
+summary(fit3a)
+```
+
+```{r}
+anova(fit2b, fit3a, test = "Chisq")
+```
+
+### Spanning center
+
+```{r}
+fit3b <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len.cen, data = feat_amp, family = binomial(link = "logit"))
+
+summary(fit3b)
+```
+
+```{r}
+anova(fit2b, fit3b, test = "Chisq")
+```
+
+Although both models are significantly better, fit3a reduces residual deviance better.
+
+Both vars are correlated to some extent
+
+```{r}
+plot(feat_amp$max.rep.len, feat_amp$max.rep.len.cen)
+```
+
+## Model 4: add repeat counts
+
+```{r}
+fit4a <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len + n.rep.total, data = feat_amp, family = binomial(link = "logit"))
+
+summary(fit4a)
+```
+
+```{r}
+anova(fit3a, fit4a, test="Chisq")
+```
+
+No better
+
+### Not spanning center
+
+```{r}
+feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
+
+fit4b <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len + n.rep.tot.cen, data = feat_amp, family = binomial(link = "logit"))
+
+summary(fit4b)
+```
+
+```{r}
+anova(fit3a, fit4b, test="Chisq")
+```
+
+
+----
 ## Diagnostics
 
 ```{r,  fig.width=6, fig.height=4}
