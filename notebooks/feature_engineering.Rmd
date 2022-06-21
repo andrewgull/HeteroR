@@ -5,6 +5,7 @@ date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
   html_document:
     toc: yes
+    number_sections: true
     df_print: paged
     code_folding: hide
     fig_width: 10
@@ -25,7 +26,7 @@ editor_options:
 ---
 
 ```{r, include=F}
-knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F)
+knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F, cache = T)
 library(dplyr)
 library(tidyr)
 library(plotly)
@@ -1206,15 +1207,94 @@ features_amp_strain$med.AR.len.100 <- ifelse(is.na(features_amp_strain$med.AR.le
 head(features_amp_strain)
 ```
 
-## Situation around ampC
+## Repeats around ampC genes
 
-Under construction
+Each strain has at least one *ampC* gene. Let's add the same variables but calculated only on *ampC* genes.
 
 ```{r}
 features_amp %>% select(strain, record_id, AMR.Gene.Family) %>% distinct() %>% group_by(strain, record_id) %>% summarise(n.ampC = sum(grepl("ampC", AMR.Gene.Family))) %>% group_by(strain) %>% summarize(n.ampC = sum(n.ampC)) %>% filter(n.ampC == 0)
 ```
 
-All strains have ampC
+```{r}
+# there are 21 types of AMR gene families, only one type's name contain ampC
+features_ampC <- filter(features_amp, grepl("ampC", AMR.Gene.Family))
+
+# add total rep count, med repeat length, max repeat length, sum repeat length, med AR length
+
+###########
+## TOT REP
+###########
+
+repeat_counts_ampC <- features_ampC %>% 
+  filter(is_beta_lac) %>% 
+  group_by(strain) %>%
+  summarise("ampC.n.rep.tot"=n())
+
+features_amp_strain <- left_join(features_amp_strain, repeat_counts_ampC, by="strain")
+
+###############
+## MED REP LEN
+###############
+
+med_rep_len_ampC <- features_ampC %>% 
+  filter(is_beta_lac) %>% 
+  select(strain, repeat_length) %>% 
+  group_by(strain) %>% 
+  summarize("ampC.med.rep.len"=median(repeat_length, na.rm = T))
+
+features_amp_strain <- left_join(features_amp_strain, med_rep_len_ampC, by="strain")
+
+################
+## MAX REP LEN
+################
+
+max_rep_len_all_ampC <- features_ampC %>% 
+  group_by(strain) %>% 
+  summarize("ampC.max.rep.len"=max(repeat_length, na.rm = T))
+
+features_amp_strain <- left_join(features_amp_strain, max_rep_len_all_ampC, by="strain")
+
+#####################################
+## SUM REP LEN only spanning center!
+#####################################
+
+rep_len_sum_ampC <- features_ampC %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
+  group_by(strain, record_id) %>%
+  summarise("total_repeat_length"=sum(repeat_length)) %>% 
+  group_by(strain) %>% 
+  summarise("ampC.med.tot.rep.len"=median(total_repeat_length))
+
+features_amp_strain <- left_join(features_amp_strain, rep_len_sum_ampC, by="strain")
+
+################
+## MED AR SIZE
+################
+
+med_ar_len_ampC <- features_ampC %>% 
+  filter(is_beta_lac) %>% 
+  select(strain, AR_length) %>% 
+  group_by(strain) %>% 
+  summarize("ampC.med.AR.len"=median(AR_length, na.rm = T))
+
+features_amp_strain <- left_join(features_amp_strain, med_ar_len_ampC, by="strain")
+
+###################
+## MED AR SPANNING
+###################
+
+med_ar_len_cen_ampC <- features_ampC %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
+  select(strain, AR_length) %>% 
+  group_by(strain) %>% 
+  summarize("ampC.med.AR.len.cen"=median(AR_length, na.rm = T))
+
+features_amp_strain <- left_join(features_amp_strain, med_ar_len_cen_ampC, by="strain")
+features_amp_strain$ampC.med.AR.len.cen <- ifelse(is.na(features_amp_strain$ampC.med.AR.len.cen), 0, features_amp_strain$ampC.med.AR.len.cen)
+
+```
+
+
 
 ## Final version
 
@@ -1633,6 +1713,92 @@ ggarrange(plot.arl.100, plot.arl.cen.100, plot.arl.non.cen.100,
           ncol=3, nrow=1, 
           common.legend = T, legend = "bottom")
 ```
+
+## ampC genes
+
+### Total repeat count
+
+```{r}
+ggplot(features_amp_strain, aes(resistance, ampC.n.rep.tot))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("ampC: repeat count")+
+  ylab("N")+
+  guides(fill="none")
+  
+```
+### Median repeat length
+
+```{r}
+ggplot(features_amp_strain, aes(resistance, ampC.med.rep.len))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("ampC: median repeat length")+
+  ylab("length")+
+  guides(fill="none")
+```
+
+### Max repeat length
+
+```{r}
+ggplot(features_amp_strain, aes(resistance, ampC.max.rep.len))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("ampC: max repeat length")+
+  ylab("length")+
+  guides(fill="none")
+```
+
+
+### Median sum of repeat lengths
+
+```{r}
+ggplot(features_amp_strain, aes(resistance, ampC.med.tot.rep.len))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("ampC: median sum of repeat lengths")+
+  ylab("length")+
+  guides(fill="none")
+```
+
+
+### Median AR size
+
+```{r, fig.width=14}
+plot.ampc.med.AR <- ggplot(features_amp_strain, aes(resistance, ampC.med.AR.len))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("ampC: median AR size")+
+  ylab("AR size")+
+  guides(fill="none")
+
+plot.ampc.med.AR.cen <- ggplot(features_amp_strain, aes(resistance, ampC.med.AR.len.cen))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("ampC: median AR size spanning gene center")+
+  ylab("")+
+  guides(fill="none")
+
+ggarrange(plot.ampc.med.AR, plot.ampc.med.AR.cen, ncol=2, nrow=1, legend = "bottom")
+
+```
+
 
 ## Pairs plot
 
