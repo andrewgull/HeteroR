@@ -87,7 +87,7 @@ Let's try to build a simple model and then run its diagnostics.
 
 We assume that beta-lactamases is the main predictor of resistance (HR?). Let's check it out.
 
-## Model 1a: n.beta.lac as discrete variable
+## BL genes number as discrete variable
 
 ```{r}
 fit1a <- lm(formula = resistance_dummy ~ n.beta.lac, data=feat_amp, family = binomial(link="logit"))
@@ -101,9 +101,10 @@ Credibility intervals:
 ```{r}
 confint(fit1a)
 ```
+
 Looks quite good: significant slope and intercept, F-statistic and CIs
 
-## Model 1b: n.beta.lac as ordered factor here.
+## BL genes count as ordered factor
 
 ```{r}
 # n.beta.lac+n.plasmids+med.rep.len+med.tot.rep.len+max.rep.len+n.rep.total+med.AR.len.cen
@@ -115,37 +116,55 @@ summary(fit1b)
 
 ```
 
-Credibility intervals:
+None of the predictors is significant
+
+But we know that chances a strain to be susceptible decrease sharply if number of BL genes in the strain is greater than 3
+
+Let's code BL number in one binary variable 'greater than 3: yes or no'
+
+### Recoding BL count to binary
 
 ```{r}
-confint(fit1b)
+feat_amp$n.beta.lac.3 <- ifelse(feat_amp$n.beta.lac > 3, 1, 0)
+feat_amp <- relocate(feat_amp, n.beta.lac.3, .before="n.plasmids")
 ```
+
 
 ```{r}
-anova(fit0, fit1b, test = "Chisq")
+fit1c <- glm(formula = resistance_dummy ~ n.beta.lac.3, data=feat_amp, family = binomial(link="logit"))
+
+summary(fit1c)
 ```
 
-fit1b is better than fit0: residual deviance is lower, models are significantly different (p < 2.2e-16).
+It looks much better!
 
-## Model 2: add AR size
+### Models 0 and 1b comparison test
+
+```{r}
+anova(fit0, fit1c, test = "Chisq")
+```
+
+fit1c is better than fit0: residual deviance is lower, models are significantly different (p < 2.2e-16).
+
+# Model 2: add AR size
 
 median AR size of repeat pairs should work well according to boxplots.
 
-### n.beta.lac + med.AR.len
+## med.AR.len
 
 ```{r}
-fit2a <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len, data = feat_amp, family = binomial(link = "logit"))
+fit2a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit2a)
 ```
 
 ```{r}
-anova(fit0, fit1b, fit2a, test = "Chisq")
+anova(fit0, fit1c, fit2a, test = "Chisq")
 ```
 
-### med.AR.len.cen
+## med.AR.len.cen
 
-for repeats spanning center it might be better but there are NAs. Replace them with 0?
+for repeats spanning center it might be better but there are NAs. Replace them with 0
 
 ```{r}
 feat_amp %>% select(resistance_dummy, n.beta.lac.f, med.AR.len.cen) %>% filter(is.na(med.AR.len.cen))
@@ -156,25 +175,25 @@ feat_amp$med.AR.len.cen <- ifelse(is.na(feat_amp$med.AR.len.cen), 0, feat_amp$me
 ```
 
 ```{r}
-fit2b <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen, data = feat_amp, family = binomial(link = "logit"))
+fit2b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit2b)
 ```
 
 ```{r}
-anova(fit0, fit1b, fit2b, test = "Chisq")
+anova(fit0, fit1c, fit2b, test = "Chisq")
 ```
 
-### med.AR.len.100
+## med.AR.len.100
 
 ```{r}
-fit2c <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.100, data = feat_amp, family = binomial(link = "logit"))
+fit2c <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.100, data = feat_amp, family = binomial(link = "logit"))
 
 anova(fit2b, fit2c)
 ```
 
 ```{r}
-fit2d <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen.100, data = feat_amp, family = binomial(link = "logit"))
+fit2d <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen.100, data = feat_amp, family = binomial(link = "logit"))
 
 anova(fit2b, fit2d)
 ```
@@ -182,16 +201,18 @@ anova(fit2b, fit2d)
 filtered AR do not make the model better, plus they are correlated with med.AR.len.cen
 
 ```{r}
-plot(feat_amp$med.AR.len.cen, feat_amp$med.AR.len.cen.100)
+ggplot(feat_amp, aes(med.AR.len.cen, med.AR.len.cen.100))+
+  geom_point(aes(color=resistance))
+
 ```
 
 
-## Model 3: add maximum repeat length
+# Model 3: add maximum repeat length
 
-### Not spanning center
+## Not spanning center
 
 ```{r}
-fit3a <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len, data = feat_amp, family = binomial(link = "logit"))
+fit3a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit3a)
 ```
@@ -200,30 +221,28 @@ summary(fit3a)
 anova(fit2b, fit3a, test = "Chisq")
 ```
 
-### Spanning center
+It gets better!
+
+## Spanning center
 
 ```{r}
-fit3b <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len.cen, data = feat_amp, family = binomial(link = "logit"))
+fit3b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len.cen, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit3b)
 ```
 
 ```{r}
-anova(fit2b, fit3b, test = "Chisq")
+anova(fit2b, fit3a, fit3b, test = "Chisq")
 ```
 
-Although both models are significantly better, fit3a reduces residual deviance better.
+max.rep.len.cen doesn't decrease Res.Dev and the corresponding model is not signif. different.
 
-Both vars are correlated to some extent
+# Model 4: add repeat counts
 
-```{r}
-plot(feat_amp$max.rep.len, feat_amp$max.rep.len.cen)
-```
-
-## Model 4: add repeat counts
+## Total
 
 ```{r}
-fit4a <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len + n.rep.total, data = feat_amp, family = binomial(link = "logit"))
+fit4a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.rep.total, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit4a)
 ```
@@ -234,12 +253,12 @@ anova(fit3a, fit4a, test="Chisq")
 
 No better
 
-### Not spanning center
+## Not spanning center
 
 ```{r}
 feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
 
-fit4b <- glm(formula = resistance_dummy ~ n.beta.lac.f + med.AR.len.cen + max.rep.len + n.rep.tot.cen, data = feat_amp, family = binomial(link = "logit"))
+fit4b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.rep.tot.cen, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit4b)
 ```
@@ -247,25 +266,98 @@ summary(fit4b)
 ```{r}
 anova(fit3a, fit4b, test="Chisq")
 ```
+Not that much different...
+
+Model 3a is the best so far
+
+# Model 5: add number of plasmids
+
+```{r}
+fit5 <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.plasmids, data = feat_amp, family = binomial(link = "logit"))
+
+summary(fit5)
+```
+
+Nope
+
+# The winner is Model 3a
+
+resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len
+
+```{r}
+confint(fit3a)
+```
 
 
-----
+## Prediction quality
+
+### TPR v FPR
+
+```{r}
+require(ROCR)
+
+# predict prob
+resistance.prob <- predict(object = fit3a, type = "response")
+resistance.pred <- prediction(resistance.prob, feat_amp$resistance_dummy)
+
+# calculate TPR and FPR
+resistance.perf <- performance(resistance.pred ,"tpr","fpr")
+plot(resistance.perf, colorize=T , xlab='false positive', ylab='true positive')
+```
+
+### AUC
+
+```{r}
+auc  <- performance(resistance.pred, measure = "auc")
+accuracy <- performance(resistance.pred, measure = "acc")
+
+print(c("AUC", auc@y.values[[1]]))
+```
+
+### Accuracy
+
+```{r}
+plot(accuracy@x.values[[1]], accuracy@y.values[[1]], xlab=accuracy@x.name, ylab=accuracy@y.name)
+```
+
+Maximum accuracy `r max(accuracy@y.values[[1]])`
+
+### Spec, sens, acc
+
+```{r}
+perf3  <- performance(resistance.pred, x.measure = "cutoff", measure = "spec")
+perf4  <- performance(resistance.pred, x.measure = "cutoff", measure = "sens")
+perf5  <- performance(resistance.pred, x.measure = "cutoff", measure = "acc")
+
+plot(perf3, col = "red", lwd =2, xlab='prob', ylab='spec')
+plot(add=T, perf4 , col = "steelblue", lwd =2)
+plot(add=T, perf5, lwd =2)
+
+legend(x = 0.6,y = 0.3, c("spec", "sens", "acc"), 
+       lty = 1, col =c('red', 'steelblue', 'black'), bty = 'n', cex = 1, lwd = 2)
+# determine x coordinate manually!
+#abline(v= 0.165, lwd = 2, lty=6)
+```
+
 ## Diagnostics
 
-```{r,  fig.width=6, fig.height=4}
-qqPlot(fit1, labels=feat_amp$strain, id.method="identify", simulate=T, main="Q-Q plot")
+```{r,  fig.width=6, fig.height=4, eval=F}
+qqPlot(fit3a, labels=feat_amp$strain, id.method="identify", simulate=T, main="Q-Q plot")
+
+```
+
+
+
+```{r}
+durbinWatsonTest(fit3a)
 ```
 
 ```{r}
-durbinWatsonTest(fit1)
+crPlots(fit3a)
 ```
 
-```{r}
-crPlots(fit1)
-```
-
-```{r}
-ncvTest(fit1)
+```{r, eval=F}
+ncvTest(fit3a)
 ```
 
 
@@ -273,6 +365,6 @@ ncvTest(fit1)
 
 # Save the workspace
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 save.image(f="/home/andrei/Data/HeteroR/notebooks/modelling.RData")
 ```
