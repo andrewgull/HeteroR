@@ -1422,6 +1422,39 @@ ggplot(features_amp_strain, aes(n.beta.lac))+
 
 More accurate conclusion from this plot: if number of beta-lactamases is greater than 3 then strain is resistant. The chance a strain with more than 3 BL genes to be susceptible is 0.0143 (1.43%).
 
+## Beta-lactamase heatmap
+
+BL types in each strain
+
+```{r}
+require(tidyr)
+# get unique AMR types
+amr_types <- unique(features_amp$AMR.Gene.Family)
+
+# get unique gene rows with AMR.Gene.Family
+amp_amr_gene_types <- features_amp %>% select(strain, record_id, AMR.Gene.Family) %>% distinct()
+
+# make a DF of each AMR type counts in each gene
+amp_ampr_gene_presence <- as_tibble(
+  as.data.frame(
+    map(amr_types, function(x) ifelse(grepl(x, amp_amr_gene_types$AMR.Gene.Family), 1, 0)),
+    col.names = amr_types))
+
+# add strain and summarize counts
+amp_ampr_gene_presence$strain <- amp_amr_gene_types$strain
+amp_ampr_gene_presence <- relocate(amp_ampr_gene_presence, strain, .before="ampC.type.beta.lactamase")
+# here sum is applied to all variables
+amp_amr_types_strain <- amp_ampr_gene_presence %>% group_by(strain) %>% summarise_each(funs(sum))
+# we need shorter names
+names(amp_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL", "TEM", "SAT", "ANT3", "MPH", "APH3.2", "CTX.M", "CAT", "AAC3", "OXA", "AAC6", "ANT2", "FTT", "SHV", "TR.RPP", "APH4", "QNR")
+
+# make tidy for ggplot
+amp_amr_types_strain_td <- gather(amp_amr_types_strain, key="AMR.type", value="N", 2:22)
+
+# make a plot
+ggplot(amp_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1))
+```
 
 ## Number of plasmids
 
