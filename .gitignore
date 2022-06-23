@@ -18,3 +18,6 @@ shiny_apps/data/*
 notebooks/repeats_summary_cache/html/*.*
 notebooks/repeats_summary_cache/html/__packages
 notebooks/repeats_summary_files/figure-html/*.*
+notebooks/feature_engineering_cache/html/*.*
+notebooks/feature_engineering_cache/html/__packages
+notebooks/feature_engineering_files/figure-html/*.*
