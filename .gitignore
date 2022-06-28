@@ -28,3 +28,6 @@ notebooks/.ipynb_checkpoints/repeats_summary-checkpoint.ipynb
 .idea/rAvailablePackageCache.xml
 .idea/rGraphicsSettings.xml
 .idea/rSettings.xml
+notebooks/feature_engineering_cache/html/*.*
+notebooks/feature_engineering_cache/html/__packages
+notebooks/feature_engineering_files/figure-html/*.*
