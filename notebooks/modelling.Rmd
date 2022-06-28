@@ -289,7 +289,7 @@ confint(fit3a)
 ```
 
 
-## Prediction quality
+## Validation
 
 ### TPR v FPR
 
@@ -304,6 +304,16 @@ resistance.pred <- prediction(resistance.prob, feat_amp$resistance_dummy)
 resistance.perf <- performance(resistance.pred ,"tpr","fpr")
 plot(resistance.perf, colorize=T , xlab='false positive', ylab='true positive')
 ```
+
+### Precision, Recall, F-score
+
+```{r}
+precision <- posPredValue(resistance.pred, feat_amp$resistance_dummy, positive="1")
+recall <- sensitivity(predictions, y, positive="1")
+
+F1 <- (2 * precision * recall) / (precision + recall)
+```
+
 
 ### AUC
 
@@ -358,6 +368,19 @@ crPlots(fit3a)
 
 ```{r, eval=F}
 ncvTest(fit3a)
+```
+
+# Decision Tree
+
+```{r}
+library(party)
+
+dt <- ctree(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = feat_amp)
+
+```
+
+```{r}
+plot(dt)
 ```
 
 
