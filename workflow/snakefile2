@@ -8,7 +8,7 @@ from snakemake.io import touch, directory, temp, expand
 
 rule all:
     input:
-        expand("results/final/{strain}_all.re.done", strain=config['strains'])
+        expand("results/reassemblies/final/{strain}_all.re.done", strain=config['strains'])
 
 rule unicycler:
     input:
@@ -198,7 +198,20 @@ rule rg2gbk:
         "results/reassemblies/resistance_genes/{strain}/rgi_table.txt",
         "results/reassemblies/annotations/{strain}/prokka"
     output:
-        "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
+        "results/reassemblies/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
     params: filter_criterion="Loose"
     script:
         "scripts/rgi2gff.py"
+
+rule final:
+    input:
+        qc_ass="results/reassemblies/qualcheck_assembly/{strain}",
+        trnascan="results/reassemblies/annotations/{strain}/trna/trna_gen.txt",
+        rgi="results/reassemblies/resistance_genes/{strain}/rgi_table.txt",
+        summary="results/reassemblies/assemblies_joined/{strain}/summary.tsv",
+        rg_gbk="results/reassemblies/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
+    output: touch("results/reassemblies/final/{strain}_all.re.done")
+    shell: "echo 'DONE'"
+
+onsuccess:
+    print("Workflow finished, no errors")
