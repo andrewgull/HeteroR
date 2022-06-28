@@ -18,3 +18,13 @@ shiny_apps/data/*
 notebooks/repeats_summary_cache/html/*.*
 notebooks/repeats_summary_cache/html/__packages
 notebooks/repeats_summary_files/figure-html/*.*
+.idea/rGraphicsSettings.xml
+.idea/rAvailablePackageCache.xml
+.idea/misc.xml
+.idea/rAvailablePackageCache.xml
+.idea/rSettings.xml
+notebooks/.ipynb_checkpoints/repeats_summary-checkpoint.ipynb
+.idea/misc.xml
+.idea/rAvailablePackageCache.xml
+.idea/rGraphicsSettings.xml
+.idea/rSettings.xml
