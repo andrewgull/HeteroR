@@ -19,19 +19,22 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F)
-library(dplyr)
+library(tidyverse)
 library(caret)
 library(car)
-library(ggplot2)
 library(GGally)
 ```
 
-## Read data set
+# All models are wrong, but some are useful.
+
+[George Box](https://r4ds.had.co.nz/model-basics.html)
+
+# Read the data
 
 Data set `features_amp_strain` has been made previously in `feature_engineering.Rmd`
 
 ```{r}
-feat_amp <- as_tibble(read.csv("tables/features_amp.csv"))
+feat_amp <- read_csv("tables/features_amp.csv")
 feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total")
 
 # create dummy from original target
@@ -65,7 +68,7 @@ ggpairs(feat_selected,
   scale_fill_brewer(palette = "Set1")
 ```
 
-# Model 0: Null model
+# Model 0: one constant predictor (null model)
 
 ```{r}
 fit0 <- glm(formula = resistance_dummy ~ 1, data=feat_amp, family = binomial(link="logit"))
@@ -111,11 +114,11 @@ summary(fit1b)
 
 None of the predictors is significant
 
+## Recoding BL count to binary
+
 But we know that chances a strain to be susceptible decrease sharply if number of BL genes in the strain is greater than 3
 
 Let's code BL number in one binary variable 'greater than 3: yes or no'
-
-### Recoding BL count to binary
 
 ```{r}
 feat_amp$n.beta.lac.3 <- ifelse(feat_amp$n.beta.lac > 3, 1, 0)
@@ -131,19 +134,21 @@ summary(fit1c)
 
 It looks much better!
 
-### Models 0 and 1b comparison test
+## Models 0 and 1b comparison test
 
 ```{r}
 anova(fit0, fit1c, test = "Chisq")
 ```
 
-fit1c is better than fit0: residual deviance is lower, models are significantly different (p < 2.2e-16).
+fit1c is better than fit0: 
+  - residual deviance is lower, 
+  - models are significantly different
 
 # Model 2: add AR size
 
-median AR size of repeat pairs should work well according to boxplots.
+median AR size of repeat pairs should work well according to EDA.
 
-## med.AR.len
+## 2a: median AR size
 
 ```{r}
 fit2a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len, data = feat_amp, family = binomial(link = "logit"))
@@ -155,7 +160,7 @@ summary(fit2a)
 anova(fit0, fit1c, fit2a, test = "Chisq")
 ```
 
-## med.AR.len.cen
+## 2b: median AR size of repeat pairs spanning gene center
 
 for repeats spanning center it might be better but there are NAs. Replace them with 0
 
@@ -177,13 +182,15 @@ summary(fit2b)
 anova(fit0, fit1c, fit2b, test = "Chisq")
 ```
 
-## med.AR.len.100
+## 2c: median AR size of repeat pairs min 100 bp long
 
 ```{r}
 fit2c <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.100, data = feat_amp, family = binomial(link = "logit"))
 
 anova(fit2b, fit2c)
 ```
+
+## 2d: median AR size of repeat pars min 100 bp long and spanning gene center
 
 ```{r}
 fit2d <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen.100, data = feat_amp, family = binomial(link = "logit"))
@@ -196,13 +203,12 @@ filtered AR do not make the model better, plus they are correlated with med.AR.l
 ```{r}
 ggplot(feat_amp, aes(med.AR.len.cen, med.AR.len.cen.100))+
   geom_point(aes(color=resistance))
-
 ```
 
 
 # Model 3: add maximum repeat length
 
-## Not spanning center
+## 3a: max len for all repeats
 
 ```{r}
 fit3a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = feat_amp, family = binomial(link = "logit"))
@@ -216,7 +222,7 @@ anova(fit2b, fit3a, test = "Chisq")
 
 It gets better!
 
-## Spanning center
+## 3b: for repeats spanning center
 
 ```{r}
 fit3b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len.cen, data = feat_amp, family = binomial(link = "logit"))
@@ -232,7 +238,7 @@ max.rep.len.cen doesn't decrease Res.Dev and the corresponding model is not sign
 
 # Model 4: add repeat counts
 
-## Total
+## 4a: total number of repeat pairs
 
 ```{r}
 fit4a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.rep.total, data = feat_amp, family = binomial(link = "logit"))
@@ -246,7 +252,7 @@ anova(fit3a, fit4a, test="Chisq")
 
 No better
 
-## Not spanning center
+## 4b: repeats not spanning center
 
 ```{r}
 feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
@@ -259,6 +265,7 @@ summary(fit4b)
 ```{r}
 anova(fit3a, fit4b, test="Chisq")
 ```
+
 Not that much different...
 
 Model 3a is the best so far
@@ -275,7 +282,7 @@ Nope
 
 # The winner is Model 3a
 
-resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len
+$resistance = 3.218 + 5.271n.beta.lac.3 - (2.109e-05)med.AR.len.cen + (1.870e-03)max.rep.len$
 
 ```{r}
 confint(fit3a)
@@ -300,7 +307,7 @@ plot(resistance.perf, colorize=T , xlab='false positive', ylab='true positive')
 
 ### Precision, Recall, F-score
 
-```{r}
+```{r, eval=FALSE}
 precision <- posPredValue(resistance.pred, feat_amp$resistance_dummy, positive="1")
 recall <- sensitivity(predictions, y, positive="1")
 
