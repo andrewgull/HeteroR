@@ -226,6 +226,7 @@ rule assembly_summary:
     output:
          "results/assemblies_joined/{strain}/summary.tsv"
     threads: 1
+    params: position=2
     message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
     log: "results/logs/{strain}_assembly_summary.log"
     script:
@@ -478,4 +479,3 @@ rule final:
 
 onsuccess:
     print("Workflow finished, no errors")
-
