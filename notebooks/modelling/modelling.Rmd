@@ -20,7 +20,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F)
 library(dplyr)
-#library(caret)
+library(caret)
 library(car)
 library(ggplot2)
 library(GGally)
@@ -34,7 +34,7 @@ Data set `features_amp_strain` has been made previously in `feature_engineering.
 feat_amp <- as_tibble(read.csv("tables/features_amp.csv"))
 feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total")
 
-# create dummy from original taret
+# create dummy from original target
 feat_amp$resistance_dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
 feat_amp <- relocate(feat_amp, resistance_dummy, .before="n.beta.lac")
 # BL counts as an ordered factor
@@ -47,7 +47,7 @@ feat_amp
 
 Selected variables (based on plots in feature_engineering)
 
-```{r}
+```{r, eval=FALSE}
 feat_selected <- feat_amp %>% select(c(strain, resistance, n.beta.lac, n.beta.lac.f, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
 
 summary(feat_selected)
