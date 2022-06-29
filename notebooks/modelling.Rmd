@@ -12,13 +12,6 @@ output:
     theme: cerulean
     highlight: kate
     toc_float: yes
-  html_notebook:
-    df_print: paged
-    toc: yes
-    number_sections: yes
-    toc_float: yes
-    theme: cerulean
-    highlight: kate
 editor_options: 
   markdown: 
     wrap: 72
@@ -373,7 +366,7 @@ ncvTest(fit3a)
 # Decision Tree
 
 ```{r}
-library(party)
+#library(party)
 
 dt <- ctree(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = feat_amp)
 
