@@ -6,10 +6,11 @@ from Bio import SeqIO
 
 input_assembly = snakemake.input[0]  # it's a dir path like 'results/assemblies/DA00000'
 input_plasmid = snakemake.input[1]  # dir name like 'results/plasmids/DA00000'
+strain_position = snakemake.params[0]  # index of strain name position in input assembly, 2 for normal assembling, 3 for reassembling
 output = snakemake.output[0]
 
 # get strain name
-strain = input_assembly.split('/')[2]
+strain = input_assembly.split('/')[strain_position]
 # names for future table
 col_names = ["Component", "Segments", "Links", "Length", "N50", "Longest_component", "Status"]
 
