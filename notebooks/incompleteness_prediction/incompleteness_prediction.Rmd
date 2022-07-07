@@ -29,7 +29,7 @@ library(caret)
 Now, when I have more data on incomplete and complete assemblies, I can build a better model
 predicting assembly completeness.
 
-# Nanopore coverage
+# Nanopore coverage data
 
 ## Get coverage data
 
@@ -38,45 +38,44 @@ Get table with coverage using your python script from HeteroR workflow
 ```{bash, eval=FALSE}
 # run from ~/Data/HeteroR
 
-python workflow/scripts/coverage.py nanopore_sequenced_strains.txt 5131220 results/coverage/nanopore_sequenced_strains_raw.tsv raw
-
-python workflow/scripts/coverage.py nanopore_sequenced_strains.txt 5131220 results/coverage/nanopore_sequenced_strains_raw.tsv filtered
+python workflow/scripts/coverage.py resources/strain_lists/nanopore_sequenced_strains.txt 5131220 results/coverage/nanopore_sequenced_strains_raw.tsv raw
 
 ```
 
 Read the results and add completeness information
 
-## Read raw coverage data
+## Read and clean raw coverage data
 
 ```{r}
-nano_cov_raw <- read_delim("~/Data/HeteroR/results/coverage/nanopore_sequenced_strains_raw.tsv")
+nano_cov_raw <- read_delim("~/Data/HeteroR/results/coverage/nanopore_sequenced_strains_raw.tsv", na = c("NaN", ""))
 nano_cov_raw$strain <- str_extract(nano_cov_raw$file, "DA[0-9]*")
 nano_cov_raw <- relocate(nano_cov_raw, strain, .before = "file")
-nano_cov_raw$filtered <- "raw"
 
 nano_cov_raw
 ```
 
-## Read filtered coverage data
+Strains DA70* are not E.coli and their coverage should be calculated differently.
+
+Remove them.
 
 ```{r}
-nano_cov_filtered <- read_delim("~/Data/HeteroR/results/coverage/nanopore_sequenced_strains_filtered.tsv")
-nano_cov_filtered$strain <- str_extract(nano_cov_filtered$file, "DA[0-9]*")
-nano_cov_filtered <- relocate(nano_cov_filtered, strain, .before = "file")
-nano_cov_filtered$filtered <- "filt"
-
-nano_cov_filtered
+da70 <- str_detect(nano_cov_raw$strain, "DA70", negate = T)
+nano_cov_raw <- nano_cov_raw[da70,]
 ```
 
-## Join them together
+Also there is one strain (DA63062) that was not copied from Argos.
+
+Remove its row from the data set.
 
 ```{r}
-nano_cov <- bind_rows(nano_cov_filtered, nano_cov_raw)
+nano_cov_raw <- nano_cov_raw %>%  filter(strain != "DA63062")
 
-nano_cov
+sum(!complete.cases(nano_cov_raw))
 ```
 
-## Add chromosome completeness data
+
+
+## Get and clean chromosome completeness data
 
 ```{r}
 assemblies_summary <- read_csv("~/Data/HeteroR/results/tables/genome_assembly_summary.csv")
@@ -86,45 +85,41 @@ assemblies_summary <- assemblies_summary %>%
   distinct() %>% 
   rename(strain="Strain")
 
-assemblies_summary
 ```
+
+
+Strains DA68* are absent from `nano_cov_raw` because they don't exist on Argos' IMB_SAL_RAW (reason's unknown).
+
+But raw sequencing files exist on my desktop
+
+I will calculate them separately
+
+### Get list of DA8*
+
+```{r, eval=FALSE}
+da68 <- assemblies_summary$strain[str_detect(assemblies_summary$strain, "DA68")]
+
+write(da68, file="~/Data/HeteroR/resources/strain_lists/strainsDA68.txt", ncolumns = 1)
+```
+
+
+```{python, eval=FALSE}
+python workflow/scripts/coverage.py resources/strain_lists/strainsDA68.txt 5131220 results/coverage/nanopore_sequenced_strains_DA68_raw.tsv raw
+```
+
+### Add DA68* to the rest
 
 ```{r}
-nano_cov <- left_join(nano_cov, assemblies_summary, by="strain")
+da68 <- read_delim("~/Data/HeteroR/results/coverage/nanopore_sequenced_strains_DA68_raw.tsv")
 
-nano_cov
+da68$strain <- str_extract(da68$file, "DA[0-9]*")
+da68 <- relocate(da68, strain, .before = "file")
+
+nano_cov_raw <- bind_rows(nano_cov_raw, da68)
+
+sum(!complete.cases(nano_cov_raw))
 ```
 
-## Plot
-
-```{r}
-ggplot(nano_cov %>% filter(!is.na(Status)), aes(filtered, coverage))+
-  geom_boxplot(aes(fill=Status), varwidth = T, notch = T)+
-  coord_trans(y="sqrt")
-```
-
-# Write strains that should be resequenced to file
-
-```{r}
-nano_cov %>% filter(filtered=="filt", Status == "incomplete") %>% arrange(coverage)
-```
-
-
-```{r}
-strains_incomplete_filt <- nano_cov %>% 
-  filter(filtered=="filt", Status == "incomplete") %>% 
-  arrange(coverage) %>% 
-  select(strain, coverage)
-
-strains_incomplete_raw <- nano_cov %>% 
-  filter(filtered=="raw", Status == "incomplete") %>% 
-  arrange(coverage) %>% 
-  select(strain, coverage)
-
-strains_incomplete <- full_join(strains_incomplete_filt, strains_incomplete_raw, by="strain")
-
-write.csv(strains_incomplete, "~/Data/HeteroR/results/tables/incomplete_assemblies.csv", row.names = F)
-```
 
 # Predict completeness of assembly
 
@@ -132,11 +127,9 @@ Attempt number 2, on a bigger data set.
 
 Add raw data statistics to assemblies summary
 
-## Get data
+## Make a data set
 
 ```{r}
-library(caret)
-
 my_data <- left_join(
   select(assemblies_summary, c(strain, Status)),
   select(nano_cov_raw, c(strain, num_seqs, sum_len, min_len, avg_len, max_len, coverage)),
@@ -144,15 +137,24 @@ my_data <- left_join(
   )
 
 my_data$Status <- as.factor(my_data$Status)
-#my_data$sum_len_log <- log(my_data$sum_len)
+my_data$strain <- NULL
 
 summary(my_data)
 ```
 
+One NA is the same old DA63062. Remove it for now
+
+```{r}
+# 
+my_data <- my_data[complete.cases(my_data),]
+
+```
+
+
 ## Make tidy
 
 ```{r}
-my_data_td <- my_data  %>% gather(key="statistic", value="value", 3:8)
+my_data_td <- my_data  %>% gather(key="statistic", value="value", 2:7)
 ```
 
 ## Box plots
@@ -170,9 +172,8 @@ ggplot(my_data_td, aes(Status, value))+
 ## Pairs plot
 
 ```{r, fig.width=10}
-library(GGally)
 ggpairs(my_data, 
-        columns=c(3:8), 
+        columns=c(2:7), 
         aes(color=Status, alpha=0.2, dotsize=0.02), 
         upper = list(continuous = wrap("cor", size = 2.5)),
         diag=list(continuous ="barDiag"))+
@@ -181,7 +182,15 @@ ggpairs(my_data,
 
 ```
 
-## Model
+Correlated pairs:
+
+ - coverage - num_seqs
+ - coverage - sum_len
+ - sum_len - num_seqs
+
+## Modelling
+
+### Remove NAs and split data set
 
 ```{r}
 set.seed(100)
@@ -192,3 +201,24 @@ training <- my_data[inTrain,]
 testing <- my_data[-inTrain,]
 
 ```
+
+### Basic parameter tuning
+
+```{r}
+fitControl <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 5)
+```
+
+
+```{r}
+set.seed(100)
+Fit1 <- train(Status ~ ., data = training, 
+                 method = "regLogistic", 
+                 trControl = fitControl,
+                 verbose = FALSE)
+Fit1
+```
+
