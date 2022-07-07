@@ -19,11 +19,8 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
-#library(purrr)
-#library(stringr)
-#library(dplyr)
-#library(ggplot2)
 library(tidyverse)
+
 ```
 
 
@@ -244,72 +241,5 @@ strains_incomplete_raw <- nano_cov %>%
 strains_incomplete <- full_join(strains_incomplete_filt, strains_incomplete_raw, by="strain")
 
 write.csv(strains_incomplete, "~/Data/HeteroR/results/tables/incomplete_assemblies.csv", row.names = F)
-```
-
-# Predict completeness of assembly
-
-Attempt number 2, on a bigger data set.
-
-Add raw data statistics to assemblies summary
-
-## Get data
-
-```{r}
-library(caret)
-
-my_data <- left_join(
-  select(assemblies_summary, c(strain, Status)),
-  select(nano_cov_raw, c(strain, num_seqs, sum_len, min_len, avg_len, max_len, coverage)),
-  by="strain"
-  )
-
-my_data$Status <- as.factor(my_data$Status)
-#my_data$sum_len_log <- log(my_data$sum_len)
-
-summary(my_data)
-```
-
-## Make tidy
-
-```{r}
-my_data_td <- my_data  %>% gather(key="statistic", value="value", 3:8)
-```
-
-## Box plots
-
-```{r, fig.width=10}
-ggplot(my_data_td, aes(Status, value))+
-  geom_boxplot(varwidth = T, aes(fill=Status))+
-  coord_trans(y="log")+
-  facet_grid(. ~ statistic)+
-  scale_fill_brewer(palette = "Set1")+
-  xlab("")+
-  ylab("")
-```
-
-## Pairs plot
-
-```{r, fig.width=10}
-library(GGally)
-ggpairs(my_data, 
-        columns=c(3:8), 
-        aes(color=Status, alpha=0.2, dotsize=0.02), 
-        upper = list(continuous = wrap("cor", size = 2.5)),
-        diag=list(continuous ="barDiag"))+
-  scale_color_brewer(palette = "Set1")+
-  scale_fill_brewer(palette = "Set1")
-
-```
-
-## Model
-
-```{r}
-set.seed(100)
-
-inTrain <- createDataPartition(y = my_data$Status, p=0.7, list=FALSE)
-
-training <- my_data[inTrain,]
-testing <- my_data[-inTrain,]
-
 ```
 
