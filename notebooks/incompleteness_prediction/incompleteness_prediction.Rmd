@@ -121,7 +121,7 @@ sum(!complete.cases(nano_cov_raw))
 ```
 
 
-# Predict completeness of assembly
+# Data set creation and EDA
 
 Attempt number 2, on a bigger data set.
 
@@ -148,6 +148,7 @@ One NA is the same old DA63062. Remove it for now
 # 
 my_data <- my_data[complete.cases(my_data),]
 
+summary(my_data)
 ```
 
 
@@ -184,16 +185,19 @@ ggpairs(my_data,
 
 Correlated pairs:
 
- - coverage - num_seqs
- - coverage - sum_len
- - sum_len - num_seqs
+ - coverage - num_seqs (0.8)
+ - coverage - sum_len (1.0)
+ - sum_len - num_seqs (0.8)
 
-## Modelling
 
-### Remove NAs and split data set
+# Split data set
+
+I will remove correlated features, leaving only `sum_len`
 
 ```{r}
 set.seed(100)
+
+my_data <- select(training,-c(coverage, num_seqs))
 
 inTrain <- createDataPartition(y = my_data$Status, p=0.7, list=FALSE)
 
@@ -202,23 +206,275 @@ testing <- my_data[-inTrain,]
 
 ```
 
-### Basic parameter tuning
+
+# Regularized Logistic Regression
+
+## M1: One predictor: sum_len
+
+### Parameters tuning
 
 ```{r}
 fitControl <- trainControl(## 5-fold CV
                            method = "repeatedcv",
                            number = 5,
                            ## repeated ten times
-                           repeats = 5)
+                           repeats = 10, 
+                           allowParallel = T)
 ```
 
+### Training
 
 ```{r}
 set.seed(100)
-Fit1 <- train(Status ~ ., data = training, 
+Fit1 <- train(Status ~ ., data = select(training, Status, sum_len), 
                  method = "regLogistic", 
                  trControl = fitControl,
                  verbose = FALSE)
 Fit1
 ```
 
+### Parameters plot
+
+```{r}
+ggplot(Fit1)
+```
+
+### Coefficients
+
+```{r}
+Fit1$finalModel$W
+```
+
+## M2: All non-correlated predictors
+
+I remove coverage and num_seqs
+
+### Training
+
+```{r}
+set.seed(100)
+
+Fit2 <- train(Status ~ ., data = training, 
+                 method = "regLogistic",
+                 trControl = fitControl,
+                 verbose = FALSE)
+Fit2
+```
+
+### Parameters plot
+
+```{r}
+ggplot(Fit2)
+```
+
+### Coefficients
+
+```{r}
+Fit2$finalModel$W
+```
+
+## M2b: all non-correlated + scaling
+
+```{r}
+set.seed(100)
+
+fitControl2 <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10,
+                           allowParallel = T)
+
+Fit2b <- train(
+  Status ~ .,
+  data = training,
+  trControl = fitControl2,
+  method = "regLogistic",
+  preProc = c("center", "scale")
+)
+
+Fit2b
+```
+
+No difference...
+
+But coefficients are different of course
+
+```{r}
+Fit2b$finalModel$W
+```
+
+## M2c: sum_len + ROC tuning
+
+
+```{r}
+fitControl3 <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10,
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+
+set.seed(100)
+
+Fit2c <- train(
+  Status ~ .,
+  data = select(training, Status, sum_len),
+  trControl = fitControl3,
+  method = "regLogistic",
+  metric="ROC"
+)
+
+Fit2c
+```
+
+
+```{r}
+Fit2c$finalModel$W
+```
+
+
+## M2d: all non-correlated + ROC tuning
+
+### Tuning & training
+
+```{r}
+fitControl4 <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10,
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+
+set.seed(100)
+
+Fit2d <- train(
+  Status ~ .,
+  data = training,
+  trControl = fitControl4,
+  method = "regLogistic",
+  metric="ROC"
+)
+
+Fit2d
+```
+
+```{r}
+Fit2d$finalModel$W
+```
+
+```{r}
+ggplot(Fit2d)
+```
+
+
+# Predict
+
+## Model 1
+
+One predictor (sum_len), accuracy tuning
+
+```{r}
+
+predClasses1 <- predict(Fit1, newdata=testing)
+
+confusionMatrix(data = predClasses1, 
+                reference = testing$Status,
+                mode="everything",
+                positive="incomplete")
+```
+
+
+## Model 2
+
+All predictors, accuracy tuning
+
+```{r}
+predClasses2 <- predict(Fit2, newdata=testing)
+
+predProb2 <- predict(Fit2, newdata=testing, type = "prob")
+```
+
+
+
+```{r}
+confusionMatrix(data = predClasses2, 
+                reference = testing$Status,
+                mode="everything",
+                positive="incomplete")
+```
+
+## Model 2b
+
+All predictors, scaled, accuracy tuning
+
+```{r}
+predClasses2b <- predict(Fit2b, newdata=testing)
+
+confusionMatrix(data = predClasses2b, 
+                reference = testing$Status,
+                mode="everything",
+                positive="incomplete")
+```
+
+## Model 2c
+
+sum_len + ROC
+
+```{r}
+predClasses2c <- predict(Fit2c, newdata=select(testing,Status, sum_len))
+
+confusionMatrix(data = predClasses2c, 
+                reference = testing$Status,
+                mode="everything",
+                positive="incomplete")
+```
+
+## Model 2d
+
+All predictors, ROC tuning
+
+```{r}
+predClasses2d <- predict(Fit2d, newdata=testing)
+
+predProbs2d <- predict(Fit2d, newdata=testing, type = "prob")
+
+confusionMatrix(data = predClasses2d, 
+                reference = testing$Status,
+                mode="everything",
+                positive="incomplete")
+```
+
+## Model comparison
+
+### sum_len + acc VS all + acc
+
+```{r}
+resamps <- resamples(list(sum_len = Fit1, all_acc = Fit2))
+summary(resamps)
+```
+
+### sum_len + roc VS all + roc
+
+```{r}
+resamps2 <- resamples(list(sum_len = Fit2c, all_roc = Fit2d))
+summary(resamps2)
+```
+
+all predictors + ROC is better
+
+```{r}
+xyplot(resamps2, what = "BlandAltman")
+```
+
+```{r}
+diffs <- diff(resamps2)
+
+summary(diffs)
+```
+
+We can not reject H0
