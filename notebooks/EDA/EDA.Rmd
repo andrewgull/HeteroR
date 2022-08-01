@@ -34,9 +34,11 @@ For the following analysis strains with intermediate resistance and not tested s
 
 ## Read in the data 
 
-Both `features_amp` and `features_amp_strain` come from `features`
+Every table comes from  `features`
 
-```{r}
+```{r data}
+#n_beta_lac <- read_csv("/home/andrei/Data/HeteroR/results/tables/n_beta_lac.csv")
+
 features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
 
 features_amp_strain <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp_strain.csv")
@@ -51,7 +53,7 @@ features_amp_strain <- read_csv("/home/andrei/Data/HeteroR/results/tables/featur
 amp_n_genes <- features_amp %>% select(strain, record_id) %>% distinct() %>% group_by(strain) %>% summarise(N=n())
 
 ggplot(amp_n_genes, aes(N)) + 
-  geom_histogram(fill="steelblue", binwidth = 0.5)+
+  geom_histogram(fill="steelblue", binwidth = 1)+
   xlab("RG count")+
   ylab("number of strains")
 
@@ -76,7 +78,7 @@ betaL_n_genes <- features_amp %>%
   summarise(N=n())
 
 ggplot(betaL_n_genes, aes(N)) + 
-  geom_histogram(fill="steelblue", binwidth = 0.5)+
+  geom_histogram(fill="steelblue", binwidth = 1)+
   xlab("RG count")+
   ylab("number of strains")
 
@@ -86,22 +88,13 @@ ggplot(betaL_n_genes, aes(N)) +
 summary(betaL_n_genes$N)
 ```
 
+Every strain has at least one beta-lactamase gene.
 
 ## Gene presence
 
 This supposed to be the main predictor of HR
 
 We should not count repeats around other genes than beta-lactamases
-
-### Number of beta-lactamases per strain
-
-Table ordered by number of beta-lactamases
-
-```{r, eval=FALSE}
-n.beta.lac %>% arrange(n.beta.lac)
-```
-
-Every strain has at least one beta-lactamase gene.
 
 ### Number of beta-lactamases in R and S
 
@@ -111,11 +104,10 @@ I remove intermediate resistance (just 2 observations) and not tested strains (s
 
 ```{r}
 # add resistance testing results
-n.beta.lac <- left_join(n.beta.lac, features_amp %>% 
-                          select(strain, resistance) %>% 
-                          distinct(), by="strain") %>% filter(resistance != "I", !is.na(resistance))
+n_beta_lac <- left_join(betaL_n_genes, features_amp %>% select(strain, resistance) %>% distinct(), by="strain") %>% 
+  filter(resistance != "I", !is.na(resistance))
 
-ggplot(n.beta.lac, aes(resistance, n.beta.lac))+
+ggplot(n_beta_lac, aes(resistance, N))+
   geom_violin(aes(fill=resistance), alpha=0.6, draw_quantiles = c(0.25, 0.5, 0.75))+
   geom_jitter(alpha=0.2, width=0.25, height = 0.1)+
   scale_fill_brewer(palette = "Set1")+
@@ -126,11 +118,12 @@ ggplot(n.beta.lac, aes(resistance, n.beta.lac))+
 # geom_boxplot(aes(fill=resistance))+
   
 ```
+
 Susceptible strains have less beta-lactamase genes on average compared to resistance strains.
 
 #### As a bar plot 
 
-since nyumber of BL genes is count data.
+Because number of BL genes is count data.
 
 ```{r}
 #feat_amp$resistance <- factor()
@@ -142,14 +135,13 @@ ggplot(features_amp_strain, aes(n.beta.lac))+
   ylab("number of strains")
 ```
 
-More accurate conclusion from this plot: if number of beta-lactamases is greater than 3 then strain is resistant. The chance a strain with more than 3 BL genes to be susceptible is 0.0143 (1.43%).
+More accurate conclusion from this plot: if number of beta-lactamases is greater than 3 then strain is most likely resistant. The chance a strain with more than 3 BL genes to be susceptible is 0.0143 (1.43%).
 
 ## Beta-lactamase heatmap
 
 ### BL types in each strain
 
 ```{r, fig.width=20, fig.height=6}
-require(tidyr)
 # get unique AMR types
 amr_types <- unique(features_amp$AMR.Gene.Family)
 
@@ -209,6 +201,8 @@ ggplot(amp_ampr_gene_presence_td, aes(record_id, AMR.type))+geom_tile(aes(fill=N
 
 Per strain, doesn't depend on beta-lactamase presence or absence
 
+### As a box plot
+
 ```{r}
 ggplot(features_amp_strain, aes(resistance, n_plasmids))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
@@ -219,6 +213,16 @@ ggplot(features_amp_strain, aes(resistance, n_plasmids))+
   ylab("N")+
   guides(fill="none")
 
+```
+
+### As a bar plot
+
+```{r}
+ggplot(features_amp_strain, aes(n_plasmids))+
+  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  scale_fill_brewer(palette="Set1")+
+  xlab("number of plasmids")+
+  ylab("number of strains")
 ```
 
 ## Repeat length
@@ -344,7 +348,7 @@ plot.trl.all
 
 ## Maximum repeat length
 
-some zeros will be removed for pltting purposes
+some zeros are removed for plotting purposes
 
 ```{r, fig.width=14, fig.height=6}
 plot.maxrl.all <- ggplot(features_amp_strain, aes(resistance, max.rep.len)) + 
@@ -498,7 +502,11 @@ ggarrange(plot.arl.100, plot.arl.cen.100, plot.arl.non.cen.100,
 
 ## ampC genes
 
+Statistics regarding only AmpC genes
+
 ### Total repeat count
+
+#### As a box plot
 
 ```{r}
 ggplot(features_amp_strain, aes(resistance, ampC.n.rep.tot))+
@@ -511,6 +519,17 @@ ggplot(features_amp_strain, aes(resistance, ampC.n.rep.tot))+
   guides(fill="none")
   
 ```
+
+#### As a bar plot
+
+```{r}
+ggplot(features_amp_strain, aes(ampC.n.rep.tot))+
+  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  scale_fill_brewer(palette="Set1")+
+  xlab("number of repeats")+
+  ylab("number of strains")
+```
+
 ### Median repeat length
 
 ```{r}
@@ -542,7 +561,7 @@ ggplot(features_amp_strain, aes(resistance, ampC.max.rep.len))+
 
 ### Median sum of repeat lengths
 
-```{r}
+```{r, warning=F}
 ggplot(features_amp_strain, aes(resistance, ampC.med.tot.rep.len))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
@@ -589,7 +608,7 @@ names(features_amp_strain)
 ```
 
 
-```{r, fig.width=15, fig.height=10}
+```{r, fig.width=15, fig.height=10, warning=F, message=F}
 # use GGally
 
 ggpairs(features_amp_strain, 
@@ -604,7 +623,7 @@ ggpairs(features_amp_strain,
 
 ## Per gene statistics
 
-Might be harder to interpret and embed in per-strain prediction.
+Not clear how to interpret and embed in per-strain prediction.
 
 Around beta-lactamase genes only.
 
@@ -736,11 +755,13 @@ Under construction
 
 # Plotting features for all AB
 
+eval=FALSE
+
 ## Number of plasmids
 
 ### From summaries
 
-```{r, fig.width=10, fig.height=4}
+```{r, eval=FALSE}
 ggplot(features_filtered %>% 
          filter(!is.na(resistance)) %>% 
          filter(resistance !="I"), aes(AB, n_plasmids)) + 
@@ -757,7 +778,7 @@ ggplot(features_filtered %>%
 Here plasmid numbers are calculated using relative depth of coverage
 taken from assembly's fasta headers
 
-```{r, fig.width=10, fig.height=4}
+```{r, fig.width=10, fig.height=4, eval=FALSE}
 ggplot(features_filtered %>% 
          filter(!is.na(resistance)) %>% 
          filter(resistance !="I"), aes(AB, n_plasmids_alt)) + 
@@ -934,7 +955,7 @@ ggplot(features_filtered %>%
 
 ### For repeats longer than 100 bp
 
-```{r, fig.width=10, fig.height=5}
+```{r, fig.width=10, fig.height=5, eval=FALSE}
 # prepare df
 feat_selected <- features_filtered %>%
                    filter(!is.na(resistance)) %>%
@@ -959,7 +980,7 @@ ggbox.arl.ab.100
 
 ### For repeats longer than 500 bp
 
-```{r, fig.width=10, fig.height=5}
+```{r, fig.width=10, fig.height=5, eval=FALSE}
 # prepare df
 feat_selected <- features_filtered %>%
                    filter(!is.na(resistance)) %>%
@@ -984,7 +1005,7 @@ ggbox.arl.ab.500
 
 ### For repeats longer than 1000 bp
 
-```{r, fig.width=10, fig.height=5}
+```{r, fig.width=10, fig.height=5, eval=FALSE}
 # prepare df
 feat_selected <- features_filtered %>%
                    filter(!is.na(resistance)) %>%
@@ -1010,5 +1031,5 @@ ggbox.arl.ab.1000
 # Save the workspace
 
 ```{r, eval=TRUE}
-save.image(f="/home/andrei/Data/HeteroR/notebooks/features.RData")
+save.image(f="/home/andrei/Data/HeteroR/notebooks/EDA.RData")
 ```
