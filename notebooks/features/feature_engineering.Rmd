@@ -1310,3 +1310,8 @@ write.csv(features_amp_strain, "/home/andrei/Data/HeteroR/results/tables/feature
 write.csv(features_amp, "/home/andrei/Data/HeteroR/results/tables/features_amp.csv", row.names = F)
 ```
 
+# Save the workspace
+
+```{r, eval=TRUE}
+save.image(f="/home/andrei/Data/HeteroR/notebooks/features.RData")
+```
