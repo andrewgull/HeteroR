@@ -37,8 +37,6 @@ For the following analysis strains with intermediate resistance and not tested s
 Every table comes from  `features`
 
 ```{r data}
-#n_beta_lac <- read_csv("/home/andrei/Data/HeteroR/results/tables/n_beta_lac.csv")
-
 features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
 
 features_amp_strain <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp_strain.csv")
