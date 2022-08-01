@@ -1300,9 +1300,11 @@ features_amp_strain <- features_amp_strain %>% filter(resistance != "I", !is.na(
 features_amp_strain
 ```
 
-# Write AMP features table to a file
+# Write table required for EDA to files
 
 ```{r}
+write.csv(n.beta.lac, "/home/andrei/Data/HeteroR/results/tables/n_beta_lac.csv", row.names = F)
+
 write.csv(features_amp_strain, "/home/andrei/Data/HeteroR/results/tables/features_amp_strain.csv", row.names = F)
 
 write.csv(features_amp, "/home/andrei/Data/HeteroR/results/tables/features_amp.csv", row.names = F)
