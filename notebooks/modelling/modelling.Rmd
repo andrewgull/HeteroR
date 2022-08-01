@@ -34,7 +34,7 @@ library(GGally)
 Data set `features_amp_strain` has been made previously in `feature_engineering.Rmd`
 
 ```{r}
-feat_amp <- read_csv("tables/features_amp.csv")
+feat_amp <- read_csv("tables/features_amp_strain.csv")
 feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total")
 
 # create dummy from original target
