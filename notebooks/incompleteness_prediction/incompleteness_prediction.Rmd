@@ -29,6 +29,8 @@ library(caret)
 Now, when I have more data on incomplete and complete assemblies, I can build a better model
 predicting assembly completeness.
 
+If an assembly is predicted to be incomplete, then you can use full amount of reads or adjust filtering strategy
+
 # Nanopore coverage data
 
 ## Get coverage data
