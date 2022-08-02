@@ -33,30 +33,297 @@ library(GGally)
 
 Data set `features_amp_strain` has been made previously in `feature_engineering.Rmd`
 
+Here I add BL genes counts as oredered factor and as binary features (if BL > 3)
+
 ```{r}
 feat_amp <- read_csv("tables/features_amp_strain.csv")
 feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total")
 
 # create dummy from original target
-feat_amp$resistance_dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
-feat_amp <- relocate(feat_amp, resistance_dummy, .before="n.beta.lac")
+feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
+feat_amp <- relocate(feat_amp, resistance.dummy, .before="n.beta.lac")
+
 # BL counts as an ordered factor
 feat_amp$n.beta.lac.f <- factor(feat_amp$n.beta.lac, ordered = T, levels = c(1,2,3,4,5,6))
 feat_amp <- relocate(feat_amp, n.beta.lac.f, .before="n.plasmids")
+
 # resistance as factor
 feat_amp$resistance <- as.factor(feat_amp$resistance)
+
+# BL counted as binary > 3
+feat_amp$n.beta.lac.3 <- ifelse(feat_amp$n.beta.lac > 3, 1, 0)
+feat_amp <- relocate(feat_amp, n.beta.lac.3, .before="n.plasmids")
+
 feat_amp
 ```
 
-Selected variables (based on plots in feature_engineering)
+# Pairs plot
 
-```{r, eval=FALSE}
-feat_selected <- feat_amp %>% select(c(strain, resistance, n.beta.lac, n.beta.lac.f, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
+One more time
+
+```{r, fig.width=15, fig.height=10, warning=F, message=F}
+# use GGally
+
+ggpairs(feat_amp, 
+        columns=c(4,5,6,7,9,10,15,16,22,23,25,27,28), 
+        aes(color=resistance, alpha=0.2, dotsize=0.02), 
+        upper = list(continuous = wrap("cor", size = 2.5)),
+        diag=list(continuous ="barDiag"))+
+  scale_color_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Set1")
+```
+
+# Regularized Logistic Regression
+
+## Hand picked features
+
+```{r}
+feat_selected <- feat_amp %>% select(c(resistance, n.beta.lac.3, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
+
+# NAs in `med.tot.rep.len` and in `med.AR.len.cen` should be replaced with 0s
+feat_selected$med.tot.rep.len <- ifelse(is.na(feat_selected$med.tot.rep.len), 0, feat_selected$med.tot.rep.len)
+feat_selected$med.AR.len.cen <- ifelse(is.na(feat_selected$med.AR.len.cen), 0, feat_selected$med.AR.len.cen)
 
 summary(feat_selected)
 ```
 
-Response (resistance) classes are equally represented in the data set.
+### Split the data set
+
+```{r}
+set.seed(100)
+
+inTrain <- createDataPartition(y = feat_selected$resistance, p=0.7, list=FALSE)
+
+
+training <- feat_selected[inTrain,]
+testing <- feat_selected[-inTrain,]
+```
+
+### Params tuning
+
+```{r}
+fitControl <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10, 
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+
+fitControl_acc <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10, 
+                           allowParallel = T)
+```
+
+### Training
+
+Same model (3a) that won in "Statistical exploration" (see below)
+
+ROC is used to select optimal model
+
+```{r}
+set.seed(100)
+
+Fit1 <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training, 
+                 method = "regLogistic", 
+                 trControl = fitControl,
+                 verbose = FALSE,
+                 metric="ROC")
+Fit1
+```
+
+#### Coefficients
+
+```{r}
+Fit1$finalModel$W
+```
+
+### Validation
+
+```{r}
+
+predClasses <- predict(Fit1, newdata=testing)
+
+confusionMatrix(data = predClasses, 
+                reference = testing$resistance,
+                mode="everything",
+                positive="R")
+```
+
+Not bad and similar to Model 3a
+
+## Automatic feature selection
+
+Since LR doesn't have in-built feature selection, let's use *filter* methods (less prone to over-fitting and more computationally efficient than *wrapper* methods)
+
+### Prepare the data set
+
+remove strain, AB and resistance.dummy
+
+```{r}
+feat_amp <- select(feat_amp, -c(strain, AB, resistance.dummy))
+
+skimr::skim_to_wide(feat_amp)
+```
+
+#### Data imputation
+
+In this case all NAs can be replaced by 0s
+
+`caret::preProcess()` doesn't have method for replacing with zeros...
+
+```{r}
+# make it by hand
+feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
+
+feat_amp$n.rep.tot.non.cen <- ifelse(is.na(feat_amp$n.rep.tot.non.cen), 0, feat_amp$n.rep.tot.non.cen)
+
+feat_amp$med.tot.rep.len <- ifelse(is.na(feat_amp$med.tot.rep.len), 0, feat_amp$med.tot.rep.len)
+
+feat_amp$med.AR.len.cen <- ifelse(is.na(feat_amp$med.AR.len.cen), 0, feat_amp$med.AR.len.cen)
+
+feat_amp$ampC.med.tot.rep.len <- ifelse(is.na(feat_amp$ampC.med.tot.rep.len), 0, feat_amp$ampC.med.tot.rep.len)
+```
+
+
+### Correlated predictors
+
+Summary of pairwise correlations between numeric predictors
+
+```{r}
+# exclude resistance, n.beta.lac.3, n.beta.lac.f
+feat_amp_proc <- feat_amp[, c(2, 5:36)]
+
+descrCor <- cor(feat_amp_proc)
+summary(descrCor[upper.tri(descrCor)])
+```
+
+Remove those predictors that have correlation coefficient greater than 0.75
+
+Check the summary of the new filtered correlations
+
+```{r}
+highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
+
+feat_amp_proc <- feat_amp_proc[,-highlyCorDescr]
+
+# check new correlations
+descrCor2 <- cor(feat_amp_proc)
+summary(descrCor2[upper.tri(descrCor2)])
+```
+
+Add `resistance` and `n.beta.lac.3` columns to filtered columns
+
+```{r}
+feat_amp_proc$n.beta.lac.3 <- feat_amp$n.beta.lac.3
+
+feat_amp_proc$resistance <- feat_amp$resistance
+```
+
+### Split the data set
+
+```{r}
+set.seed(101)
+
+inTrain <- createDataPartition(feat_amp_proc$resistance, p=0.8, list=FALSE)
+
+
+training <- feat_amp_proc[inTrain,]
+testing <- feat_amp_proc[-inTrain,]
+```
+
+### Feature importance
+
+**Box plots**
+
+```{r}
+featurePlot(x = training[, 1:20], 
+            y = training$resistance, 
+            plot = "box",
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")))
+```
+
+**Density curves**
+
+```{r}
+featurePlot(x = training[, 1:20], 
+            y = training$resistance, 
+            plot = "density",
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")))
+```
+
+
+
+### Features selection
+
+
+
+**Recursive feature selection**
+
+```{r}
+set.seed(100)
+options(warn=-1)
+
+subsets <- c(1:5, 10, 15, 21)
+
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 5,
+                   verbose = FALSE)
+
+lmProfile <- rfe(x=training[, 1:21], y=training$resistance,
+                 sizes = subsets,
+                 rfeControl = ctrl)
+
+lmProfile
+```
+
+
+
+
+
+### Params tuning
+
+```{r}
+fitControl <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10, 
+                           allowParallel = T)
+```
+
+### Training
+
+```{r}
+
+```
+
+
+
+----
+
+# Statistical exploration of predictors (no caret)
+
+## Select predictors
+
+Selected variables (based on plots in `EDA.Rmd`)
+
+```{r, eval=FALSE}
+feat_selected <- feat_amp %>% select(c(strain, resistance, resistance_dummy, n.beta.lac, n.beta.lac.f, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
+
+summary(feat_selected)
+```
+
+Response (resistance) classes are almost equally represented in the data set.
 
 ```{r, fig.width=10, fig.height=10}
 ggpairs(feat_selected, 
@@ -68,7 +335,7 @@ ggpairs(feat_selected,
   scale_fill_brewer(palette = "Set1")
 ```
 
-# Model 0: one constant predictor (null model)
+## Model 0: one constant predictor (null model)
 
 ```{r}
 fit0 <- glm(formula = resistance_dummy ~ 1, data=feat_amp, family = binomial(link="logit"))
@@ -77,13 +344,13 @@ summary(fit0)
 ```
 
 
-# Model 1: add BL-genes
+## Model 1: add BL-genes
 
 Let's try to build a simple model and then run its diagnostics.
 
 We assume that beta-lactamases is the main predictor of resistance (HR?). Let's check it out.
 
-## BL genes number as discrete variable
+### BL genes number as discrete variable
 
 ```{r}
 fit1a <- lm(formula = resistance_dummy ~ n.beta.lac, data=feat_amp, family = binomial(link="logit"))
@@ -100,7 +367,7 @@ confint(fit1a)
 
 Looks quite good: significant slope and intercept, F-statistic and CIs
 
-## BL genes count as ordered factor
+### BL genes count as ordered factor
 
 ```{r}
 # n.beta.lac+n.plasmids+med.rep.len+med.tot.rep.len+max.rep.len+n.rep.total+med.AR.len.cen
@@ -114,7 +381,7 @@ summary(fit1b)
 
 None of the predictors is significant
 
-## Recoding BL count to binary
+### Recoding BL count to binary
 
 But we know that chances a strain to be susceptible decrease sharply if number of BL genes in the strain is greater than 3
 
@@ -134,7 +401,7 @@ summary(fit1c)
 
 It looks much better!
 
-## Models 0 and 1b comparison test
+### Models 0 and 1b comparison test
 
 ```{r}
 anova(fit0, fit1c, test = "Chisq")
@@ -144,11 +411,11 @@ fit1c is better than fit0:
   - residual deviance is lower, 
   - models are significantly different
 
-# Model 2: add AR size
+## Model 2: add AR size
 
 median AR size of repeat pairs should work well according to EDA.
 
-## 2a: median AR size
+### 2a: median AR size
 
 ```{r}
 fit2a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len, data = feat_amp, family = binomial(link = "logit"))
@@ -160,7 +427,7 @@ summary(fit2a)
 anova(fit0, fit1c, fit2a, test = "Chisq")
 ```
 
-## 2b: median AR size of repeat pairs spanning gene center
+### 2b: median AR size of repeat pairs spanning gene center
 
 for repeats spanning center it might be better but there are NAs. Replace them with 0
 
@@ -182,7 +449,7 @@ summary(fit2b)
 anova(fit0, fit1c, fit2b, test = "Chisq")
 ```
 
-## 2c: median AR size of repeat pairs min 100 bp long
+### 2c: median AR size of repeat pairs min 100 bp long
 
 ```{r}
 fit2c <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.100, data = feat_amp, family = binomial(link = "logit"))
@@ -190,7 +457,7 @@ fit2c <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.100, data = 
 anova(fit2b, fit2c)
 ```
 
-## 2d: median AR size of repeat pars min 100 bp long and spanning gene center
+### 2d: median AR size of repeat pars min 100 bp long and spanning gene center
 
 ```{r}
 fit2d <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen.100, data = feat_amp, family = binomial(link = "logit"))
@@ -206,9 +473,9 @@ ggplot(feat_amp, aes(med.AR.len.cen, med.AR.len.cen.100))+
 ```
 
 
-# Model 3: add maximum repeat length
+## Model 3: add maximum repeat length
 
-## 3a: max len for all repeats
+### 3a: max len for all repeats
 
 ```{r}
 fit3a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = feat_amp, family = binomial(link = "logit"))
@@ -222,7 +489,7 @@ anova(fit2b, fit3a, test = "Chisq")
 
 It gets better!
 
-## 3b: for repeats spanning center
+### 3b: for repeats spanning center
 
 ```{r}
 fit3b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len.cen, data = feat_amp, family = binomial(link = "logit"))
@@ -236,9 +503,9 @@ anova(fit2b, fit3a, fit3b, test = "Chisq")
 
 max.rep.len.cen doesn't decrease Res.Dev and the corresponding model is not signif. different.
 
-# Model 4: add repeat counts
+## Model 4: add repeat counts
 
-## 4a: total number of repeat pairs
+### 4a: total number of repeat pairs
 
 ```{r}
 fit4a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.rep.total, data = feat_amp, family = binomial(link = "logit"))
@@ -252,7 +519,7 @@ anova(fit3a, fit4a, test="Chisq")
 
 No better
 
-## 4b: repeats not spanning center
+### 4b: repeats not spanning center
 
 ```{r}
 feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
@@ -270,7 +537,7 @@ Not that much different...
 
 Model 3a is the best so far
 
-# Model 5: add number of plasmids
+## Model 5: add number of plasmids
 
 ```{r}
 fit5 <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.plasmids, data = feat_amp, family = binomial(link = "logit"))
@@ -280,7 +547,7 @@ summary(fit5)
 
 Nope
 
-# The winner is Model 3a
+## The winner is Model 3a
 
 $resistance = 3.218 + 5.271n.beta.lac.3 - (2.109e-05)med.AR.len.cen + (1.870e-03)max.rep.len$
 
@@ -289,9 +556,9 @@ confint(fit3a)
 ```
 
 
-## Validation
+### Validation
 
-### TPR v FPR
+#### TPR v FPR
 
 ```{r}
 require(ROCR)
@@ -305,17 +572,17 @@ resistance.perf <- performance(resistance.pred ,"tpr","fpr")
 plot(resistance.perf, colorize=T , xlab='false positive', ylab='true positive')
 ```
 
-### Precision, Recall, F-score
+#### Precision, Recall, F-score
 
 ```{r, eval=FALSE}
 precision <- posPredValue(resistance.pred, feat_amp$resistance_dummy, positive="1")
-recall <- sensitivity(predictions, y, positive="1")
+recall <- sensitivity(resistance.pred, y, positive="1")
 
 F1 <- (2 * precision * recall) / (precision + recall)
 ```
 
 
-### AUC
+#### AUC
 
 ```{r}
 auc  <- performance(resistance.pred, measure = "auc")
@@ -324,7 +591,7 @@ accuracy <- performance(resistance.pred, measure = "acc")
 print(c("AUC", auc@y.values[[1]]))
 ```
 
-### Accuracy
+#### Accuracy
 
 ```{r}
 plot(accuracy@x.values[[1]], accuracy@y.values[[1]], xlab=accuracy@x.name, ylab=accuracy@y.name)
@@ -332,7 +599,7 @@ plot(accuracy@x.values[[1]], accuracy@y.values[[1]], xlab=accuracy@x.name, ylab=
 
 Maximum accuracy `r max(accuracy@y.values[[1]])`
 
-### Spec, sens, acc
+#### Spec, sens, acc
 
 ```{r}
 perf3  <- performance(resistance.pred, x.measure = "cutoff", measure = "spec")
@@ -349,7 +616,7 @@ legend(x = 0.6,y = 0.3, c("spec", "sens", "acc"),
 #abline(v= 0.165, lwd = 2, lty=6)
 ```
 
-## Diagnostics
+### Diagnostics
 
 ```{r,  fig.width=6, fig.height=4, eval=F}
 qqPlot(fit3a, labels=feat_amp$strain, id.method="identify", simulate=T, main="Q-Q plot")
@@ -368,19 +635,6 @@ crPlots(fit3a)
 
 ```{r, eval=F}
 ncvTest(fit3a)
-```
-
-# Decision Tree
-
-```{r}
-#library(party)
-
-dt <- ctree(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = feat_amp)
-
-```
-
-```{r}
-plot(dt)
 ```
 
 
