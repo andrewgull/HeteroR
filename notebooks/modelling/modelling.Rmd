@@ -506,9 +506,9 @@ confusionMatrix(data = predClasses,
                 positive="R")
 ```
 
-## xgBoost Dart
+# xgBoost Dart
 
-### Training
+## Training
 
 ```{r}
 set.seed(100)
@@ -521,8 +521,14 @@ fit_xgbDART <- train(resistance ~ ., data = training[, c(2:22)],
 fit_xgbDART
 ```
 
+### Best model
 
-### Validation
+```{r}
+filter(fit_xgbDART$results, nrounds == 150, max_depth == 1, eta == 0.4, gamma == 0, subsample == 1, colsample_bytree == 0.6, rate_drop == 0.01, skip_drop == 0.95, min_child_weight == 1)
+```
+
+
+## Validation
 
 
 ```{r}
@@ -534,11 +540,50 @@ confusionMatrix(data = predClasses,
                 positive="R")
 ```
 
+## Tune grid
+
+Fixed grid parameters, is much faster of course.
+
+The params are borrowed from [Kaggle](https://www.kaggle.com/code/nagsdata/simple-r-xgboost-caret-kernel/script)
+
+N.B. It's `xgbTree`!
+
+```{r}
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Takes a long to time to run in kaggle
+#tune_grid <- expand.grid(nrounds=c(100,200,300,400), 
+#                         max_depth = c(3:7),
+#                         eta = c(0.05, 1),
+#                         gamma = c(0.01),
+#                         colsample_bytree = c(0.75),
+#                         subsample = c(0.50),
+#                         min_child_weight = c(0))
+
+# Tested the above setting in local machine
+tune_grid <- expand.grid(nrounds = 200,
+                        max_depth = 5,
+                        eta = 0.05,
+                        gamma = 0.01,
+                        colsample_bytree = 0.75,
+                        min_child_weight = 0,
+                        subsample = 0.5)
+
+fit_xgbTree <- train(resistance ~., data = training[2:22], method = "xgbTree",
+                trControl=fitControl_roc,
+                tuneGrid = tune_grid,
+                tuneLength = 10,
+                metric="ROC")
+
+fit_xgbTree
+```
+
+
 
 # Model comparison
 
 ```{r}
-models_compare <- resamples(list(RLR1=Fit2, RLR2=Fit3, RF=FitRF, SVM=FitSVM, XGB=fit_xgbDART))
+models_compare <- resamples(list(RLR1=Fit2, RLR2=Fit3, RF=FitRF, SVM=FitSVM, XGB.DART=fit_xgbDART, XGB.Tree=fit_xgbTree))
 
 summary(models_compare)
 ```
@@ -548,7 +593,7 @@ scales <- list(x=list(relation="free"), y=list(relation="free"))
 bwplot(models_compare, scales=scales)
 ```
 
-`xgBoost` is the best (as expected)
+`xgbDART` with hyper-parameters search is the best (as expected)
 
 
 # Variable importance
