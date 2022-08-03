@@ -102,7 +102,7 @@ testing <- feat_selected[-inTrain,]
 ### Params tuning
 
 ```{r}
-fitControl <- trainControl(## 5-fold CV
+fitControl_roc <- trainControl(## 5-fold CV
                            method = "repeatedcv",
                            number = 5,
                            ## repeated ten times
@@ -123,26 +123,48 @@ fitControl_acc <- trainControl(## 5-fold CV
 
 Same model (3a) that won in "Statistical exploration" (see below)
 
-ROC is used to select optimal model
+#### ROC-optimized
 
 ```{r}
 set.seed(100)
 
 Fit1 <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training, 
                  method = "regLogistic", 
-                 trControl = fitControl,
+                 trControl = fitControl_roc,
                  verbose = FALSE,
                  metric="ROC")
 Fit1
 ```
 
-#### Coefficients
+**Coefficients**
 
 ```{r}
 Fit1$finalModel$W
 ```
 
+#### Accuracy-optimized
+
+```{r}
+set.seed(100)
+
+Fit1_acc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training, 
+                 method = "regLogistic", 
+                 trControl = fitControl_acc,
+                 verbose = FALSE,
+                 metric="Accuracy")
+Fit1_acc
+```
+
+
+**Coefficients**
+
+```{r}
+Fit1_acc$finalModel$W
+```
+
 ### Validation
+
+#### ROC-optimized
 
 ```{r}
 
@@ -155,6 +177,20 @@ confusionMatrix(data = predClasses,
 ```
 
 Not bad and similar to Model 3a
+
+#### Accuracy-optimized
+
+```{r}
+
+predClasses_acc <- predict(Fit1_acc, newdata=testing)
+
+confusionMatrix(data = predClasses_acc, 
+                reference = testing$resistance,
+                mode="everything",
+                positive="R")
+```
+
+This model performs slightly worse than ROC-optimized one
 
 ## Automatic feature selection
 
@@ -260,13 +296,43 @@ featurePlot(x = training[, 1:20],
                           y = list(relation="free")))
 ```
 
+### LR model on all non-correlated predictors
 
+I remove only `n.beta.lac` and leave `n.beta.lac.3`
 
-### Features selection
+#### Training
 
+```{r}
+set.seed(100)
 
+# fitControl is ROC optimized
 
-**Recursive feature selection**
+Fit2 <- train(resistance ~ ., data = training[, c(2:22)], 
+                 method = "regLogistic", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+Fit2
+```
+
+It is better then Fit1 (ROC)
+
+#### Validation
+
+```{r}
+
+predClasses <- predict(Fit2, newdata=testing)
+
+confusionMatrix(data = predClasses, 
+                reference = testing$resistance,
+                mode="everything",
+                positive="R")
+```
+
+Overall, Fit2 is better than Fit1
+
+### Recursive feature selection
+
 
 ```{r}
 set.seed(100)
@@ -277,36 +343,181 @@ subsets <- c(1:5, 10, 15, 21)
 ctrl <- rfeControl(functions = rfFuncs,
                    method = "repeatedcv",
                    repeats = 5,
-                   verbose = FALSE)
+                   verbose = FALSE,
+                   allowParallel = T)
 
-lmProfile <- rfe(x=training[, 1:21], y=training$resistance,
+# training[, 2:21] - 2:21 because I want to exclude n.beta.lac and leave only its binary counterpart n.beta.lac.3
+lmProfile <- rfe(x=training[, 2:21], y=training$resistance,
                  sizes = subsets,
                  rfeControl = ctrl)
 
 lmProfile
 ```
 
+### LR on top 5 best features
 
 
+#### Data
 
-
-### Params tuning
-
-```{r}
-fitControl <- trainControl(## 5-fold CV
-                           method = "repeatedcv",
-                           number = 5,
-                           ## repeated ten times
-                           repeats = 10, 
-                           allowParallel = T)
-```
-
-### Training
+Leave only the top 5 features from test and train data sets
 
 ```{r}
+training_top5 <- select(training, c(resistance, n.beta.lac.3, max.rep.len.non.cen, med.AR.len.100, n.rep.100.non.cen, med.AR.len.non.cen.100))
+
+testing_top5 <- select(testing, c(resistance, n.beta.lac.3, max.rep.len.non.cen, med.AR.len.100, n.rep.100.non.cen, med.AR.len.non.cen.100))
+```
+
+
+#### Training
+
+```{r}
+# I use fitControl_roc from earlier
+
+set.seed(100)
+
+Fit3 <- train(resistance ~ ., data = training_top5, 
+                 method = "regLogistic", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+Fit3
+```
+
+#### Validation
+
+```{r}
+
+predClasses <- predict(Fit3, newdata=testing_top5)
+
+confusionMatrix(data = predClasses, 
+                reference = testing_top5$resistance,
+                mode="everything",
+                positive="R")
+```
+
+
+### LR on 15 best features
+
+including top 5
+
+#### Data set
+
+```{r}
+training_top15 <- select(training, resistance, lmProfile$optVariables)
+
+testing_top15 <- select(testing, resistance, lmProfile$optVariables)
+```
+
+
+#### Training
+
+```{r}
+# I use fitControl_roc from earlier
+
+set.seed(100)
+
+Fit4 <- train(resistance ~ ., data = training_top15, 
+                 method = "regLogistic", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+Fit4
+```
+
+#### Validation
+
+```{r}
+
+predClasses <- predict(Fit4, newdata=testing_top15)
+
+confusionMatrix(data = predClasses, 
+                reference = testing_top15$resistance,
+                mode="everything",
+                positive="R")
+```
+
+## RLR conclusion
+
+On validation data set Fit2 (all non-correlated features) and Fit3 (top 5) are the best two models
+
+# Random Forest
+
+Same `fitControl_roc` as earlier
+
+on all non-correlated predictors
+
+## Training
+
+```{r}
+#FitRF <- train(resistance ~ ., data=training_top5, method='rf', tuneLength=5, trControl = fitControl)
+set.seed(100)
+
+FitRF <- train(resistance ~ ., data = training[, c(2:22)], 
+                 method = "rf", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+
+FitRF
+```
+
+## Validation
+
+```{r}
+predClasses <- predict(FitRF, newdata=testing)
+
+confusionMatrix(data = predClasses, 
+                reference = testing$resistance,
+                mode="everything",
+                positive="R")
+```
+
+Much better than RLR
+
+# SVM
+
+Same `fitControl_roc` as earlier
+
+on all non-correlated predictors
+
+## Training
+
+```{r}
+set.seed(100)
+
+FitSVM <- train(resistance ~ ., data = training[, c(2:22)], 
+                 method = "svmRadial", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+
+FitSVM
 
 ```
 
+## Validation
+
+```{r}
+predClasses <- predict(FitSVM, newdata=testing)
+
+confusionMatrix(data = predClasses, 
+                reference = testing$resistance,
+                mode="everything",
+                positive="R")
+```
+
+# Model comparison
+
+```{r}
+models_compare <- resamples(list(RLR1=Fit2, RLR2=Fit3, RF=FitRF, SVM=FitSVM))
+
+summary(models_compare)
+```
+
+```{r}
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(models_compare, scales=scales)
+```
 
 
 ----
