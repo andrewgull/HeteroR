@@ -593,6 +593,11 @@ scales <- list(x=list(relation="free"), y=list(relation="free"))
 bwplot(models_compare, scales=scales)
 ```
 
+```{r}
+dotplot(models_compare, scales=scales)
+```
+
+
 `xgbDART` with hyper-parameters search is the best (as expected)
 
 
