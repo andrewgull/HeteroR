@@ -18,7 +18,7 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F)
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = T)
 library(tidyverse)
 library(caret)
 library(car)
@@ -638,7 +638,7 @@ summary(feat_selected)
 
 Response (resistance) classes are almost equally represented in the data set.
 
-```{r, fig.width=10, fig.height=10}
+```{r, eval=FALSE, fig.width=10, fig.height=10}
 ggpairs(feat_selected, 
         columns=c(3:10), 
         aes(color=resistance, alpha=0.2, dotsize=0.02), 
@@ -650,7 +650,7 @@ ggpairs(feat_selected,
 
 ## Model 0: one constant predictor (null model)
 
-```{r}
+```{r, eval=FALSE}
 fit0 <- glm(formula = resistance_dummy ~ 1, data=feat_amp, family = binomial(link="logit"))
 
 summary(fit0)
@@ -665,7 +665,7 @@ We assume that beta-lactamases is the main predictor of resistance (HR?). Let's 
 
 ### BL genes number as discrete variable
 
-```{r}
+```{r, eval=FALSE}
 fit1a <- lm(formula = resistance_dummy ~ n.beta.lac, data=feat_amp, family = binomial(link="logit"))
 
 summary(fit1a)
@@ -674,7 +674,7 @@ summary(fit1a)
 
 Credibility intervals:
 
-```{r}
+```{r, eval=FALSE}
 confint(fit1a)
 ```
 
@@ -682,7 +682,7 @@ Looks quite good: significant slope and intercept, F-statistic and CIs
 
 ### BL genes count as ordered factor
 
-```{r}
+```{r, eval=FALSE}
 # n.beta.lac+n.plasmids+med.rep.len+med.tot.rep.len+max.rep.len+n.rep.total+med.AR.len.cen
 #prop.R <- (feat_amp %>% filter(resistance=="R") %>% nrow())/nrow(feat_amp)
 
@@ -700,13 +700,13 @@ But we know that chances a strain to be susceptible decrease sharply if number o
 
 Let's code BL number in one binary variable 'greater than 3: yes or no'
 
-```{r}
+```{r, eval=FALSE}
 feat_amp$n.beta.lac.3 <- ifelse(feat_amp$n.beta.lac > 3, 1, 0)
 feat_amp <- relocate(feat_amp, n.beta.lac.3, .before="n.plasmids")
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 fit1c <- glm(formula = resistance_dummy ~ n.beta.lac.3, data=feat_amp, family = binomial(link="logit"))
 
 summary(fit1c)
@@ -716,7 +716,7 @@ It looks much better!
 
 ### Models 0 and 1b comparison test
 
-```{r}
+```{r, eval=FALSE}
 anova(fit0, fit1c, test = "Chisq")
 ```
 
@@ -730,13 +730,13 @@ median AR size of repeat pairs should work well according to EDA.
 
 ### 2a: median AR size
 
-```{r}
+```{r, eval=FALSE}
 fit2a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit2a)
 ```
 
-```{r}
+```{r, eval=FALSE}
 anova(fit0, fit1c, fit2a, test = "Chisq")
 ```
 
@@ -744,27 +744,27 @@ anova(fit0, fit1c, fit2a, test = "Chisq")
 
 for repeats spanning center it might be better but there are NAs. Replace them with 0
 
-```{r}
+```{r, eval=FALSE}
 feat_amp %>% select(resistance_dummy, n.beta.lac.f, med.AR.len.cen) %>% filter(is.na(med.AR.len.cen))
 ```
 
-```{r}
+```{r, eval=FALSE}
 feat_amp$med.AR.len.cen <- ifelse(is.na(feat_amp$med.AR.len.cen), 0, feat_amp$med.AR.len.cen)
 ```
 
-```{r}
+```{r, eval=FALSE}
 fit2b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit2b)
 ```
 
-```{r}
+```{r, eval=FALSE}
 anova(fit0, fit1c, fit2b, test = "Chisq")
 ```
 
 ### 2c: median AR size of repeat pairs min 100 bp long
 
-```{r}
+```{r, eval=FALSE}
 fit2c <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.100, data = feat_amp, family = binomial(link = "logit"))
 
 anova(fit2b, fit2c)
@@ -772,7 +772,7 @@ anova(fit2b, fit2c)
 
 ### 2d: median AR size of repeat pars min 100 bp long and spanning gene center
 
-```{r}
+```{r, eval=FALSE}
 fit2d <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen.100, data = feat_amp, family = binomial(link = "logit"))
 
 anova(fit2b, fit2d)
@@ -780,7 +780,7 @@ anova(fit2b, fit2d)
 
 filtered AR do not make the model better, plus they are correlated with med.AR.len.cen
 
-```{r}
+```{r, eval=FALSE}
 ggplot(feat_amp, aes(med.AR.len.cen, med.AR.len.cen.100))+
   geom_point(aes(color=resistance))
 ```
@@ -790,13 +790,13 @@ ggplot(feat_amp, aes(med.AR.len.cen, med.AR.len.cen.100))+
 
 ### 3a: max len for all repeats
 
-```{r}
+```{r, eval=FALSE}
 fit3a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit3a)
 ```
 
-```{r}
+```{r, eval=FALSE}
 anova(fit2b, fit3a, test = "Chisq")
 ```
 
@@ -804,13 +804,13 @@ It gets better!
 
 ### 3b: for repeats spanning center
 
-```{r}
+```{r, eval=FALSE}
 fit3b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len.cen, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit3b)
 ```
 
-```{r}
+```{r, eval=FALSE}
 anova(fit2b, fit3a, fit3b, test = "Chisq")
 ```
 
@@ -820,13 +820,13 @@ max.rep.len.cen doesn't decrease Res.Dev and the corresponding model is not sign
 
 ### 4a: total number of repeat pairs
 
-```{r}
+```{r, eval=FALSE}
 fit4a <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.rep.total, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit4a)
 ```
 
-```{r}
+```{r, eval=FALSE}
 anova(fit3a, fit4a, test="Chisq")
 ```
 
@@ -834,7 +834,7 @@ No better
 
 ### 4b: repeats not spanning center
 
-```{r}
+```{r, eval=FALSE}
 feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
 
 fit4b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.rep.tot.cen, data = feat_amp, family = binomial(link = "logit"))
@@ -842,7 +842,7 @@ fit4b <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.re
 summary(fit4b)
 ```
 
-```{r}
+```{r, eval=FALSE}
 anova(fit3a, fit4b, test="Chisq")
 ```
 
@@ -852,7 +852,7 @@ Model 3a is the best so far
 
 ## Model 5: add number of plasmids
 
-```{r}
+```{r, eval=FALSE}
 fit5 <- glm(formula = resistance_dummy ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len + n.plasmids, data = feat_amp, family = binomial(link = "logit"))
 
 summary(fit5)
@@ -864,7 +864,7 @@ Nope
 
 $resistance = 3.218 + 5.271n.beta.lac.3 - (2.109e-05)med.AR.len.cen + (1.870e-03)max.rep.len$
 
-```{r}
+```{r, eval=FALSE}
 confint(fit3a)
 ```
 
@@ -873,7 +873,7 @@ confint(fit3a)
 
 #### TPR v FPR
 
-```{r}
+```{r, eval=FALSE}
 require(ROCR)
 
 # predict prob
@@ -897,7 +897,7 @@ F1 <- (2 * precision * recall) / (precision + recall)
 
 #### AUC
 
-```{r}
+```{r, eval=FALSE}
 auc  <- performance(resistance.pred, measure = "auc")
 accuracy <- performance(resistance.pred, measure = "acc")
 
@@ -906,7 +906,7 @@ print(c("AUC", auc@y.values[[1]]))
 
 #### Accuracy
 
-```{r}
+```{r, eval=FALSE}
 plot(accuracy@x.values[[1]], accuracy@y.values[[1]], xlab=accuracy@x.name, ylab=accuracy@y.name)
 ```
 
@@ -914,7 +914,7 @@ Maximum accuracy `r max(accuracy@y.values[[1]])`
 
 #### Spec, sens, acc
 
-```{r}
+```{r, eval=FALSE}
 perf3  <- performance(resistance.pred, x.measure = "cutoff", measure = "spec")
 perf4  <- performance(resistance.pred, x.measure = "cutoff", measure = "sens")
 perf5  <- performance(resistance.pred, x.measure = "cutoff", measure = "acc")
@@ -935,21 +935,6 @@ legend(x = 0.6,y = 0.3, c("spec", "sens", "acc"),
 qqPlot(fit3a, labels=feat_amp$strain, id.method="identify", simulate=T, main="Q-Q plot")
 
 ```
-
-
-
-```{r}
-durbinWatsonTest(fit3a)
-```
-
-```{r}
-crPlots(fit3a)
-```
-
-```{r, eval=F}
-ncvTest(fit3a)
-```
-
 
 ------------------------------------------------------------------------
 
