@@ -506,10 +506,39 @@ confusionMatrix(data = predClasses,
                 positive="R")
 ```
 
+## xgBoost Dart
+
+### Training
+
+```{r}
+set.seed(100)
+
+fit_xgbDART <- train(resistance ~ ., data = training[, c(2:22)], 
+                 method = "xgbDART", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+fit_xgbDART
+```
+
+
+### Validation
+
+
+```{r}
+predClasses <- predict(fit_xgbDART, newdata=testing)
+
+confusionMatrix(data = predClasses, 
+                reference = testing$resistance,
+                mode="everything",
+                positive="R")
+```
+
+
 # Model comparison
 
 ```{r}
-models_compare <- resamples(list(RLR1=Fit2, RLR2=Fit3, RF=FitRF, SVM=FitSVM))
+models_compare <- resamples(list(RLR1=Fit2, RLR2=Fit3, RF=FitRF, SVM=FitSVM, XGB=fit_xgbDART))
 
 summary(models_compare)
 ```
@@ -519,6 +548,7 @@ scales <- list(x=list(relation="free"), y=list(relation="free"))
 bwplot(models_compare, scales=scales)
 ```
 
+`xgBoost` is the best (as expected)
 
 ----
 
