@@ -550,6 +550,28 @@ bwplot(models_compare, scales=scales)
 
 `xgBoost` is the best (as expected)
 
+
+# Variable importance
+
+It is not available for RLR and SVM
+
+## RF
+
+```{r}
+imp_vars_rf <- varImp(FitRF)
+
+plot(imp_vars_rf, main="Variable Importance with RF")
+```
+
+## xgBoost
+
+```{r}
+imp_vars_xgb <- varImp(fit_xgbDART)
+
+plot(imp_vars_xgb, main="Variable Importance with XGB")
+```
+
+
 ----
 
 # Statistical exploration of predictors (no caret)
