@@ -773,6 +773,37 @@ Add this data set to filtered features
 features_filtered <- left_join(features_filtered, plasmid_counts_alt, by="strain")
 ```
 
+
+## Black-box
+
+One-hot encoding of DNA sequences.
+
+The function below is borrowed from [this repo](https://github.com/btmonier/monier/blob/master/R/oneHot.R)
+
+```{r}
+oneHot <- function(s, n = c("A", "C", "G", "T")) {
+
+    # Construct matrix
+    s <- toupper(s)
+    seq_len <- nchar(s)
+    seq_split <- unlist(strsplit(x = s, split = ""))
+
+    seq_mat <- matrix(data = rep(0, seq_len * length(n)), nrow = 4)
+
+    rownames(seq_mat) <- n
+    colnames(seq_mat) <- seq_split
+
+    # Encode
+    for (i in n) {
+        seq_mat[rownames(seq_mat) == i, colnames(seq_mat) == i] <- 1
+    }
+
+    return(seq_mat)
+
+}
+```
+
+
 # AMP tested strains
 
 Here I will analyse only strains tested for resistance to AMP
