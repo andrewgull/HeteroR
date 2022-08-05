@@ -20,11 +20,8 @@ editor_options:
 
 ```{r, include=F}
 knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F, cache = T)
-library(dplyr)
-library(tidyr)
+library(tidyverse)
 library(plotly)
-library(ggplot2)
-library(purrr)
 library(ggpubr)
 library(GGally)
 ```
@@ -78,7 +75,7 @@ Each strain contains:
 
 -   [x] median repeat length with min 500
 
--   [ ] maximum repeat length
+-   [x] maximum repeat length
 
 -   [x] median AR length
 
@@ -803,6 +800,9 @@ oneHot <- function(s, n = c("A", "C", "G", "T")) {
 }
 ```
 
+Every one-hot encoded amplifiable region is a matrix.
+
+What is still unclear it's how to 'average' this feature across many amplifiable regions that every gene/strain has.
 
 # AMP tested strains
 
