@@ -215,7 +215,7 @@ In this table we have `r length(unique(features$record_id))` resistance genes wi
 
 Number of repeat pairs detected `r nrow(features)`.
 
-## Add RGI annotations$
+## Add RGI annotations
 
 They are required for filtering of resistance genes and much more...
 
@@ -303,7 +303,7 @@ filtering criterion, hits with too low identities should be discarded.
 ##### Distribution of Identity percentages before filtering
 
 ```{r, message=F}
-hit.ident <-ggplot(rgi %>% select(Cut_Off, Best_Identities), aes(Best_Identities)) +
+hit.ident <- ggplot(rgi %>% select(Cut_Off, Best_Identities), aes(Best_Identities)) +
   geom_histogram(bins = 100, aes(fill=Cut_Off), alpha=0.8) +
   ggtitle("Distribution of identity percentages")
 
@@ -501,7 +501,7 @@ Those genes that don't have repeats
 So far I decided to keep them but to replace NAs with 0 in gene repeat counts
 
 ```{r, eval=FALSE}
-features_filtered <- filter(features, !is.na(repeat_length))
+features_filtered <- filter(features_filtered, !is.na(repeat_length))
 ```
 
 
@@ -520,11 +520,23 @@ Go to AMP section.
 **OBS!** *resistance_testing.csv* may be updated
 
 ```{r}
-resistance_df <- as_tibble(read.csv("/home/andrei/Data/HeteroR/resources/resistance_testing.csv", na.strings = ""))
-resistance_df <- select(resistance_df, contains("SIR") | contains("strain"))
+resistance_df <- read_csv("/home/andrei/Data/HeteroR/resources/resistance_testing.csv", show_col_types = FALSE, col_select = contains("SIR") | contains("strain"))
+
+# make factors, because col_types skips NA :(
+resistance_df <- resistance_df %>% 
+  mutate(across(names(resistance_df)[grepl("SIR",names(resistance_df))], factor))
+
+# remove .SIR from names
 names(resistance_df) <- sub(".SIR", "", names(resistance_df))
 resistance_df
 ```
+
+Overview
+
+```{r}
+skimr::skim(resistance_df)
+```
+
 
 ### Make a tidy version
 
@@ -561,7 +573,7 @@ evaluation is OFF)
 ```{r, eval=TRUE}
 assembly_summary_files <- dir(path="/home/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
 assembly_summary <- lapply(assembly_summary_files, function(x){
-  df <- read.delim(paste0("/home/andrei/Data/HeteroR/results/assemblies_joined/", x), stringsAsFactors = TRUE)
+  df <- read_delim(paste0("/home/andrei/Data/HeteroR/results/assemblies_joined/", x))
   df$Links <- as.integer(gsub(",", "", df$Links, fixed=TRUE))
   df$Length <- as.integer(gsub(",", "", df$Length, fixed=TRUE))
   df$N50 <- as.integer(gsub(",", "", df$N50, fixed=TRUE))
@@ -569,15 +581,15 @@ assembly_summary <- lapply(assembly_summary_files, function(x){
   return(df)
   })
 
-assembly_summary <- as_tibble(bind_rows(assembly_summary))
+assembly_summary <- bind_rows(assembly_summary)
 assembly_summary
 ```
 
 Or read the table from a file:
 
 ```{r, eval=FALSE}
-assembly_summary <- as_tibble(read.csv("/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")) %>% 
-  select(-X)
+assembly_summary <- read_csv("/home/andrei/Data/HeteroR/results/tables/genome_assembly_summary.csv", show_col_types = F) %>% 
+  select(-...1)
 
 assembly_summary
 ```
@@ -605,17 +617,16 @@ head(features_filtered)
 ### Calculate number of plasmids from fasta headers + their relative coverage
 
 We should take into account relative coverage of plasmids (i.e. number
-of copies), which can be found in an assembly header, but not very
-plasmid has this measure, since it is calculated y Unicycler but not by
-SPAdes.
+of copies), which can be found in an assembly header, but not every
+plasmid has this measure, since it is calculated only by Unicycler but not SPAdes.
 
 ```{r, eval=TRUE}
-require(data.table)
+# use fread from data.table
 assemblies_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
 assembly_files <- dir(path=assemblies_path, pattern="assembly.fasta$", recursive=T)
 
 headers <- lapply(assembly_files, function(x){
-  df <- fread(cmd=paste0("grep '>' ", assemblies_path, x), fill=TRUE, header = F, sep = " ", drop = 1, na.strings = "")
+  df <- data.table::fread(cmd=paste0("grep '>' ", assemblies_path, x), fill=TRUE, header = F, sep = " ", drop = 1, na.strings = "")
   df$strain <- strsplit(x, "/")[[1]][1]
   return(df)
 })
@@ -804,6 +815,9 @@ Every one-hot encoded amplifiable region is a matrix.
 
 What is still unclear it's how to 'average' this feature across many amplifiable regions that every gene/strain has.
 
+Maybe it will be better to use **CNN** on Amplifiable region's sequences - and get nucleotides' importance.
+
+
 # AMP tested strains
 
 Here I will analyse only strains tested for resistance to AMP
@@ -847,6 +861,27 @@ features_amp <- left_join(features_amp, f_amp_filt %>% select(record_id, is_beta
 
 head(features_amp_strain)
 ```
+
+
+## Distance to *oriC*
+
+`features_amp` contains gene names, so I can find distance to *oriC* in circularized genomes.
+
+I can find this in annotation files (gff, gbk etc) and assembly summary tables (completeness)
+
+**OBS!** This feature should be "averaged" by strain! 
+
+t.ex.: closest distance to oriC or median/mean distance to oriC
+
+Since some strains will get NA here, it will work only with algorithms that can handle missing observations.
+
+## Location on plasmid
+
+`features_amp` contains gene names, so I can find if it's located on a plasmid.
+
+**OBS!** This feature should be "averaged" by strain!
+
+t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...) 
 
 ## Repeat count
 
