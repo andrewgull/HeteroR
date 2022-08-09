@@ -863,17 +863,13 @@ head(features_amp_strain)
 ```
 
 
-## Distance to *oriC*
+## Location on plasmid
 
-`features_amp` contains gene names, so I can find distance to *oriC* in circularized genomes.
+`features_amp` contains gene names, so I can find if it's located on a plasmid.
 
-I can find this in annotation files (gff, gbk etc) and assembly summary tables (completeness)
+**OBS!** This feature should be "averaged" by strain!
 
-**OBS!** This feature should be "averaged" by strain! 
-
-t.ex.: closest distance to oriC or median/mean distance to oriC
-
-Since some strains will get NA here, it will work only with algorithms that can handle missing observations.
+t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...) 
 
 ```{r}
 # the only working way to read gff files in rR
@@ -914,20 +910,83 @@ rm(gff)
 
 # add 'located on plasmid' - if there is '1' in seq.region then its a chromosome (the first element of an assembly)
 gff_amp$located.on.plasmid <- str_detect(gff_amp$seq.region, "1", negate = T)
-
-# find distance to oriC (here I assume that all genomes begin from oriC)
-gff_amp$dist.to.oriC <- 
+gff_amp$on.plasmid <- factor(if_else(gff_amp$located.on.plasmid, 1, 0))
 
 ```
 
+## Distance to *oriC*
 
-## Location on plasmid
+`features_amp` contains gene names, 
 
-`features_amp` contains gene names, so I can find if it's located on a plasmid.
+I can find this in annotation files (gff, gbk etc) and assembly summary tables (completeness)
 
-**OBS!** This feature should be "averaged" by strain!
+**OBS!** This feature should be "averaged" by strain! 
 
-t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...) 
+t.ex.: closest distance to oriC or median/mean distance to oriC
+
+If I assume that oriC is available only in circularized genomes then I might get NAs in some strains
+
+```{r}
+# find distance to oriC (here I assume that all genomes begin from oriC)
+gff_amp <- rename(gff_amp, "dist.to.oriC"=start)
+```
+
+## On pos strain
+
+It might also be useful
+
+```{r}
+gff_amp$pos.strand <- if_else(gff_amp$strand == "+", 1, 0)
+
+# remove some columns
+gff_amp <- select(gff_amp, c(record_id, dist.to.oriC, pos.strand, on.plasmid))
+```
+
+
+### GFF overview
+
+```{r}
+gff_amp
+```
+
+### Join GFF and features_amp
+
+to get strain labels
+
+```{r}
+gff_amp <- left_join(gff_amp, select(features_amp, c(strain, record_id)) %>% distinct(), by="record_id")
+
+```
+
+### Summarize features per strain
+
+- minimum distance to oriC
+
+- average (median) distance to oriC
+
+- number of genes on a positive strand 
+
+- number of genes on plasmids
+
+```{r}
+min_dist_oriC <- gff_amp %>% group_by(strain) %>% 
+  summarise(min.dist.oriC=min(dist.to.oriC))
+
+med_dist_oriC <- gff_amp %>% group_by(strain) %>% 
+  summarise(med.dist.oriC=median(dist.to.oriC))
+
+n_genes_plus_strand <- gff_amp %>% group_by(strain) %>% 
+  summarise(n.genes.plus.strand=sum(pos.strand))
+
+n_genes_plasmids <- gff_amp %>% group_by(strain) %>% 
+  summarise(n.genes.plasmids=sum(on.plasmid))
+
+features_amp_strain <- list(features_amp_strain, min_dist_oriC, med_dist_oriC, n_genes_plus_strand, n_genes_plasmids) %>% 
+  reduce(left_join, by="strain")
+
+dim(features_amp_strain)
+```
+
 
 ## Repeat count
 
