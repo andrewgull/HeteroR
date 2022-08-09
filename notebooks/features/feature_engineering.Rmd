@@ -882,11 +882,42 @@ Since some strains will get NA here, it will work only with algorithms that can 
 # read_delim() didn't work
 # biomartr couldn't be installed
 
-gff <- as.tibble(read.delim("/home/andrei/Data/HeteroR/results/annotations/DA63072/prokka/DA63072_genomic.gff", header=F, comment.char="#")) %>% select(V1, V3, V4, V5, V7, V9) %>% filter(V3=="gene")
+# a function to read GFF files using STANDARD read.delim
+read_gff <- function(gff_filename){
+  # read and process
+  df <- as_tibble(read.delim(gff_filename, header=F, comment.char="#")) %>%
+  select(V1, V3, V4, V5, V7, V9) %>% 
+  filter(V3=="gene")
+  return(df)
+  }
 
-names(gff) <- c("seq.region", "type", "start", "stop", "strain", "ID")
 
-gff
+
+# get gff full paths using strain names vector
+gff_files <- map_chr(strains, ~ str_c("/home/andrei/Data/HeteroR/results/annotations/", ., "/prokka/", ., "_genomic.gff"))
+
+# read gff files right in a tibble
+# it works quite long time
+gff <- map_dfr(gff_files, ~ read_gff(.))
+
+# transform the last column to get the same record_id as in features_amp
+gff <- separate(data = gff, col=V9, sep = ";locus_tag=", into=c("V10", "V11")) %>%  select(-V10)
+
+# give new names
+names(gff) <- c("seq.region", "type", "start", "stop", "strand", "record_id")
+
+# filter out genes that are not in features_amp
+gff_amp <- filter(gff, record_id %in% unique(features_amp$record_id))
+
+# remove this 2 million rows 
+rm(gff)
+
+# add 'located on plasmid' - if there is '1' in seq.region then its a chromosome (the first element of an assembly)
+gff_amp$located.on.plasmid <- str_detect(gff_amp$seq.region, "1", negate = T)
+
+# find distance to oriC (here I assume that all genomes begin from oriC)
+gff_amp$dist.to.oriC <- 
+
 ```
 
 
