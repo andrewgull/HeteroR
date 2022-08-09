@@ -875,6 +875,21 @@ t.ex.: closest distance to oriC or median/mean distance to oriC
 
 Since some strains will get NA here, it will work only with algorithms that can handle missing observations.
 
+```{r}
+# the only working way to read gff files in rR
+# genbankr::read.GenBank() didn't work
+# ape::read.gff() and ape::read.GenBank() didn't work
+# read_delim() didn't work
+# biomartr couldn't be installed
+
+gff <- as.tibble(read.delim("/home/andrei/Data/HeteroR/results/annotations/DA63072/prokka/DA63072_genomic.gff", header=F, comment.char="#")) %>% select(V1, V3, V4, V5, V7, V9) %>% filter(V3=="gene")
+
+names(gff) <- c("seq.region", "type", "start", "stop", "strain", "ID")
+
+gff
+```
+
+
 ## Location on plasmid
 
 `features_amp` contains gene names, so I can find if it's located on a plasmid.
