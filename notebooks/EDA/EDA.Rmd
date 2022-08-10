@@ -23,7 +23,7 @@ knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F, cach
 library(tidyverse)
 library(plotly)
 library(ggpubr)
-library(GGally)
+#library(GGally)
 ```
 
 # Exploratory Data Analysis
@@ -36,7 +36,7 @@ For the following analysis strains with intermediate resistance and not tested s
 
 Every table comes from  `features`
 
-```{r data}
+```{r data, cache=F}
 features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
 
 features_amp_strain <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp_strain.csv")
@@ -77,7 +77,7 @@ betaL_n_genes <- features_amp %>%
 
 ggplot(betaL_n_genes, aes(N)) + 
   geom_histogram(fill="steelblue", binwidth = 1)+
-  xlab("RG count")+
+  xlab("beta-lactamase genes count")+
   ylab("number of strains")
 
 ```
@@ -330,7 +330,7 @@ total repeat length in each gene divided by number of genes
 total repeat length = sum of all repeats on one side of a gene from center-spanning repeat pairs
 
 
-```{r}
+```{r, warning=F}
 plot.trl.all <- ggplot(features_amp_strain, aes(resistance, med.tot.rep.len))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
@@ -500,7 +500,7 @@ ggarrange(plot.arl.100, plot.arl.cen.100, plot.arl.non.cen.100,
 
 ## ampC genes
 
-Statistics regarding only AmpC genes
+Statistics based on AmpC genes only
 
 ### Total repeat count
 
@@ -598,6 +598,64 @@ ggarrange(plot.ampc.med.AR, plot.ampc.med.AR.cen, ncol=2, nrow=1, legend = "bott
 
 ```
 
+### Distance to oriC
+
+```{r}
+plot.min.dist.oric <- ggplot(features_amp_strain, aes(resistance, min.dist.oriC))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("ampC: min dist to oriC")+
+  coord_trans(y="sqrt") +
+  ylab("distance")+
+  guides(fill="none")
+
+plot.med.dist.oric <- ggplot(features_amp_strain, aes(resistance, med.dist.oriC))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("ampC: med dist to oriC")+
+  coord_trans(y="sqrt") +
+  ylab("")+
+  guides(fill="none")
+
+plot.corr.dist.oric <- ggplot(features_amp_strain, aes(min.dist.oriC, med.dist.oriC))+
+  geom_point(aes(color=resistance), alpha=0.7)+
+  scale_color_brewer(palette = "Set1")+
+  guides(fill="none")
+
+
+ggarrange(plot.min.dist.oric, plot.med.dist.oric, plot.corr.dist.oric, ncol=3, nrow=1, legend = "none")
+```
+
+Average distance to oriC is smaller in resistant strains
+
+### Genes on plus strand
+
+```{r}
+ggplot(features_amp_strain, aes(n.genes.plus.strand))+
+  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  scale_fill_brewer(palette="Set1")+
+  xlab("number of genes")+
+  ylab("number of strains")+
+  ggtitle("Beta-lactamase genes on plus-strand")
+```
+
+
+### Genes on plasmids
+
+```{r}
+ggplot(features_amp_strain, aes(n.genes.plasmids))+
+  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  scale_fill_brewer(palette="Set1")+
+  xlab("number of genes")+
+  ylab("number of strains")+
+  ggtitle("Beta-lactamase genes on plasmids")
+```
+
+Starting from 5 genes, it seems to be a very good predictor
 
 ## Pairs plot
 
@@ -605,17 +663,29 @@ ggarrange(plot.ampc.med.AR, plot.ampc.med.AR.cen, ncol=2, nrow=1, legend = "bott
 names(features_amp_strain)
 ```
 
+```{r}
+skimr::skim(features_amp_strain)
+```
 
-```{r, fig.width=15, fig.height=10, warning=F, message=F}
+
+
+```{r, fig.width=20, fig.height=20, warning=F, message=F, eval=FALSE}
 # use GGally
 
-ggpairs(features_amp_strain, 
-        columns=c(4,5,6,7,9,10,15,16,22,23,25,27,28), 
+GGally::ggpairs(features_amp_strain, 
+        columns=c(2,4:40), 
         aes(color=resistance, alpha=0.2, dotsize=0.02), 
-        upper = list(continuous = wrap("cor", size = 2.5)),
+        upper = list(continuous = GGally::wrap("cor", size = 2.5)),
         diag=list(continuous ="barDiag"))+
   scale_color_brewer(palette = "Set1")+
   scale_fill_brewer(palette = "Set1")
+```
+
+## Correlated predictors
+
+```{r, fig.width=12, fig.height=12}
+cor.matrix <- cor(features_amp_strain[,c(2,5:40)], use = "pairwise.complete.obs")
+corrplot::corrplot(cor.matrix, hclust.method = "ward")
 ```
 
 
@@ -625,11 +695,13 @@ Not clear how to interpret and embed in per-strain prediction.
 
 Around beta-lactamase genes only.
 
+evaluation of all the code chunks here is turned off
+
 ### All repeat lengths
 
 Should `distinct()` be used?
 
-```{r, fig.height=6, fig.width=14}
+```{r, fig.height=6, fig.width=14, eval=FALSE}
 plot.rl.g.all <- ggplot(features_amp %>% 
                             filter(!is.na(resistance), resistance != "I", is_beta_lac) %>% 
                             select(record_id, repeat_length, AB, resistance) %>% 
@@ -686,7 +758,7 @@ Under construction
 
 Should `distinct()` be used?
 
-```{r, fig.height=6, fig.width=14}
+```{r, fig.height=6, fig.width=14, eval=FALSE}
 plot.rc.g.all.amp <- ggplot(features_amp %>% 
                             filter(!is.na(resistance), resistance != "I", is_beta_lac) %>% 
                             select(record_id, n_repeats_gene, AB, resistance) %>% 
