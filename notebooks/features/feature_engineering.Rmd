@@ -87,11 +87,11 @@ Each strain contains:
 
 -   [x] tens of genes; each gene (e.g. region) contains:
 
-    -   [ ] 1 distance to oriC,
+    -   [x] 1 distance to oriC,
 
     -   [ ] 1 density value,
 
-    -   [ ] 'on a plasmid' label,
+    -   [x] 'on a plasmid' label,
 
     -   [x] 1 value for repeat count,
 
