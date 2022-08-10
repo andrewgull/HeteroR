@@ -122,7 +122,7 @@ Each strain contains:
     -   [x] a lot of repeat pairs; each repeat pair has:
 
         -   [x] 1 AR length,
-        -   [ ] 1 AR black box vector/home/andrei/Data/HeteroR/results/repeats_summary_table.csv
+        -   [ ] 1 AR black box matrix,
         -   [x] 1 repeat length,
         -   [x] 1 center spanning label,
         -   [ ] 'inside the gene' label,
