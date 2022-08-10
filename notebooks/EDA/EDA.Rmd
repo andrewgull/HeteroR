@@ -1,5 +1,5 @@
 ---
-title: "EDA"
+title: "Exploratory Data Analysis"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
@@ -26,7 +26,7 @@ library(ggpubr)
 #library(GGally)
 ```
 
-# Exploratory Data Analysis
+# EDA for Ampicillins
 
 From Features I have selected all the strains tested for AMP resistance, repeat-related features have been calculated based on beta-lactamase genes only.
 
@@ -498,9 +498,9 @@ ggarrange(plot.arl.100, plot.arl.cen.100, plot.arl.non.cen.100,
           common.legend = T, legend = "bottom")
 ```
 
-## ampC genes
+## Beta-lactamase genes
 
-Statistics based on AmpC genes only
+Statistics based on BL genes only
 
 ### Total repeat count
 
@@ -823,7 +823,7 @@ ggarrange(plot.rc.g.all.amp, plot.rc.g.100.amp, plot.rc.g.500.amp,
 Under construction
 
 
-# Plotting features for all AB
+# EDA for all the AB
 
 eval=FALSE
 
