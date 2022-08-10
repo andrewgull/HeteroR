@@ -550,7 +550,7 @@ I'm not sure which version (regular or tidy) to add to `features`
 
 To use AB and results of testing in plots I need a tidy version
 
-### Add tidy version to features
+### Add tidy version to filtered features
 
 ```{r}
 features_filtered <- left_join(features_filtered, resistance_df_td, by="strain")
@@ -872,7 +872,7 @@ head(features_amp_strain)
 t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...) 
 
 ```{r}
-# the only working way to read gff files in rR
+# the only working way to read gff files in R
 # genbankr::read.GenBank() didn't work
 # ape::read.gff() and ape::read.GenBank() didn't work
 # read_delim() didn't work
