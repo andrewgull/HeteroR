@@ -1371,11 +1371,12 @@ features_amp_strain$med.AR.len.100 <- ifelse(is.na(features_amp_strain$med.AR.le
 head(features_amp_strain)
 ```
 
-## Repeats around ampC genes
+## Repeats around ampC-type beta-lactamases only
 
-Each strain has at least one *ampC* gene. Let's add the same variables but calculated only on *ampC* genes 
+All the features above were calculated for **all beta-lactamase genes**. But some of them belong specifically to **ampC-type**.
 
-(I mean: beta-lactamase genes belonging to the **ampC** AMR Gene Family)
+Each strain has at least one *ampC* gene. Let's add the same variables but calculated only on *ampC-type* beta-lactamases.
+
 
 ```{r}
 features_amp %>% select(strain, record_id, AMR.Gene.Family) %>% distinct() %>% group_by(strain, record_id) %>% summarise(n.ampC = sum(grepl("ampC", AMR.Gene.Family))) %>% group_by(strain) %>% summarize(n.ampC = sum(n.ampC)) %>% filter(n.ampC == 0)
