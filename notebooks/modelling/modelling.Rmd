@@ -22,7 +22,6 @@ knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, 
 library(tidyverse)
 library(caret)
 library(car)
-library(GGally)
 ```
 
 # All models are wrong, but some are useful.
@@ -33,19 +32,19 @@ library(GGally)
 
 Data set `features_amp_strain` has been made previously in `feature_engineering.Rmd`
 
-Here I add BL genes counts as oredered factor and as binary features (if BL > 3)
+Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
 ```{r}
-feat_amp <- read_csv("tables/features_amp_strain.csv")
+feat_amp <- read_csv("tables/features_amp_strain.csv", na = "NA")
 feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total")
 
 # create dummy from original target
-feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
-feat_amp <- relocate(feat_amp, resistance.dummy, .before="n.beta.lac")
+#feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
+#feat_amp <- relocate(feat_amp, resistance.dummy, .before="n.beta.lac")
 
 # BL counts as an ordered factor
-feat_amp$n.beta.lac.f <- factor(feat_amp$n.beta.lac, ordered = T, levels = c(1,2,3,4,5,6))
-feat_amp <- relocate(feat_amp, n.beta.lac.f, .before="n.plasmids")
+#feat_amp$n.beta.lac.f <- factor(feat_amp$n.beta.lac, ordered = T, levels = c(1,2,3,4,5,6))
+#feat_amp <- relocate(feat_amp, n.beta.lac.f, .before="n.plasmids")
 
 # resistance as factor
 feat_amp$resistance <- as.factor(feat_amp$resistance)
@@ -57,158 +56,15 @@ feat_amp <- relocate(feat_amp, n.beta.lac.3, .before="n.plasmids")
 feat_amp
 ```
 
-# Pairs plot
-
-One more time
-
-```{r, fig.width=15, fig.height=10, warning=F, message=F}
-# use GGally
-
-ggpairs(feat_amp, 
-        columns=c(4,5,6,7,9,10,15,16,22,23,25,27,28), 
-        aes(color=resistance, alpha=0.2, dotsize=0.02), 
-        upper = list(continuous = wrap("cor", size = 2.5)),
-        diag=list(continuous ="barDiag"))+
-  scale_color_brewer(palette = "Set1")+
-  scale_fill_brewer(palette = "Set1")
-```
-
-# Regularized Logistic Regression
-
-## Hand picked features
+# Descriptive stats
 
 ```{r}
-feat_selected <- feat_amp %>% select(c(resistance, n.beta.lac.3, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
-
-# NAs in `med.tot.rep.len` and in `med.AR.len.cen` should be replaced with 0s
-feat_selected$med.tot.rep.len <- ifelse(is.na(feat_selected$med.tot.rep.len), 0, feat_selected$med.tot.rep.len)
-feat_selected$med.AR.len.cen <- ifelse(is.na(feat_selected$med.AR.len.cen), 0, feat_selected$med.AR.len.cen)
-
-summary(feat_selected)
+skimr::skim(feat_amp)
 ```
 
-### Split the data set
+There are 3 strains with NAs, we can replace NA s with 0s
 
-```{r}
-set.seed(100)
-
-inTrain <- createDataPartition(y = feat_selected$resistance, p=0.7, list=FALSE)
-
-
-training <- feat_selected[inTrain,]
-testing <- feat_selected[-inTrain,]
-```
-
-### Params tuning
-
-```{r}
-fitControl_roc <- trainControl(## 5-fold CV
-                           method = "repeatedcv",
-                           number = 5,
-                           ## repeated ten times
-                           repeats = 10, 
-                           allowParallel = T,
-                           classProbs = T,
-                           summaryFunction = twoClassSummary)
-
-fitControl_acc <- trainControl(## 5-fold CV
-                           method = "repeatedcv",
-                           number = 5,
-                           ## repeated ten times
-                           repeats = 10, 
-                           allowParallel = T)
-```
-
-### Training
-
-Same model (3a) that won in "Statistical exploration" (see below)
-
-#### ROC-optimized
-
-```{r}
-set.seed(100)
-
-Fit1 <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training, 
-                 method = "regLogistic", 
-                 trControl = fitControl_roc,
-                 verbose = FALSE,
-                 metric="ROC")
-Fit1
-```
-
-**Coefficients**
-
-```{r}
-Fit1$finalModel$W
-```
-
-#### Accuracy-optimized
-
-```{r}
-set.seed(100)
-
-Fit1_acc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training, 
-                 method = "regLogistic", 
-                 trControl = fitControl_acc,
-                 verbose = FALSE,
-                 metric="Accuracy")
-Fit1_acc
-```
-
-
-**Coefficients**
-
-```{r}
-Fit1_acc$finalModel$W
-```
-
-### Validation
-
-#### ROC-optimized
-
-```{r}
-
-predClasses <- predict(Fit1, newdata=testing)
-
-confusionMatrix(data = predClasses, 
-                reference = testing$resistance,
-                mode="everything",
-                positive="R")
-```
-
-Not bad and similar to Model 3a
-
-#### Accuracy-optimized
-
-```{r}
-
-predClasses_acc <- predict(Fit1_acc, newdata=testing)
-
-confusionMatrix(data = predClasses_acc, 
-                reference = testing$resistance,
-                mode="everything",
-                positive="R")
-```
-
-This model performs slightly worse than ROC-optimized one
-
-## Automatic feature selection
-
-Since LR doesn't have in-built feature selection, let's use *filter* methods (less prone to over-fitting and more computationally efficient than *wrapper* methods)
-
-### Prepare the data set
-
-remove strain, AB and resistance.dummy
-
-```{r}
-feat_amp <- select(feat_amp, -c(strain, AB, resistance.dummy))
-
-skimr::skim_to_wide(feat_amp)
-```
-
-#### Data imputation
-
-In this case all NAs can be replaced by 0s
+# Data imputation
 
 `caret::preProcess()` doesn't have method for replacing with zeros...
 
@@ -226,16 +82,50 @@ feat_amp$ampC.med.tot.rep.len <- ifelse(is.na(feat_amp$ampC.med.tot.rep.len), 0,
 ```
 
 
-### Correlated predictors
+# Pairs plot
+
+```{r}
+names(feat_amp)
+```
+
+
+One more time
+
+```{r, fig.width=18, fig.height=18, warning=F, message=F}
+# use GGally
+
+GGally::ggpairs(feat_amp, 
+        columns=c(3:41), 
+        aes(color=resistance, alpha=0.2, dotsize=0.02), 
+        upper = list(continuous = GGally::wrap("cor", size = 2.5)),
+        diag=list(continuous ="barDiag"))+
+  scale_color_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Set1")
+```
+
+# Correlated predictors
+
+## Corr plot
+
+```{r, fig.width=12, fig.height=12}
+cor.matrix <- cor(feat_amp[,c(4:41)], use = "pairwise.complete.obs")
+corrplot::corrplot(cor.matrix, hclust.method = "ward")
+```
+
+## Identifying and removing correlated features
 
 Summary of pairwise correlations between numeric predictors
 
 ```{r}
-# exclude resistance, n.beta.lac.3, n.beta.lac.f
-feat_amp_proc <- feat_amp[, c(2, 5:36)]
+# exclude resistance, n.beta.lac.3
+feat_amp_proc <- select(feat_amp, -c(strain, AB, resistance, n.beta.lac.3))
 
 descrCor <- cor(feat_amp_proc)
 summary(descrCor[upper.tri(descrCor)])
+```
+
+```{r, fig.width=4, fig.height=4}
+boxplot(descrCor[upper.tri(descrCor)])
 ```
 
 Remove those predictors that have correlation coefficient greater than 0.75
@@ -260,79 +150,212 @@ feat_amp_proc$n.beta.lac.3 <- feat_amp$n.beta.lac.3
 feat_amp_proc$resistance <- feat_amp$resistance
 ```
 
-### Split the data set
+
+I will use non-correlated predictors with LR
+
+With RF and XGB I will use all predictors + automatic feature selection
+
+# Split the data set
+
+## Non-correlated predictors
 
 ```{r}
-set.seed(101)
+set.seed(100)
 
-inTrain <- createDataPartition(feat_amp_proc$resistance, p=0.8, list=FALSE)
+in_train_nocorr <- createDataPartition(y = feat_amp_proc$resistance, p=0.8, list=FALSE)
 
 
-training <- feat_amp_proc[inTrain,]
-testing <- feat_amp_proc[-inTrain,]
+training_nocorr <- feat_amp_proc[in_train_nocorr,]
+testing_nocorr <- feat_amp_proc[-in_train_nocorr,]
 ```
 
-### Feature importance
-
-**Box plots**
+## All predictors
 
 ```{r}
-featurePlot(x = training[, 1:20], 
-            y = training$resistance, 
-            plot = "box",
-            strip=strip.custom(par.strip.text=list(cex=.7)),
-            scales = list(x = list(relation="free"), 
-                          y = list(relation="free")))
+set.seed(100)
+
+in_train_all <- createDataPartition(y = feat_amp$resistance, p=0.8, list=FALSE)
+
+
+training_all <- feat_amp[in_train_all,]
+testing_all <- feat_amp[-in_train_all,]
 ```
 
-**Density curves**
+
+# Regularized Logistic Regression
+
+## Hand picked features
 
 ```{r}
-featurePlot(x = training[, 1:20], 
-            y = training$resistance, 
-            plot = "density",
-            strip=strip.custom(par.strip.text=list(cex=.7)),
-            scales = list(x = list(relation="free"), 
-                          y = list(relation="free")))
+feat_selected <- feat_amp %>% select(c(resistance, n.beta.lac.3, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
+
+# NAs in `med.tot.rep.len` and in `med.AR.len.cen` should be replaced with 0s
+feat_selected$med.tot.rep.len <- ifelse(is.na(feat_selected$med.tot.rep.len), 0, feat_selected$med.tot.rep.len)
+feat_selected$med.AR.len.cen <- ifelse(is.na(feat_selected$med.AR.len.cen), 0, feat_selected$med.AR.len.cen)
+
+summary(feat_selected)
 ```
 
-### LR model on all non-correlated predictors
+### Split hand picked dataset
 
-I remove only `n.beta.lac` and leave `n.beta.lac.3`
+```{r}
+set.seed(100)
 
-#### Training
+in_train_hand <- createDataPartition(y = feat_selected$resistance, p=0.8, list=FALSE)
+
+
+training_hand <- feat_selected[in_train_hand,]
+testing_hand <- feat_selected[-in_train_hand,]
+```
+
+### Params tuning
+
+```{r}
+fitControl_roc <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10, 
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+
+fitControl_acc <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10, 
+                           allowParallel = T)
+```
+
+### Training and validation
+
+Same model (3a) that won in "Statistical exploration" (see below and the html file compiled earlier)
+
+#### ROC-optimized
+
+```{r}
+set.seed(100)
+
+fit_LR_hand_roc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training_hand, 
+                 method = "regLogistic", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+fit_LR_hand_roc
+```
+
+**Coefficients**
+
+```{r}
+fit_LR_hand_roc$finalModel$W
+```
+
+#### Accuracy-optimized
+
+```{r}
+set.seed(100)
+
+fit_LR_hand_acc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training_hand, 
+                 method = "regLogistic", 
+                 trControl = fitControl_acc,
+                 verbose = FALSE,
+                 metric="Accuracy")
+fit_LR_hand_acc
+```
+
+
+**Coefficients**
+
+```{r}
+fit_LR_hand_acc$finalModel$W
+```
+
+### Testing
+
+#### ROC-optimized
+
+```{r}
+
+predClasses_roc <- predict(fit_LR_hand_roc, newdata=testing_hand)
+
+confusionMatrix(data = predClasses_roc, 
+                reference = testing_hand$resistance,
+                mode="everything",
+                positive="R")
+```
+
+Not bad and similar to Model 3a
+
+#### Accuracy-optimized
+
+```{r}
+
+predClasses_acc <- predict(fit_LR_hand_acc, newdata=testing_hand)
+
+confusionMatrix(data = predClasses_acc, 
+                reference = testing_hand$resistance,
+                mode="everything",
+                positive="R")
+```
+
+This model performs slightly worse than the ROC-optimized one
+
+## Non-correlated features
+
+Since LR doesn't have in-built feature selection, let's use *filter* methods (less prone to over-fitting and more computationally efficient than *wrapper* methods)
+
+### Prepare the data set
+
+remove strain, AB
+
+```{r, eval=F}
+feat_amp <- select(feat_amp, -c(strain, AB))
+
+skimr::skim_to_wide(feat_amp)
+```
+
+### Training and validation
 
 ```{r}
 set.seed(100)
 
 # fitControl is ROC optimized
+fitControl_roc <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10, 
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
 
-Fit2 <- train(resistance ~ ., data = training[, c(2:22)], 
+fit_LR_nocorr_roc <- train(resistance ~ ., data = training_nocorr, 
                  method = "regLogistic", 
                  trControl = fitControl_roc,
                  verbose = FALSE,
                  metric="ROC")
-Fit2
+
+fit_LR_nocorr_roc
 ```
 
-It is better then Fit1 (ROC)
+It's better then the model with hand picked predictors (ROC)
 
-#### Validation
+### Testing
 
 ```{r}
 
-predClasses <- predict(Fit2, newdata=testing)
+predClasses_roc <- predict(fit_LR_nocorr_roc, newdata=testing_nocorr)
 
-confusionMatrix(data = predClasses, 
-                reference = testing$resistance,
+confusionMatrix(data = predClasses_roc, 
+                reference = testing_nocorr$resistance,
                 mode="everything",
                 positive="R")
 ```
 
-Overall, Fit2 is better than Fit1
+Overall, all non-correlated predictors model is better than the hand-picked one
 
-### Recursive feature selection
-
+## Recursive feature selection
 
 ```{r}
 set.seed(100)
@@ -354,10 +377,10 @@ lmProfile <- rfe(x=training[, 2:21], y=training$resistance,
 lmProfile
 ```
 
-### LR on top 5 best features
+## LR on top 5 best features
 
 
-#### Data
+### Data
 
 Leave only the top 5 features from test and train data sets
 
@@ -368,7 +391,7 @@ testing_top5 <- select(testing, c(resistance, n.beta.lac.3, max.rep.len.non.cen,
 ```
 
 
-#### Training
+### Training
 
 ```{r}
 # I use fitControl_roc from earlier
@@ -383,7 +406,7 @@ Fit3 <- train(resistance ~ ., data = training_top5,
 Fit3
 ```
 
-#### Validation
+### Testing
 
 ```{r}
 
@@ -396,11 +419,11 @@ confusionMatrix(data = predClasses,
 ```
 
 
-### LR on 15 best features
+## LR on 15 best features
 
 including top 5
 
-#### Data set
+### Data set
 
 ```{r}
 training_top15 <- select(training, resistance, lmProfile$optVariables)
@@ -409,7 +432,7 @@ testing_top15 <- select(testing, resistance, lmProfile$optVariables)
 ```
 
 
-#### Training
+### Training
 
 ```{r}
 # I use fitControl_roc from earlier
@@ -424,7 +447,7 @@ Fit4 <- train(resistance ~ ., data = training_top15,
 Fit4
 ```
 
-#### Validation
+### Validation
 
 ```{r}
 
@@ -444,21 +467,34 @@ On validation data set Fit2 (all non-correlated features) and Fit3 (top 5) are t
 
 Same `fitControl_roc` as earlier
 
-on all non-correlated predictors
+on all predictors because RF has automatic feature selection
+
+## Params tuning
+
+```{r}
+fitControl_roc <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           ## repeated ten times
+                           repeats = 10, 
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+```
+
 
 ## Training
 
 ```{r}
-#FitRF <- train(resistance ~ ., data=training_top5, method='rf', tuneLength=5, trControl = fitControl)
 set.seed(100)
 
-FitRF <- train(resistance ~ ., data = training[, c(2:22)], 
+fit_RF <- train(resistance ~ ., data = training_all, 
                  method = "rf", 
                  trControl = fitControl_roc,
                  verbose = FALSE,
                  metric="ROC")
 
-FitRF
+fit_RF
 ```
 
 ## Validation
