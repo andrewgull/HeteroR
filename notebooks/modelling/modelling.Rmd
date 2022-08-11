@@ -53,6 +53,9 @@ feat_amp$resistance <- as.factor(feat_amp$resistance)
 feat_amp$n.beta.lac.3 <- ifelse(feat_amp$n.beta.lac > 3, 1, 0)
 feat_amp <- relocate(feat_amp, n.beta.lac.3, .before="n.plasmids")
 
+# remove AB and strain
+feat_amp <- feat_amp %>% select(-c(strain, AB))
+
 feat_amp
 ```
 
@@ -447,7 +450,7 @@ Fit4 <- train(resistance ~ ., data = training_top15,
 Fit4
 ```
 
-### Validation
+### Testing
 
 ```{r}
 
@@ -483,7 +486,7 @@ fitControl_roc <- trainControl(## 5-fold CV
 ```
 
 
-## Training
+## Training and validation
 
 ```{r}
 set.seed(100)
@@ -497,18 +500,26 @@ fit_RF <- train(resistance ~ ., data = training_all,
 fit_RF
 ```
 
-## Validation
+## Chosen predictors
 
 ```{r}
-predClasses <- predict(FitRF, newdata=testing)
+predictors(fit_RF)
+```
+
+Every predictor was used
+
+## Testing
+
+```{r}
+predClasses <- predict(fit_RF, newdata=testing_all)
 
 confusionMatrix(data = predClasses, 
-                reference = testing$resistance,
+                reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
 ```
 
-Much better than RLR
+Much better than any RLR
 
 # SVM
 
@@ -516,40 +527,41 @@ Same `fitControl_roc` as earlier
 
 on all non-correlated predictors
 
-## Training
+## Training and validation
 
 ```{r}
 set.seed(100)
 
-FitSVM <- train(resistance ~ ., data = training[, c(2:22)], 
+fit_SVM <- train(resistance ~ ., data = training_all, 
                  method = "svmRadial", 
                  trControl = fitControl_roc,
                  verbose = FALSE,
                  metric="ROC")
 
-FitSVM
-
+fit_SVM
 ```
 
-## Validation
+## Testing
 
 ```{r}
-predClasses <- predict(FitSVM, newdata=testing)
+predClasses <- predict(fit_SVM, newdata=testing_all)
 
 confusionMatrix(data = predClasses, 
-                reference = testing$resistance,
+                reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
 ```
 
-# xgBoost Dart
+# xgBoost
 
-## Training
+DART variant
+
+## Training and validation
 
 ```{r}
 set.seed(100)
 
-fit_xgbDART <- train(resistance ~ ., data = training[, c(2:22)], 
+fit_xgbDART <- train(resistance ~ ., data = training_all, 
                  method = "xgbDART", 
                  trControl = fitControl_roc,
                  verbose = FALSE,
@@ -565,14 +577,14 @@ filter(fit_xgbDART$results, nrounds == 150, max_depth == 1, eta == 0.4, gamma ==
 ```
 
 
-## Validation
+## Testing
 
 
 ```{r}
-predClasses <- predict(fit_xgbDART, newdata=testing)
+predClasses <- predict(fit_xgbDART, newdata=testing_all)
 
 confusionMatrix(data = predClasses, 
-                reference = testing$resistance,
+                reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
 ```
@@ -620,7 +632,8 @@ fit_xgbTree
 # Model comparison
 
 ```{r}
-models_compare <- resamples(list(RLR1=Fit2, RLR2=Fit3, RF=FitRF, SVM=FitSVM, XGB.DART=fit_xgbDART, XGB.Tree=fit_xgbTree))
+#, SVM=FitSVM, XGB.DART=fit_xgbDART, XGB.Tree=fit_xgbTree
+models_compare <- resamples(list(RLR_hand=fit_LR_hand_roc, RLR_nocorr=fit_LR_nocorr_roc, RF=fit_RF, SVM=fit_SVM))
 
 summary(models_compare)
 ```
@@ -645,7 +658,7 @@ It is not available for RLR and SVM
 ## RF
 
 ```{r}
-imp_vars_rf <- varImp(FitRF)
+imp_vars_rf <- varImp(fit_RF)
 
 plot(imp_vars_rf, main="Variable Importance with RF")
 ```
