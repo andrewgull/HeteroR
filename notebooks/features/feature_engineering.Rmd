@@ -931,7 +931,7 @@ If I assume that oriC is available only in circularized genomes then I might get
 gff_amp <- rename(gff_amp, "dist.to.oriC"=start)
 ```
 
-## On pos strain
+## On plus strain
 
 It might also be useful
 
@@ -1373,7 +1373,9 @@ head(features_amp_strain)
 
 ## Repeats around ampC genes
 
-Each strain has at least one *ampC* gene. Let's add the same variables but calculated only on *ampC* genes.
+Each strain has at least one *ampC* gene. Let's add the same variables but calculated only on *ampC* genes 
+
+(I mean: beta-lactamase genes belonging to the **ampC** AMR Gene Family)
 
 ```{r}
 features_amp %>% select(strain, record_id, AMR.Gene.Family) %>% distinct() %>% group_by(strain, record_id) %>% summarise(n.ampC = sum(grepl("ampC", AMR.Gene.Family))) %>% group_by(strain) %>% summarize(n.ampC = sum(n.ampC)) %>% filter(n.ampC == 0)
