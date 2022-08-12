@@ -21,7 +21,9 @@ editor_options:
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = T)
 library(tidyverse)
 library(caret)
-library(car)
+#library(car)
+library(parallel)
+library(doParallel)
 ```
 
 # All models are wrong, but some are useful.
@@ -98,7 +100,7 @@ One more time
 # use GGally
 
 GGally::ggpairs(feat_amp, 
-        columns=c(3:41), 
+        columns=c(1:39), 
         aes(color=resistance, alpha=0.2, dotsize=0.02), 
         upper = list(continuous = GGally::wrap("cor", size = 2.5)),
         diag=list(continuous ="barDiag"))+
@@ -111,9 +113,14 @@ GGally::ggpairs(feat_amp,
 ## Corr plot
 
 ```{r, fig.width=12, fig.height=12}
-cor.matrix <- cor(feat_amp[,c(4:41)], use = "pairwise.complete.obs")
-corrplot::corrplot(cor.matrix, hclust.method = "ward")
+cor.matrix <- cor(feat_amp[,c(2:39)], use = "pairwise.complete.obs")
+corrplot::corrplot(cor.matrix, type="upper", tl.col = "black")
 ```
+
+```{r, fig.width=12, fig.height=12}
+corrplot::corrplot(cor.matrix, type="upper", method = "number", number.cex=0.8, number.digits=1, tl.col = "black")
+```
+
 
 ## Identifying and removing correlated features
 
@@ -121,7 +128,7 @@ Summary of pairwise correlations between numeric predictors
 
 ```{r}
 # exclude resistance, n.beta.lac.3
-feat_amp_proc <- select(feat_amp, -c(strain, AB, resistance, n.beta.lac.3))
+feat_amp_proc <- select(feat_amp, -c(resistance, n.beta.lac.3))
 
 descrCor <- cor(feat_amp_proc)
 summary(descrCor[upper.tri(descrCor)])
@@ -160,7 +167,7 @@ With RF and XGB I will use all predictors + automatic feature selection
 
 # Split the data set
 
-## Non-correlated predictors
+## Data set with non-correlated predictors
 
 ```{r}
 set.seed(100)
@@ -170,9 +177,14 @@ in_train_nocorr <- createDataPartition(y = feat_amp_proc$resistance, p=0.8, list
 
 training_nocorr <- feat_amp_proc[in_train_nocorr,]
 testing_nocorr <- feat_amp_proc[-in_train_nocorr,]
+
+# to avoid slowness of caret
+x_nocorr <- training_nocorr[,-26]
+y_nocorr <- training_nocorr[,26]
+
 ```
 
-## All predictors
+## Data set with all predictors
 
 ```{r}
 set.seed(100)
@@ -182,6 +194,63 @@ in_train_all <- createDataPartition(y = feat_amp$resistance, p=0.8, list=FALSE)
 
 training_all <- feat_amp[in_train_all,]
 testing_all <- feat_amp[-in_train_all,]
+
+# to avoid slowness of caret
+x_all <- training_all[,-1]
+y_all <- training_all[,1]
+
+```
+
+# Configure parallel processing
+
+```{r}
+cluster <- makeCluster(detectCores() - 2) # leave two cores
+registerDoParallel(cluster)
+```
+
+
+# Feature importance
+
+### Box plots
+
+```{r, fig.width=15, fig.height=12}
+featurePlot(x = x_all, 
+            y = y_all$resistance, 
+            plot = "box",
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")))
+```
+
+### Density
+
+```{r, fig.width=15, fig.height=12}
+featurePlot(x = x_all, 
+            y = y_all$resistance, 
+            plot = "density",
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")))
+```
+
+Skewed predictors may be candidates for transformation (log)
+
+## Best predictors
+
+I will use them later along with the set of all predictors
+
+```{r}
+pred_best <- c("resistance", "n.beta.lac.3", "med.dist.oriC", "n.genes.plus.strand", "n.genes.plasmids", "med.AR.len.cen", "max.rep.len", "n.rep.500", "med.rep.len.100")
+```
+
+## Data set with the best predictors
+
+```{r}
+training_best <- training_all %>% select(pred_best)
+testing_best <- testing_all %>% select(pred_best)
+
+x_best <- training_best[,-1]
+y_best <- training_best[,1]
 ```
 
 
@@ -209,6 +278,11 @@ in_train_hand <- createDataPartition(y = feat_selected$resistance, p=0.8, list=F
 
 training_hand <- feat_selected[in_train_hand,]
 testing_hand <- feat_selected[-in_train_hand,]
+
+# to avoid slowness of caret
+x_hand <- training_hand[,-1]
+y_hand <- training_hand[,1]
+
 ```
 
 ### Params tuning
@@ -253,6 +327,19 @@ fit_LR_hand_roc
 ```{r}
 fit_LR_hand_roc$finalModel$W
 ```
+
+**Resamples**
+
+```{r}
+fit_LR_hand_roc$resample
+```
+
+**confusion matrix on train**
+
+```{r}
+confusionMatrix.train(fit_LR_hand_roc)
+```
+
 
 #### Accuracy-optimized
 
@@ -474,8 +561,10 @@ on all predictors because RF has automatic feature selection
 
 ## Params tuning
 
+Train control here has less repeats and `expand.grid()` function is used
+
 ```{r}
-fitControl_roc <- trainControl(## 5-fold CV
+fit_ctrl_rf_roc <- trainControl(## 5-fold CV
                            method = "repeatedcv",
                            number = 5,
                            ## repeated ten times
@@ -483,24 +572,29 @@ fitControl_roc <- trainControl(## 5-fold CV
                            allowParallel = T,
                            classProbs = T,
                            summaryFunction = twoClassSummary)
+
+#mtry <- sqrt(ncol(training_all[,2:39]))
+#tunegrid <- expand.grid(.mtry=mtry)
 ```
 
+## Data set with all predictors
 
-## Training and validation
+### Training and validation
 
 ```{r}
 set.seed(100)
 
-fit_RF <- train(resistance ~ ., data = training_all, 
+fit_RF <- train(x_all, y_all$resistance,  
                  method = "rf", 
-                 trControl = fitControl_roc,
+                 trControl = fit_ctrl_rf_roc,
+                 #tuneGrid=tunegrid,
                  verbose = FALSE,
                  metric="ROC")
 
 fit_RF
 ```
 
-## Chosen predictors
+### Predictors importance
 
 ```{r}
 predictors(fit_RF)
@@ -508,7 +602,15 @@ predictors(fit_RF)
 
 Every predictor was used
 
-## Testing
+
+```{r}
+imp_vars_rf <- varImp(fit_RF)
+
+plot(imp_vars_rf, main="Variable Importance with RF")
+```
+
+
+### Testing
 
 ```{r}
 predClasses <- predict(fit_RF, newdata=testing_all)
@@ -520,6 +622,43 @@ confusionMatrix(data = predClasses,
 ```
 
 Much better than any RLR
+
+
+### Training and validation
+
+```{r}
+set.seed(100)
+
+fit_RF_best <- train(x_best, y_best$resistance, 
+                 method = "rf", 
+                 trControl = fit_ctrl_rf_roc,
+                 #tuneGrid=tunegrid,
+                 verbose = FALSE,
+                 metric="ROC")
+
+fit_RF_best
+```
+
+### Predictors importance
+
+```{r}
+imp_vars_rf <- varImp(fit_RF_best)
+
+plot(imp_vars_rf, main="Variable Importance with RF")
+```
+
+
+
+### Testing
+
+```{r}
+predClasses <- predict(fit_RF_best, newdata=testing_best)
+
+confusionMatrix(data = predClasses, 
+                reference = testing_best$resistance,
+                mode="everything",
+                positive="R")
+```
 
 # SVM
 
@@ -556,38 +695,99 @@ confusionMatrix(data = predClasses,
 
 DART variant
 
-## Training and validation
+## Params tuning
+
+```{r}
+fit_ctrl_xgb_roc <- trainControl(## 5-fold CV
+                           method = "repeatedcv",
+                           number = 5,
+                           repeats = 5, 
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+```
+
+
+## Data set with all predictors
+
+### Training and validation
 
 ```{r}
 set.seed(100)
 
-fit_xgbDART <- train(resistance ~ ., data = training_all, 
+fit_XGB <- train(x_all, y_all$resistance, 
                  method = "xgbDART", 
-                 trControl = fitControl_roc,
+                 trControl = fit_ctrl_xgb_roc,
                  verbose = FALSE,
                  metric="ROC",
                  verbosity=0)
-fit_xgbDART
+fit_XGB$bestTune
 ```
 
-### Best model
+#### Best model
 
 ```{r}
-filter(fit_xgbDART$results, nrounds == 150, max_depth == 1, eta == 0.4, gamma == 0, subsample == 1, colsample_bytree == 0.6, rate_drop == 0.01, skip_drop == 0.95, min_child_weight == 1)
+filter(fit_XGB$results, nrounds == 150, max_depth == 1, eta == 0.3, gamma == 0, subsample == 0.75, colsample_bytree == 0.6, rate_drop == 0.01, skip_drop == 0.95, min_child_weight == 1)
 ```
 
+### Features importance
 
-## Testing
+```{r}
+imp_vars_xgb <- varImp(fit_XGB)
+
+plot(imp_vars_xgb, main="Variable Importance with XGB")
+```
+
+### Testing
 
 
 ```{r}
-predClasses <- predict(fit_xgbDART, newdata=testing_all)
+predClasses <- predict(fit_XGB, newdata=testing_all)
 
 confusionMatrix(data = predClasses, 
                 reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
 ```
+
+## Data set with best predictors
+
+### Training and validation
+
+```{r}
+set.seed(100)
+
+fit_XGB_best <- train(x_best, y_best$resistance, 
+                 method = "xgbDART", 
+                 trControl = fit_ctrl_xgb_roc,
+                 verbose = FALSE,
+                 metric="ROC",
+                 verbosity=0)
+
+fit_XGB_best$bestTune
+```
+
+
+### Features importance
+
+
+```{r}
+imp_vars_xgb <- varImp(fit_XGB_best)
+
+plot(imp_vars_xgb, main="Variable Importance with XGB")
+```
+
+### Testing
+
+```{r}
+predClasses <- predict(fit_XGB_best, newdata=testing_best)
+
+confusionMatrix(data = predClasses, 
+                reference = testing_best$resistance,
+                mode="everything",
+                positive="R")
+```
+
 
 ## Tune grid
 
@@ -670,6 +870,13 @@ imp_vars_xgb <- varImp(fit_xgbDART)
 
 plot(imp_vars_xgb, main="Variable Importance with XGB")
 ```
+
+# De-register parallel processing cluster
+
+```{r}
+stopCluster(cluster)
+```
+
 
 # Save the workspace
 
