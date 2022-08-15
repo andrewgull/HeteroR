@@ -86,6 +86,20 @@ feat_amp$med.AR.len.cen <- ifelse(is.na(feat_amp$med.AR.len.cen), 0, feat_amp$me
 feat_amp$ampC.med.tot.rep.len <- ifelse(is.na(feat_amp$ampC.med.tot.rep.len), 0, feat_amp$ampC.med.tot.rep.len)
 ```
 
+# Data normalization
+
+scale and center numeric features (real numeric + count, not dummies!)
+
+```{r}
+feat_amp_scaled <- as_tibble(scale(feat_amp[,c(2,4:39)]))
+
+feat_amp_scaled$resistance <- feat_amp$resistance
+feat_amp_scaled$n.beta.lac.3 <- feat_amp$n.beta.lac.3
+
+feat_amp_scaled <- relocate(feat_amp_scaled, n.beta.lac.3, .before="n.beta.lac")
+feat_amp_scaled <- relocate(feat_amp_scaled, resistance, .before="n.beta.lac.3")
+```
+
 
 # Pairs plot
 
@@ -99,7 +113,7 @@ One more time
 ```{r, fig.width=18, fig.height=18, warning=F, message=F}
 # use GGally
 
-GGally::ggpairs(feat_amp, 
+GGally::ggpairs(feat_amp_scaled, 
         columns=c(1:39), 
         aes(color=resistance, alpha=0.2, dotsize=0.02), 
         upper = list(continuous = GGally::wrap("cor", size = 2.5)),
@@ -113,29 +127,30 @@ GGally::ggpairs(feat_amp,
 ## Corr plot
 
 ```{r, fig.width=12, fig.height=12}
-cor.matrix <- cor(feat_amp[,c(2:39)], use = "pairwise.complete.obs")
-corrplot::corrplot(cor.matrix, type="upper", tl.col = "black")
+cor_matrix <- cor(feat_amp[,c(2:39)], use = "pairwise.complete.obs")
+corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
 ```
 
 ```{r, fig.width=12, fig.height=12}
-corrplot::corrplot(cor.matrix, type="upper", method = "number", number.cex=0.8, number.digits=1, tl.col = "black")
+cor_matrix_scaled <- cor(feat_amp[,c(2:39)], use = "pairwise.complete.obs")
+corrplot::corrplot(cor_matrix_scaled, type="upper", method = "number", number.cex=0.8, number.digits=1, tl.col = "black")
 ```
 
 
 ## Identifying and removing correlated features
 
-Summary of pairwise correlations between numeric predictors
+Summary of pairwise correlations between numeric predictors - on scaled data
 
 ```{r}
 # exclude resistance, n.beta.lac.3
-feat_amp_proc <- select(feat_amp, -c(resistance, n.beta.lac.3))
+feat_amp_proc <- select(feat_amp_scaled, -c(resistance, n.beta.lac.3))
 
-descrCor <- cor(feat_amp_proc)
-summary(descrCor[upper.tri(descrCor)])
+descr_cor <- cor(feat_amp_proc)
+summary(descr_cor[upper.tri(descr_cor)])
 ```
 
 ```{r, fig.width=4, fig.height=4}
-boxplot(descrCor[upper.tri(descrCor)])
+boxplot(descr_cor[upper.tri(descr_cor)])
 ```
 
 Remove those predictors that have correlation coefficient greater than 0.75
@@ -143,13 +158,13 @@ Remove those predictors that have correlation coefficient greater than 0.75
 Check the summary of the new filtered correlations
 
 ```{r}
-highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
+highly_cor <- findCorrelation(descr_cor, cutoff = .75)
 
-feat_amp_proc <- feat_amp_proc[,-highlyCorDescr]
+feat_amp_proc <- feat_amp_proc[,-highly_cor]
 
 # check new correlations
-descrCor2 <- cor(feat_amp_proc)
-summary(descrCor2[upper.tri(descrCor2)])
+descr_cor2 <- cor(feat_amp_proc)
+summary(descr_cor2[upper.tri(descr_cor2)])
 ```
 
 Add `resistance` and `n.beta.lac.3` columns to filtered columns
@@ -172,15 +187,15 @@ With RF and XGB I will use all predictors + automatic feature selection
 ```{r}
 set.seed(100)
 
-in_train_nocorr <- createDataPartition(y = feat_amp_proc$resistance, p=0.8, list=FALSE)
+in_train_nocorr <- createDataPartition(y = feat_amp_proc$resistance, p=0.75, list=FALSE)
 
 
 training_nocorr <- feat_amp_proc[in_train_nocorr,]
 testing_nocorr <- feat_amp_proc[-in_train_nocorr,]
 
 # to avoid slowness of caret
-x_nocorr <- training_nocorr[,-26]
-y_nocorr <- training_nocorr[,26]
+x_nocorr <- as.matrix(training_nocorr[,-26])
+y_nocorr <- training_nocorr$resistance
 
 ```
 
@@ -189,25 +204,17 @@ y_nocorr <- training_nocorr[,26]
 ```{r}
 set.seed(100)
 
-in_train_all <- createDataPartition(y = feat_amp$resistance, p=0.8, list=FALSE)
+in_train_all <- createDataPartition(y = feat_amp_scaled$resistance, p=0.75, list=FALSE)
 
 
-training_all <- feat_amp[in_train_all,]
-testing_all <- feat_amp[-in_train_all,]
+training_all <- feat_amp_scaled[in_train_all,]
+testing_all <- feat_amp_scaled[-in_train_all,]
 
 # to avoid slowness of caret
-x_all <- training_all[,-1]
-y_all <- training_all[,1]
+x_all <- as.matrix(training_all[,-1])  # except for resistance
+y_all <- training_all$resistance
 
 ```
-
-# Configure parallel processing
-
-```{r}
-cluster <- makeCluster(detectCores() - 2) # leave two cores
-registerDoParallel(cluster)
-```
-
 
 # Feature importance
 
@@ -215,7 +222,7 @@ registerDoParallel(cluster)
 
 ```{r, fig.width=15, fig.height=12}
 featurePlot(x = x_all, 
-            y = y_all$resistance, 
+            y = y_all, 
             plot = "box",
             strip=strip.custom(par.strip.text=list(cex=.7)),
             scales = list(x = list(relation="free"), 
@@ -226,7 +233,7 @@ featurePlot(x = x_all,
 
 ```{r, fig.width=15, fig.height=12}
 featurePlot(x = x_all, 
-            y = y_all$resistance, 
+            y = y_all, 
             plot = "density",
             strip=strip.custom(par.strip.text=list(cex=.7)),
             scales = list(x = list(relation="free"), 
@@ -249,17 +256,25 @@ pred_best <- c("resistance", "n.beta.lac.3", "med.dist.oriC", "n.genes.plus.stra
 training_best <- training_all %>% select(pred_best)
 testing_best <- testing_all %>% select(pred_best)
 
-x_best <- training_best[,-1]
-y_best <- training_best[,1]
+x_best <- as.matrix(training_best[,-1])
+y_best <- training_best$resistance
 ```
 
 
 # Regularized Logistic Regression
 
+## Configure parallel processing
+
+```{r}
+cluster <- makeCluster(detectCores() - 2) # leave two cores
+registerDoParallel(cluster)
+```
+
 ## Hand picked features
 
 ```{r}
-feat_selected <- feat_amp %>% select(c(resistance, n.beta.lac.3, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen))
+feat_selected <- feat_amp_scaled %>% 
+  select(c(resistance, n.beta.lac.3, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen, med.dist.oriC, n.genes.plasmids))
 
 # NAs in `med.tot.rep.len` and in `med.AR.len.cen` should be replaced with 0s
 feat_selected$med.tot.rep.len <- ifelse(is.na(feat_selected$med.tot.rep.len), 0, feat_selected$med.tot.rep.len)
@@ -273,15 +288,15 @@ summary(feat_selected)
 ```{r}
 set.seed(100)
 
-in_train_hand <- createDataPartition(y = feat_selected$resistance, p=0.8, list=FALSE)
+in_train_hand <- createDataPartition(y = feat_selected$resistance, p=0.75, list=FALSE)
 
 
 training_hand <- feat_selected[in_train_hand,]
 testing_hand <- feat_selected[-in_train_hand,]
 
 # to avoid slowness of caret
-x_hand <- training_hand[,-1]
-y_hand <- training_hand[,1]
+x_hand <- as.matrix(training_hand[,-1])
+y_hand <- training_hand$resistance
 
 ```
 
@@ -314,7 +329,8 @@ Same model (3a) that won in "Statistical exploration" (see below and the html fi
 ```{r}
 set.seed(100)
 
-fit_LR_hand_roc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training_hand, 
+fit_LR_hand_roc <- train(x = x_hand, 
+                         y = y_hand,
                  method = "regLogistic", 
                  trControl = fitControl_roc,
                  verbose = FALSE,
@@ -322,16 +338,10 @@ fit_LR_hand_roc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.le
 fit_LR_hand_roc
 ```
 
-**Coefficients**
-
-```{r}
-fit_LR_hand_roc$finalModel$W
-```
-
 **Resamples**
 
 ```{r}
-fit_LR_hand_roc$resample
+fit_LR_hand_roc$resample %>% arrange(-ROC)
 ```
 
 **confusion matrix on train**
@@ -346,7 +356,8 @@ confusionMatrix.train(fit_LR_hand_roc)
 ```{r}
 set.seed(100)
 
-fit_LR_hand_acc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.len, data = training_hand, 
+fit_LR_hand_acc <- train(x = x_hand,
+                         y = y_hand, 
                  method = "regLogistic", 
                  trControl = fitControl_acc,
                  verbose = FALSE,
@@ -354,12 +365,6 @@ fit_LR_hand_acc <- train(resistance ~ n.beta.lac.3 + med.AR.len.cen + max.rep.le
 fit_LR_hand_acc
 ```
 
-
-**Coefficients**
-
-```{r}
-fit_LR_hand_acc$finalModel$W
-```
 
 ### Testing
 
@@ -389,21 +394,11 @@ confusionMatrix(data = predClasses_acc,
                 positive="R")
 ```
 
-This model performs slightly worse than the ROC-optimized one
+This model performs a bit worse than ROC-optimized one
 
 ## Non-correlated features
 
 Since LR doesn't have in-built feature selection, let's use *filter* methods (less prone to over-fitting and more computationally efficient than *wrapper* methods)
-
-### Prepare the data set
-
-remove strain, AB
-
-```{r, eval=F}
-feat_amp <- select(feat_amp, -c(strain, AB))
-
-skimr::skim_to_wide(feat_amp)
-```
 
 ### Training and validation
 
@@ -420,7 +415,8 @@ fitControl_roc <- trainControl(## 5-fold CV
                            classProbs = T,
                            summaryFunction = twoClassSummary)
 
-fit_LR_nocorr_roc <- train(resistance ~ ., data = training_nocorr, 
+fit_LR_nocorr_roc <- train(x = x_nocorr,
+                           y = y_nocorr,
                  method = "regLogistic", 
                  trControl = fitControl_roc,
                  verbose = FALSE,
@@ -430,6 +426,18 @@ fit_LR_nocorr_roc
 ```
 
 It's better then the model with hand picked predictors (ROC)
+
+**Resamples**
+
+```{r}
+fit_LR_nocorr_roc$resample %>% arrange(-ROC)
+```
+
+**confusion matrix on train**
+
+```{r}
+confusionMatrix.train(fit_LR_nocorr_roc)
+```
 
 ### Testing
 
@@ -445,39 +453,50 @@ confusionMatrix(data = predClasses_roc,
 
 Overall, all non-correlated predictors model is better than the hand-picked one
 
-## Recursive feature selection
+
+
+## LR on automatically selected features
+
+### Recursive feature selection
 
 ```{r}
 set.seed(100)
 options(warn=-1)
 
-subsets <- c(1:5, 10, 15, 21)
+subsets <- c(1:38)
 
-ctrl <- rfeControl(functions = rfFuncs,
+rfe_ctrl <- rfeControl(functions = rfFuncs,
                    method = "repeatedcv",
                    repeats = 5,
                    verbose = FALSE,
-                   allowParallel = T)
+                   allowParallel = T, 
+                   number = 10, 
+                   p = 0.75)
 
-# training[, 2:21] - 2:21 because I want to exclude n.beta.lac and leave only its binary counterpart n.beta.lac.3
-lmProfile <- rfe(x=training[, 2:21], y=training$resistance,
+# training[, -2] - because I want to exclude n.beta.lac and leave only its binary counterpart n.beta.lac.3
+lm_profile <- rfe(x = x_all[,-2], 
+                 y = y_all,
                  sizes = subsets,
-                 rfeControl = ctrl)
+                 rfeControl = rfe_ctrl, 
+                 metric = "RMSE")
 
-lmProfile
+lm_profile
 ```
-
-## LR on top 5 best features
-
 
 ### Data
 
 Leave only the top 5 features from test and train data sets
 
 ```{r}
-training_top5 <- select(training, c(resistance, n.beta.lac.3, max.rep.len.non.cen, med.AR.len.100, n.rep.100.non.cen, med.AR.len.non.cen.100))
+top5 <- c("min.dist.oriC", "n.beta.lac.3", "n.genes.plasmids", "max.rep.len.cen", "med.AR.len.100")
 
-testing_top5 <- select(testing, c(resistance, n.beta.lac.3, max.rep.len.non.cen, med.AR.len.100, n.rep.100.non.cen, med.AR.len.non.cen.100))
+training_top5 <- select(training_all, c(resistance, top5))
+
+testing_top5 <- select(testing_all, c(resistance, top5))
+
+
+x_top5 <- as.matrix(training_top5[,-1])
+y_top5 <- training_top5$resistance
 ```
 
 
@@ -488,19 +507,33 @@ testing_top5 <- select(testing, c(resistance, n.beta.lac.3, max.rep.len.non.cen,
 
 set.seed(100)
 
-Fit3 <- train(resistance ~ ., data = training_top5, 
-                 method = "regLogistic", 
-                 trControl = fitControl_roc,
-                 verbose = FALSE,
-                 metric="ROC")
-Fit3
+fit_LR_top5_roc <- train(x = x_top5,
+                         y = y_top5,
+                         method = "regLogistic", 
+                         trControl = fitControl_roc,
+                         verbose = FALSE,
+                         metric="ROC")
+fit_LR_top5_roc
 ```
+
+**Resamples**
+
+```{r}
+fit_LR_top5_roc$resample %>% arrange(-ROC)
+```
+
+**Confusion matrix on train**
+
+```{r}
+confusionMatrix.train(fit_LR_top5_roc)
+```
+
 
 ### Testing
 
 ```{r}
 
-predClasses <- predict(Fit3, newdata=testing_top5)
+predClasses <- predict(fit_LR_top5_roc, newdata=testing_top5)
 
 confusionMatrix(data = predClasses, 
                 reference = testing_top5$resistance,
@@ -508,45 +541,10 @@ confusionMatrix(data = predClasses,
                 positive="R")
 ```
 
-
-## LR on 15 best features
-
-including top 5
-
-### Data set
+## De-register parallel processing cluster
 
 ```{r}
-training_top15 <- select(training, resistance, lmProfile$optVariables)
-
-testing_top15 <- select(testing, resistance, lmProfile$optVariables)
-```
-
-
-### Training
-
-```{r}
-# I use fitControl_roc from earlier
-
-set.seed(100)
-
-Fit4 <- train(resistance ~ ., data = training_top15, 
-                 method = "regLogistic", 
-                 trControl = fitControl_roc,
-                 verbose = FALSE,
-                 metric="ROC")
-Fit4
-```
-
-### Testing
-
-```{r}
-
-predClasses <- predict(Fit4, newdata=testing_top15)
-
-confusionMatrix(data = predClasses, 
-                reference = testing_top15$resistance,
-                mode="everything",
-                positive="R")
+stopCluster(cluster)
 ```
 
 ## RLR conclusion
@@ -559,9 +557,14 @@ Same `fitControl_roc` as earlier
 
 on all predictors because RF has automatic feature selection
 
-## Params tuning
+## Configure parallel processing
 
-Train control here has less repeats and `expand.grid()` function is used
+```{r}
+cluster <- makeCluster(detectCores() - 2) # leave two cores
+registerDoParallel(cluster)
+```
+
+## Params tuning
 
 ```{r}
 fit_ctrl_rf_roc <- trainControl(## 5-fold CV
@@ -584,7 +587,8 @@ fit_ctrl_rf_roc <- trainControl(## 5-fold CV
 ```{r}
 set.seed(100)
 
-fit_RF <- train(x_all, y_all$resistance,  
+fit_RF <- train(x = x_all,
+                y = y_all,  
                  method = "rf", 
                  trControl = fit_ctrl_rf_roc,
                  #tuneGrid=tunegrid,
@@ -595,13 +599,6 @@ fit_RF
 ```
 
 ### Predictors importance
-
-```{r}
-predictors(fit_RF)
-```
-
-Every predictor was used
-
 
 ```{r}
 imp_vars_rf <- varImp(fit_RF)
@@ -620,9 +617,6 @@ confusionMatrix(data = predClasses,
                 mode="everything",
                 positive="R")
 ```
-
-Much better than any RLR
-
 
 ### Training and validation
 
@@ -660,6 +654,13 @@ confusionMatrix(data = predClasses,
                 positive="R")
 ```
 
+## Stop cluster
+
+```{r}
+stopCluster(cluster)
+```
+
+
 # SVM
 
 Same `fitControl_roc` as earlier
@@ -694,6 +695,13 @@ confusionMatrix(data = predClasses,
 # xgBoost
 
 DART variant
+
+## Configure parallel processing
+
+```{r}
+cluster <- makeCluster(detectCores() - 8) # leave two cores
+registerDoParallel(cluster)
+```
 
 ## Params tuning
 
@@ -754,10 +762,14 @@ confusionMatrix(data = predClasses,
 
 ### Training and validation
 
+Scaled and centered train data set!
+
 ```{r}
 set.seed(100)
 
-fit_XGB_best <- train(x_best, y_best$resistance, 
+x_best_scaled <- scale(x_best)
+
+fit_XGB_best <- train(x_best_scaled, y_best$resistance, 
                  method = "xgbDART", 
                  trControl = fit_ctrl_xgb_roc,
                  verbose = FALSE,
@@ -827,6 +839,11 @@ fit_xgbTree <- train(resistance ~., data = training[2:22], method = "xgbTree",
 fit_xgbTree
 ```
 
+## Stop cluster
+
+```{r}
+stopCluster(cluster)
+```
 
 
 # Model comparison
@@ -869,12 +886,6 @@ plot(imp_vars_rf, main="Variable Importance with RF")
 imp_vars_xgb <- varImp(fit_xgbDART)
 
 plot(imp_vars_xgb, main="Variable Importance with XGB")
-```
-
-# De-register parallel processing cluster
-
-```{r}
-stopCluster(cluster)
 ```
 
 
