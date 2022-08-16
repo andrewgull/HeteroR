@@ -109,8 +109,8 @@ y_all <- training_all$resistance
 ### CONFIG PARALLEL ###
 #######################
 
-cluster <- makeCluster(detectCores() - 8) # leave two cores
-registerDoParallel(cluster)
+#cluster <- makeCluster(detectCores() - 8) # leave two cores
+#registerDoParallel(cluster)
 
 ###################
 ### TUNE PARAMS ###
