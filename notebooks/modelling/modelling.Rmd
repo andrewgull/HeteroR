@@ -723,7 +723,7 @@ fit_ctrl_xgb_roc <- trainControl(## 5-fold CV
 ```{r}
 set.seed(100)
 
-fit_XGB <- train(x_all, y_all$resistance, 
+fit_XGB <- train(x = x_all, y = y_all, 
                  method = "xgbDART", 
                  trControl = fit_ctrl_xgb_roc,
                  verbose = FALSE,
