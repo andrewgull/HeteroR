@@ -136,10 +136,13 @@ fit_XGB <- train(x = x_all, y = y_all,
 
 predClasses <- predict(fit_XGB, newdata=testing_all)
 
-confusionMatrix(data = predClasses, 
+cm <- confusionMatrix(data = predClasses, 
                 reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
+
+print(cm)
+
 ############
 ### SAVE ###
 ############
