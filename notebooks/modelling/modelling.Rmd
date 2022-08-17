@@ -769,7 +769,7 @@ set.seed(100)
 
 x_best_scaled <- scale(x_best)
 
-fit_XGB_best <- train(x_best_scaled, y_best$resistance, 
+fit_XGB_best <- train(x=x_best_scaled, y=y_best, 
                  method = "xgbDART", 
                  trControl = fit_ctrl_xgb_roc,
                  verbose = FALSE,
@@ -848,6 +848,10 @@ stopCluster(cluster)
 
 # Model comparison
 
+## During training and validation
+
+This resampling data come from training and validation, so they reflect model search not the average model performance.
+
 ```{r}
 #, SVM=FitSVM, XGB.DART=fit_xgbDART, XGB.Tree=fit_xgbTree
 models_compare <- resamples(list(RLR_hand=fit_LR_hand_roc, RLR_nocorr=fit_LR_nocorr_roc, RF=fit_RF, SVM=fit_SVM))
@@ -861,31 +865,70 @@ bwplot(models_compare, scales=scales)
 ```
 
 ```{r}
-dotplot(models_compare, scales=scales)
+models_compare_xgb <- resamples(list(XGB=fit_XGB, XGB.best=fit_XGB_best))
+
+summary(models_compare_xgb)
+
+```
+
+
+
+```{r}
+bwplot(models_compare_xgb, scales=scales)
 ```
 
 
 `xgbDART` with hyper-parameters search is the best (as expected)
 
 
-# Variable importance
+## ROC and AUC
 
-It is not available for RLR and SVM
-
-## RF
+### XGB
 
 ```{r}
-imp_vars_rf <- varImp(fit_RF)
+library(ROCR)
 
-plot(imp_vars_rf, main="Variable Importance with RF")
+#pred_prob_xgb <- predict(fit_XGB, type="prob")
+
+# on testing data
+pred_prob_xgb <- predict.train(fit_XGB, newdata = testing_all, type = "prob")
+
+pred_roc_xgb <- prediction(predictions = pred_prob_xgb$S, labels = testing_all$resistance)
+
+perf_roc_xgb <- performance(pred_roc_xgb, measure="tpr", x.measure = "fpr")
+
+auc_xgb <- round(unlist(slot(performance(pred_roc_xgb, measure = "auc"), "y.values")), 3)
 ```
 
-## xgBoost
 
 ```{r}
-imp_vars_xgb <- varImp(fit_xgbDART)
+# requires a separate code chunk
 
-plot(imp_vars_xgb, main="Variable Importance with XGB")
+plot(perf_roc_xgb, main = "XGB ROC curve", col = "steelblue", lwd = 3)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+legend(x = 0.8, y = 0.3, legend = paste0("AUC = ", auc_xgb))
+```
+
+
+### RF
+
+```{r}
+pred_prob_rf <- predict.train(fit_RF, newdata = testing_all, type="prob")
+
+pred_roc_rf <- prediction(predictions = pred_prob_rf$S, labels = testing_all$resistance)
+
+perf_roc_rf <- performance(pred_roc_rf, measure="tpr", x.measure = "fpr")
+
+auc_rf <- round(unlist(slot(performance(pred_roc_rf, measure = "auc"), "y.values")), 3)
+
+```
+
+```{r}
+# requires a separate code chunk
+
+plot(perf_roc_rf, main = "RF ROC curve", col = "steelblue", lwd = 3)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+legend(x = 0.8, y = 0.3, legend = paste0("AUC = ", auc_rf))
 ```
 
 
