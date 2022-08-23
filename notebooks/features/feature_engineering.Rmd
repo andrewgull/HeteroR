@@ -1474,7 +1474,7 @@ features_amp_strain <- features_amp_strain %>% filter(resistance != "I", !is.na(
 features_amp_strain
 ```
 
-# Write table required for EDA to files
+## Write AMP tables required for EDA to files
 
 ```{r}
 write.csv(n.beta.lac, "/home/andrei/Data/HeteroR/results/tables/n_beta_lac.csv", row.names = F)
@@ -1483,6 +1483,59 @@ write.csv(features_amp_strain, "/home/andrei/Data/HeteroR/results/tables/feature
 
 write.csv(features_amp, "/home/andrei/Data/HeteroR/results/tables/features_amp.csv", row.names = F)
 ```
+
+# CFX tested strains
+
+CFX - cefotaxime acid, cephalosporine class.
+
+Cefotaxime is a semisynthetic cephalosporin taken parenterally. It is **resistant** to most **beta-lactamases** and active against Gram-negative rods and cocci due to its aminothiazoyl and methoximino functional groups.
+
+## Create a basic data set
+
+```{r}
+# filter those strains that were tested for CFX
+# keep for per gene feature calculations
+features_cfx <- features_filtered %>% filter(AB=="CFX") %>% distinct()
+# this df is for per strain calculation
+features_cfx_strain <- features_cfx %>% select(strain, n_plasmids, AB, resistance) %>% distinct()
+head(features_cfx_strain)
+```
+
+## Add RG presence column
+
+We need a column with number of beta-lactamase genes per strain (instead of absence/presence)
+
+Those genes or strains that don't have b-l genes should have zeros in repeat counts, length etc.
+
+```{r}
+f_cfx_filt <- features_cfx %>% 
+  select(strain, record_id, AMR.Gene.Family) %>% 
+  distinct()
+
+f_cfx_filt$is_beta_lac <- grepl("beta-lactamase", f_cfx_filt$AMR.Gene.Family)
+
+n.beta.lac <- f_cfx_filt %>% group_by(strain) %>% summarise(n.beta.lac=sum(is_beta_lac))
+
+# join with features_cfx_strain
+features_cfx_strain <- left_join(features_cfx_strain, n.beta.lac, by="strain")
+
+# add is beta lac to features cfx for future calculations
+features_cfx <- left_join(features_cfx, f_cfx_filt %>% select(record_id, is_beta_lac), by="record_id") %>% 
+  relocate(is_beta_lac, .before="AB")
+
+head(features_cfx_strain)
+```
+
+## Filtering AMR Gene Family
+
+I have 21 gene families among CFX tested strains. 
+
+What genes should I use for features construction?
+
+```{r}
+unique(f_cfx_filt$AMR.Gene.Family)
+```
+
 
 # Save the workspace
 
