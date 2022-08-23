@@ -57,7 +57,7 @@ Each strain contains:
 
 -   [x] 1 resistance label
 
--   [ ] 1 label for presence of an RG
+-   [x] 1 label for presence of an RG
 
 -   [x] 1 value for plasmid count,
 
@@ -122,7 +122,7 @@ Each strain contains:
     -   [x] a lot of repeat pairs; each repeat pair has:
 
         -   [x] 1 AR length,
-        -   [ ] 1 AR black box matrix,
+        -   [-] 1 AR black box matrix,
         -   [x] 1 repeat length,
         -   [x] 1 center spanning label,
         -   [ ] 'inside the gene' label,
