@@ -1,5 +1,5 @@
 ---
-title: "EDA with Quarto"
+title: "Interactive EDA"
 author: "AG"
 format: 
   html: 
@@ -7,48 +7,92 @@ format:
 server: shiny
 ---
 
-```{r read_data}
+```{r read_data, warning=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+
+
 features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
 
-features_amp_strain <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp_strain.csv")
+features_amp_strain <- read_csv("data/features_amp_strain.csv")
 
 # rename for consistency
 features_amp_strain <- rename(features_amp_strain, "n.plasmids"=n_plasmids)
 ```
 
-# BL type
+# Dot plots
 
 ```{r}
 #| panel: sidebar
-vars <- setdiff(names(iris), "Species")
+vars <- setdiff(names(features_amp_strain), "Variables")[-c(1, 3)]
 selectInput('xcol', 'X Variable', vars)
-selectInput('ycol', 'Y Variable', vars, selected = vars[[2]])
-numericInput('clusters', 'Cluster count', 3, min = 1, max = 9)
+selectInput('ycol', 'Y Variable', vars, selected = vars[[4]])
+selectInput('group.var', 'Color by', vars[[2]], selected=vars[[2]])
+#numericInput('size', 'Dot size', 1, min = 0.1, max = 3)
+sliderInput("size", "Dot size", value=2, min = 0.1, max = 7)
+sliderInput("alpha", "Transparency", value=0.5, min = 0.1, max = 1)
+
 ```
 
 ```{r}
 #| panel: fill
-plotOutput('plot1')
+plotOutput('pairs.plot')
 ```
 
 ```{r}
 #| context: server
+
+library(ggplot2)
+library(dplyr)
+
 selectedData <- reactive({
-    iris[, c(input$xcol, input$ycol)]
+    df <- readr::read_csv("data/features_amp_strain.csv") %>%
+      rename("n.plasmids"=n_plasmids)
+    #features_amp_strain[, c(input$xcol, input$ycol, "resistance")]
   })
 
-clusters <- reactive({
-  kmeans(selectedData(), input$clusters)
-})
-
-output$plot1 <- renderPlot({
-  palette(c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
-    "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999"))
-
-  par(mar = c(5.1, 4.1, 0, 1))
-  plot(selectedData(),
-       col = clusters()$cluster,
-       pch = 20, cex = 3)
-  points(clusters()$centers, pch = 4, cex = 4, lwd = 4)
+output$pairs.plot <- renderPlot({
+  ggplot(selectedData(), aes_string(paste0("`",input$xcol,"`"), paste0("`",input$ycol,"`")))+
+    geom_point(aes(color=unlist(selectedData()[,input$group.var])), size = input$size, alpha = input$alpha)+
+    scale_color_brewer(palette="Set1", name="Resistance")+
+    theme(legend.position = "bottom")
 })
 ```
+
+
+# Correlation plot
+
+```{r}
+#| panel: sidebar
+vars <- setdiff(names(features_amp_strain), "Variables")[-c(1, 3, 4)]
+
+sliderInput(inputId = "sample", label = "Sample size", value=length(vars), min = 2, max = length(vars), step = 1)
+
+
+```
+
+```{r}
+#| panel: fill
+
+plotOutput('corr.plot')
+```
+
+
+```{r}
+#| context: server
+
+
+library(dplyr)
+library(readr)
+
+selected_data <- reactive({
+  df <- read_csv("data/features_amp_strain.csv")
+  cor.matrix <- cor(as.matrix(df[, c(1:input$sample)]), use = "pairwise.complete.obs")
+})
+
+output$corr.plot <- renderPlot({
+  corrplot::corrplot(selected_data(), hclust.method = "ward")
+})
+
+```
+
