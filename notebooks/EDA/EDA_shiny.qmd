@@ -28,7 +28,7 @@ vars <- names(select(features_amp_strain, -c("strain", "AB", "resistance")))
 selectInput('xcol', 'X Variable', vars, selected = "n.plasmids")
 selectInput('ycol', 'Y Variable', vars, selected = vars[[4]])
 #selectInput('group.var', 'Color by', vars[[2]], selected=vars[[2]])
-sliderInput("size", "Dot size", value=2, min = 0.1, max = 7)
+sliderInput("size", "Dot size", value=2, min = 0.5, max = 10)
 sliderInput("alpha", "Transparency", value=0.5, min = 0.1, max = 1)
 
 ```
@@ -80,7 +80,7 @@ checkboxGroupInput(inputId = "vars", label="Variables", choices = vars, selected
 ```{r}
 #| panel: fill
 
-plotOutput('corr.plot')
+plotOutput('corr.plot', height = "100%")
 ```
 
 
@@ -106,7 +106,7 @@ output$corr.plot <- renderPlot({
         diag=list(continuous ="barDiag")) +
   scale_color_brewer(palette = "Set1") +
   scale_fill_brewer(palette = "Set1")
-})
+}, height=1000 )
 
 ```
 
@@ -128,6 +128,9 @@ plotOutput('bar.plot')
 
 ```{r, eval=FALSE}
 #| context: server
+
+library(dplyr)
+library(readr)
 
 df <- read_csv("data/features_amp_strain.csv") %>% rename("n.plasmids" = n_plasmids)
 
