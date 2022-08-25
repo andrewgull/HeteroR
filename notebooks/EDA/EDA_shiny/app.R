@@ -91,15 +91,15 @@ server <- function(input, output) {
     rename("n.plasmids"=n_plasmids)
   
   # Data for the 1st plot
-  selected_data1 <- reactive({
-    select(df, input$xcol, input$ycol, resistance)
-  })
+  # selected_data1 <- reactive({
+  #   select(df, input$xcol, input$ycol, resistance)
+  # })
   
   output$dot.plot <- renderPlot({
     x <- paste0("`",input$xcol,"`")
     y <- paste0("`",input$ycol,"`")
     
-    ggplot(selected_data1(), aes_string(x, y)) +
+    ggplot(df, aes_string(x, y)) +
       geom_point(aes(color=resistance), size = input$size, alpha = input$alpha) +
       geom_smooth(method = "lm") +
       scale_color_brewer(palette="Set1", name="Resistance")+
@@ -108,13 +108,13 @@ server <- function(input, output) {
   })
   
   # Data for the 2nd plot
-  selected_data2 <- reactive({
-    select(df, input$bar, resistance)
-  })
+  # selected_data2 <- reactive({
+  #   select(df, input$bar, resistance)
+  # })
   
   output$bar.plot <- renderPlot({
     x <- paste0("`",input$bar,"`")
-    ggplot(selected_data2(), aes_string(x))+
+    ggplot(df, aes_string(x))+
       geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
       scale_fill_brewer(palette="Set1", name="Resistance")+
       theme(legend.position = "bottom") +
