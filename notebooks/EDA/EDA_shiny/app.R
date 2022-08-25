@@ -27,68 +27,78 @@ ui <- fluidPage(
   # Application title
   titlePanel("Explore the data!"),
   
-  fluidRow(
-    column(3, 
-           selectInput("xcol",
-                       "X variable",
-                       vars,
-                       selected = "n.rep.total"),
-           selectInput("ycol", 
-                       "Y variable",
-                       vars,
-                       selected="ampC.n.rep.tot"),
-           sliderInput("size",
-                       "Dot size",
-                       value=2, 
-                       min = 0.5, 
-                       max = 10),
-           sliderInput("alpha",
-                       "Opacity",
-                       value=0.5, 
-                       min = 0.1, 
-                       max = 1)
-           ),
-    column(9, plotOutput("dot.plot"))
-  ),
-  
-  fluidRow(
-    column(3, 
-            selectInput("bar",
-                        "Count data",
-                        c("n.beta.lac", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
-                        selected="n.beta.lac")
-            ),
-    column(9, plotOutput("bar.plot"))
-  ),
-  
-  fluidRow(
-    column(3, 
-           selectInput("box",
-                      "Median & distribution",
-                      vars,
-                      selected = "med.dist.oriC"),
-           radioButtons("trans", 
-                        "Y-axis transformation", 
-                        choices = c("identity", "log", "sqrt"), 
-                        selected = "identity"),
-           checkboxInput("notch", 
-                         "Notch",
-                         value = FALSE)
-           ),
-    column(9, plotOutput("box.plot"))
-  ),
-  
-  fluidRow(
-    column(12, sliderInput("sample", 
-                           "Sample size", 
-                           value=10, 
-                           min = 10, 
-                           max=length(strains))), 
-  ),
-  
-  fluidRow(
-    column(12, plotOutput("heatmap"))
+  tabsetPanel(
+    tabPanel("AMP",
+             fluidRow(
+               column(3, 
+                      selectInput("xcol",
+                                  "X variable",
+                                  vars,
+                                  selected = "n.rep.total"),
+                      selectInput("ycol", 
+                                  "Y variable",
+                                  vars,
+                                  selected="ampC.n.rep.tot"),
+                      sliderInput("size",
+                                  "Dot size",
+                                  value=2, 
+                                  min = 0.5, 
+                                  max = 10),
+                      sliderInput("alpha",
+                                  "Opacity",
+                                  value=0.5, 
+                                  min = 0.1, 
+                                  max = 1)
+               ),
+               column(9, plotOutput("dot.plot"))
+             ),
+             
+             fluidRow(
+               column(3, 
+                      selectInput("bar",
+                                  "Count data",
+                                  c("n.beta.lac", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
+                                  selected="n.beta.lac")
+               ),
+               column(9, plotOutput("bar.plot"))
+             ),
+             
+             fluidRow(
+               column(3, 
+                      selectInput("box",
+                                  "Median & distribution",
+                                  vars,
+                                  selected = "med.dist.oriC"),
+                      radioButtons("trans", 
+                                   "Y-axis transformation", 
+                                   choices = c("identity", "log", "sqrt"), 
+                                   selected = "identity"),
+                      checkboxInput("notch", 
+                                    "Notch",
+                                    value = FALSE)
+               ),
+               column(9, plotOutput("box.plot"))
+             ),
+             
+             fluidRow(
+               column(12, sliderInput("sample", 
+                                      "Sample size", 
+                                      value=10, 
+                                      min = 10, 
+                                      max=length(strains))), 
+             ),
+             
+             fluidRow(
+               column(12, plotOutput("heatmap"))
+             )    
+    ),
+    tabPanel("CFX"),
+    tabPanel("MCN"),
+    tabPanel("GM"),
+    tabPanel("NFT")
   )
+  
+  
 )
 
 # Define server 
