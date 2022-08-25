@@ -27,62 +27,67 @@ ui <- fluidPage(
   # Application title
   titlePanel("Explore the data!"),
   
-  # Sidebar with a slider input for number of bins 
-  sidebarLayout(
-    sidebarPanel(
-      style = "position:fixed;width:inherit;",
-      "Inputs",
-      width = 3,
-      selectInput("xcol",
-                  "X variable:",
-                  vars,
-                  selected = "n.rep.total"),
-      selectInput("ycol", 
-                  "Y variable:",
-                  vars,
-                  selected="ampC.n.rep.tot"),
-      sliderInput("size",
-                  "Dot size",
-                  value=2, 
-                  min = 0.5, 
-                  max = 10),
-      sliderInput("alpha",
-                  "Transparency:",
-                  value=0.5, 
-                  min = 0.1, 
-                  max = 1),
-      
-      selectInput("bar",
-                  "Count data",
-                  c("n.beta.lac", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
-                  selected="n.beta.lac"),
-      
-      selectInput("box",
-                  "Median & distribution",
-                  vars,
-                  selected = "med.dist.oriC"),
-      radioButtons("trans", 
-                    "Y-axis transformation", 
-                    choices = c("identity", "log", "sqrt"), 
-                    selected = "identity"),
-      checkboxInput("notch", 
-                    "Notch",
-                    value = FALSE),
-      
-      sliderInput("sample", 
-                  "Sample size", 
-                  value=10, 
-                  min = 10, 
-                  max=length(strains))
-    ),
-    
-    # Show a plot of the generated distribution
-    mainPanel(
-      plotOutput("dot.plot"),
-      plotOutput("bar.plot"),
-      plotOutput("box.plot"),
-      plotOutput("heatmap")
-    )
+  fluidRow(
+    column(3, 
+           selectInput("xcol",
+                       "X variable",
+                       vars,
+                       selected = "n.rep.total"),
+           selectInput("ycol", 
+                       "Y variable",
+                       vars,
+                       selected="ampC.n.rep.tot"),
+           sliderInput("size",
+                       "Dot size",
+                       value=2, 
+                       min = 0.5, 
+                       max = 10),
+           sliderInput("alpha",
+                       "Opacity",
+                       value=0.5, 
+                       min = 0.1, 
+                       max = 1)
+           ),
+    column(9, plotOutput("dot.plot"))
+  ),
+  
+  fluidRow(
+    column(3, 
+            selectInput("bar",
+                        "Count data",
+                        c("n.beta.lac", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
+                        selected="n.beta.lac")
+            ),
+    column(9, plotOutput("bar.plot"))
+  ),
+  
+  fluidRow(
+    column(3, 
+           selectInput("box",
+                      "Median & distribution",
+                      vars,
+                      selected = "med.dist.oriC"),
+           radioButtons("trans", 
+                        "Y-axis transformation", 
+                        choices = c("identity", "log", "sqrt"), 
+                        selected = "identity"),
+           checkboxInput("notch", 
+                         "Notch",
+                         value = FALSE)
+           ),
+    column(9, plotOutput("box.plot"))
+  ),
+  
+  fluidRow(
+    column(12, sliderInput("sample", 
+                           "Sample size", 
+                           value=10, 
+                           min = 10, 
+                           max=length(strains))), 
+  ),
+  
+  fluidRow(
+    column(12, plotOutput("heatmap"))
   )
 )
 
@@ -149,7 +154,9 @@ server <- function(input, output) {
     ggplot(selected_data(), aes(strain, AMR.type))+geom_tile(aes(fill=N))+
       theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1))+
       xlab("")+
-      scale_fill_gradient2(high="blue")+
+      scale_fill_distiller(palette = "Blues", direction = 1) +
+      #scale_fill_viridis_c(direction = 1, alpha = 0.8)+
+      guides(colour = "colorbar", size = "legend", shape = "legend") +
       ggtitle("Beta-lactamase types")
   })
 }
