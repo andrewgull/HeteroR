@@ -187,7 +187,7 @@ names(amp_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL
 amp_amr_types_strain_td <- gather(amp_amr_types_strain, key="AMR.type", value="N", 2:22)
 
 # write em to a file
-write.csv(amp_amr_types_strain_td, "/home/andrei/Data/HeteroR/results/tables/amp_amr_types_strain.csv", row.names = FALSE)
+write.csv(amp_amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amp_amr_types_strain.csv", row.names = FALSE)
 
 # make a plot
 ggplot(amp_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
