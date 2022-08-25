@@ -31,3 +31,6 @@ notebooks/.ipynb_checkpoints/repeats_summary-checkpoint.ipynb
 notebooks/feature_engineering_cache/html/*.*
 notebooks/feature_engineering_cache/html/__packages
 notebooks/feature_engineering_files/figure-html/*.*
+*.woff
+*.css
+*.js
