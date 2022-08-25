@@ -92,10 +92,10 @@ ui <- fluidPage(
                column(12, plotOutput("heatmap"))
              )    
     ),
-    tabPanel("CFX"),
-    tabPanel("MCN"),
-    tabPanel("GM"),
-    tabPanel("NFT")
+    tabPanel("CFX", "no data yet"),
+    tabPanel("MCN", "no data yet"),
+    tabPanel("GM", "no data yet"),
+    tabPanel("NFT", "no data yet")
   )
   
   
