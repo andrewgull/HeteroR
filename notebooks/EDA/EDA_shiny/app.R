@@ -19,7 +19,11 @@ strains <- features_amp_strain$strain
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-  theme = bslib::bs_theme(bootswatch = "journal"),
+  # Set a theme
+  # To preview themes use 
+  # bslib::bs_theme_preview(bs_theme(bootswatch = "theme_name"))
+  theme = bslib::bs_theme(bootswatch = "darkly"),
+  
   # Application title
   titlePanel("Explore the data!"),
   
@@ -85,19 +89,16 @@ ui <- fluidPage(
 # Define server 
 server <- function(input, output) {
 
-  library(ggplot2)
-  library(dplyr)
+  thematic::thematic_shiny()
   
+  # read data
   df <- readr::read_csv("../data/features_amp_strain.csv") %>%
     rename("n.plasmids"=n_plasmids)
   
   df2 <- readr::read_csv("../data/amp_amr_types_strain.csv")
   
-  # Data for the 1st plot
-  # selected_data1 <- reactive({
-  #   select(df, input$xcol, input$ycol, resistance)
-  # })
-  
+  # Dot plot:
+
   output$dot.plot <- renderPlot({
     x <- paste0("`",input$xcol,"`")
     y <- paste0("`",input$ycol,"`")
@@ -110,10 +111,7 @@ server <- function(input, output) {
       ggtitle("Dot plot")
   })
   
-  # Data for the 2nd plot
-  # selected_data2 <- reactive({
-  #   select(df, input$bar, resistance)
-  # })
+  # Bar plot
   
   output$bar.plot <- renderPlot({
     x <- paste0("`",input$bar,"`")
@@ -126,7 +124,8 @@ server <- function(input, output) {
       ggtitle(paste0("Count data: ", input$bar))
   })
   
-  # The 3rd plot
+  # Box plot
+  
   output$box.plot <- renderPlot({
     y <- paste0("`",input$box,"`")
     ggplot(df, aes_string("resistance", y))+
@@ -140,7 +139,7 @@ server <- function(input, output) {
       guides(fill="none")
   })
   
-  # The 4th plot
+  # Heat map
   # select data and make tidy
   selected_data <- reactive({
     tidyr::gather(slice(df2, 1:input$sample), key="AMR.type", value="N", 2:22)
