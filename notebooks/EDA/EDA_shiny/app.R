@@ -15,7 +15,7 @@ features_amp_strain <- read_csv("../data/features_amp_strain.csv")
 # rename for consistency
 features_amp_strain <- rename(features_amp_strain, "n.plasmids" = n_plasmids)
 vars <- names(select(features_amp_strain, -c("strain", "AB", "resistance")))
-
+strains <- features_amp_strain$strain
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -47,10 +47,12 @@ ui <- fluidPage(
                   value=0.5, 
                   min = 0.1, 
                   max = 1),
+      
       selectInput("bar",
                   "Count data",
                   c("n.beta.lac", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
                   selected="n.beta.lac"),
+      
       selectInput("box",
                   "Median & distribution",
                   vars,
@@ -58,7 +60,16 @@ ui <- fluidPage(
       radioButtons("trans", 
                     "Y-axis transformation", 
                     choices = c("identity", "log", "sqrt"), 
-                    selected = "identity")
+                    selected = "identity"),
+      checkboxInput("notch", 
+                    "Notch",
+                    value = FALSE),
+      
+      sliderInput("sample", 
+                  "Sample size", 
+                  value=10, 
+                  min = 10, 
+                  max=200)
     ),
     
     # Show a plot of the generated distribution
@@ -117,7 +128,7 @@ server <- function(input, output) {
     y <- paste0("`",input$box,"`")
     ggplot(df, aes_string("resistance", y))+
       geom_violin(aes(fill=resistance), alpha=0.7)+
-      geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+      geom_boxplot(aes(fill=resistance), alpha=0.2, notch = input$notch, varwidth = T)+
       geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
       coord_trans(y = input$trans) +
       scale_fill_brewer(palette = "Set1") +
