@@ -69,14 +69,15 @@ ui <- fluidPage(
                   "Sample size", 
                   value=10, 
                   min = 10, 
-                  max=200)
+                  max=length(strains))
     ),
     
     # Show a plot of the generated distribution
     mainPanel(
       plotOutput("dot.plot"),
       plotOutput("bar.plot"),
-      plotOutput("box.plot")
+      plotOutput("box.plot"),
+      plotOutput("heatmap")
     )
   )
 )
@@ -89,6 +90,8 @@ server <- function(input, output) {
   
   df <- readr::read_csv("../data/features_amp_strain.csv") %>%
     rename("n.plasmids"=n_plasmids)
+  
+  df2 <- readr::read_csv("../data/amp_amr_types_strain.csv")
   
   # Data for the 1st plot
   # selected_data1 <- reactive({
@@ -137,6 +140,19 @@ server <- function(input, output) {
       guides(fill="none")
   })
   
+  # The 4th plot
+  # select data and make tidy
+  selected_data <- reactive({
+    tidyr::gather(slice(df2, 1:input$sample), key="AMR.type", value="N", 2:22)
+    })
+
+  output$heatmap <- renderPlot({
+    ggplot(selected_data(), aes(strain, AMR.type))+geom_tile(aes(fill=N))+
+      theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1))+
+      xlab("")+
+      scale_fill_gradient2(high="blue")+
+      ggtitle("Beta-lactamase types")
+  })
 }
 
 # Run the application 
