@@ -30,7 +30,7 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel("AMP",
              fluidRow(
-               column(3, 
+               column(2, 
                       selectInput("xcol",
                                   "X variable",
                                   vars,
@@ -50,21 +50,21 @@ ui <- fluidPage(
                                   min = 0.1, 
                                   max = 1)
                ),
-               column(9, plotOutput("dot.plot"))
+               column(10, plotOutput("dot.plot"))
              ),
              
              fluidRow(
-               column(3, 
+               column(2, 
                       selectInput("bar",
                                   "Count data",
                                   c("n.beta.lac", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
                                   selected="n.beta.lac")
                ),
-               column(9, plotOutput("bar.plot"))
+               column(10, plotOutput("bar.plot"))
              ),
              
              fluidRow(
-               column(3, 
+               column(2, 
                       selectInput("box",
                                   "Median & distribution",
                                   vars,
@@ -77,20 +77,17 @@ ui <- fluidPage(
                                     "Notch",
                                     value = FALSE)
                ),
-               column(9, plotOutput("box.plot"))
+               column(10, plotOutput("box.plot"))
              ),
              
              fluidRow(
-               column(12, sliderInput("sample", 
+               column(2, sliderInput("sample", 
                                       "Sample size", 
                                       value=10, 
                                       min = 10, 
-                                      max=length(strains))), 
-             ),
-             
-             fluidRow(
-               column(12, plotOutput("heatmap"))
-             )    
+                                      max=length(strains))),
+               column(10, plotOutput("heatmap"))
+             )
     ),
     tabPanel("CFX", "no data yet"),
     tabPanel("MCN", "no data yet"),
@@ -162,12 +159,12 @@ server <- function(input, output) {
 
   output$heatmap <- renderPlot({
     ggplot(selected_data(), aes(strain, AMR.type))+geom_tile(aes(fill=N))+
-      theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1))+
+      theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1), legend.position = "bottom" )+
       xlab("")+
       scale_fill_distiller(palette = "Blues", direction = 1) +
       #scale_fill_viridis_c(direction = 1, alpha = 0.8)+
       guides(colour = "colorbar", size = "legend", shape = "legend") +
-      ggtitle("Beta-lactamase types")
+      ggtitle("Heatmap: beta-lactamase types")
   })
 }
 
