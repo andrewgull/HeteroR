@@ -13,7 +13,7 @@ rule all:
         expand("results/final/{strain}_all.done", strain=config['strains'])
 
 # quality check of raw short reads
-rule QC_illumina_raw:
+rule qc_illumina_raw:
     input:
         script = "workflow/scripts/run_qualcheck.R",
         fastq = "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
@@ -28,7 +28,7 @@ rule QC_illumina_raw:
         "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
 # quality check of trimmed short reads
-rule QC_illumina_trimmed:
+rule qc_illumina_trimmed:
     input:
         script = "workflow/scripts/run_qualcheck.R",
         fastq = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz"
@@ -44,7 +44,7 @@ rule QC_illumina_trimmed:
 
 # quality check for raw long reads
 # later only reads shorter than 1000 bp are removed
-rule QC_nanopore_raw:
+rule qc_nanopore_raw:
     input:
         script = "workflow/scripts/run_qualcheck.R",
         fastq = "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
@@ -130,7 +130,7 @@ rule hybrid_assembly:
         "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
 
 # assembly quality control
-rule QC_assembly:
+rule qc_assembly:
     input:
         "results/assemblies/{strain}",
         "resources/busco_downloads"
@@ -144,7 +144,7 @@ rule QC_assembly:
         "scripts/QC_assembly.py"
 
 # mapping of short reads on the assembly
-rule bwa_map:
+rule map_back:
     input:
         assembly_dir = "results/assemblies/{strain}",
         short_read_1= "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
@@ -162,7 +162,7 @@ rule bwa_map:
         "bwa mem -t {threads} {input.assembly_dir}/assembly.fasta {input.short_read_1} {input.short_read_2} -o {output} &> {log.mem}"
 
 # sorting and converting of the mapped short reads
-rule samtools:
+rule sort_mapping:
     input:
         "results/mapping/{strain}/assembly.sam"
     output:
@@ -175,7 +175,7 @@ rule samtools:
         "samtools view -b {input} | samtools sort -o {output} -O BAM -@ {threads} &> {log} && samtools index {output}"
 
 # collecting unmapped reads
-rule unmapped:
+rule collect_unmapped:
     input:
         "results/mapping/{strain}/assembly.bam"
     output:
@@ -218,7 +218,7 @@ rule assembly_summary:
         "scripts/assembly_summary.py"
 
 # merging Unicycler and SPAdes assemblies into single file
-rule join_assemblies:
+rule merge_assemblies:
     input:
         "results/assemblies/{strain}",
         "results/plasmids/{strain}"
@@ -231,7 +231,7 @@ rule join_assemblies:
         "scripts/join_two_fastas.py"
 
 # Annotate merged assembly
-rule genome_annotation:
+rule assembly_annotation:
     # proteins (prodigal) and rRNA (barrnap)
     input:
         "results/assemblies_joined/{strain}/assembly.fasta"
@@ -249,7 +249,7 @@ rule genome_annotation:
         "--mincontiglen {params.minlen} {input} &> {log}"
 
 # Change default names in GBK files to compatible with assembly's sequence IDs
-rule rename_gbk:
+rule rename_annotations:
     input:
         "results/annotations/{strain}/prokka"
     output:
@@ -309,7 +309,7 @@ rule resistance_genes:
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
 # Make separate file with annotations of the resistance genes
-rule rg2gbk:
+rule rg_annotation:
     input:
         "results/resistance_genes/{strain}/rgi_table.txt",
         "results/annotations/{strain}/prokka"
@@ -320,7 +320,7 @@ rule rg2gbk:
         "scripts/rgi2gff.py"
 
 # make bed files with coords of regions around the resistance genes to find repeats in them
-rule get_coordinates:
+rule regions_coords:
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
         "results/annotations/{strain}/prokka",
@@ -337,7 +337,7 @@ rule get_coordinates:
 
 # retrieve regions as fasta according to their coordinates
 # bed tools returns an empty file if a bed file is empty
-rule get_fasta:
+rule regions_seqs:
     input:
         assembly="results/assemblies_joined/{strain}/assembly.fasta",
         bed_normal="results/direct_repeats/{strain}/regions/regions_within.bed",
@@ -356,7 +356,7 @@ rule get_fasta:
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_3_end} -nameOnly -fo {output.right} &>> {log}"
 
 # join regions' ends overlapping 5'/3'-ends
-rule join_ends:
+rule ends_overlaps:
     input:
         "results/direct_repeats/{strain}/regions/regions_within.fasta",
         "results/direct_repeats/{strain}/regions/regions_overlapping_5_end.fasta",
@@ -371,7 +371,7 @@ rule join_ends:
         "scripts/join_ends.py"
 
 # merge fasta files with the regions into a single file
-rule concatenate_regions:
+rule merge_regions:
     input:
         normal="results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
         left_joined="results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
@@ -400,7 +400,7 @@ rule direct_repeats:
 
 # make gff files for repeats found
 # coordinates are LOCAL, i.e. related to a region around RG not the whole chromosome
-rule dr2gff:
+rule dr_annotation:
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch",
         "results/annotations/{strain}/prokka"
@@ -413,7 +413,7 @@ rule dr2gff:
     script: "scripts/GRF_parser.py"
 
 # make a table with repeats coordinates, remove duplicates
-rule dr2csv:
+rule dr_table:
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch"
     output:
@@ -423,7 +423,7 @@ rule dr2csv:
     script: "scripts/make_repeat_tables.py"
 
 # join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
-rule repeat_summary:
+rule dr_summary:
     input:
         expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
         expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"])
