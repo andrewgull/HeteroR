@@ -1,14 +1,18 @@
+# a pipeline got Hetero-resistance project
+# source: github.com/andrewgull/HeteroR
+# configfile: specify via command line
+# example command: snakemake --use-conda --cores 14 --configfile config.yaml --resources mem_mb=10000
+# to get DAG: snakemake --dag results/final/DA63360_all.done | dot -Tpng > dag.png
+
 from snakemake.io import touch, directory, temp, expand
 
-# configfile: specify via command line
-# command to run the pipeline on 14 threads and 10Gb of RAM:
-# snakemake --use-conda --cores 14 --resources mem_mb=10000
-# snakemake --dag results/final/DA63360_all.done | dot -Tpng > dag.png
 
+# Rule to join together all inputs and outputs
 rule all:
     input:
         expand("results/final/{strain}_all.done", strain=config['strains'])
 
+# quality check of raw short reads
 rule QC_illumina_raw:
     input:
         script = "workflow/scripts/run_qualcheck.R",
@@ -23,6 +27,7 @@ rule QC_illumina_raw:
     shell:
         "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
+# quality check of trimmed short reads
 rule QC_illumina_trimmed:
     input:
         script = "workflow/scripts/run_qualcheck.R",
@@ -37,7 +42,9 @@ rule QC_illumina_trimmed:
     shell:
         "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
-rule QC_nanopore_raw:  # also builds length distribution plots
+# quality check for raw long reads
+# later only reads shorter than 1000 bp are removed
+rule QC_nanopore_raw:
     input:
         script = "workflow/scripts/run_qualcheck.R",
         fastq = "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
@@ -51,20 +58,22 @@ rule QC_nanopore_raw:  # also builds length distribution plots
     shell:
         "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
 
-rule QC_nanopore_filtered:
-    input:
-        script = "workflow/scripts/run_qualcheck.R",
-        fastq = "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
-    output:
-        "results/qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv"
-    threads: 18
-    message: "executing FastQC with {threads} threads on {wildcards.strain} filtered Nanopore files"
-    log: "results/logs/{strain}_filtered_qc.log"
-    conda: "envs/rscripts.yaml"
-    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
-    shell:
-        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
-
+# Automated short read trimming
+# fastp parameters:
+        # -q, --qualified_quality_phred
+        # the quality value that a base is qualified. Default 15 means phred quality >=Q15 is qualified. (int [=15])
+        # -W, --cut_window_size
+        # the window size option shared by cut_front, cut_tail or cut_sliding. Range: 1~1000, default: 4 (int [=4])
+        # -r, --cut_right
+        # move a sliding window from front to tail, if meet one window with mean quality < threshold,
+        # drop the bases in the window and the right part, and then stop.
+        # -l, --length_required
+        # reads shorter than length_required will be discarded, default is 15. (int [=15])
+        # -y, --low_complexity_filter
+        # enable low complexity filter. The complexity is defined as the percentage of base that is
+        # different from its next base (base[i] != base[i+1]).
+        # -f, --trim_front1
+        # trimming how many bases in front of read1, default is 0 (int [=0])
 rule trim_illumina:
     input:
         short_read_1 = "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz",
@@ -81,60 +90,30 @@ rule trim_illumina:
     conda: "envs/fastp.yaml"
     params: q="20", W="4", r="20", l="50", f="10"
     shell:
-        # -q, --qualified_quality_phred
-        # the quality value that a base is qualified. Default 15 means phred quality >=Q15 is qualified. (int [=15])
-        # -W, --cut_window_size
-        # the window size option shared by cut_front, cut_tail or cut_sliding. Range: 1~1000, default: 4 (int [=4])
-        # -r, --cut_right
-        # move a sliding window from front to tail, if meet one window with mean quality < threshold,
-        # drop the bases in the window and the right part, and then stop.
-        # -l, --length_required
-        # reads shorter than length_required will be discarded, default is 15. (int [=15])
-        # -y, --low_complexity_filter
-        # enable low complexity filter. The complexity is defined as the percentage of base that is
-        # different from its next base (base[i] != base[i+1]).
-        # -f, --trim_front1
-        # trimming how manythreads = snakemake.threads bases in front for read1, default is 0 (int [=0])
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} "
         "--out2 {output.short_read_2} "
         "--thread {threads} --qualified_quality_phred {params.q} --cut_window_size {params.W} "
         "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --low_complexity_filter "
         "--html {output.report_html} --json {output.report_json} &> {log}"
-# coverage=$( seqkit stats -T resources/data_raw/DA62886/Nanopore/DA62886_all.fastq.gz | cut -f5 | tail -n 1 )
-# expr $coverage/5131220
-# exp(2.2401998 - 0.2889426*coverage)/1+add universal formula to calculate probability(exp(2.2401998 - 0.2889426*coverage))
 
-rule smart_trim_nanopre:
+# simple trimming of long reads: only reads shorter than 1000 bp are removed
+# previous 'smart' filtering was removed
+rule filter_nanopore:
     input:
         "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-         "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+        "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     message:
-        "executing filtlong on {wildcards.strain} long reads using incompleteness prediction"
+        "executing filtlong on {wildcards.strain} long reads"
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
-    threads: 18
-    params: genlen=5131220, intercept=2.2401998, coeff=-0.2889426, prob_cut_off=0.70,
-            min_len=5000, len_weight=1, perc=20, bases=260000000, threads=14  # old filtlong trimming params
-    script:
-        "scripts/trim_nanopore.py"
+    threads: 14
+    params: min_len=1000
+    shell:
+        "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
-# rule filter_nanopore:
-#     input:
-#         "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
-#     output:
-#         "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
-#     message:
-#         "executing filtlong on {wildcards.strain} long reads"
-#     log: "results/logs/{strain}_filtlong.log"
-#     conda: "envs/filtlong.yaml"
-#     threads: 14
-#     params: min_len=5000, len_weight=1, perc=20, bases=260000000
-#     shell:
-#         "filtlong --min_length {params.min_len} --length_weight {params.len_weight} --keep_percent {params.perc} "
-#         "--target_bases {params.bases} {input} 2> {log} | pigz -c -p {threads} > {output}"
-
-rule unicycler:
+# Make an assembly with Unicycler
+rule hybrid_assembly:
     input:
         short_read_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
         short_read_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
@@ -150,6 +129,7 @@ rule unicycler:
     shell:
         "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
 
+# assembly quality control
 rule QC_assembly:
     input:
         "results/assemblies/{strain}",
@@ -163,6 +143,7 @@ rule QC_assembly:
     script:
         "scripts/QC_assembly.py"
 
+# mapping of short reads on the assembly
 rule bwa_map:
     input:
         assembly_dir = "results/assemblies/{strain}",
@@ -180,6 +161,7 @@ rule bwa_map:
         "bwa index {input.assembly_dir}/assembly.fasta &> {log.index} && "
         "bwa mem -t {threads} {input.assembly_dir}/assembly.fasta {input.short_read_1} {input.short_read_2} -o {output} &> {log.mem}"
 
+# sorting and converting of the mapped short reads
 rule samtools:
     input:
         "results/mapping/{strain}/assembly.sam"
@@ -192,6 +174,7 @@ rule samtools:
     shell:
         "samtools view -b {input} | samtools sort -o {output} -O BAM -@ {threads} &> {log} && samtools index {output}"
 
+# collecting unmapped reads
 rule unmapped:
     input:
         "results/mapping/{strain}/assembly.bam"
@@ -205,6 +188,7 @@ rule unmapped:
     shell:
         "samtools view -@ {threads} -u -f 12 -F 256 {input} | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
 
+# assembling plasmids from unmapped reads
 rule plasmid_assembly:
     input:
         r1 = "results/mapping/{strain}/unmapped_1.fastq",
@@ -219,6 +203,7 @@ rule plasmid_assembly:
         # || true prevents the rule from failing when spades throws an error; this happens when unmapped files are too small
         "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log} || true"
 
+# summarize assembly statistics based on Unicycler's log and SPAdes output
 rule assembly_summary:
     input:
         "results/assemblies/{strain}",
@@ -232,6 +217,7 @@ rule assembly_summary:
     script:
         "scripts/assembly_summary.py"
 
+# merging Unicycler and SPAdes assemblies into single file
 rule join_assemblies:
     input:
         "results/assemblies/{strain}",
@@ -244,6 +230,7 @@ rule join_assemblies:
     script:
         "scripts/join_two_fastas.py"
 
+# Annotate merged assembly
 rule genome_annotation:
     # proteins (prodigal) and rRNA (barrnap)
     input:
@@ -261,6 +248,7 @@ rule genome_annotation:
         "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
         "--mincontiglen {params.minlen} {input} &> {log}"
 
+# Change default names in GBK files to compatible with assembly's sequence IDs
 rule rename_gbk:
     input:
         "results/annotations/{strain}/prokka"
@@ -271,6 +259,7 @@ rule rename_gbk:
     script:
         "scripts/rename_genomic_gbk.py"
 
+# Annotate tRNAs separately
 rule trna_annotation:
     # tRNA genes only - tRNAScan-SE
     input:
@@ -292,19 +281,20 @@ rule trna_annotation:
         "tRNAscan-SE -B --forceow -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input} &> {log}"
 
+# Merge both annotations
 rule join_annotations:
     input:
         prokka="results/annotations/{strain}/prokka",
         trnascan="results/annotations/{strain}/trna/trna_seq.fasta"
-        # mode="annotation"
     output:
         "results/annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
     script:
         "scripts/join_two_fastas.py"
 
+# Find resistance genes
+# it ignores tRNAs
+# to get RGI data base, run: rgi load --card_json ./card_database/card.json --local
 rule resistance_genes:
-    # it doesn't work with tRNAs
-    # ALSO: rgi load --card_json ./card_database/card.json --local
     input:
         "results/annotations/{strain}/prokka"
     output:
@@ -318,6 +308,7 @@ rule resistance_genes:
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
         "--input_type protein --local  --num_threads {threads} --include_loose --clean &> {log}"
 
+# Make separate file with annotations of the resistance genes
 rule rg2gbk:
     input:
         "results/resistance_genes/{strain}/rgi_table.txt",
@@ -328,8 +319,8 @@ rule rg2gbk:
     script:
         "scripts/rgi2gff.py"
 
+# make bed files with coords of regions around the resistance genes to find repeats in them
 rule get_coordinates:
-    # requires BEDtools, pybedtools and bcbio-gff
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
         "results/annotations/{strain}/prokka",
@@ -344,6 +335,8 @@ rule get_coordinates:
     script:
         "scripts/flanking_regions.py"
 
+# retrieve regions as fasta according to their coordinates
+# bed tools returns an empty file if a bed file is empty
 rule get_fasta:
     input:
         assembly="results/assemblies_joined/{strain}/assembly.fasta",
@@ -358,11 +351,11 @@ rule get_fasta:
     log: "results/logs/{strain}_bedtools.log"
     conda: "envs/bedtools.yaml"
     shell:
-        # bed tools returns an empty file if a bed file is empty
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_normal} -nameOnly -fo {output.normal} &> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_5_end} -nameOnly -fo {output.left} &>> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_3_end} -nameOnly -fo {output.right} &>> {log}"
 
+# join regions' ends overlapping 5'/3'-ends
 rule join_ends:
     input:
         "results/direct_repeats/{strain}/regions/regions_within.fasta",
@@ -377,6 +370,7 @@ rule join_ends:
     script:
         "scripts/join_ends.py"
 
+# merge fasta files with the regions into a single file
 rule concatenate_regions:
     input:
         normal="results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
@@ -389,9 +383,7 @@ rule concatenate_regions:
     shell:
         "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
 
-# here I increase min_size of repeat up to 20 because having tested min_size=10 I saw millions these tiny repeats
-# which make up 99% of output and make up the longer exact and inexact repeats
-# exact counts: 10-20 bp - 623 000, 20-50 bp - 292 and so on
+# find direct repeat pairs in the regions
 rule direct_repeats:
     input:
         "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
@@ -406,10 +398,9 @@ rule direct_repeats:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
 
-
+# make gff files for repeats found
+# coordinates are LOCAL, i.e. related to a region around RG not the whole chromosome
 rule dr2gff:
-    # this rule creates GFF files with local coordinates of the repeats. Local means related to the region around an RG,
-    # not the entire genome
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch",
         "results/annotations/{strain}/prokka"
@@ -421,8 +412,8 @@ rule dr2gff:
     log: "results/logs/{strain}_gff_perfect.log"
     script: "scripts/GRF_parser.py"
 
+# make a table with repeats coordinates, remove duplicates
 rule dr2csv:
-    # make a csv file with coordinates of each repeat pair (no duplicates)
     input:
         "results/direct_repeats/{strain}/repeats_no_mismatch"
     output:
@@ -431,18 +422,7 @@ rule dr2csv:
     log: "results/logs/{strain}_repeats_csv.log"
     script: "scripts/make_repeat_tables.py"
 
-rule dr2centered:
-    input:
-        script="workflow/scripts/filter_repeat_tables.R",
-        bed="results/direct_repeats/{strain}/regions/regions_within.bed",
-        table="results/annotations/{strain}/repeats/{strain}_repeats.csv"
-    output:
-        table="results/annotations/{strain}/repeats/{strain}_repeats_centered.csv"
-    message: "filtering repeats spanning gene center in strains {wildcards.strain}"
-    conda: "envs/rscripts.yaml"
-    log: "results/logs/{strain}_repeats_centered_csv.log"
-    shell: "Rscript {input.script} --bed {input.bed} --table {input.table} --out {output.table} &> {log}"
-
+# join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
 rule repeat_summary:
     input:
         expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
@@ -453,6 +433,7 @@ rule repeat_summary:
     message: "making summary table with repeat coordinates for all strains"
     script: "scripts/make_repeat_summary_table.py"
 
+# join outputs together
 rule final:
     input:
         qc_ass="results/qualcheck_assembly/{strain}",
@@ -461,18 +442,11 @@ rule final:
         qc_nan_raw="results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
         qc_nan_filt="results/qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv",
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
-        #rgi="results/resistance_genes/{strain}/rgi_table.txt",
         summary="results/assemblies_joined/{strain}/summary.tsv",
-        #rep_regions="results/direct_repeats/{strain}/regions/regions.bed",
-        #bed="results/direct_repeats/{strain}/regions/regions.fasta",
-        #dr_perfect="results/direct_repeats/{strain}/repeats_perfect",
         gff_nomism="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
-        #dr_imperfect="results/direct_repeats/{strain}/repeats_imperfect",
-        #gff_mism="results/annotations/{strain}/repeats/{strain}_repeats_mismatch_perfect.gff",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
         dr_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
-        dr_centered_csv="results/annotations/{strain}/repeats/{strain}_repeats_centered.csv",
         rep_sum="results/tables/repeats_summary.csv"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
