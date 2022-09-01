@@ -228,14 +228,3 @@ The environments are described using YAML files that can be found in ``workflow/
 ## Current workflow's DAG
 
 ![dag](images/dag.png)
-
-## Heatmap example
-NB: more advanced and user-friendly heatmap can be found in `shiny_apps` directory
-
-
-The entire heatmap looks like this 
-![resistance genes heatmap](images/heatmap-146.png)
-
-AMR genes categorised by AMR Gene Family and samples have been clustered hierarchically (see SciPy documentation). 
-Yellow represents a perfect hit, teal represents a strict hit, purple represents no hit. 
-Genes with asterisks (*) appear multiple times because they belong to more than one AMR Gene Family category in the antibiotic resistance ontology (ARO).
