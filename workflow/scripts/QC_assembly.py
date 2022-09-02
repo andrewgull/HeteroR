@@ -29,7 +29,7 @@ def main(in_dir, out_dir, cpus, db_path, tax_ds):
     :param out_dir: output directory
     :param cpus: number of threads
     :param db_path: path to BUSCO database
-    :param tax_ds: taxonomic data set, t.ex. gammaproteobacteria_odb10
+    :param tax_ds: taxonomic data set for BUSCO, to print the full list run: busco --list-datasets
     """
 
     # INPUT looks like "results/assemblies/{strain}" but you need "results/assemblies/{strain}/assembly.fasta"
