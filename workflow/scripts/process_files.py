@@ -47,7 +47,7 @@ def get_args():
                         default="/home/andrei/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains")
     parser.add_argument("-l", "--genome_length", type=int, metavar="<genome length>",
                         help="Approx. genome length, bp (optional, in E.coli=5131220)", default=5131220)
-    parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.2')
+    parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.3')
 
     return parser.parse_args()
 
@@ -120,40 +120,15 @@ def prepare_files(strain_file, threads):
         # to get a full path to each of GZ files in a given strain:
         read_files = glob.glob("resources/data_raw/%s/**/*.gz" % strain, recursive=True)
         # beginning of each line is a strain name, ending - current filename
-        # in the filename - there's a barcode and replicate/read number
-        # I need only 2nd barcode from strains with two barcode directories
-        # and the only barcode from strains with one barcode directories
         illumina_files = [line for line in read_files if "Illumina" in line]
         nanopore_files = [line for line in read_files if "Nanopore" in line]
         # there can be a case when there's no nanopore or illumina files - we report these cases
         if len(illumina_files) == 0:
             messages.append("No Illumina reads found for %s" % strain)
             strains_w_no_files.append(strain)
-            # print("No Illumina reads found for %s" % strain)
         if len(nanopore_files) == 0:
             messages.append("No Nanopore reads found for %s" % strain)
             strains_w_no_files.append(strain)
-            # print("No Nanopore reads found for %s" % strain)
-            nanopore_clean = list()
-        else:
-            # filter out nanopore files you don't need
-            # keep a file if it has 3 'barcode' in the path
-            two_barcodes = [line for line in nanopore_files if line.count("barcode") == 3]
-            if len(two_barcodes) != 0:
-                # use two_barcodes for symlinks
-                nanopore_clean = two_barcodes
-            else:
-                # if you can't find such files, keep those with 2 'barcode' in the path
-                nanopore_clean = [line for line in nanopore_files if line.count("barcode") == 2]
-                # if none found again, don't use those with one 'barcode' they could be of low quality
-                # keep those with words pass
-                if len(nanopore_clean) == 0:
-                    # if dir is called 'Fastq_pass' and has "pass_barcode" in it
-                    nanopore_clean = [line for line in nanopore_files if "Fastq_pass" in line or "pass_barcode" in line]
-                # use these files for symlinks
-
-        # join illumina and nanopore lists
-        read_files = illumina_files + nanopore_clean
         # iterate and create symlinks
         for line in read_files:
             line_new_name = new_name(line)
@@ -176,7 +151,6 @@ def prepare_files(strain_file, threads):
                 os.symlink(source, destination)
             except FileExistsError:
                 messages.append("File exists in destination: %s " % destination)
-                # print("File exists in destination: %s " % destination)
 
     # 3. JOINING NANOPORE READS
     # former rule 'join_nanopore': "zcat {input} | pigz -c -p {threads} > {output}"
