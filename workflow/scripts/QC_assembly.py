@@ -60,4 +60,4 @@ def main(in_dir, out_dir, cpus, db_path, tax_ds):
             write_logs(item, software, strain)
 
 
-main(indir=snakemake.input[0], outdir=snakemake.output[0], cpus=str(snakemake.threads), db_path=snakemake.input[1], tax_ds=snakemake.params[0])
+main(in_dir=snakemake.input[0], out_dir=snakemake.output[0], cpus=str(snakemake.threads), db_path=snakemake.input[1], tax_ds=snakemake.params[0])
