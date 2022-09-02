@@ -110,7 +110,7 @@ The project home directory is `/home/andrei/Data/HetroR`
     │   ├── run_qualcheck.sh
     │   ├── run_quast.py
     │   └── update_symlinks.py
-    └── snakefile
+    └── snakefile.smk
 
 
 ```
