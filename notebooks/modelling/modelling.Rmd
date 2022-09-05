@@ -623,7 +623,7 @@ confusionMatrix(data = predClasses,
 ```{r}
 set.seed(100)
 
-fit_RF_best <- train(x_best, y_best$resistance, 
+fit_RF_best <- train(x_best, y_best, 
                  method = "rf", 
                  trControl = fit_ctrl_rf_roc,
                  #tuneGrid=tunegrid,
@@ -652,12 +652,6 @@ confusionMatrix(data = predClasses,
                 reference = testing_best$resistance,
                 mode="everything",
                 positive="R")
-```
-
-## Stop cluster
-
-```{r}
-stopCluster(cluster)
 ```
 
 
