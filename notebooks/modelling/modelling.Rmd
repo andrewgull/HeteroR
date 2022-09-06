@@ -776,7 +776,7 @@ The params are borrowed from [Kaggle](https://www.kaggle.com/code/nagsdata/simpl
 
 N.B. It's `xgbTree`!
 
-```{r}
+```{r, eval=F}
 trctrl <- trainControl(method = "cv", number = 5)
 
 # Takes a long to time to run in kaggle
