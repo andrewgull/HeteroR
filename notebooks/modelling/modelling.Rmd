@@ -263,13 +263,6 @@ y_best <- training_best$resistance
 
 # Regularized Logistic Regression
 
-## Configure parallel processing
-
-```{r}
-cluster <- makeCluster(detectCores() - 2) # leave two cores
-registerDoParallel(cluster)
-```
-
 ## Hand picked features
 
 ```{r}
@@ -541,12 +534,6 @@ confusionMatrix(data = predClasses,
                 positive="R")
 ```
 
-## De-register parallel processing cluster
-
-```{r}
-stopCluster(cluster)
-```
-
 ## RLR conclusion
 
 On validation data set Fit2 (all non-correlated features) and Fit3 (top 5) are the best two models
@@ -556,13 +543,6 @@ On validation data set Fit2 (all non-correlated features) and Fit3 (top 5) are t
 Same `fitControl_roc` as earlier
 
 on all predictors because RF has automatic feature selection
-
-## Configure parallel processing
-
-```{r}
-cluster <- makeCluster(detectCores() - 2) # leave two cores
-registerDoParallel(cluster)
-```
 
 ## Params tuning
 
@@ -689,13 +669,6 @@ confusionMatrix(data = predClasses,
 # xgBoost
 
 DART variant
-
-## Configure parallel processing
-
-```{r}
-cluster <- makeCluster(detectCores() - 8) # leave two cores
-registerDoParallel(cluster)
-```
 
 ## Params tuning
 
@@ -831,12 +804,6 @@ fit_xgbTree <- train(resistance ~., data = training[2:22], method = "xgbTree",
                 metric="ROC")
 
 fit_xgbTree
-```
-
-## Stop cluster
-
-```{r}
-stopCluster(cluster)
 ```
 
 
