@@ -41,7 +41,7 @@ Every table comes from  `features`
 ```{r data, cache=F}
 features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
 
-features_amp_strain <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp_strain.csv")
+features_amp_strain <- read_csv("data/features_amp_strain.csv")
 
 # rename for consistency
 features_amp_strain <- rename(features_amp_strain, "n.plasmids"=n_plasmids)
@@ -177,17 +177,20 @@ amp_ampr_gene_presence <- as_tibble(
 
 # add strain and summarize counts
 amp_ampr_gene_presence$strain <- amp_amr_gene_types$strain
-amp_ampr_gene_presence <- relocate(amp_ampr_gene_presence, strain, .before="ampC.type.beta.lactamase")
+amp_ampr_gene_presence <- relocate(amp_ampr_gene_presence, strain, .before = "ampC.type.beta.lactamase")
 # here sum is applied to all variables
 amp_amr_types_strain <- amp_ampr_gene_presence %>% group_by(strain) %>% summarise_each(~sum(.))
 # we need shorter names
 names(amp_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL", "TEM", "SAT", "ANT3", "MPH", "APH3.2", "CTX.M", "CAT", "AAC3", "OXA", "AAC6", "ANT2", "FTT", "SHV", "TR.RPP", "APH4", "QNR")
 
 # make tidy for ggplot
-amp_amr_types_strain_td <- gather(amp_amr_types_strain, key="AMR.type", value="N", 2:22)
+amp_amr_types_strain_td <- gather(amp_amr_types_strain, key = "AMR.type", value = "N", 2:22)
 
 # write em to a file
 write.csv(amp_amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amp_amr_types_strain.csv", row.names = FALSE)
+
+# add ampC count to the main features table
+features_amp_strain <- left_join(features_amp_strain, select(amp_amr_types_strain, strain, ampC), by = "strain") %>%  relocate(ampC, .before = "n.rep.total")
 
 # make a plot
 ggplot(amp_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
