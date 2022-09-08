@@ -163,6 +163,8 @@ Conclusion: if number of beta-lactamases is greater than 3 then strain is most l
 ### BL types in each strain
 
 ```{r, fig.width=20, fig.height=6}
+# This section is repeated in feature_engineering.Rmd
+
 # get unique AMR types
 amr_types <- unique(features_amp$AMR.Gene.Family)
 
@@ -186,12 +188,6 @@ names(amp_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL
 # make tidy for ggplot
 amp_amr_types_strain_td <- gather(amp_amr_types_strain, key = "AMR.type", value = "N", 2:22)
 
-# write em to a file
-write.csv(amp_amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amp_amr_types_strain.csv", row.names = FALSE)
-
-# add ampC count to the main features table
-features_amp_strain <- left_join(features_amp_strain, select(amp_amr_types_strain, strain, ampC), by = "strain") %>%  relocate(ampC, .before = "n.rep.total")
-
 # make a plot
 ggplot(amp_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
   theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1, size = 4))+
@@ -200,6 +196,7 @@ ggplot(amp_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
 ```
 
 *ampC* is present in every strain
+
 
 ### Beta-lactamases types per gene
 
