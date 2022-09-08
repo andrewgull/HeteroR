@@ -1461,7 +1461,39 @@ features_amp_strain$ampC.med.AR.len.cen <- ifelse(is.na(features_amp_strain$ampC
 
 ```
 
+## Make BL type counts per strain for the heatmap
 
+```{r}
+# get unique AMR types
+amr_types <- unique(features_amp$AMR.Gene.Family)
+
+# get unique gene rows with AMR.Gene.Family
+amp_amr_gene_types <- features_amp %>% select(strain, record_id, AMR.Gene.Family) %>% distinct()
+
+# make a DF of each AMR type counts in each gene
+amp_ampr_gene_presence <- as_tibble(
+  as.data.frame(
+    map(amr_types, function(x) ifelse(grepl(x, amp_amr_gene_types$AMR.Gene.Family, fixed = T), 1, 0)),
+    col.names = amr_types))
+
+# add strain and summarize counts
+amp_ampr_gene_presence$strain <- amp_amr_gene_types$strain
+amp_ampr_gene_presence <- relocate(amp_ampr_gene_presence, strain, .before = "ampC.type.beta.lactamase")
+
+# here sum is applied to all variables
+amp_amr_types_strain <- amp_ampr_gene_presence %>% group_by(strain) %>% summarise_each(~sum(.))
+
+# we need shorter names
+names(amp_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL", "TEM", "SAT", "ANT3", "MPH", "APH3.2", "CTX.M", "CAT", "AAC3", "OXA", "AAC6", "ANT2", "FTT", "SHV", "TR.RPP", "APH4", "QNR")
+
+# this table will be written to a file for EDA + shiny
+```
+
+## Add ampC counts to features_amp_strain
+
+```{r}
+features_amp_strain <- left_join(features_amp_strain, select(amp_amr_types_strain, strain, ampC), by = "strain") %>%  relocate(ampC, .before = "n.rep.total")
+```
 
 ## Final version
 
@@ -1482,6 +1514,9 @@ write.csv(n.beta.lac, "/home/andrei/Data/HeteroR/results/tables/n_beta_lac.csv",
 write.csv(features_amp_strain, "/home/andrei/Data/HeteroR/results/tables/features_amp_strain.csv", row.names = F)
 
 write.csv(features_amp, "/home/andrei/Data/HeteroR/results/tables/features_amp.csv", row.names = F)
+
+# write amp amr types to a file
+write.csv(amp_amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amp_amr_types_strain.csv", row.names = FALSE)
 ```
 
 # CFX tested strains
