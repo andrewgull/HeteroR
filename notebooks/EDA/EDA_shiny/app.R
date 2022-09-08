@@ -47,7 +47,7 @@ ui <- fluidPage(
                # first column with controls
                column(2, 
                       selectInput(inputId = "bar", label = "Count data",
-                                  choices = c("n.beta.lac", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
+                                  choices = c("n.beta.lac", "ampC", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
                                   selected = "n.beta.lac")
                ),
                # second column with the plot itself
@@ -78,10 +78,12 @@ ui <- fluidPage(
                                   choices = vars, selected = "n.rep.total"),
                       selectInput(inputId = "ycol", label = "Y variable",
                                   choices = vars, selected = "ampC.n.rep.tot"),
-                      sliderInput(inputId = "size", label = "Dot size",
-                                  value = 2, min = 0.5, max = 10),
-                      sliderInput(inputId = "alpha", label = "Opacity",
-                                  value = 0.5, min = 0.1, max = 1)
+                      radioButtons(inputId = "x.trans", label = "X-axis transformation", 
+                                   choices = c("identity", "log", "sqrt"), selected = "identity", 
+                                   choiceNames = c("none", "log", "sqrt")),
+                      radioButtons(inputId = "y.trans", label = "Y-axis transformation", 
+                                   choices = c("identity", "log", "sqrt"), selected = "identity", 
+                                   choiceNames = c("none", "log", "sqrt"))
                ),
                # Right part with the dot plot itself
                column(10, plotOutput("dot.plot"))
@@ -122,9 +124,9 @@ server <- function(input, output) {
     y <- paste0("`",input$ycol,"`")
     
     ggplot(df, aes_string(x, y)) +
-      geom_point(aes(color = resistance), size = input$size, alpha = input$alpha) +
-      geom_smooth(method = "lm") +
+      geom_point(aes(color = resistance), size = 2, alpha = 0.5) +
       scale_color_brewer(palette = "Set1", name = "Resistance") +
+      coord_trans(y = input$y.trans, x = input$x.trans) +
       theme(legend.position = "bottom") +
       ggtitle("Dot plot")
   })
