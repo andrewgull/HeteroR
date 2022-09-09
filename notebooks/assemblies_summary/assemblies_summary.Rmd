@@ -14,27 +14,34 @@ output:
       highlight: github
 ---
 
-```{r, include=F}
+```{r setup, include=F}
+# output setup
 knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F)
-library(dplyr)
-library(tidyr)
+
+# libs
+library(tidyverse)
 library(plotly)
-library(ggplot2)
-library(purrr)
 library(GGally)
-library(caret)
-#library(ggpubr)
+
+# paths
+ass_join <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
+summary_table_output_file <- "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv"
+coverage_table <- "~/Data/HeteroR/results/coverage/coverage_strain_in_data_filt.tsv"
+
+busco_path <- "/home/andrei/Data/HeteroR/results/qualcheck_assembly/"
+busco_filename <- "short_summary.specific.gammaproteobacteria_odb10.busco_results.txt"
 ```
 
 # Assemblies summary table
 
-```{r, message = FALSE, warning = FALSE}
-# just in case
-setwd("/home/andrei/Data/HeteroR/notebooks")
+```{r read, message = FALSE, warning = FALSE}
 
-summary_files <- dir(path="../results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
+# get paths to assembly summary files
+summary_files <- dir(path=ass_join,  pattern = "summary.tsv", recursive=TRUE)
+
+# read and fix
 summary_table <- lapply(summary_files, function(x){
-  df <- read.delim(paste0("../results/assemblies_joined/", x), stringsAsFactors = TRUE)
+  df <- read_delim(paste0(ass_join, x))
   df$Links <- as.integer(gsub(",", "", df$Links, fixed=TRUE))
   df$Length <- as.integer(gsub(",", "", df$Length, fixed=TRUE))
   df$N50 <- as.integer(gsub(",", "", df$N50, fixed=TRUE))
@@ -42,7 +49,7 @@ summary_table <- lapply(summary_files, function(x){
   return(df)
   })
 
-
+# merge into one table
 summary_table <- bind_rows(summary_table)
 
 # add wet-lab-biologist-readable Status
@@ -56,42 +63,83 @@ summary_table$Status2 <- status_new
 
 Assembly summary information has been taken from Unicycler log files, total number of summary files `r length(summary_files)`
 
-```{r}
-summary_table
-```
 
-## Short summary of the full table
+## Descriptive stat
 
 ```{r}
-summary(summary_table)
+skimr::skim(summary_table)
+
 ```
 
 
-## Incomplete assemblies
+## Incomplete assemblies total
 
 ```{r}
 incomplete_assemblies <- summary_table %>% filter(Status=="incomplete")
 incomplete_assemblies
 ```
 
-Total number of strains `r length(unique(summary_table$Strain))`
+## Incomplete chromosomes
 
-Number of strains with at least one incomplete assembly `r length(unique(incomplete_assemblies$Strain))`
+```{r}
+summary_table %>% filter(Type == "Chromosome", Status == "incomplete")
+```
 
-## Circular vs Coverage
+## Incomplete plasmids
+
+```{r}
+summary_table %>% filter(Type == "Plasmid", Status == "incomplete")
+```
+
+## Summarize
+
+```{r}
+summary_table_short <- summary_table %>% 
+  select(Strain,Type, Length, Status) %>% 
+  filter(Type == "Chromosome") %>% 
+  select(-Type) %>% 
+  rename("chrom.length" = Length) %>% 
+  rename("chrom.status" = Status)
+
+n.plasm.complete <- summary_table %>% 
+  select(Strain, Type, Status) %>% 
+  filter(Status == "complete", Type == "Plasmid") %>% 
+  group_by(Strain) %>% 
+  summarize(n.plasm.complete = n())
+
+n.plasm.incomplete <- summary_table %>% 
+  select(Strain, Type, Status) %>% 
+  filter(Status == "incomplete", Type == "Plasmid") %>% 
+  group_by(Strain) %>% 
+  summarize(n.plasm.incomplete = n())
+
+summary_table_short <- left_join(summary_table_short, n.plasm.complete, by="Strain") %>% left_join(n.plasm.incomplete, by="Strain")
+
+summary_table_short$n.plasm.complete <- ifelse(is.na(summary_table_short$n.plasm.complete), 0, summary_table_short$n.plasm.complete)
+
+summary_table_short$n.plasm.incomplete <- ifelse(is.na(summary_table_short$n.plasm.incomplete), 0, summary_table_short$n.plasm.incomplete)
+
+summary_table_short
+```
+
+
+# Coverage
 
 Is coverage affecting circularity?
+
+## Make data set with coverage
 
 To calculate coverage use script `coverage.py`
 
 ```{bash, eval=FALSE}
-# cd Data/HeteroR
-workflow/scripts/coverage.py strains414.txt 5131220 coverage_414.tsv raw
+cd /home/andrei/Data/HeteroR
+
+workflow/scripts/coverage.py ~/Data/HeteroR/resources/strain_lists/strains_in_data_raw.txt 5131220 ~/Data/HeteroR/results/coverage/coverage_strain_in_data_filt.tsv filtered
 
 # Batch coverage:
 # min = 0.871354
-# avg = 59.095106
-# max = 352.535841
+# avg = 15.222861
+# max = 100.173186
 # Coverage ~25x or less is sparse, good for Unicycler.
 # Now you can create config and run the pipeline
 
@@ -101,60 +149,53 @@ workflow/scripts/coverage.py strains414.txt 5131220 coverage_414.tsv raw
 
 Read and process coverage data
 
-```{r}
-coverage <- read.delim("~/Data/HeteroR/results/coverage/coverage_414.tsv")
+```{r, message=F}
+coverage <- read_delim(coverage_table)
+
 coverage$Strain <- map_chr(coverage$file, function(x) strsplit(x, "/")[[1]][3])
+
 coverage <- select(coverage, -c(file, type, format)) %>% filter(!is.na(Strain))
+
+coverage
 ```
 
 Join with summary and write results to a file
 
 ```{r}
 summary_table <- left_join(summary_table, coverage, by="Strain")
-write.csv(summary_table, "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv")
-summary_table
+
+write.csv(summary_table, summary_table_output_file, row.names = F)
+
 ```
 
 
-Is circular == complete? Yes
-
-```{r}
-summary_table %>% filter(Status=="incomplete" & Status2 == "circular")
-```
-
-### Plots
-
-
-Find linear combos
-
-```{r, eval=F}
-require(caret)
-findLinearCombos(summary_num_scaled)
-```
-
-It's too much
-
-#### Circularity vs Coverage
+## Circularity and coverage
 
 ```{r, fig.width=9, fig.height=4}
 ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, coverage)) +
   geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
-  scale_fill_brewer(palette = "Set2")
+  facet_grid(cols = vars(Type))+
+  scale_fill_brewer(palette = "Set2")+
+  guides(fill = "none")+
+  xlab("")
 
 ```
 
 Coverage as well as Type may be good predictors for Circularity
 
-#### Circularity vs Longest component
+## Circularity and reads sum length
 
 ```{r, fig.width=9, fig.height=4}
-ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, Longest_component)) +
+ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, sum_len)) +
   geom_boxplot(aes(fill=Type), notch=F, varwidth = T) +
-  coord_trans(y="log") +
-  scale_fill_brewer(palette = "Set2")
+  coord_trans(y="sqrt") +
+  facet_grid(cols = vars(Type)) +
+  scale_fill_brewer(palette = "Set2")+
+  guides(fill="none")+
+  xlab("")
 ```
 
-#### Circularity vs max length
+## Circularity vs reads max length
 
 Ryan Wick writes the following:
 
@@ -163,31 +204,60 @@ Ryan Wick writes the following:
 ```{r, fig.width=9, fig.height=4}
 ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, max_len)) +
   geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
-  scale_fill_brewer(palette = "Set2")
+  facet_grid(cols = vars(Type))+
+  scale_fill_brewer(palette = "Set2")+
+  guides(fill="none")+
+  xlab("")
 
 ```
 
-#### Circularity and avg length
+## Circularity and reads avg length
 
 ```{r, fig.width=9, fig.height=4}
 ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, avg_len)) +
   geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
-  scale_fill_brewer(palette = "Set2")
+  facet_grid(cols = vars(Type))+
+  scale_fill_brewer(palette = "Set2")+
+  guides(fill="none")+
+  xlab("")
 
 ```
 
-#### Circularity and N50
+## Circularity and number of reads
 
 ```{r, fig.width=9, fig.height=4}
-ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, N50)) +
-  geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
-  scale_fill_brewer(palette = "Set2")
+ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, num_seqs)) +
+  geom_boxplot(aes(fill=Type), notch=F, varwidth = T) +
+  facet_grid(cols = vars(Type))+
+  coord_trans(y="sqrt")+
+  scale_fill_brewer(palette = "Set2")+
+  guides(fill="none")+
+  xlab("")
 
 ```
 
-## Numbers of assemblies with incomplete chromosomes
+## Strains with incomplete chromosomes arranged by coverage
 
-To assemble with Trycycler
+```{r}
+ggplot(summary_table %>% filter(Type=="Chromosome" & Status2 == "linear"), aes(coverage))+
+  geom_histogram(fill="steelblue", bins = 100)
+```
+
+
+### Lowest coverage
+
+Some of the strains were not re-sequenced yet
+
+```{r}
+summary_table %>% 
+  filter(Type=="Chromosome" & Status2 == "linear") %>% 
+  select(Strain, coverage) %>% 
+  arrange(coverage)
+```
+
+### Highest coverage
+
+To resequence or re-assemble with Flye-Medaka-Polypolish
 
 ```{r}
 summary_table %>% 
@@ -197,7 +267,7 @@ summary_table %>%
 ```
 
 
-## Number of plasmids per strain
+# Number of plasmids per strain
 
 ```{r, message = FALSE}
 plasmids_count <- summary_table %>% group_by(Strain, Type) %>% summarise(Count = n()) %>% filter(Type=="Plasmid")
@@ -209,7 +279,7 @@ Total number of strains with plasmids identified `r length(plasmids_count$Strain
 Could not find any plasmids in `r length(unique(summary_table$Strain)) - length(plasmids_count$Strain)` strains
 
 
-### Plasmid counts per strain
+## Plasmid counts per strain
 
 **All following plots are interactive (zoomable, clickable and draggable), in case of problems reload the page**
 
@@ -358,8 +428,6 @@ Same here...
 ## Summary table of BUSCO-analysis results
 
 ```{r}
-busco_path <- "/home/andrei/Data/HeteroR/results/qualcheck_assembly/"
-busco_filename <- "short_summary.specific.gammaproteobacteria_odb10.busco_results.txt"
 
 busco_files <- dir(path = busco_path, pattern = busco_filename, recursive = TRUE)
 
