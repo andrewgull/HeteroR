@@ -433,6 +433,17 @@ rule dr_summary:
     message: "making summary table with repeat coordinates for all strains"
     script: "scripts/make_repeat_summary_table.py"
 
+# R markdown files
+# genome assembly summary
+rule assembly_summary_notebook:
+    input:
+        "results/tables/repeats_summary.csv" # just an example
+    output:
+        "notebooks/assemblies_summary/assemblies_summary.html"
+    script:
+        "notebooks/assemblies_summary/assemblies_summary.Rmd"
+
+
 # join outputs together
 rule final:
     input:
@@ -447,7 +458,8 @@ rule final:
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
         dr_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
-        rep_sum="results/tables/repeats_summary.csv"
+        rep_sum="results/tables/repeats_summary.csv",
+        nb="notebooks/assemblies_summary/assemblies_summary.html"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
