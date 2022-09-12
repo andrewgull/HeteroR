@@ -131,7 +131,7 @@ Every strain has at least one beta-lactamase gene.
 
 This supposed to be the main predictor of HR
 
-### Number of beta-lactamases in Resistant and Susceptible strains
+### Number of beta-lactamases in R and S strains
 
 I remove intermediate resistance (just 2 observations) and not tested strains (several observations)
 
@@ -157,6 +157,28 @@ ggplot(features_amp_strain, aes(n.beta.lac))+
 ```
 
 Conclusion: if number of beta-lactamases is greater than 3 then strain is most likely resistant. The chance a strain with more than 3 BL genes to be susceptible is 0.0143 (1.43%).
+
+### Number of ampC beta-lactamases and other beta-lactamases in R and S strains
+
+```{r}
+bl_count <- features_amp_strain %>% select(resistance, n.beta.lac, ampC) %>% mutate(non.ampC = n.beta.lac - ampC) %>% select(-n.beta.lac)
+
+bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>% 
+  group_by(resistance, gene) %>% summarize(sum=sum(n))
+
+
+ggplot(bl_count_tidy, aes(sum)) +
+  geom_bar(aes(fill=gene), position = "fill", alpha = 0.8)+
+  scale_fill_brewer(palette = "Set2", name = "") + 
+  facet_grid(cols  = vars(resistance)) +
+  #coord_flip() +
+  theme(legend.position = "bottom") +
+  xlab("n beta-lac genes") +
+  ylab("share of strains")
+
+
+```
+
 
 ## Beta-lactamases heatmap
 

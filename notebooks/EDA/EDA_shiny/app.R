@@ -15,6 +15,16 @@ vars <- names(select(features_amp_strain, -c("strain", "AB", "resistance")))
 # get strain names to use in UI (heat map)
 strains <- features_amp_strain$strain
 
+# get ampC and non-ampC counts 
+bl_count <- features_amp_strain %>% 
+  select(resistance, n.beta.lac, ampC) %>% 
+  mutate(non.ampC = n.beta.lac - ampC) %>% 
+  select(-n.beta.lac)
+
+# make it tidy
+bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3)
+
+
 ################
 ### UI part ####
 ################
@@ -42,7 +52,7 @@ ui <- fluidPage(
                column(10, plotOutput("heatmap"))
              ),
              
-             # 2nd row with a bar pot for count data
+             # 2a row with a bar pot for count data
              fluidRow(
                # first column with controls
                column(2, 
@@ -52,6 +62,18 @@ ui <- fluidPage(
                ),
                # second column with the plot itself
                column(10, plotOutput("bar.plot"))
+             ),
+             
+             # 2b row with a bar pot for ampc-non.ampC counts
+             fluidRow(
+               # first column with controls
+               column(2, 
+                      selectInput(inputId = "bar.type", label = "bar type",
+                                  choices = c("fill", "stack"),
+                                  selected = "fill")
+               ),
+               # second column with the plot itself
+               column(10, plotOutput("ampC.bar.plot"))
              ),
              
              # 3rd row with a box plot
@@ -131,7 +153,7 @@ server <- function(input, output) {
       ggtitle("Dot plot")
   })
   
-  # Bar plot
+  # Bar plot A
   output$bar.plot <- renderPlot({
     x <- paste0("`",input$bar,"`")
     ggplot(df, aes_string(x)) +
@@ -142,6 +164,19 @@ server <- function(input, output) {
       ylab("count") +
       ggtitle(paste0("Count data: ", input$bar))
   })
+  
+  # Bar plor B
+  output$ampC.bar.plot <- renderPlot({
+    ggplot(bl_count_tidy, aes(n)) +
+      geom_bar(aes(fill=gene), position = input$bar.type, alpha = 0.8)+
+      scale_fill_brewer(palette = "Set3", name = "", direction = -1) + 
+      facet_grid(cols  = vars(resistance)) +
+      theme(legend.position = "bottom") +
+      xlab("n beta-lac genes") +
+      ylab("share of strains")+
+      ggtitle("Count data: ampC vs non-ampC beta-lactamases")
+  })
+  
   
   # Box plot
   output$box.plot <- renderPlot({
