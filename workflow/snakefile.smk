@@ -189,7 +189,7 @@ rule collect_unmapped:
         "samtools view -@ {threads} -u -f 12 -F 256 {input} | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
 
 # assembling plasmids from unmapped reads
-rule plasmid_assembly:
+rule additional_plasmid_assembly:
     input:
         r1 = "results/mapping/{strain}/unmapped_1.fastq",
         r2 = "results/mapping/{strain}/unmapped_2.fastq"
@@ -229,31 +229,6 @@ rule merge_assemblies:
     log: "results/logs/{strain}_joiner.log"
     script:
         "scripts/join_two_fastas.py"
-
-# approx. coverage by Nanopore reads
-# on every strain available!
-rule coverage:
-    input:
-        "resources/assemblies_joined"
-    output:
-        "results/coverage/coverage_strain_all_filtered.tsv"
-    params:
-        genome_size=5131220,
-        read_file_template="results/data_filtered/%s/Nanopore/%s_all.fastq.gz"
-    message: "calculating filtered Nanopore reads coverage"
-    log: "results/logs/coverage.log"
-    script: "scripts/coverage.py"
-
-# R markdown files
-# genome assembly summary
-rule assembly_summary_notebook:
-    input:
-        "results/assemblies_joined",
-        "results/coverage/coverage_strain_all_filtered.tsv"
-    output:
-        "notebooks/assemblies_summary/assemblies_summary.html"
-    script:
-        "notebooks/assemblies_summary/assemblies_summary.Rmd"
 
 # Annotate merged assembly
 rule assembly_annotation:
@@ -472,9 +447,8 @@ rule final:
         gff_nomism="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
-        dr_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
-        rep_sum="results/tables/repeats_summary.csv",
-        nb="notebooks/assemblies_summary/assemblies_summary.html"
+        rep_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
+        rep_sum="results/tables/repeats_summary.csv"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
