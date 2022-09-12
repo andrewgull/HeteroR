@@ -230,6 +230,31 @@ rule merge_assemblies:
     script:
         "scripts/join_two_fastas.py"
 
+# approx. coverage by Nanopore reads
+# on every strain available!
+rule coverage:
+    input:
+        "resources/assemblies_joined"
+    output:
+        "results/coverage/coverage_strain_all_filtered.tsv"
+    params:
+        genome_size=5131220,
+        read_file_template="results/data_filtered/%s/Nanopore/%s_all.fastq.gz"
+    message: "calculating filtered Nanopore reads coverage"
+    log: "results/logs/coverage.log"
+    script: "scripts/coverage.py"
+
+# R markdown files
+# genome assembly summary
+rule assembly_summary_notebook:
+    input:
+        "results/assemblies_joined",
+        "results/coverage/coverage_strain_all_filtered.tsv"
+    output:
+        "notebooks/assemblies_summary/assemblies_summary.html"
+    script:
+        "notebooks/assemblies_summary/assemblies_summary.Rmd"
+
 # Annotate merged assembly
 rule assembly_annotation:
     # proteins (prodigal) and rRNA (barrnap)
@@ -432,16 +457,6 @@ rule dr_summary:
     log: "results/logs/repeat_summary.log"
     message: "making summary table with repeat coordinates for all strains"
     script: "scripts/make_repeat_summary_table.py"
-
-# R markdown files
-# genome assembly summary
-rule assembly_summary_notebook:
-    input:
-        "results/tables/repeats_summary.csv" # just an example
-    output:
-        "notebooks/assemblies_summary/assemblies_summary.html"
-    script:
-        "notebooks/assemblies_summary/assemblies_summary.Rmd"
 
 
 # join outputs together
