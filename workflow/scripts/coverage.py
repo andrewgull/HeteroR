@@ -60,8 +60,11 @@ def get_coverage(strain_names, genome_length, read_path):
 
 # open log via snakemake
 with open(snakemake.log[0], "w") as f:
-    # get a list of assembled strain names
-    strains = [item.split("/")[-1] for item in glob.glob(os.path.join(snakemake.input[0], "DA*"))]
+    # get a list of strain names
+    strains = [item.split("/")[-1] for item in snakemake.input[0]]
+    # list of paths to Nanopore reads
+    reads = [item for item in snakemake.input[1]]
+    # get the table
     coverage_stats = get_coverage(strain_names=strains, genome_length=snakemake.params[0], read_path=snakemake.params[1])
 
     # coverage table to file
