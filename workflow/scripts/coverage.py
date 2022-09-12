@@ -7,6 +7,7 @@ import argparse
 import os
 
 
+# legacy function
 def get_args():
     """
     Get command line arguments
@@ -27,18 +28,26 @@ def get_args():
     return parser.parse_args()
 
 
-def get_coverage(strain_names, genome_length):
-    """Calculate and summarize coverage"""
+def get_coverage(strain_names, genome_length, read_path):
+    """
+    Calculate and summarize genome coverage by filtered Nanopore reads
+    :param strain_names: a list of all strain names available in assemblies_joined
+    :param genome_length: approximate genome length
+    :param read_path: a python template for path to Nanopore-reads
+    :return: a data frame with coverage stats
+    """
     # collect Nanopore all
     nanopore_stats = list()
     for strain in strain_names:
+        # the script tries to open read files corresponding to all strains assembled
         try:
-            file = glob.glob("results/data_filtered/%s/Nanopore/%s_all.fastq.gz" % (strain, strain))[0]
+            file = glob.glob(read_path % (strain, strain))[0]
             proc = subprocess.Popen("seqkit stats %s -T" % file, shell=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             stats_string = out.decode("utf-8").split("\n")[1].split("\t")
-        except IndexError:  # when there is no Nanopore files
+        except IndexError:
+            # when there is no Nanopore file
             stats_string = ["%s" % strain, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"]
         nanopore_stats.append(stats_string)
 
@@ -49,10 +58,11 @@ def get_coverage(strain_names, genome_length):
     return nanopore_df
 
 
+# open log via snakemake
 with open(snakemake.log[0], "w") as f:
     # get a list of assembled strain names
     strains = [item.split("/")[-1] for item in glob.glob(os.path.join(snakemake.input[0], "DA*"))]
-    coverage_stats = get_coverage(strain_names=strains, genome_length=snakemake.params[0])
+    coverage_stats = get_coverage(strain_names=strains, genome_length=snakemake.params[0], read_path=snakemake.params[1])
 
     # coverage table to file
     coverage_stats.to_csv(path_or_buf=snakemake.output[0], sep="\t", index=False)
@@ -62,4 +72,4 @@ with open(snakemake.log[0], "w") as f:
                                 coverage_stats["coverage"].mean()
     # message
     print("Batch coverage:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler.\n"
-          "Now you can create config and run the pipeline" % (min_cov, avg_cov, max_cov))
+          "Now you can create config and run the pipeline\n" % (min_cov, avg_cov, max_cov))
