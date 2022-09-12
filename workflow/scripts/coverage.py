@@ -3,9 +3,8 @@
 import subprocess
 import glob
 import pandas as pd
-from tqdm import tqdm
 import argparse
-import sys
+import os
 
 
 def get_args():
@@ -28,26 +27,19 @@ def get_args():
     return parser.parse_args()
 
 
-def main(strains_file, genome_length, raw=True):
+def get_coverage(strain_names, genome_length):
     """Calculate and summarize coverage"""
-    with open(strains_file, 'r') as f:
-        strain_names = [line.rstrip() for line in f.readlines()]
-
     # collect Nanopore all
     nanopore_stats = list()
-    for strain in tqdm(strain_names):
+    for strain in strain_names:
         try:
-            if raw:
-                file = glob.glob("resources/data_raw/%s/Nanopore/%s_all.fastq.gz" % (strain, strain))[0]
-            else:
-                file = glob.glob("results/data_filtered/%s/Nanopore/%s_all.fastq.gz" % (strain, strain))[0]
+            file = glob.glob("results/data_filtered/%s/Nanopore/%s_all.fastq.gz" % (strain, strain))[0]
             proc = subprocess.Popen("seqkit stats %s -T" % file, shell=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = proc.communicate()
             stats_string = out.decode("utf-8").split("\n")[1].split("\t")
         except IndexError:  # when there is no Nanopore files
             stats_string = ["%s" % strain, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"]
-
         nanopore_stats.append(stats_string)
 
     nanopore_df = pd.DataFrame.from_records(nanopore_stats, columns=["file", "format", "type", "num_seqs", "sum_len",
@@ -57,22 +49,17 @@ def main(strains_file, genome_length, raw=True):
     return nanopore_df
 
 
-if __name__ == '__main__':
-    args = get_args()
-    strains = args.strains_file
-    length = args.genome_length
-    output = args.output
-    if args.raw == "raw":
-        use_raw_files = True
-    elif args.raw == "filtered":
-        use_raw_files = False
-    else:
-        print("Error! Neither raw nor filtered files to use!")
-        sys.exit(1)
+with open(snakemake.log[0], "w") as f:
+    # get a list of assembled strain names
+    strains = [item.split("/")[-1] for item in glob.glob(os.path.join(snakemake.input[0], "DA*"))]
+    coverage_stats = get_coverage(strain_names=strains, genome_length=snakemake.params[0])
 
-    coverage_stats = main(genome_length=length, strains_file=strains, raw=use_raw_files)
+    # coverage table to file
+    coverage_stats.to_csv(path_or_buf=snakemake.output[0], sep="\t", index=False)
+
+    # calculate stats for message in log
     min_cov, max_cov, avg_cov = coverage_stats["coverage"].min(), coverage_stats["coverage"].max(), \
                                 coverage_stats["coverage"].mean()
-    coverage_stats.to_csv(path_or_buf=output, sep="\t", index=False)
+    # message
     print("Batch coverage:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler.\n"
           "Now you can create config and run the pipeline" % (min_cov, avg_cov, max_cov))
