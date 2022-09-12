@@ -2,6 +2,8 @@
 title: "Genome assemblies summary"
 author: "by AG"
 date: "last update: `r format(Sys.time(), format = '%d %B %Y, %H:%M CET')`"
+params:
+  rmd: "assemblies_summary.Rmd"
 output:
   html_document:
     fig_width: 8
@@ -13,6 +15,8 @@ output:
       theme: cerulean
       highlight: github
 ---
+
+<a download="report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
 
 ```{r setup, include=F}
 # output setup
