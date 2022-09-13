@@ -22,7 +22,8 @@ bl_count <- features_amp_strain %>%
   select(-n.beta.lac)
 
 # make it tidy
-bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3)
+bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>% 
+  group_by(resistance, gene) %>% summarize(sum=sum(n))
 
 
 ################
@@ -69,7 +70,7 @@ ui <- fluidPage(
                # first column with controls
                column(2, 
                       selectInput(inputId = "bar.type", label = "bar type",
-                                  choices = c("fill", "stack"),
+                                  choices = c("stack", "fill"),
                                   selected = "fill")
                ),
                # second column with the plot itself
@@ -167,14 +168,13 @@ server <- function(input, output) {
   
   # Bar plor B
   output$ampC.bar.plot <- renderPlot({
-    ggplot(bl_count_tidy, aes(n)) +
-      geom_bar(aes(fill=gene), position = input$bar.type, alpha = 0.8)+
-      scale_fill_brewer(palette = "Set3", name = "", direction = -1) + 
-      facet_grid(cols  = vars(resistance)) +
+    ggplot(bl_count_tidy, aes(gene, sum))+
+      geom_col(aes(fill=resistance), position = input$bar.type, alpha=0.8) + 
+      scale_fill_brewer(palette = "Set1", name = "") +
       theme(legend.position = "bottom") +
-      xlab("n beta-lac genes") +
-      ylab("share of strains")+
-      ggtitle("Count data: ampC vs non-ampC beta-lactamases")
+      xlab("") +
+      ylab("n/share beta-lac genes")+
+      ggtitle("Count data: ampC vs non-ampC genes")
   })
   
   

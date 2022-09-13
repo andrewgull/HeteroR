@@ -161,22 +161,22 @@ Conclusion: if number of beta-lactamases is greater than 3 then strain is most l
 ### Number of ampC beta-lactamases and other beta-lactamases in R and S strains
 
 ```{r}
-bl_count <- features_amp_strain %>% select(resistance, n.beta.lac, ampC) %>% mutate(non.ampC = n.beta.lac - ampC) %>% select(-n.beta.lac)
+bl_count <- features_amp_strain %>% 
+  select(resistance, n.beta.lac, ampC) %>% 
+  mutate(non.ampC = n.beta.lac - ampC) %>% 
+  select(-n.beta.lac)
 
 bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>% 
   group_by(resistance, gene) %>% summarize(sum=sum(n))
 
 
-ggplot(bl_count_tidy, aes(sum)) +
-  geom_bar(aes(fill=gene), position = "fill", alpha = 0.8)+
-  scale_fill_brewer(palette = "Set2", name = "") + 
-  facet_grid(cols  = vars(resistance)) +
-  #coord_flip() +
+ggplot(bl_count_tidy, aes(gene, sum))+
+  geom_col(aes(fill=resistance), position = "fill", alpha=0.8) + 
+  scale_fill_brewer(palette = "Set1", name = "") +
   theme(legend.position = "bottom") +
-  xlab("n beta-lac genes") +
-  ylab("share of strains")
-
-
+  xlab("") +
+  ylab("share beta-lac genes")
+  
 ```
 
 
