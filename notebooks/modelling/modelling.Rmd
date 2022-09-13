@@ -33,7 +33,7 @@ Data set `features_amp_strain` has been made previously in `feature_engineering.
 
 Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
-```{r}
+```{r, cache=FALSE}
 feat_amp <- read_csv("tables/features_amp_strain.csv", na = "NA")
 feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total") %>% rename(n.ampC="ampC")
 
@@ -70,7 +70,7 @@ There are 3 strains with NAs, we can replace NA s with 0s
 
 `caret::preProcess()` doesn't have method for replacing with zeros...
 
-```{r}
+```{r, cache=FALSE}
 # make it by hand
 feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
 
@@ -87,7 +87,7 @@ feat_amp$ampC.med.tot.rep.len <- ifelse(is.na(feat_amp$ampC.med.tot.rep.len), 0,
 
 scale and center numeric features (real numeric + count, not dummies!)
 
-```{r}
+```{r, cache=FALSE}
 end <- length(feat_amp)
 feat_amp_scaled <- as_tibble(scale(feat_amp[,c(2,3,5:end)]))
 
@@ -103,12 +103,12 @@ feat_amp_scaled <- relocate(feat_amp_scaled, resistance, .before="n.beta.lac.3")
 
 ## Corr plot
 
-```{r, fig.width=12, fig.height=12}
+```{r, fig.width=12, fig.height=12, cache=FALSE}
 cor_matrix <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
 ```
 
-```{r, fig.width=12, fig.height=12}
+```{r, fig.width=12, fig.height=12, cache=FALSE}
 cor_matrix_scaled <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix_scaled, type="upper", method = "number", number.cex=0.8, number.digits=1, tl.col = "black")
 ```
@@ -118,7 +118,7 @@ corrplot::corrplot(cor_matrix_scaled, type="upper", method = "number", number.ce
 
 ### Summary of pairwise correlations between numeric predictors (on scaled data)
 
-```{r}
+```{r, cache=FALSE}
 # exclude resistance, n.beta.lac.3
 feat_amp_proc <- select(feat_amp_scaled, -c(resistance, n.beta.lac.3))
 
@@ -128,7 +128,7 @@ summary(descr_cor[upper.tri(descr_cor)])
 
 ### Variation among the correlation coefficients
 
-```{r, fig.width=4, fig.height=4}
+```{r, fig.width=4, fig.height=4, cache=FALSE}
 boxplot(descr_cor[upper.tri(descr_cor)])
 ```
 
@@ -136,7 +136,7 @@ Remove those predictors that have correlation coefficient greater than 0.75
 
 ### Summary of the new filtered correlations
 
-```{r}
+```{r, cache=FALSE}
 highly_cor <- findCorrelation(descr_cor, cutoff = .75)
 
 feat_amp_proc <- feat_amp_proc[,-highly_cor]
@@ -148,14 +148,14 @@ summary(descr_cor2[upper.tri(descr_cor2)])
 
 ### Variation among filtered correlation coefficients
 
-```{r, fig.width=4, fig.height=4}
+```{r, fig.width=4, fig.height=4, cache=FALSE}
 boxplot(descr_cor2[upper.tri(descr_cor2)])
 ```
 
 
 Add `resistance` and `n.beta.lac.3` columns to filtered columns
 
-```{r}
+```{r, cache=FALSE}
 feat_amp_proc$n.beta.lac.3 <- feat_amp$n.beta.lac.3
 
 feat_amp_proc$resistance <- feat_amp$resistance
@@ -173,7 +173,7 @@ With RF and XGB I will use all predictors + automatic feature selection
 
 ## Data set with non-correlated predictors
 
-```{r}
+```{r, cache=F}
 set.seed(100)
 
 in_train_nocorr <- createDataPartition(y = feat_amp_proc$resistance, p=0.75, list=FALSE)
@@ -183,7 +183,7 @@ training_nocorr <- feat_amp_proc[in_train_nocorr,]
 testing_nocorr <- feat_amp_proc[-in_train_nocorr,]
 
 # to avoid slowness of caret
-x_nocorr <- as.matrix(training_nocorr[,-27])  # 27th column is 'resistance'
+x_nocorr <- as.matrix(training_nocorr[, -27])  # 27th column is 'resistance'
 y_nocorr <- training_nocorr$resistance
 
 ```
