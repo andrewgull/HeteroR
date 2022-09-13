@@ -21,9 +21,6 @@ editor_options:
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = T)
 library(tidyverse)
 library(caret)
-#library(car)
-library(parallel)
-library(doParallel)
 ```
 
 # All models are wrong, but some are useful.
@@ -38,7 +35,7 @@ Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
 ```{r}
 feat_amp <- read_csv("tables/features_amp_strain.csv", na = "NA")
-feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total")
+feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total") %>% rename(n.ampC="ampC")
 
 # create dummy from original target
 #feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
@@ -91,7 +88,8 @@ feat_amp$ampC.med.tot.rep.len <- ifelse(is.na(feat_amp$ampC.med.tot.rep.len), 0,
 scale and center numeric features (real numeric + count, not dummies!)
 
 ```{r}
-feat_amp_scaled <- as_tibble(scale(feat_amp[,c(2,4:39)]))
+end <- length(feat_amp)
+feat_amp_scaled <- as_tibble(scale(feat_amp[,c(2,3,5:end)]))
 
 feat_amp_scaled$resistance <- feat_amp$resistance
 feat_amp_scaled$n.beta.lac.3 <- feat_amp$n.beta.lac.3
@@ -101,45 +99,24 @@ feat_amp_scaled <- relocate(feat_amp_scaled, resistance, .before="n.beta.lac.3")
 ```
 
 
-# Pairs plot
-
-```{r}
-names(feat_amp)
-```
-
-
-One more time
-
-```{r, fig.width=18, fig.height=18, warning=F, message=F}
-# use GGally
-
-GGally::ggpairs(feat_amp_scaled, 
-        columns=c(1:39), 
-        aes(color=resistance, alpha=0.2, dotsize=0.02), 
-        upper = list(continuous = GGally::wrap("cor", size = 2.5)),
-        diag=list(continuous ="barDiag"))+
-  scale_color_brewer(palette = "Set1")+
-  scale_fill_brewer(palette = "Set1")
-```
-
 # Correlated predictors
 
 ## Corr plot
 
 ```{r, fig.width=12, fig.height=12}
-cor_matrix <- cor(feat_amp[,c(2:39)], use = "pairwise.complete.obs")
+cor_matrix <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
 ```
 
 ```{r, fig.width=12, fig.height=12}
-cor_matrix_scaled <- cor(feat_amp[,c(2:39)], use = "pairwise.complete.obs")
+cor_matrix_scaled <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix_scaled, type="upper", method = "number", number.cex=0.8, number.digits=1, tl.col = "black")
 ```
 
 
 ## Identifying and removing correlated features
 
-Summary of pairwise correlations between numeric predictors - on scaled data
+### Summary of pairwise correlations between numeric predictors (on scaled data)
 
 ```{r}
 # exclude resistance, n.beta.lac.3
@@ -149,13 +126,15 @@ descr_cor <- cor(feat_amp_proc)
 summary(descr_cor[upper.tri(descr_cor)])
 ```
 
+### Variation among the correlation coefficients
+
 ```{r, fig.width=4, fig.height=4}
 boxplot(descr_cor[upper.tri(descr_cor)])
 ```
 
 Remove those predictors that have correlation coefficient greater than 0.75
 
-Check the summary of the new filtered correlations
+### Summary of the new filtered correlations
 
 ```{r}
 highly_cor <- findCorrelation(descr_cor, cutoff = .75)
@@ -167,6 +146,13 @@ descr_cor2 <- cor(feat_amp_proc)
 summary(descr_cor2[upper.tri(descr_cor2)])
 ```
 
+### Variation among filtered correlation coefficients
+
+```{r, fig.width=4, fig.height=4}
+boxplot(descr_cor2[upper.tri(descr_cor2)])
+```
+
+
 Add `resistance` and `n.beta.lac.3` columns to filtered columns
 
 ```{r}
@@ -176,9 +162,12 @@ feat_amp_proc$resistance <- feat_amp$resistance
 ```
 
 
+## Conclusion
+
 I will use non-correlated predictors with LR
 
 With RF and XGB I will use all predictors + automatic feature selection
+
 
 # Split the data set
 
@@ -194,7 +183,7 @@ training_nocorr <- feat_amp_proc[in_train_nocorr,]
 testing_nocorr <- feat_amp_proc[-in_train_nocorr,]
 
 # to avoid slowness of caret
-x_nocorr <- as.matrix(training_nocorr[,-26])
+x_nocorr <- as.matrix(training_nocorr[,-27])  # 27th column is 'resistance'
 y_nocorr <- training_nocorr$resistance
 
 ```
@@ -247,7 +236,7 @@ Skewed predictors may be candidates for transformation (log)
 I will use them later along with the set of all predictors
 
 ```{r}
-pred_best <- c("resistance", "n.beta.lac.3", "med.dist.oriC", "n.genes.plus.strand", "n.genes.plasmids", "med.AR.len.cen", "max.rep.len", "n.rep.500", "med.rep.len.100")
+pred_best <- c("resistance", "n.beta.lac.3", "n.ampC", "med.dist.oriC", "n.genes.plus.strand", "n.genes.plasmids", "med.AR.len.cen", "max.rep.len", "n.rep.500", "med.rep.len.100")
 ```
 
 ## Data set with the best predictors
@@ -265,15 +254,16 @@ y_best <- training_best$resistance
 
 ## Hand picked features
 
+I picked these features based on EDA
+
 ```{r}
 feat_selected <- feat_amp_scaled %>% 
-  select(c(resistance, n.beta.lac.3, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen, med.dist.oriC, n.genes.plasmids))
+  select(c(resistance, n.beta.lac.3, n.ampC, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen, med.dist.oriC, n.genes.plasmids))
 
 # NAs in `med.tot.rep.len` and in `med.AR.len.cen` should be replaced with 0s
 feat_selected$med.tot.rep.len <- ifelse(is.na(feat_selected$med.tot.rep.len), 0, feat_selected$med.tot.rep.len)
 feat_selected$med.AR.len.cen <- ifelse(is.na(feat_selected$med.AR.len.cen), 0, feat_selected$med.AR.len.cen)
 
-summary(feat_selected)
 ```
 
 ### Split hand picked dataset
@@ -365,12 +355,14 @@ fit_LR_hand_acc
 
 ```{r}
 
-predClasses_roc <- predict(fit_LR_hand_roc, newdata=testing_hand)
+predClasses_RLR_hand_roc <- predict(fit_LR_hand_roc, newdata=testing_hand)
 
-confusionMatrix(data = predClasses_roc, 
+cm_RLR_hand_roc <- confusionMatrix(data = predClasses_RLR_hand_roc, 
                 reference = testing_hand$resistance,
                 mode="everything",
                 positive="R")
+
+cm_RLR_hand_roc
 ```
 
 Not bad and similar to Model 3a
@@ -379,19 +371,21 @@ Not bad and similar to Model 3a
 
 ```{r}
 
-predClasses_acc <- predict(fit_LR_hand_acc, newdata=testing_hand)
+predClasses_RLR_hand_acc <- predict(fit_LR_hand_acc, newdata=testing_hand)
 
-confusionMatrix(data = predClasses_acc, 
+cm_RLR_hand_acc <- confusionMatrix(data = predClasses_RLR_hand_acc, 
                 reference = testing_hand$resistance,
                 mode="everything",
                 positive="R")
+
+cm_RLR_hand_acc
 ```
 
 This model performs a bit worse than ROC-optimized one
 
-## Non-correlated features
+## Non-correlated predictors
 
-Since LR doesn't have in-built feature selection, let's use *filter* methods (less prone to over-fitting and more computationally efficient than *wrapper* methods)
+Predictors chosen above in `Correlated predictors` section.
 
 ### Training and validation
 
@@ -420,33 +414,55 @@ fit_LR_nocorr_roc
 
 It's better then the model with hand picked predictors (ROC)
 
-**Resamples**
-
-```{r}
-fit_LR_nocorr_roc$resample %>% arrange(-ROC)
-```
-
-**confusion matrix on train**
-
-```{r}
-confusionMatrix.train(fit_LR_nocorr_roc)
-```
 
 ### Testing
 
 ```{r}
 
-predClasses_roc <- predict(fit_LR_nocorr_roc, newdata=testing_nocorr)
+predClasses_RLR_nocorr_roc <- predict(fit_LR_nocorr_roc, newdata=testing_nocorr)
 
-confusionMatrix(data = predClasses_roc, 
+cm_RLR_nocorr_roc <- confusionMatrix(data = predClasses_RLR_nocorr_roc, 
                 reference = testing_nocorr$resistance,
                 mode="everything",
                 positive="R")
+
+cm_RLR_nocorr_roc
 ```
 
 Overall, all non-correlated predictors model is better than the hand-picked one
 
+## Non-correlated predictors without n.beta.lac
 
+...but with `n.beta.lac.3`
+
+### Training and validation
+
+```{r}
+# remove n.beta.lac - column number 1
+fit_LR_nocorr_roc2 <- train(x = x_nocorr[, -1],
+                           y = y_nocorr,
+                 method = "regLogistic", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+
+fit_LR_nocorr_roc2
+```
+
+### Testing
+
+```{r}
+predClasses_RLR_nocorr_roc2 <- predict(fit_LR_nocorr_roc2, newdata=testing_nocorr[, -1])
+
+cm_RLR_nocorr_roc2 <- confusionMatrix(data = predClasses_RLR_nocorr_roc2, 
+                reference = testing_nocorr$resistance,
+                mode="everything",
+                positive="R")
+
+cm_RLR_nocorr_roc2
+```
+
+Apparently, `n.beta.lac` is very importnat in conjunction with other predictors
 
 ## LR on automatically selected features
 
@@ -509,34 +525,24 @@ fit_LR_top5_roc <- train(x = x_top5,
 fit_LR_top5_roc
 ```
 
-**Resamples**
-
-```{r}
-fit_LR_top5_roc$resample %>% arrange(-ROC)
-```
-
-**Confusion matrix on train**
-
-```{r}
-confusionMatrix.train(fit_LR_top5_roc)
-```
-
 
 ### Testing
 
 ```{r}
 
-predClasses <- predict(fit_LR_top5_roc, newdata=testing_top5)
+predClasses_RLR_top5_roc <- predict(fit_LR_top5_roc, newdata=testing_top5)
 
-confusionMatrix(data = predClasses, 
+cm_RLR_top5_roc <- confusionMatrix(data = predClasses_RLR_top5_roc, 
                 reference = testing_top5$resistance,
                 mode="everything",
                 positive="R")
+
+cm_RLR_top5_roc
 ```
 
 ## RLR conclusion
 
-On validation data set Fit2 (all non-correlated features) and Fit3 (top 5) are the best two models
+On testing data set, model with all non-correlated features is the best model.
 
 # Random Forest
 
@@ -580,23 +586,74 @@ fit_RF
 
 ### Predictors importance
 
-```{r}
-imp_vars_rf <- varImp(fit_RF)
+```{r, fig.width=8, fig.height=6}
+imp_vars_rf_all <- varImp(fit_RF)
 
-plot(imp_vars_rf, main="Variable Importance with RF")
+plot(imp_vars_rf_all, main="Variable Importance with RF (all)")
 ```
 
 
 ### Testing
 
 ```{r}
-predClasses <- predict(fit_RF, newdata=testing_all)
+predClasses_RF_all <- predict(fit_RF, newdata=testing_all)
 
-confusionMatrix(data = predClasses, 
+cm_RF_all <- confusionMatrix(data = predClasses_RF_all, 
                 reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
+
+cm_RF_all
 ```
+
+## Data set with all predictors, except n.ampC (old style)
+
+### Training and validation
+
+```{r}
+set.seed(100)
+
+# without n.ampC
+fit_RF_no_n.ampC <- train(x = x_all[, -3],
+                y = y_all,  
+                 method = "rf", 
+                 trControl = fit_ctrl_rf_roc,
+                 #tuneGrid=tunegrid,
+                 verbose = FALSE,
+                 metric="ROC")
+
+fit_RF_no_n.ampC
+```
+
+
+### Feature importance
+
+```{r, fig.width=8, fig.height=6}
+imp_vars_rf_no_n.ampC <- varImp(fit_RF_no_n.ampC)
+
+plot(imp_vars_rf_no_n.ampC, main="Variable Importance with RF (no n.ampC)")
+
+```
+
+
+### Testing
+
+```{r}
+# without n.ampC
+predClasses_RF_no_n.ampC <- predict(fit_RF_no_n.ampC, newdata=testing_all[, -4])
+
+cm_RF_no_n.ampC <- confusionMatrix(data = predClasses_RF_no_n.ampC, 
+                reference = testing_all$resistance,
+                mode="everything",
+                positive="R")
+
+cm_RF_no_n.ampC
+```
+
+RF is better without `n.ampC`
+
+
+## Data set with the best predictors
 
 ### Training and validation
 
@@ -616,22 +673,24 @@ fit_RF_best
 ### Predictors importance
 
 ```{r}
-imp_vars_rf <- varImp(fit_RF_best)
+imp_vars_rf_best <- varImp(fit_RF_best)
 
-plot(imp_vars_rf, main="Variable Importance with RF")
+plot(imp_vars_rf_best, main="Variable Importance with RF (manual best)")
 ```
 
-
+Again, `n.ampC` doesn't look important at all.
 
 ### Testing
 
 ```{r}
-predClasses <- predict(fit_RF_best, newdata=testing_best)
+predClasses_RF_best <- predict(fit_RF_best, newdata=testing_best)
 
-confusionMatrix(data = predClasses, 
+cm_RF_best <- confusionMatrix(data = predClasses_RF_best, 
                 reference = testing_best$resistance,
                 mode="everything",
                 positive="R")
+
+cm_RF_best
 ```
 
 
@@ -639,38 +698,73 @@ confusionMatrix(data = predClasses,
 
 Same `fitControl_roc` as earlier
 
-on all non-correlated predictors
+## All non-correlated predictors
 
-## Training and validation
+### Training and validation
 
 ```{r}
 set.seed(100)
 
-fit_SVM <- train(resistance ~ ., data = training_all, 
+fit_SVM_all <- train(resistance ~ ., data = training_all,
                  method = "svmRadial", 
                  trControl = fitControl_roc,
                  verbose = FALSE,
                  metric="ROC")
 
-fit_SVM
+fit_SVM_all
 ```
 
-## Testing
+### Testing
 
 ```{r}
-predClasses <- predict(fit_SVM, newdata=testing_all)
+predClasses_SVM_all <- predict(fit_SVM_all, newdata=testing_all)
 
-confusionMatrix(data = predClasses, 
+cm_SVM_all <- confusionMatrix(data = predClasses_SVM_all, 
                 reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
+
+cm_SVM_all
 ```
+
+## Non-correlated predictors
+
+### Training and validation
+
+```{r}
+set.seed(100)
+
+fit_SVM_nocorr <- train(resistance ~ ., data = training_nocorr, 
+                 method = "svmRadial", 
+                 trControl = fitControl_roc,
+                 verbose = FALSE,
+                 metric="ROC")
+
+fit_SVM_nocorr
+```
+
+
+### Testing
+
+```{r}
+predClasses_SVM_nocorr <- predict(fit_SVM_nocorr, newdata=testing_nocorr)
+
+cm_SVM_nocorr <- confusionMatrix(data = predClasses_SVM_nocorr, 
+                reference = testing_nocorr$resistance,
+                mode="everything",
+                positive="R")
+
+cm_SVM_nocorr
+```
+
 
 # xgBoost
 
 DART variant
 
 ## Params tuning
+
+5 repeats instead of 10, to make things faster
 
 ```{r}
 fit_ctrl_xgb_roc <- trainControl(## 5-fold CV
@@ -690,39 +784,40 @@ fit_ctrl_xgb_roc <- trainControl(## 5-fold CV
 ```{r}
 set.seed(100)
 
-fit_XGB <- train(x = x_all, y = y_all, 
+fit_XGB_all <- train(x = x_all, y = y_all, 
                  method = "xgbDART", 
                  trControl = fit_ctrl_xgb_roc,
                  verbose = FALSE,
                  metric="ROC",
                  verbosity=0)
-fit_XGB$bestTune
+fit_XGB_all$bestTune
 ```
 
 #### Best model
 
 ```{r}
-filter(fit_XGB$results, nrounds == 150, max_depth == 1, eta == 0.3, gamma == 0, subsample == 0.75, colsample_bytree == 0.6, rate_drop == 0.01, skip_drop == 0.95, min_child_weight == 1)
+filter(fit_XGB_all$results, nrounds == 150, max_depth == 1, eta == 0.3, gamma == 0, subsample == 0.75, colsample_bytree == 0.6, rate_drop == 0.01, skip_drop == 0.95, min_child_weight == 1)
 ```
 
 ### Features importance
 
 ```{r}
-imp_vars_xgb <- varImp(fit_XGB)
+imp_vars_xgb_all <- varImp(fit_XGB_all)
 
-plot(imp_vars_xgb, main="Variable Importance with XGB")
+plot(imp_vars_xgb_all, main="Variable Importance with XGB (all)")
 ```
 
 ### Testing
 
-
 ```{r}
-predClasses <- predict(fit_XGB, newdata=testing_all)
+predClasses_XGB_all <- predict(fit_XGB_all, newdata=testing_all)
 
-confusionMatrix(data = predClasses, 
+cm_XGB_all <- confusionMatrix(data = predClasses_XGB_all, 
                 reference = testing_all$resistance,
                 mode="everything",
                 positive="R")
+
+cm_XGB_all
 ```
 
 ## Data set with best predictors
@@ -734,9 +829,9 @@ Scaled and centered train data set!
 ```{r}
 set.seed(100)
 
-x_best_scaled <- scale(x_best)
+#x_best_scaled <- scale(x_best)
 
-fit_XGB_best <- train(x=x_best_scaled, y=y_best, 
+fit_XGB_best <- train(x=x_best, y=y_best, 
                  method = "xgbDART", 
                  trControl = fit_ctrl_xgb_roc,
                  verbose = FALSE,
@@ -751,91 +846,85 @@ fit_XGB_best$bestTune
 
 
 ```{r}
-imp_vars_xgb <- varImp(fit_XGB_best)
+imp_vars_xgb_best <- varImp(fit_XGB_best)
 
-plot(imp_vars_xgb, main="Variable Importance with XGB")
+plot(imp_vars_xgb_best, main="Variable Importance with XGB (best)")
 ```
 
 ### Testing
 
 ```{r}
-predClasses <- predict(fit_XGB_best, newdata=testing_best)
+predClasses_XGB_best <- predict(fit_XGB_best, newdata=testing_best)
 
-confusionMatrix(data = predClasses, 
+cm_XGB_best <- confusionMatrix(data = predClasses_XGB_best, 
                 reference = testing_best$resistance,
                 mode="everything",
                 positive="R")
+
+cm_XGB_best
 ```
-
-
-## Tune grid
-
-Fixed grid parameters, is much faster of course.
-
-The params are borrowed from [Kaggle](https://www.kaggle.com/code/nagsdata/simple-r-xgboost-caret-kernel/script)
-
-N.B. It's `xgbTree`!
-
-```{r, eval=F}
-trctrl <- trainControl(method = "cv", number = 5)
-
-# Takes a long to time to run in kaggle
-#tune_grid <- expand.grid(nrounds=c(100,200,300,400), 
-#                         max_depth = c(3:7),
-#                         eta = c(0.05, 1),
-#                         gamma = c(0.01),
-#                         colsample_bytree = c(0.75),
-#                         subsample = c(0.50),
-#                         min_child_weight = c(0))
-
-# Tested the above setting in local machine
-tune_grid <- expand.grid(nrounds = 200,
-                        max_depth = 5,
-                        eta = 0.05,
-                        gamma = 0.01,
-                        colsample_bytree = 0.75,
-                        min_child_weight = 0,
-                        subsample = 0.5)
-
-fit_xgbTree <- train(resistance ~., data = training[2:22], method = "xgbTree",
-                trControl=fitControl_roc,
-                tuneGrid = tune_grid,
-                tuneLength = 10,
-                metric="ROC")
-
-fit_xgbTree
-```
-
 
 # Model comparison
 
+## Table of performance metrics on testing data set
+
+```{r, eval=F}
+# take results from confusionMatrix objects
+cm_list <- list(cm_RLR_hand_roc, cm_RLR_nocorr_roc, cm_RLR_nocorr_roc2, cm_RLR_top5_roc, cm_RF_all, cm_RF_no_n.ampC, cm_RF_best, cm_SVM_all, cm_SVM_nocorr)
+
+
+perf.metrics <- as.data.frame(
+  sapply(cm_list, function(cm){
+    c(cm$overall[1], cm$overall[2], cm$byClass[1], cm$byClass[2], cm$byClass[7])
+  })
+)
+
+perf.metrics$Metric <- row.names(perf.metrics)
+perf.metrics <- as_tibble(perf.metrics) %>% relocate(Metric, .before = V1)
+
+colnames(perf.metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "SVM.all", "SVM.nocorr")
+
+# calculate AUC
+
+# quite stupid way
+fit_list <- list(fit_LR_hand_roc, fit_LR_nocorr_roc, fit_LR_nocorr_roc2, fit_LR_top5_roc, fit_RF, fit_RF_no_n.ampC, fit_RF_best, fit_SVM_all, fit_SVM_nocorr)
+
+testing_list <- list(testing_hand, testing_nocorr, testing_nocorr[, -1], testing_top5, testing_all, testing_all[, -4], testing_best, testing_all, testing_nocorr)
+
+# iterate over both lists
+auc_vec <- sapply(c(1:length(fit_list)), function(i){
+  #print(i)
+  f <- fit_list[[i]]
+  t <- testing_list[[i]]
+  
+  pred_prob <- predict.train(f, newdata = t, type = "prob")
+  pred_roc <- ROCR::prediction(predictions = pred_prob$S, labels = t$resistance)
+  auc <- round(unlist(slot(ROCR::performance(pred_roc, measure = "auc"), "y.values")), 3)
+  
+  return(auc)
+})
+
+auc_df <- as.data.frame(t(data.frame(auc=auc_vec)))
+auc_df
+
+perf.metrics
+```
+
+
 ## During training and validation
 
-This resampling data come from training and validation, so they reflect model search not the average model performance.
+This resampling data comes from training and validation, so they reflect model search not the average model performance.
 
 ```{r}
 #, SVM=FitSVM, XGB.DART=fit_xgbDART, XGB.Tree=fit_xgbTree
-models_compare <- resamples(list(RLR_hand=fit_LR_hand_roc, RLR_nocorr=fit_LR_nocorr_roc, RF=fit_RF, SVM=fit_SVM))
+models_compare <- resamples(list(RLR_hand=fit_LR_hand_roc, RLR_nocorr=fit_LR_nocorr_roc, RLR_nocorr2=fit_LR_nocorr_roc2, RLR_top5=fit_LR_top5_roc, RF_all=fit_RF, RF_best=fit_RF_best, RF_noAMPC=fit_RF_no_n.ampC, SVM_all=fit_SVM_all, SVM_nocorr=fit_SVM_nocorr, XGB_all=fit_XGB_all, XGB_best=fit_XGB_best))
 
 summary(models_compare)
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=6}
 scales <- list(x=list(relation="free"), y=list(relation="free"))
 bwplot(models_compare, scales=scales)
-```
-
-```{r}
-models_compare_xgb <- resamples(list(XGB=fit_XGB, XGB.best=fit_XGB_best))
-
-summary(models_compare_xgb)
-
-```
-
-
-
-```{r}
-bwplot(models_compare_xgb, scales=scales)
 ```
 
 
@@ -852,7 +941,7 @@ library(ROCR)
 #pred_prob_xgb <- predict(fit_XGB, type="prob")
 
 # on testing data
-pred_prob_xgb <- predict.train(fit_XGB, newdata = testing_all, type = "prob")
+pred_prob_xgb <- predict.train(fit_XGB_all, newdata = testing_all, type = "prob")
 
 pred_roc_xgb <- prediction(predictions = pred_prob_xgb$S, labels = testing_all$resistance)
 
