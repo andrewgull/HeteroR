@@ -693,6 +693,46 @@ cm_RF_best <- confusionMatrix(data = predClasses_RF_best,
 cm_RF_best
 ```
 
+## Data set with non-correlated predictors
+
+### Training and validation
+
+```{r}
+set.seed(100)
+
+fit_RF_nocorr <- train(x_nocorr, y_nocorr, 
+                 method = "rf", 
+                 trControl = fit_ctrl_rf_roc,
+                 #tuneGrid=tunegrid,
+                 verbose = FALSE,
+                 metric="ROC")
+
+fit_RF_nocorr
+```
+
+
+### Predictors importance
+
+```{r}
+imp_vars_rf_nocorr <- varImp(fit_RF_nocorr)
+
+plot(imp_vars_rf_nocorr, main="Variable Importance with RF (non-correlated)")
+```
+
+
+### Testing
+
+```{r}
+predClasses_RF_nocorr <- predict(fit_RF_nocorr, newdata=testing_nocorr)
+
+cm_RF_nocorr <- confusionMatrix(data = predClasses_RF_nocorr, 
+                reference = testing_nocorr$resistance,
+                mode="everything",
+                positive="R")
+
+cm_RF_nocorr
+```
+
 
 # SVM
 
@@ -866,25 +906,25 @@ cm_XGB_best
 
 # Model comparison
 
-## Table of performance metrics on testing data set
+## Performance metrics on testing data set
 
 ```{r, eval=F}
 # take results from confusionMatrix objects
-cm_list <- list(cm_RLR_hand_roc, cm_RLR_nocorr_roc, cm_RLR_nocorr_roc2, cm_RLR_top5_roc, cm_RF_all, cm_RF_no_n.ampC, cm_RF_best, cm_SVM_all, cm_SVM_nocorr)
+cm_list <- list(cm_RLR_hand_roc, cm_RLR_nocorr_roc, cm_RLR_nocorr_roc2, cm_RLR_top5_roc, cm_RF_all, cm_RF_no_n.ampC, cm_RF_best, cm_RF_nocorr, cm_SVM_all, cm_SVM_nocorr)
 
 
 perf_metrics <- as.data.frame(
   sapply(cm_list, function(cm){
-    c(cm$overall[1], cm$overall[2], cm$byClass[1], cm$byClass[2], cm$byClass[7])
+    round(c(cm$overall[1], cm$overall[2], cm$byClass[1], cm$byClass[2], cm$byClass[7]), 3)
   })
 )
 
 # calculate AUC
 
 # quite stupid way
-fit_list <- list(fit_LR_hand_roc, fit_LR_nocorr_roc, fit_LR_nocorr_roc2, fit_LR_top5_roc, fit_RF, fit_RF_no_n.ampC, fit_RF_best, fit_SVM_all, fit_SVM_nocorr)
+fit_list <- list(fit_LR_hand_roc, fit_LR_nocorr_roc, fit_LR_nocorr_roc2, fit_LR_top5_roc, fit_RF, fit_RF_no_n.ampC, fit_RF_best, fit_RF_nocorr, fit_SVM_all, fit_SVM_nocorr)
 
-testing_list <- list(testing_hand, testing_nocorr, testing_nocorr[, -1], testing_top5, testing_all, testing_all[, -4], testing_best, testing_all, testing_nocorr)
+testing_list <- list(testing_hand, testing_nocorr, testing_nocorr[, -1], testing_top5, testing_all, testing_all[, -4], testing_best, testing_nocorr, testing_all, testing_nocorr)
 
 # iterate over both lists
 auc_vec <- sapply(c(1:length(fit_list)), function(i){
@@ -907,7 +947,7 @@ perf_metrics <- bind_rows(perf_metrics, auc_df)
 perf_metrics$Metric <- row.names(perf_metrics)
 perf_metrics <- as_tibble(perf_metrics) %>% relocate(Metric, .before = V1)
 # make other columns names
-colnames(perf_metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "SVM.all", "SVM.nocorr")
+colnames(perf_metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "RF.nocorr", "SVM.all", "SVM.nocorr")
 # write to file
 write.csv(perf_metrics, "tables/metrics.csv", row.names = FALSE)
 
