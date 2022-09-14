@@ -598,7 +598,7 @@ assembly_summary
 
 ```{r}
 plasmid_counts <- assembly_summary %>% group_by(Strain, Type) %>% 
-  summarise(n_plasmids=n()) %>% 
+  summarise(n.plasmids=n()) %>% 
   filter(Type=="Plasmid") %>% 
   select(-Type) %>% 
   rename("strain"=Strain)
@@ -608,9 +608,9 @@ and add it to `features`
 
 ```{r}
 features_filtered <- left_join(features_filtered, plasmid_counts, by="strain")
-# NA in n_plasmids means 0
-features_filtered$n_plasmids <- ifelse(is.na(features_filtered$n_plasmids), 0, features_filtered$n_plasmids)
-features_filtered <- features_filtered %>% relocate(n_plasmids, .before="ORF_ID")
+# NA in n.plasmids means 0
+features_filtered$n.plasmids <- ifelse(is.na(features_filtered$n.plasmids), 0, features_filtered$n.plasmids)
+features_filtered <- features_filtered %>% relocate(n.plasmids, .before="ORF_ID")
 head(features_filtered)
 ```
 
@@ -770,7 +770,7 @@ features table
 plasmid_counts_alt <- headers %>% 
   filter(label=="plasmid") %>% 
   group_by(strain) %>% 
-  summarise(n_plasmids_alt=sum(depth.rounded))
+  summarise(n.plasmids_alt=sum(depth.rounded))
 
 plasmid_counts_alt
 ```
@@ -831,7 +831,7 @@ Here I will analyse only strains tested for resistance to AMP
 # keep for per gene feature calculations
 features_amp <- features_filtered %>% filter(AB=="AMP") %>% distinct()
 # this df is for per strain calculation
-features_amp_strain <- features_amp %>% select(strain, n_plasmids, AB, resistance) %>% distinct()
+features_amp_strain <- features_amp %>% select(strain, n.plasmids, AB, resistance) %>% distinct()
 head(features_amp_strain)
 ```
 
@@ -1501,7 +1501,7 @@ Remove intermediate resistance and not tested strains
 
 ```{r}
 # add plasmids if you forgot
-# features_amp_strain <- left_join(features_amp_strain, features_amp %>% select(strain, n_plasmids) %>% distinct(), by="strain") %>% relocate(n_plasmids, .before="n.rep.total")
+# features_amp_strain <- left_join(features_amp_strain, features_amp %>% select(strain, n.plasmids) %>% distinct(), by="strain") %>% relocate(n.plasmids, .before="n.rep.total")
 features_amp_strain <- features_amp_strain %>% filter(resistance != "I", !is.na(resistance))
 features_amp_strain
 ```
@@ -1532,7 +1532,7 @@ Cefotaxime is a semisynthetic cephalosporin taken parenterally. It is **resistan
 # keep for per gene feature calculations
 features_cfx <- features_filtered %>% filter(AB=="CFX") %>% distinct()
 # this df is for per strain calculation
-features_cfx_strain <- features_cfx %>% select(strain, n_plasmids, AB, resistance) %>% distinct()
+features_cfx_strain <- features_cfx %>% select(strain, n.plasmids, AB, resistance) %>% distinct()
 head(features_cfx_strain)
 ```
 
