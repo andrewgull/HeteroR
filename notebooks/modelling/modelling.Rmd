@@ -900,7 +900,7 @@ auc_vec <- sapply(c(1:length(fit_list)), function(i){
 })
 
 # make it 1 row
-auc_df <- as.data.frame(t(data.frame(auc=auc_vec)))
+auc_df <- as.data.frame(t(data.frame(AUC=auc_vec)))
 # add to other metrics
 perf_metrics <- bind_rows(perf_metrics, auc_df)
 # make Metric column
