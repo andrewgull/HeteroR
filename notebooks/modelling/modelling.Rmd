@@ -873,16 +873,11 @@ cm_XGB_best
 cm_list <- list(cm_RLR_hand_roc, cm_RLR_nocorr_roc, cm_RLR_nocorr_roc2, cm_RLR_top5_roc, cm_RF_all, cm_RF_no_n.ampC, cm_RF_best, cm_SVM_all, cm_SVM_nocorr)
 
 
-perf.metrics <- as.data.frame(
+perf_metrics <- as.data.frame(
   sapply(cm_list, function(cm){
     c(cm$overall[1], cm$overall[2], cm$byClass[1], cm$byClass[2], cm$byClass[7])
   })
 )
-
-perf.metrics$Metric <- row.names(perf.metrics)
-perf.metrics <- as_tibble(perf.metrics) %>% relocate(Metric, .before = V1)
-
-colnames(perf.metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "SVM.all", "SVM.nocorr")
 
 # calculate AUC
 
@@ -904,10 +899,20 @@ auc_vec <- sapply(c(1:length(fit_list)), function(i){
   return(auc)
 })
 
+# make it 1 row
 auc_df <- as.data.frame(t(data.frame(auc=auc_vec)))
-auc_df
+# add to other metrics
+perf_metrics <- bind_rows(perf_metrics, auc_df)
+# make Metric column
+perf_metrics$Metric <- row.names(perf_metrics)
+perf_metrics <- as_tibble(perf_metrics) %>% relocate(Metric, .before = V1)
+# make other columns names
+colnames(perf_metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "SVM.all", "SVM.nocorr")
+# write to file
+write.csv(perf_metrics, "tables/metrics.csv", row.names = FALSE)
 
-perf.metrics
+# show
+perf_metrics
 ```
 
 
