@@ -6,9 +6,6 @@ library(tidyverse)
 # Read the main data table with features
 features_amp_strain <- read_csv("../data/features_amp_strain.csv")
 
-# rename 'n_plasmids' for consistency of column names
-features_amp_strain <- rename(features_amp_strain, "n.plasmids" = n_plasmids)
-
 # get vars to use later in UI (selectInput)
 vars <- names(select(features_amp_strain, -c("strain", "AB", "resistance")))
 
