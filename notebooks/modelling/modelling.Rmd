@@ -35,7 +35,7 @@ Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
 ```{r, cache=FALSE}
 feat_amp <- read_csv("tables/features_amp_strain.csv", na = "NA")
-feat_amp <- rename(feat_amp, n.plasmids="n_plasmids") %>% relocate(n.plasmids, .before="n.rep.total") %>% rename(n.ampC="ampC")
+feat_amp <- feat_amp %>% relocate(n.plasmids, .before="n.rep.total") %>% rename(n.ampC="ampC")
 
 # create dummy from original target
 #feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
