@@ -42,9 +42,6 @@ Every table comes from  `features`
 features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
 
 features_amp_strain <- read_csv("data/features_amp_strain.csv")
-
-# rename for consistency
-features_amp_strain <- rename(features_amp_strain, "n.plasmids"=n_plasmids)
 ```
 
 ## Descriptive statistics
