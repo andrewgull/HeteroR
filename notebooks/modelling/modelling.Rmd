@@ -21,6 +21,7 @@ editor_options:
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = T)
 library(tidyverse)
 library(caret)
+library(ROCR)
 ```
 
 # All models are wrong, but some are useful.
@@ -908,9 +909,11 @@ cm_XGB_best
 
 ## Performance metrics on testing data set
 
-```{r, eval=F}
+The table will be written to file `tables/metrics.csv`
+
+```{r, eval=T}
 # take results from confusionMatrix objects
-cm_list <- list(cm_RLR_hand_roc, cm_RLR_nocorr_roc, cm_RLR_nocorr_roc2, cm_RLR_top5_roc, cm_RF_all, cm_RF_no_n.ampC, cm_RF_best, cm_RF_nocorr, cm_SVM_all, cm_SVM_nocorr)
+cm_list <- list(cm_RLR_hand_roc, cm_RLR_nocorr_roc, cm_RLR_nocorr_roc2, cm_RLR_top5_roc, cm_RF_all, cm_RF_no_n.ampC, cm_RF_best, cm_RF_nocorr, cm_SVM_all, cm_SVM_nocorr, cm_XGB_all, cm_XGB_best)
 
 
 perf_metrics <- as.data.frame(
@@ -922,9 +925,9 @@ perf_metrics <- as.data.frame(
 # calculate AUC
 
 # quite stupid way
-fit_list <- list(fit_LR_hand_roc, fit_LR_nocorr_roc, fit_LR_nocorr_roc2, fit_LR_top5_roc, fit_RF, fit_RF_no_n.ampC, fit_RF_best, fit_RF_nocorr, fit_SVM_all, fit_SVM_nocorr)
+fit_list <- list(fit_LR_hand_roc, fit_LR_nocorr_roc, fit_LR_nocorr_roc2, fit_LR_top5_roc, fit_RF, fit_RF_no_n.ampC, fit_RF_best, fit_RF_nocorr, fit_SVM_all, fit_SVM_nocorr, fit_XGB_all, fit_XGB_best)
 
-testing_list <- list(testing_hand, testing_nocorr, testing_nocorr[, -1], testing_top5, testing_all, testing_all[, -4], testing_best, testing_nocorr, testing_all, testing_nocorr)
+testing_list <- list(testing_hand, testing_nocorr, testing_nocorr[, -1], testing_top5, testing_all, testing_all[, -4], testing_best, testing_nocorr, testing_all, testing_nocorr, testing_all, testing_best)
 
 # iterate over both lists
 auc_vec <- sapply(c(1:length(fit_list)), function(i){
@@ -947,12 +950,13 @@ perf_metrics <- bind_rows(perf_metrics, auc_df)
 perf_metrics$Metric <- row.names(perf_metrics)
 perf_metrics <- as_tibble(perf_metrics) %>% relocate(Metric, .before = V1)
 # make other columns names
-colnames(perf_metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "RF.nocorr", "SVM.all", "SVM.nocorr")
+colnames(perf_metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "RF.nocorr", "SVM.all", "SVM.nocorr", "XGB.all", "XGB.best")
 # write to file
 write.csv(perf_metrics, "tables/metrics.csv", row.names = FALSE)
 
 # show
 perf_metrics
+
 ```
 
 
@@ -961,8 +965,18 @@ perf_metrics
 This resampling data comes from training and validation, so they reflect model search not the average model performance.
 
 ```{r}
-#, SVM=FitSVM, XGB.DART=fit_xgbDART, XGB.Tree=fit_xgbTree
-models_compare <- resamples(list(RLR_hand=fit_LR_hand_roc, RLR_nocorr=fit_LR_nocorr_roc, RLR_nocorr2=fit_LR_nocorr_roc2, RLR_top5=fit_LR_top5_roc, RF_all=fit_RF, RF_best=fit_RF_best, RF_noAMPC=fit_RF_no_n.ampC, SVM_all=fit_SVM_all, SVM_nocorr=fit_SVM_nocorr, XGB_all=fit_XGB_all, XGB_best=fit_XGB_best))
+models_compare <- resamples(list(
+  RLR_hand = fit_LR_hand_roc, 
+  RLR_nocorr = fit_LR_nocorr_roc, 
+  RLR_nocorr2 = fit_LR_nocorr_roc2, 
+  RLR_top5 = fit_LR_top5_roc, 
+  RF_all = fit_RF, 
+  RF_best = fit_RF_best, 
+  RF_noAMPC = fit_RF_no_n.ampC, 
+  RF_nocorr = fit_RF_nocorr,
+  SVM_all = fit_SVM_all, 
+  SVM_nocorr = fit_SVM_nocorr
+  ))
 
 summary(models_compare)
 ```
@@ -972,58 +986,103 @@ scales <- list(x=list(relation="free"), y=list(relation="free"))
 bwplot(models_compare, scales=scales)
 ```
 
+XGB should be compared separately because of difrent number of resampling rounds
 
-`xgbDART` with hyper-parameters search is the best (as expected)
+```{r}
+models_compare_xgb <- resamples(list(
+  XGB_all = fit_XGB_all, 
+  XGB_best = fit_XGB_best
+))
+
+summary(models_compare_xgb)
+```
+
+
+
+```{r, fig.width=8, fig.height=4}
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(models_compare_xgb, scales=scales)
+```
+
+
+
+`xgbDART` and `RLR.nocorr` are the best (as expected)
 
 
 ## ROC and AUC
 
-### XGB
+Compare ROC shape of the best models
+
+Function to get ROC
 
 ```{r}
-library(ROCR)
-
-#pred_prob_xgb <- predict(fit_XGB, type="prob")
-
-# on testing data
-pred_prob_xgb <- predict.train(fit_XGB_all, newdata = testing_all, type = "prob")
-
-pred_roc_xgb <- prediction(predictions = pred_prob_xgb$S, labels = testing_all$resistance)
-
-perf_roc_xgb <- performance(pred_roc_xgb, measure="tpr", x.measure = "fpr")
-
-auc_xgb <- round(unlist(slot(performance(pred_roc_xgb, measure = "auc"), "y.values")), 3)
+get_roc <- function(fit.obj, testing.df){
+  pred_prob <- predict.train(fit.obj, newdata = testing.df, type="prob")
+  pred_roc <- prediction(predictions = pred_prob$S, labels = testing.df$resistance)
+  perf_roc <- performance(pred_roc, measure="tpr", x.measure = "fpr")
+  return(perf_roc)
+}
 ```
 
 
-```{r}
-# requires a separate code chunk
+### RLR.nocorr
 
+```{r}
+# calculate ROC
+perf_roc_rlr <- get_roc(fit_LR_nocorr_roc, testing_nocorr)
+
+# take AUC from perf_metrics
+auc_rlr <- unlist(perf_metrics %>% filter(Metric=="AUC") %>% select(RLR.nocorr))
+
+# plot
+plot(perf_roc_rlr, main = "RLR ROC curve", col = "steelblue", lwd = 3)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+legend(x = 0.8, y = 0.3, legend = paste0("AUC = ", auc_rlr))
+```
+
+
+### XGB.all
+
+```{r}
+# calculate ROC
+perf_roc_xgb <- get_roc(fit_XGB_all, testing_all)
+
+# take AUC from perf_metrics
+auc_xgb <- unlist(perf_metrics %>% filter(Metric=="AUC") %>% select(XGB.all))
+
+# plot
 plot(perf_roc_xgb, main = "XGB ROC curve", col = "steelblue", lwd = 3)
 abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
 legend(x = 0.8, y = 0.3, legend = paste0("AUC = ", auc_xgb))
 ```
 
 
-### RF
+### RF.nocorr
 
 ```{r}
-pred_prob_rf <- predict.train(fit_RF, newdata = testing_all, type="prob")
+# calculate ROC
+perf_roc_rf <- get_roc(fit_RF_nocorr, testing_nocorr)
 
-pred_roc_rf <- prediction(predictions = pred_prob_rf$S, labels = testing_all$resistance)
+auc_rf <- unlist(perf_metrics %>% filter(Metric=="AUC") %>% select(RF.nocorr))
 
-perf_roc_rf <- performance(pred_roc_rf, measure="tpr", x.measure = "fpr")
-
-auc_rf <- round(unlist(slot(performance(pred_roc_rf, measure = "auc"), "y.values")), 3)
-
-```
-
-```{r}
-# requires a separate code chunk
-
+# plot
 plot(perf_roc_rf, main = "RF ROC curve", col = "steelblue", lwd = 3)
 abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
 legend(x = 0.8, y = 0.3, legend = paste0("AUC = ", auc_rf))
+```
+
+### SVM.nocorr
+
+```{r}
+# calculate ROC
+perf_roc_svm <- get_roc(fit_SVM_nocorr, testing_nocorr)
+
+auc_svm <- unlist(perf_metrics %>% filter(Metric=="AUC") %>% select(SVM.nocorr))
+
+# plot
+plot(perf_roc_svm, main = "SVM ROC curve", col = "steelblue", lwd = 3)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+legend(x = 0.8, y = 0.3, legend = paste0("AUC = ", auc_svm))
 ```
 
 
