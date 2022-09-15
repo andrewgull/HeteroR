@@ -132,8 +132,7 @@ server <- function(input, output) {
   thematic::thematic_shiny()
   
   # read data with main features
-  df <- readr::read_csv("../data/features_amp_strain.csv") %>%
-    rename("n.plasmids" = n_plasmids)
+  df <- readr::read_csv("../data/features_amp_strain.csv") 
   
   # read data with BL types
   df2 <- readr::read_csv("../data/amp_amr_types_strain.csv")
