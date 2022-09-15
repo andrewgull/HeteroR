@@ -35,8 +35,8 @@ Data set `features_amp_strain` has been made previously in `feature_engineering.
 Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
 ```{r, cache=F}
-feat_amp <- read_csv("tables/features_amp_strain.csv", na = "NA")
-feat_amp <- feat_amp %>% relocate(n.plasmids, .before="n.rep.total") %>% rename(n.ampC="ampC")
+feat_amp <- read_csv("tables/features_amp_strain.csv", na = c("NA", "-Inf"))
+feat_amp <- feat_amp %>% relocate(n.plasmids, .before="n.rep.total")
 
 # create dummy from original target
 #feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
@@ -51,10 +51,11 @@ feat_amp$resistance <- as.factor(feat_amp$resistance)
 
 # BL counted as binary > 3
 feat_amp$n.beta.lac.3 <- ifelse(feat_amp$n.beta.lac > 3, 1, 0)
-feat_amp <- relocate(feat_amp, n.beta.lac.3, .before="n.plasmids")
+feat_amp <- feat_amp %>% 
+  relocate(n.beta.lac.3, .before="n.beta.lac")
 
 # remove AB and strain
-feat_amp <- feat_amp %>% select(-c(strain, AB))
+feat_amp <- feat_amp %>% select(-c(strain))
 
 feat_amp
 ```
@@ -72,16 +73,9 @@ There are 3 strains with NAs, we can replace NA s with 0s
 `caret::preProcess()` doesn't have method for replacing with zeros...
 
 ```{r, cache=F}
-# make it by hand
-feat_amp$n.rep.tot.cen <- ifelse(is.na(feat_amp$n.rep.tot.cen), 0, feat_amp$n.rep.tot.cen)
 
-feat_amp$n.rep.tot.non.cen <- ifelse(is.na(feat_amp$n.rep.tot.non.cen), 0, feat_amp$n.rep.tot.non.cen)
+feat_amp[is.na(feat_amp)] <- 0
 
-feat_amp$med.tot.rep.len <- ifelse(is.na(feat_amp$med.tot.rep.len), 0, feat_amp$med.tot.rep.len)
-
-feat_amp$med.AR.len.cen <- ifelse(is.na(feat_amp$med.AR.len.cen), 0, feat_amp$med.AR.len.cen)
-
-feat_amp$ampC.med.tot.rep.len <- ifelse(is.na(feat_amp$ampC.med.tot.rep.len), 0, feat_amp$ampC.med.tot.rep.len)
 ```
 
 # Data normalization
@@ -90,7 +84,7 @@ scale and center numeric features (real numeric + count, not dummies!)
 
 ```{r, cache=F}
 end <- length(feat_amp)
-feat_amp_scaled <- as_tibble(scale(feat_amp[,c(2,3,5:end)]))
+feat_amp_scaled <- as_tibble(scale(feat_amp[, -c(1,2)]))
 
 feat_amp_scaled$resistance <- feat_amp$resistance
 feat_amp_scaled$n.beta.lac.3 <- feat_amp$n.beta.lac.3
@@ -108,6 +102,8 @@ feat_amp_scaled <- relocate(feat_amp_scaled, resistance, .before="n.beta.lac.3")
 cor_matrix <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
 ```
+
+All `APH4` equal 0
 
 ```{r, fig.width=12, fig.height=12, cache=F}
 cor_matrix_scaled <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
