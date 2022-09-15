@@ -7,15 +7,15 @@ library(tidyverse)
 features_amp_strain <- read_csv("../data/features_amp_strain.csv")
 
 # get vars to use later in UI (selectInput)
-vars <- names(select(features_amp_strain, -c("strain", "AB", "resistance")))
+vars <- names(select(features_amp_strain, -c("strain", "resistance")))
 
 # get strain names to use in UI (heat map)
 strains <- features_amp_strain$strain
 
 # get ampC and non-ampC counts 
 bl_count <- features_amp_strain %>% 
-  select(resistance, n.beta.lac, n.ampC) %>% 
-  mutate(non.ampC = n.beta.lac - n.ampC) %>% 
+  select(resistance, n.beta.lac, ampC) %>% 
+  mutate(non.ampC = n.beta.lac - ampC) %>% 
   select(-n.beta.lac)
 
 # make it tidy
@@ -55,7 +55,14 @@ ui <- fluidPage(
                # first column with controls
                column(2, 
                       selectInput(inputId = "bar", label = "Count data",
-                                  choices = c("n.beta.lac", "n.ampC", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
+                                  choices = c("n.beta.lac", "n.plasmids", 
+                                              "n.genes.plus.strand", 
+                                              "n.genes.plasmids", "ampC", "DFR", 
+                                              "APH6", "APH3.1", "SUL", "TEM", 
+                                              "SAT", "ANT3", "MPH", "APH3.2", 
+                                              "CTX.M", "CAT", "AAC3", "OXA", 
+                                              "AAC6", "ANT2", "FTT", "SHV", 
+                                              "TR.RPP", "APH4", "QNR"),
                                   selected = "n.beta.lac")
                ),
                # second column with the plot itself
