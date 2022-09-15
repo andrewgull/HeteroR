@@ -14,8 +14,8 @@ strains <- features_amp_strain$strain
 
 # get ampC and non-ampC counts 
 bl_count <- features_amp_strain %>% 
-  select(resistance, n.beta.lac, ampC) %>% 
-  mutate(non.ampC = n.beta.lac - ampC) %>% 
+  select(resistance, n.beta.lac, n.ampC) %>% 
+  mutate(non.ampC = n.beta.lac - n.ampC) %>% 
   select(-n.beta.lac)
 
 # make it tidy
@@ -55,7 +55,7 @@ ui <- fluidPage(
                # first column with controls
                column(2, 
                       selectInput(inputId = "bar", label = "Count data",
-                                  choices = c("n.beta.lac", "ampC", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
+                                  choices = c("n.beta.lac", "n.ampC", "n.plasmids", "n.genes.plus.strand", "n.genes.plasmids"),
                                   selected = "n.beta.lac")
                ),
                # second column with the plot itself

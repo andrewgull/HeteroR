@@ -159,8 +159,8 @@ Conclusion: if number of beta-lactamases is greater than 3 then strain is most l
 
 ```{r}
 bl_count <- features_amp_strain %>% 
-  select(resistance, n.beta.lac, ampC) %>% 
-  mutate(non.ampC = n.beta.lac - ampC) %>% 
+  select(resistance, n.beta.lac, n.ampC) %>% 
+  mutate(non.ampC = n.beta.lac - n.ampC) %>% 
   select(-n.beta.lac)
 
 bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>% 
