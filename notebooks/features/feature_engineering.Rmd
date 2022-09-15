@@ -910,8 +910,8 @@ rm(gff)
 
 # add 'located on plasmid' - if there is '1' in seq.region then its a chromosome (the first element of an assembly)
 gff_amp$located.on.plasmid <- str_detect(gff_amp$seq.region, "1", negate = T)
-gff_amp$on.plasmid <- factor(if_else(gff_amp$located.on.plasmid, 1, 0))
-
+#gff_amp$on.plasmid <- factor(if_else(gff_amp$located.on.plasmid, 1, 0))
+gff_amp$on.plasmid <- if_else(gff_amp$located.on.plasmid, 1, 0)
 ```
 
 ## Distance to *oriC*
@@ -1489,20 +1489,21 @@ names(amp_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL
 # this table will be written to a file for EDA + shiny
 ```
 
-## Add ampC counts to features_amp_strain
+## Add BL-type counts to features_amp_strain
 
 ```{r}
-features_amp_strain <- left_join(features_amp_strain, select(amp_amr_types_strain, strain, ampC), by = "strain") %>%  relocate(ampC, .before = "n.rep.total") %>% rename("n.ampC" = ampC)
+features_amp_strain <- left_join(features_amp_strain, amp_amr_types_strain, by = "strain") 
 ```
 
 ## Final version
 
-Remove intermediate resistance and not tested strains
+Remove intermediate resistance and not tested strains, relocate some columns
 
 ```{r}
 # add plasmids if you forgot
 # features_amp_strain <- left_join(features_amp_strain, features_amp %>% select(strain, n.plasmids) %>% distinct(), by="strain") %>% relocate(n.plasmids, .before="n.rep.total")
-features_amp_strain <- features_amp_strain %>% filter(resistance != "I", !is.na(resistance))
+features_amp_strain <- features_amp_strain %>% 
+  filter(resistance != "I", !is.na(resistance)) %>% relocate(resistance, .before = n.plasmids) %>% select(-AB)
 features_amp_strain
 ```
 
