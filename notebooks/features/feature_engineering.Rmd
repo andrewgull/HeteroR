@@ -1492,7 +1492,7 @@ names(amp_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL
 ## Add ampC counts to features_amp_strain
 
 ```{r}
-features_amp_strain <- left_join(features_amp_strain, select(amp_amr_types_strain, strain, ampC), by = "strain") %>%  relocate(ampC, .before = "n.rep.total")
+features_amp_strain <- left_join(features_amp_strain, select(amp_amr_types_strain, strain, ampC), by = "strain") %>%  relocate(ampC, .before = "n.rep.total") %>% rename("n.ampC" = ampC)
 ```
 
 ## Final version
