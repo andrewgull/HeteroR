@@ -450,6 +450,46 @@ fit_LR_nocorr_roc2 <- train(x = x_nocorr[, -1],
 fit_LR_nocorr_roc2
 ```
 
+### Coefficients
+
+```{r}
+LR_coeff <- as_tibble(fit_LR_nocorr_roc$finalModel$W) %>% gather(key = "predictor", value = "log.odds", 1:27) %>% mutate(odds.ratio = exp(log.odds))
+
+LR_coeff
+```
+
+A coefficient here is the change in log-odds of the response as a result of a unit change in the predictor variable
+
+```{r}
+#LR_coeff_td <- gather(LR_coeff, "type", "value", 2:3)
+library(ggpubr)
+
+feat_imp_rlr_or <- ggplot(LR_coeff, aes(reorder(predictor, abs(log.odds)), odds.ratio))+
+  geom_col(fill="steelblue")+
+  coord_flip()+
+  xlab("")+
+  ylab("odds ratio")
+
+feat_imp_rlr_lo <- ggplot(LR_coeff, aes(reorder(predictor, abs(log.odds)), log.odds))+
+  geom_col(fill="steelblue")+
+  coord_flip()+
+  xlab("")+
+  ylab("log odds")
+
+
+feat_imp_rlr <- annotate_figure(
+  ggarrange(feat_imp_rlr_or, feat_imp_rlr_lo, ncol = 2), 
+  top = text_grob("Binomial Logistic Regression coefficients"))
+
+#annotate_figure(feat_imp_rlr, top = text_grob("Binomial Logistic Regression coefficients"))
+
+feat_imp_rlr
+```
+
+Odds ratio 420 means: for a one unit increase in `n.beta.lac`, the odds of a strain to be R increases by a factor of 420 (huge increase)
+
+Odds ration 0.015 means: for one unit increase in `n.ampC`, the odds of a strain to be R increases by a factor of 0.015 (huge decrease)
+
 ### Testing
 
 ```{r}
@@ -717,7 +757,9 @@ fit_RF_nocorr
 ```{r}
 imp_vars_rf_nocorr <- varImp(fit_RF_nocorr)
 
-plot(imp_vars_rf_nocorr, main="Variable Importance with RF (non-correlated)")
+feat_imp_rf <- plot(imp_vars_rf_nocorr, main="Variable Importance with RF (non-correlated)")
+
+feat_imp_rf
 ```
 
 
@@ -845,7 +887,9 @@ filter(fit_XGB_all$results, nrounds == 150, max_depth == 1, eta == 0.3, gamma ==
 ```{r}
 imp_vars_xgb_all <- varImp(fit_XGB_all)
 
-plot(imp_vars_xgb_all, main="Variable Importance with XGB (all)")
+feat_imp_xgb_all <- plot(imp_vars_xgb_all, main="Variable Importance with XGB (all)")
+
+feat_imp_xgb_all
 ```
 
 ### Testing
@@ -883,7 +927,9 @@ fit_XGB_nocorr$bestTune
 ```{r}
 imp_vars_xgb_nocorr <- varImp(fit_XGB_nocorr)
 
-plot(imp_vars_xgb_nocorr, main="Variable Importance with XGB (nocorr)")
+feat_imp_xgb_nocorr <- plot(imp_vars_xgb_nocorr, main="Variable Importance with XGB (nocorr)")
+
+feat_imp_xgb_nocorr
 ```
 
 
@@ -929,7 +975,9 @@ fit_XGB_best$bestTune
 ```{r}
 imp_vars_xgb_best <- varImp(fit_XGB_best)
 
-plot(imp_vars_xgb_best, main="Variable Importance with XGB (best)")
+feat_imp_xgb_best <- plot(imp_vars_xgb_best, main="Variable Importance with XGB (best)")
+
+feat_imp_xgb_best
 ```
 
 ### Testing
