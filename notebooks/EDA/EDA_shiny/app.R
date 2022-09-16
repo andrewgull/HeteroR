@@ -113,8 +113,14 @@ ui <- fluidPage(
                                    choiceNames = c("none", "log", "sqrt"))
                ),
                # Right part with the dot plot itself
-               column(10, plotOutput("dot.plot"))
+               column(10, plotOutput("dot.plot", brush = "plot_brush"))
              ),
+             
+             # 5 th row with hover/brush output
+             fluidRow(
+               column(6),
+               column(6, tableOutput("dot.plot.data"))
+             )
              
     ),
     # Tab for CFX data
@@ -157,6 +163,12 @@ server <- function(input, output) {
       ggtitle("Dot plot")
   })
   
+  # Dot plot hover table
+  output$dot.plot.data <- renderTable({
+    req(input$plot_brush)
+    brushedPoints(select(df, strain, input$xcol, input$ycol), input$plot_brush)
+  })
+  
   # Bar plot A
   output$bar.plot <- renderPlot({
     x <- paste0("`",input$bar,"`")
@@ -169,7 +181,7 @@ server <- function(input, output) {
       ggtitle(paste0("Count data: ", input$bar))
   })
   
-  # Bar plor B
+  # Bar plot B
   output$ampC.bar.plot <- renderPlot({
     ggplot(bl_count_tidy, aes(gene, sum))+
       geom_col(aes(fill=resistance), position = input$bar.type, alpha=0.8) + 
