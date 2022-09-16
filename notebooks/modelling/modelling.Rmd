@@ -36,7 +36,7 @@ Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
 ```{r, cache=F}
 feat_amp <- read_csv("tables/features_amp_strain.csv", na = c("NA", "-Inf"))
-feat_amp <- feat_amp %>% relocate(n.plasmids, .before="n.rep.total")
+#feat_amp <- feat_amp %>% relocate(n.plasmids, .before="n.rep.total")
 
 # create dummy from original target
 #feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
@@ -66,7 +66,21 @@ feat_amp
 skimr::skim(feat_amp)
 ```
 
-There are 3 strains with NAs, we can replace NA s with 0s
+S: 191
+
+R: 178
+
+There are strains with NAs, we can replace NA s with 0s
+
+# Removing non-informative columns
+
+`APH4` contains only 0, I wull remove the whole column
+
+```{r}
+feat_amp <- feat_amp %>% 
+  select(-APH4)
+```
+
 
 # Data imputation
 
@@ -84,7 +98,11 @@ scale and center numeric features (real numeric + count, not dummies!)
 
 ```{r, cache=F}
 end <- length(feat_amp)
-feat_amp_scaled <- as_tibble(scale(feat_amp[, -c(1,2)]))
+# except for resistance and n.beta.lac.3
+feat_amp_scaled <- as_tibble(
+  scale(
+    feat_amp %>% select(-c(resistance, n.beta.lac.3))
+    ))
 
 feat_amp_scaled$resistance <- feat_amp$resistance
 feat_amp_scaled$n.beta.lac.3 <- feat_amp$n.beta.lac.3
@@ -103,7 +121,7 @@ cor_matrix <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
 ```
 
-All `APH4` equal 0
+All `APH4` always equals 0
 
 ```{r, fig.width=12, fig.height=12, cache=F}
 cor_matrix_scaled <- cor(feat_amp[,c(2:end)], use = "pairwise.complete.obs")
@@ -180,7 +198,7 @@ training_nocorr <- feat_amp_proc[in_train_nocorr,]
 testing_nocorr <- feat_amp_proc[-in_train_nocorr,]
 
 # to avoid slowness of caret
-x_nocorr <- as.matrix(training_nocorr[, -27])  # 27th column is 'resistance'
+x_nocorr <- as.matrix(training_nocorr %>% select(-resistance))  # we don't needs 'resistance' here
 y_nocorr <- training_nocorr$resistance
 
 ```
@@ -197,7 +215,7 @@ training_all <- feat_amp_scaled[in_train_all,]
 testing_all <- feat_amp_scaled[-in_train_all,]
 
 # to avoid slowness of caret
-x_all <- as.matrix(training_all[,-1])  # except for resistance
+x_all <- as.matrix(training_all %>% select(-resistance))  # we don't needs 'resistance' here
 y_all <- training_all$resistance
 
 ```
@@ -233,7 +251,7 @@ Skewed predictors may be candidates for transformation (log)
 I will use them later along with the set of all predictors
 
 ```{r}
-pred_best <- c("resistance", "n.beta.lac.3", "n.ampC", "med.dist.oriC", "n.genes.plus.strand", "n.genes.plasmids", "med.AR.len.cen", "max.rep.len", "n.rep.500", "med.rep.len.100")
+pred_best <- c("resistance", "n.beta.lac.3", "ampC", "med.dist.oriC", "n.genes.plus.strand", "n.genes.plasmids", "med.AR.len.cen", "max.rep.len", "n.rep.500", "med.rep.len.100")
 ```
 
 ## Data set with the best predictors
@@ -255,11 +273,11 @@ I picked these features based on EDA
 
 ```{r}
 feat_selected <- feat_amp_scaled %>% 
-  select(c(resistance, n.beta.lac.3, n.ampC, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen, med.dist.oriC, n.genes.plasmids))
+  select(c(resistance, n.beta.lac.3, ampC, n.plasmids, med.rep.len, med.tot.rep.len, max.rep.len, n.rep.total, med.AR.len.cen, med.dist.oriC, n.genes.plasmids))
 
 # NAs in `med.tot.rep.len` and in `med.AR.len.cen` should be replaced with 0s
-feat_selected$med.tot.rep.len <- ifelse(is.na(feat_selected$med.tot.rep.len), 0, feat_selected$med.tot.rep.len)
-feat_selected$med.AR.len.cen <- ifelse(is.na(feat_selected$med.AR.len.cen), 0, feat_selected$med.AR.len.cen)
+#feat_selected$med.tot.rep.len <- ifelse(is.na(feat_selected$med.tot.rep.len), 0, feat_selected$med.tot.rep.len)
+#feat_selected$med.AR.len.cen <- ifelse(is.na(feat_selected$med.AR.len.cen), 0, feat_selected$med.AR.len.cen)
 
 ```
 
@@ -275,7 +293,7 @@ training_hand <- feat_selected[in_train_hand,]
 testing_hand <- feat_selected[-in_train_hand,]
 
 # to avoid slowness of caret
-x_hand <- as.matrix(training_hand[,-1])
+x_hand <- as.matrix(training_hand %>% select(-resistance))
 y_hand <- training_hand$resistance
 
 ```
@@ -850,7 +868,7 @@ fit_ctrl_xgb_roc <- trainControl(## 5-fold CV
                            method = "repeatedcv",
                            number = 5,
                            repeats = 5, 
-                           allowParallel = T,
+                           allowParallel = F,
                            classProbs = T,
                            summaryFunction = twoClassSummary)
 ```
