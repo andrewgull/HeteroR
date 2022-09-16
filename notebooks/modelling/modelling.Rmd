@@ -36,15 +36,6 @@ Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
 ```{r, cache=F}
 feat_amp <- read_csv("tables/features_amp_strain.csv", na = c("NA", "-Inf"))
-#feat_amp <- feat_amp %>% relocate(n.plasmids, .before="n.rep.total")
-
-# create dummy from original target
-#feat_amp$resistance.dummy <- ifelse(feat_amp$resistance=="R", 1, 0)
-#feat_amp <- relocate(feat_amp, resistance.dummy, .before="n.beta.lac")
-
-# BL counts as an ordered factor
-#feat_amp$n.beta.lac.f <- factor(feat_amp$n.beta.lac, ordered = T, levels = c(1,2,3,4,5,6))
-#feat_amp <- relocate(feat_amp, n.beta.lac.f, .before="n.plasmids")
 
 # resistance as factor
 feat_amp$resistance <- as.factor(feat_amp$resistance)
