@@ -23,59 +23,197 @@ knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F, cach
 library(tidyverse)
 library(plotly)
 library(ggpubr)
+library(factoextra)
+library(cluster)
 # library(GGally)
 # library(skimr)
 # library(corrplot)
 ```
 
-# EDA for AMP-tested strains
+# Intro
 
 From Features I have selected all the strains tested for AMP resistance, repeat-related features have been calculated based on beta-lactamase genes of **all types** (ampC, CTX-M, OXA, TEM, SHV)
 
 For the following analysis strains with intermediate resistance and not tested strains will be removed.
 
-## Read in the data 
-
 Every table comes from  `features`
 
-```{r data, cache=F}
+```{r data, cache=F, eval=FALSE, include=FALSE}
 features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
 
 features_amp_strain <- read_csv("data/features_amp_strain.csv")
 ```
 
-## Descriptive statistics
+
+---
+
+# Read the data
+
+Data set `features_amp_strain` has been made previously in `feature_engineering.Rmd`
+
+Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
+
+```{r, cache=F}
+features_amp_strain <- read_csv("data/features_amp_strain.csv", na = c("NA", "-Inf"))
+
+features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
+
+# resistance as factor
+features_amp_strain$resistance <- as.factor(features_amp_strain$resistance)
+
+# BL counted as binary > 3
+features_amp_strain$n.beta.lac.3 <- ifelse(features_amp_strain$n.beta.lac > 3, 1, 0)
+features_amp_strain <- features_amp_strain %>% 
+  relocate(n.beta.lac.3, .before="n.beta.lac")
+
+# remove strain
+# but keep them elsewhere
+strains <- features_amp_strain %>% select(strain)
+features_amp_strain <- features_amp_strain %>% select(-strain)
+
+features_amp_strain
+```
+
+# Descriptive stats
 
 ```{r}
 skimr::skim(features_amp_strain)
 ```
 
-## Pairs plot
+S: 191
+
+R: 178
+
+There are strains with NAs, we can replace NA s with 0s
+
+# Removing non-informative columns
+
+`APH4` contains only 0, I wull remove the whole column
 
 ```{r}
-names(features_amp_strain)
+features_amp_strain <- features_amp_strain %>% 
+  select(-APH4)
 ```
 
 
-```{r, fig.width=20, fig.height=20, warning=F, message=F, eval=FALSE}
-# use GGally
+# Data imputation
 
-GGally::ggpairs(features_amp_strain, 
-        columns=c(2,4:40), 
-        aes(color=resistance, alpha=0.2, dotsize=0.02), 
-        upper = list(continuous = GGally::wrap("cor", size = 2.5)),
-        diag=list(continuous ="barDiag"))+
-  scale_color_brewer(palette = "Set1")+
-  scale_fill_brewer(palette = "Set1")
+`caret::preProcess()` doesn't have method for replacing with zeros...
+
+```{r, cache=F}
+
+features_amp_strain[is.na(features_amp_strain)] <- 0
+
+```
+
+# Data scaling
+
+scale and center numeric features (real numeric + count, not dummies!)
+
+```{r, cache=F}
+end <- length(features_amp_strain)
+# except for resistance and n.beta.lac.3
+features_amp_strain_scaled <- as_tibble(
+  scale(
+    x = features_amp_strain %>% select(-c(resistance, n.beta.lac.3)),
+    center = T, scale = T
+    ))
+
+features_amp_strain_scaled$resistance <- features_amp_strain$resistance
+features_amp_strain_scaled$n.beta.lac.3 <- features_amp_strain$n.beta.lac.3
+
+features_amp_strain_scaled <- relocate(features_amp_strain_scaled, n.beta.lac.3, .before="n.beta.lac")
+features_amp_strain_scaled <- relocate(features_amp_strain_scaled, resistance, .before="n.beta.lac.3")
+```
+
+
+---
+
+
+## Descriptive statistics after imputation and scaling
+
+```{r}
+skimr::skim(features_amp_strain_scaled)
 ```
 
 ## Correlated predictors
 
-```{r, fig.width=12, fig.height=12}
-cor.matrix <- cor(features_amp_strain[,c(2,5:40)], use = "pairwise.complete.obs")
-corrplot::corrplot(cor.matrix, hclust.method = "ward")
+```{r, fig.width=12, fig.height=12, cache=F}
+# without resistance
+cor_matrix <- cor(features_amp_strain[,c(2:end)], use = "pairwise.complete.obs")
+corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
 ```
 
+
+# Clustering
+
+Let's do some clustering analysis on predictors.
+
+Predictors should be standardized and imputed (they are).
+
+## Dissimilarities heat map
+
+Distance measure: Kendall's correlation
+
+```{r, fig.width=10, fig.height=8}
+feat_clust <- features_amp_strain_scaled %>% select(-resistance)
+row.names(feat_clust) <- strains$strain
+#feat_clust <- features_amp_strain %>% select(-resistance)
+
+distance <- get_dist(feat_clust, stand = F, method = "kendall")
+fviz_dist(distance, gradient = list(low = "#bbab00", high = "#0000bb"), show_labels = T, lab_size = 6)
+```
+
+The darker is the color, the higher is dissimilarity
+
+## k-means clustering
+
+k = 2
+
+```{r, fig.width=8, fig.height=6}
+k2 <- kmeans(feat_clust, centers = 2, nstart = 100)
+fviz_cluster(k2, data = feat_clust, repel = T, show.clust.cent = F, labelsize = 6)
+```
+
+### Correspondence between clusters and resistance
+
+```{r}
+
+
+feat_clust %>%
+  mutate(cluster = k2$cluster, resistance = features_amp_strain$resistance) %>%
+  select(resistance, cluster) %>% 
+  table()
+```
+
+If observation is in cluster 2 then it's resistant
+
+### Silhouette method
+
+```{r, fig.width=6, fig.height=4}
+fviz_nbclust(feat_clust, kmeans, method = "silhouette", , diss = distance)
+```
+
+### Gap statistic
+
+Suggests more clusters
+
+```{r, fig.width=6, fig.height=4}
+set.seed(123)
+gap_stat <- clusGap(feat_clust, FUN = kmeans, nstart = 25,
+                    K.max = 15, B = 50)
+
+fviz_gap_stat(gap_stat)
+```
+
+That might look like this
+
+```{r, fig.width=8, fig.height=6}
+k8 <- kmeans(feat_clust, centers = 8, nstart = 100)
+fviz_cluster(k8, data = feat_clust, repel = T, show.clust.cent = F, labelsize = 6, )
+```
+
+# EDA
 
 ## RG counts distribution
 
@@ -143,7 +281,7 @@ n_beta_lac <- left_join(betaL_n_genes, features_amp %>% select(strain, resistanc
 Bar plot because number of BL genes is count data.
 
 ```{r, fig.width=6, fig.height=4}
-#feat_amp$resistance <- factor()
+#features_amp_strain$resistance <- factor()
 
 ggplot(features_amp_strain, aes(n.beta.lac))+
   geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
@@ -159,8 +297,8 @@ Conclusion: if number of beta-lactamases is greater than 3 then strain is most l
 
 ```{r}
 bl_count <- features_amp_strain %>% 
-  select(resistance, n.beta.lac, n.ampC) %>% 
-  mutate(non.ampC = n.beta.lac - n.ampC) %>% 
+  select(resistance, n.beta.lac, ampC) %>% 
+  mutate(non.ampC = n.beta.lac - ampC) %>% 
   select(-n.beta.lac)
 
 bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>% 
@@ -283,7 +421,7 @@ some zeros will be removed for plotting purposes only
 # all repeat length plot
 
 ###########################################
-plot.mrl.all <- ggplot(features_amp_strain, aes(resistance, med.rep.len)) + 
+plot.mrl.all <- ggplot(features_amp_strain%>% filter(med.rep.len > 0), aes(resistance, med.rep.len)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -308,7 +446,7 @@ plot.mrl.cen <- ggplot(features_amp_strain %>% filter(med.rep.len.cen > 0), aes(
 
 #####################################
 
-plot.mrl.non.cen <- ggplot(features_amp_strain, aes(resistance, med.rep.len.non.cen)) + 
+plot.mrl.non.cen <- ggplot(features_amp_strain%>% filter(med.rep.len.non.cen > 0), aes(resistance, med.rep.len.non.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -377,7 +515,7 @@ total repeat length = sum of all repeats on one side of a gene from center-spann
 
 
 ```{r, warning=F, fig.width=6, fig.height=4}
-ggplot(features_amp_strain, aes(resistance, med.tot.rep.len))+
+ggplot(features_amp_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.tot.rep.len))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -394,7 +532,7 @@ ggplot(features_amp_strain, aes(resistance, med.tot.rep.len))+
 some zeros are removed for plotting purposes
 
 ```{r, fig.width=14, fig.height=6}
-plot.maxrl.all <- ggplot(features_amp_strain, aes(resistance, max.rep.len)) + 
+plot.maxrl.all <- ggplot(features_amp_strain %>% filter(max.rep.len > 0), aes(resistance, max.rep.len)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -412,7 +550,7 @@ plot.maxrl.cen <- ggplot(features_amp_strain %>% filter(max.rep.len.cen > 0), ae
   xlab("")+ylab("length") +
   ggtitle("Maximum repeat length", subtitle = "repeats spanning gene's center")
 
-plot.maxrl.non.cen <- ggplot(features_amp_strain, aes(resistance, max.rep.len.non.cen)) + 
+plot.maxrl.non.cen <- ggplot(features_amp_strain %>% filter(max.rep.len.non.cen > 0), aes(resistance, max.rep.len.non.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -432,7 +570,7 @@ ggarrange(plot.maxrl.all, plot.maxrl.cen, plot.maxrl.non.cen,
 ### Per strain
 
 ```{r, fig.height=6, fig.width=14}
-plot.rc.all <- ggplot(features_amp_strain, aes(resistance, n.rep.total)) + 
+plot.rc.all <- ggplot(features_amp_strain %>% filter(n.rep.total > 0), aes(resistance, n.rep.total)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -442,7 +580,7 @@ plot.rc.all <- ggplot(features_amp_strain, aes(resistance, n.rep.total)) +
   ggtitle("Total repeat count")
 
 
-plot.rc.cen <- ggplot(features_amp_strain, aes(resistance, n.rep.tot.cen)) + 
+plot.rc.cen <- ggplot(features_amp_strain %>% filter(n.rep.tot.cen > 0), aes(resistance, n.rep.tot.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -451,7 +589,7 @@ plot.rc.cen <- ggplot(features_amp_strain, aes(resistance, n.rep.tot.cen)) +
   xlab("")+ylab("")+
   ggtitle(label="Total repeat count", subtitle = "Repeats spanning region's center")
 
-plot.rc.non.cen <- ggplot(features_amp_strain, aes(resistance, n.rep.tot.non.cen)) + 
+plot.rc.non.cen <- ggplot(features_amp_strain %>% filter(n.rep.tot.cen > 0), aes(resistance, n.rep.tot.non.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -472,7 +610,7 @@ ggarrange(plot.rc.all, plot.rc.cen, plot.rc.non.cen,
 
 ```{r, fig.height=6, fig.width=14}
 
-plot.arl.all <- ggplot(features_amp_strain, aes(resistance, med.AR.len)) + 
+plot.arl.all <- ggplot(features_amp_strain %>% filter(med.AR.len > 0), aes(resistance, med.AR.len)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -481,7 +619,7 @@ plot.arl.all <- ggplot(features_amp_strain, aes(resistance, med.AR.len)) +
   xlab("")+ylab("")+
   ggtitle(label="AR size", subtitle = "All repeats")
 
-plot.arl.cen <- ggplot(features_amp_strain, aes(resistance, med.AR.len.cen)) + 
+plot.arl.cen <- ggplot(features_amp_strain %>% filter(med.AR.len.cen > 0), aes(resistance, med.AR.len.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -490,7 +628,7 @@ plot.arl.cen <- ggplot(features_amp_strain, aes(resistance, med.AR.len.cen)) +
   xlab("")+ylab("")+
   ggtitle(label="AR size", subtitle = "Repeats spanning region's center")
 
-plot.arl.non.cen <- ggplot(features_amp_strain, aes(resistance, med.AR.len.non.cen)) + 
+plot.arl.non.cen <- ggplot(features_amp_strain%>% filter(med.AR.len.non.cen > 0), aes(resistance, med.AR.len.non.cen)) + 
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -636,7 +774,7 @@ ggplot(features_amp_strain, aes(ampC.n.rep.tot))+
 ### Median repeat length
 
 ```{r, fig.width=6, fig.height=4}
-ggplot(features_amp_strain, aes(resistance, ampC.med.rep.len))+
+ggplot(features_amp_strain %>% filter(ampC.med.rep.len > 0), aes(resistance, ampC.med.rep.len))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -650,7 +788,7 @@ ggplot(features_amp_strain, aes(resistance, ampC.med.rep.len))+
 ### Max repeat length
 
 ```{r, fig.width=6, fig.height=4}
-ggplot(features_amp_strain, aes(resistance, ampC.max.rep.len))+
+ggplot(features_amp_strain %>% filter(ampC.max.rep.len > 0), aes(resistance, ampC.max.rep.len))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -665,7 +803,7 @@ ggplot(features_amp_strain, aes(resistance, ampC.max.rep.len))+
 ### Median sum of repeat lengths
 
 ```{r, warning=F, fig.width=6, fig.height=4}
-ggplot(features_amp_strain, aes(resistance, ampC.med.tot.rep.len))+
+ggplot(features_amp_strain %>% filter(ampC.med.tot.rep.len > 0), aes(resistance, ampC.med.tot.rep.len))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -680,7 +818,7 @@ ggplot(features_amp_strain, aes(resistance, ampC.med.tot.rep.len))+
 ### Median AR size
 
 ```{r, fig.width=14}
-plot.ampc.med.AR <- ggplot(features_amp_strain, aes(resistance, ampC.med.AR.len))+
+plot.ampc.med.AR <- ggplot(features_amp_strain %>% filter(ampC.med.AR.len > 0), aes(resistance, ampC.med.AR.len))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -690,7 +828,7 @@ plot.ampc.med.AR <- ggplot(features_amp_strain, aes(resistance, ampC.med.AR.len)
   ylab("AR size")+
   guides(fill="none")
 
-plot.ampc.med.AR.cen <- ggplot(features_amp_strain, aes(resistance, ampC.med.AR.len.cen))+
+plot.ampc.med.AR.cen <- ggplot(features_amp_strain %>% filter(ampC.med.AR.len.cen > 0), aes(resistance, ampC.med.AR.len.cen))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
@@ -836,279 +974,6 @@ ggarrange(plot.rc.g.all.amp, plot.rc.g.100.amp, plot.rc.g.500.amp,
 
 Under construction
 
-
-# EDA for all types of antibiotics
-
-Evaluation of the code chunks below is turned off
-
-## Number of plasmids
-
-### From summaries
-
-```{r, eval=FALSE}
-ggplot(features_filtered %>% 
-         filter(!is.na(resistance)) %>% 
-         filter(resistance !="I"), aes(AB, n.plasmids)) + 
-  geom_boxplot(aes(fill=resistance), notch=T, outlier.alpha = 0.5, outlier.size = 0.5) +
-  scale_fill_brewer(palette = "Set2") +
-  coord_trans(y="sqrt") +
-  xlab("")+
-  ylab("n") +
-  ggtitle("Plasmids count")
-```
-
-### From headers
-
-Here plasmid numbers are calculated using relative depth of coverage
-taken from assembly's fasta headers
-
-```{r, fig.width=10, fig.height=4, eval=FALSE}
-ggplot(features_filtered %>% 
-         filter(!is.na(resistance)) %>% 
-         filter(resistance !="I"), aes(AB, n.plasmids_alt)) + 
-  geom_boxplot(aes(fill=resistance), notch=T, outlier.alpha = 0.5, outlier.size = 0.5) +
-  scale_fill_brewer(palette = "Set2") +
-  coord_trans(y="sqrt") +
-  xlab("")+
-  ylab("n") +
-  ggtitle("Plasmids count (alternative count)")
-```
-
-## Repeat count
-
-We already know that repeats shorter than 100 mainly make noise
-
-### Repeats longer than 100 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, n_repeats_strain_min100, spans_center) %>% 
-                   distinct()
-
-ggbox.rc.ab.100 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min100)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        coord_trans(y="sqrt") +
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat count", subtitle="Repeats > 100 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.rc.ab.100
-```
-
-### Repeats longer than 500 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, n_repeats_strain_min500, spans_center) %>% 
-                   distinct()
-
-
-ggbox.rc.ab.500 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min500)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        facet_grid(spans_center ~ .) +
-        coord_trans(y="sqrt") +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat count", subtitle="Repeats > 500 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.rc.ab.500
-```
-
-### Repeats longer than 1000 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, n_repeats_strain_min1000, spans_center) %>% 
-                   distinct()
-
-
-ggbox.rc.ab.1000 <- ggplot(feat_selected, aes(AB, n_repeats_strain_min1000)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        facet_grid(spans_center ~ .) +
-        coord_trans(y="sqrt") +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat count", subtitle="Repeats > 1000 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.rc.ab.1000
-```
-
-## Repeat length
-
-### Repeats longer than 100 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, repeat_length, spans_center) %>% 
-                   filter(repeat_length >= 100) %>% 
-                   distinct()
-
-ggbox.rl.ab.100 <- ggplot(feat_selected, aes(AB, repeat_length)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        coord_trans(y="sqrt") +
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat length", subtitle="Repeats > 100 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.rl.ab.100
-```
-
-### Repeats longer than 500 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, repeat_length, spans_center) %>% 
-                   filter(repeat_length >= 500) %>% 
-                   distinct()
-
-ggbox.rl.ab.500 <- ggplot(feat_selected, aes(AB, repeat_length)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        coord_trans(y="log") +
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat length", subtitle="Repeats > 500 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.rl.ab.500
-```
-
-### Repeats longer than 1000 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, repeat_length, spans_center) %>% 
-                   filter(repeat_length >= 1000) %>% 
-                   distinct()
-
-ggbox.rl.ab.1000 <- ggplot(feat_selected, aes(AB, repeat_length)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        coord_trans(y="log") +
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Repeat length", subtitle="Repeats > 1000 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.rl.ab.1000
-```
-
-### Total repeat length
-
-```{r, eval=FALSE}
-ggplot(features_filtered %>%
-         select(record_id, AB, resistance, total_repeat_length) %>%
-         filter(resistance!="I") %>%
-         distinct(), aes(AB, total_repeat_length))+
-  geom_boxplot(aes(fill=resistance))+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set2")
-```
-
-## Amplifiable region size
-
-### For repeats longer than 100 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, AR_length, repeat_length, spans_center) %>% 
-                   filter(repeat_length >= 100) %>% 
-                   distinct()
-
-ggbox.arl.ab.100 <- ggplot(feat_selected, aes(AB, AR_length)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Amplifiable region size", subtitle="Repeats > 100 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.arl.ab.100
-
-```
-
-### For repeats longer than 500 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, AR_length, repeat_length, spans_center) %>% 
-                   filter(repeat_length >= 500) %>% 
-                   distinct()
-
-ggbox.arl.ab.500 <- ggplot(feat_selected, aes(AB, AR_length)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Amplifiable region size", subtitle="Repeats > 500 bp")+
-        xlab("")+
-        ylab("")
-
-
-ggbox.arl.ab.500
-
-```
-
-### For repeats longer than 1000 bp
-
-```{r, fig.width=10, fig.height=5, eval=FALSE}
-# prepare df
-feat_selected <- features_filtered %>%
-                   filter(!is.na(resistance)) %>%
-                   filter(resistance != "I") %>% 
-                   select(strain, AB, resistance, AR_length, repeat_length, spans_center) %>% 
-                   filter(repeat_length >= 1000) %>% 
-                   distinct()
-
-ggbox.arl.ab.1000 <- ggplot(feat_selected, aes(AB, AR_length)) +
-        geom_boxplot(aes(fill = resistance), notch=F, outlier.alpha = 0.5, outlier.size = 0.5) +
-        facet_grid(spans_center ~ .) +
-        scale_fill_brewer(palette = "Set2") +
-        ggtitle(label="Amplifiable region size", subtitle="Repeats > 1000 bp")+
-        xlab("")+
-        ylab("")
-
-ggbox.arl.ab.1000
-
-```
 
 ------------------------------------------------------------------------
 
