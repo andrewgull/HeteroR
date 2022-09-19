@@ -871,6 +871,8 @@ head(features_amp_strain)
 
 t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...) 
 
+"Location on plasmid" can be used later to separate all features into two groups: on plasmid and not (repeat counts, distance to oriC etc.)
+
 ```{r}
 # the only working way to read gff files in R
 # genbankr::read.GenBank() didn't work
@@ -914,6 +916,7 @@ gff_amp$located.on.plasmid <- str_detect(gff_amp$seq.region, "1", negate = T)
 gff_amp$on.plasmid <- if_else(gff_amp$located.on.plasmid, 1, 0)
 ```
 
+
 ## Distance to *oriC*
 
 `features_amp` contains gene names, 
@@ -942,23 +945,28 @@ gff_amp$pos.strand <- if_else(gff_amp$strand == "+", 1, 0)
 gff_amp <- select(gff_amp, c(record_id, dist.to.oriC, pos.strand, on.plasmid))
 ```
 
-
 ### GFF overview
 
 ```{r}
 gff_amp
 ```
 
-### Join GFF and features_amp
+## Add 'on.plasmid' to `features_amp`
 
-to get strain labels
+```{r}
+features_amp <- left_join(features_amp, gff_amp, by="record_id")
+```
+
+
+## Add 'strain' and 'record_id' to GFF
+
 
 ```{r}
 gff_amp <- left_join(gff_amp, select(features_amp, c(strain, record_id)) %>% distinct(), by="record_id")
 
 ```
 
-### Summarize features per strain
+### Summarize some GFF features per strain
 
 - minimum distance to oriC
 
