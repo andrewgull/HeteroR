@@ -951,10 +951,11 @@ gff_amp <- select(gff_amp, c(record_id, dist.to.oriC, pos.strand, on.plasmid))
 gff_amp
 ```
 
-## Add 'on.plasmid' to `features_amp`
+## Add 'on.plasmid' to `features_amp` 
 
 ```{r}
 features_amp <- left_join(features_amp, gff_amp, by="record_id")
+
 ```
 
 
@@ -1002,42 +1003,52 @@ dim(features_amp_strain)
 
 ### Add total repeat count
 
-Repeats from around non-beta-lactamase genes should not be counted!
+Repeats from around **non-beta-lactamase** genes should not be counted!
 
+Also, repeat counts should be calculated separately for plasmid and chromosomal genes
 
 ```{r}
 # in features_amp every row is a repeat, to find number of repeats per strain,
-# count number of rows per strains
+# count number of rows per strains and on.plasmid
 # exclude non-beta-lac genes
 # according to the current repeat definition distinct() should not be used
-repeat_counts_strain <- features_amp %>% 
+repeat_counts <- features_amp %>% 
   filter(is_beta_lac) %>% 
-  group_by(strain) %>%
-  summarise("n.rep.total"=n())
+  group_by(strain, on.plasmid) %>%
+  summarise("n.rep"=n()) %>% 
+  spread(key = "on.plasmid", value = "n.rep", fill = 0) %>% 
+  rename("strain" = strain, "n.rep.chrom" = `0`, "n.rep.plasmid" = `1`) %>% 
+  mutate(n.rep.total = n.rep.chrom + n.rep.plasmid)
 
-features_amp_strain <- left_join(features_amp_strain, repeat_counts_strain, by="strain")
+
+# add to features strain
+features_amp_strain <- left_join(features_amp_strain, repeat_counts, by="strain")
+
 
 # count number of repeats spanning center
-rep_count_center_strain <- features_amp %>% 
+rep_counts_center <- features_amp %>% 
   filter(is_beta_lac, spans_center=="yes") %>% 
-  group_by(strain) %>%
-  summarise("n.rep.tot.cen"=n())
+  group_by(strain, on.plasmid) %>%
+  summarise("n.rep.cen"=n()) %>% 
+  spread(key = "on.plasmid", value = "n.rep.cen", fill = 0) %>% 
+  rename("strain" = strain, "n.rep.cen.chrom" = `0`, "n.rep.cen.plasmid" = `1`) %>% 
+  mutate(n.rep.tot.cen = n.rep.cen.chrom + n.rep.cen.plasmid)
 
-features_amp_strain <- left_join(features_amp_strain, rep_count_center_strain, by="strain")
+features_amp_strain <- left_join(features_amp_strain, rep_counts_center, by="strain")
 
 # number of repeats not spanning center
-features_amp_strain$n.rep.tot.non.cen <- features_amp_strain$n.rep.total - features_amp_strain$n.rep.tot.cen
+# features_amp_strain$n.rep.tot.non.cen <- features_amp_strain$n.rep.total - features_amp_strain$n.rep.tot.cen
 
 
 # repeats per gene = number of rows per record_id
 # exclude non-beta-lac genes
 repeat_counts_gene <- features_amp %>%
   filter(is_beta_lac) %>% 
-  group_by(record_id) %>%
+  group_by(record_id, on.plasmid) %>%
   summarise("n_repeats_gene"=n())
 
 # join only those counts that are in features_amp
-features_amp <- left_join(features_amp, repeat_counts_gene, by="record_id")
+features_amp <- left_join(features_amp, repeat_counts_gene, by=c("record_id", "on.plasmid"))
 
 # NAs to 0s
 # there is no NAs
