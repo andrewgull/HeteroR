@@ -34,6 +34,8 @@ library(cluster)
 
 Here I explore strains tested as HR and non-HR according to the most recent update from Karin.
 
+AB is Piperacillin/Tazobactam
+
 I use old `features_amp_strain` without separation between chromosomal and plasmid predictors.
 
 I manually add resistance labels to features data table
