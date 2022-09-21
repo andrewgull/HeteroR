@@ -3,6 +3,7 @@
 # configfile: specify via command line
 # example command: snakemake --use-conda --cores 14 --configfile config.yaml --resources mem_mb=10000
 # to get DAG: snakemake --dag results/final/DA63360_all.done | dot -Tpng > dag.png
+import subprocess
 
 from snakemake.io import touch, directory, temp, expand
 
@@ -128,6 +129,17 @@ rule hybrid_assembly:
     conda: "envs/unicycler.yaml"
     shell:
         "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
+
+
+unicycler_log_path = "results/assemblies/DA62886/unicycler.log"
+
+completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
+                              "cut -d ' ' -f 2" % unicycler_log_path, shell=True, capture_output=True)
+
+completeness_stdout = completeness.stdout.decode("utf-8").splitlines()
+
+if completeness_stdout == "incomplete":
+    print("yeah")
 
 # assembly quality control
 rule qc_assembly:
