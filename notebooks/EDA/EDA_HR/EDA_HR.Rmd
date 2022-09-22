@@ -166,6 +166,9 @@ features_amp_strain_scaled$n.beta.lac.3 <- features_amp_strain$n.beta.lac.3
 
 features_amp_strain_scaled <- relocate(features_amp_strain_scaled, n.beta.lac.3, .before="n.beta.lac")
 features_amp_strain_scaled <- relocate(features_amp_strain_scaled, resistance, .before="n.plasmids")
+
+# write it for modelling
+write.csv(features_amp_strain_scaled, "../../modelling/PTZ_HR/data/features_ptz_hr_scaled.csv", row.names = F)
 ```
 
 
