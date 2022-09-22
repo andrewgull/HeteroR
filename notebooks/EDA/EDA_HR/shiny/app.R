@@ -4,16 +4,16 @@ library(shiny)
 library(tidyverse)
 
 # Read the main data table with features
-features_amp_strain <- read_csv("../data/features_amp_strain.csv")
+features_ptz_strain <- read_csv("data/features_ptz_strain.csv")
 
 # get vars to use later in UI (selectInput)
-vars <- names(select(features_amp_strain, -c("strain", "resistance")))
+vars <- names(select(features_ptz_strain, -c("strain", "resistance")))
 
 # get strain names to use in UI (heat map)
-strains <- features_amp_strain$strain
+strains <- features_ptz_strain$strain
 
 # get ampC and non-ampC counts 
-bl_count <- features_amp_strain %>% 
+bl_count <- features_ptz_strain %>% 
   select(resistance, n.beta.lac, ampC) %>% 
   mutate(non.ampC = n.beta.lac - ampC) %>% 
   select(-n.beta.lac)
@@ -145,7 +145,7 @@ server <- function(input, output) {
   thematic::thematic_shiny()
   
   # read data with main features
-  df <- readr::read_csv("../data/features_amp_strain.csv") 
+  df <- readr::read_csv("../data/features_ptz_strain.csv") 
   
   # read data with BL types
   df2 <- readr::read_csv("../data/amp_amr_types_strain.csv")
