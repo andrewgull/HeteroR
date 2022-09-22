@@ -137,6 +137,13 @@ features_amp_strain[is.na(features_amp_strain)] <- 0
 
 ```
 
+# Write data for shiny app
+
+```{r}
+write.csv(features_amp_strain, "shiny/data/features_ptz_strain.csv", row.names = F)
+```
+
+
 # Data scaling
 
 scale and center numeric features (real numeric + count, not dummies!)
