@@ -31,6 +31,12 @@ Here I use processed and scaled data from EDA_PTZ
 
 ```{r}
 feat <- read_csv("data/features_ptz_hr_scaled.csv")
+
+# replace HR/R with HR.R otherwise train() will complain
+feat$resistance <- as.factor(str_replace(feat$resistance, "HR/R", "HR.R"))
+
+feat %>% group_by(resistance) %>% 
+  summarize(N = n())
 ```
 
 
@@ -50,9 +56,65 @@ sample_set <- createDataPartition(y = feat$resistance, p = .75, list = FALSE)
 df_train <- feat[sample_set,]
 df_test <- feat[-sample_set,]
 
-df_train <- SMOTE(resistance ~ ., data.frame(df_train), perc.over = 100, perc.under = 200)
+df_train <- SMOTE(resistance ~ ., data.frame(df_train), perc.over = 200, perc.under = 150)
 
 ```
 
+In new training data target classes look like this:
 
+```{r}
+
+df_train %>% group_by(resistance) %>% 
+     summarize(N = n())
+```
+
+## Hyperparameters and training
+
+```{r}
+fit_ctrl_roc <- trainControl(method = "repeatedcv",
+                           number = 5,
+                           repeats = 10, 
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+
+
+fit_rf <- train(resistance ~ ., 
+                 data = df_train, 
+                 metric = "ROC", 
+                 method = "rf", 
+                 trControl = fit_ctrl_roc,
+                 tuneGrid = expand.grid(.mtry = seq(from = 20, to = 26, by = 0.5)),
+                 verbosity = 0,
+                 verbose = FALSE)
+
+fit_rf
+```
+
+## Testing
+
+```{r}
+predClasses_rf <- predict(fit_rf, newdata=df_test)
+
+cm_rf <- confusionMatrix(data = predClasses_rf, 
+                reference = df_test$resistance,
+                mode="everything",
+                positive="HR.R")
+
+cm_rf
+```
+
+
+
+## Feature importance
+
+```{r, fig.height=8}
+imp_vars_rf <- varImp(fit_rf)
+
+plot(imp_vars_rf, main="Variable Importance with RF")
+```
+
+```{r}
+save.image("data/workspace.RData")
+```
 
