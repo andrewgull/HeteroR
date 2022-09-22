@@ -1,0 +1,26 @@
+---
+title: "Modelling PTZ HR"
+author: "by A.G."
+date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+    code_folding: hide
+    fig_width: 10
+    fig_height: 6
+    theme: cerulean
+    highlight: kate
+    toc_float: yes
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = T)
+library(tidyverse)
+library(caret)
+library(ROCR)
+```
+
