@@ -22,5 +22,37 @@ knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, 
 library(tidyverse)
 library(caret)
 library(ROCR)
+library(DMwR)
 ```
+
+# Read data
+
+Here I use processed and scaled data from EDA_PTZ
+
+```{r}
+feat <- read_csv("data/features_ptz_hr_scaled.csv")
+```
+
+
+# RF
+
+ROC-optimization is better for imbalanced data
+
+## Split data
+
+Imbalanced data - use SMOTE to create training data set, but not testing data set
+
+```{r}
+set.seed(123)
+
+sample_set <- createDataPartition(y = feat$resistance, p = .75, list = FALSE)
+
+df_train <- feat[sample_set,]
+df_test <- feat[-sample_set,]
+
+df_train <- SMOTE(resistance ~ ., data.frame(df_train), perc.over = 100, perc.under = 200)
+
+```
+
+
 
