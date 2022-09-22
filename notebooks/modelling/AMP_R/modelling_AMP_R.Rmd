@@ -1,5 +1,5 @@
 ---
-title: "Modelling"
+title: "Modelling: AMP R"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
