@@ -1,0 +1,154 @@
+---
+title: "Interactive EDA"
+author: "AG"
+format: 
+  html: 
+    page-layout: custom
+server: shiny
+---
+
+```{r read_data, warning=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+
+
+#features_amp <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_amp.csv")
+
+features_amp_strain <- read_csv("data/features_amp_strain.csv")
+
+# rename for consistency
+features_amp_strain <- rename(features_amp_strain, "n.plasmids" = n_plasmids)
+```
+
+# Dot plots
+
+```{r}
+#| panel: sidebar
+vars <- names(select(features_amp_strain, -c("strain", "AB", "resistance")))
+selectInput('xcol', 'X Variable', vars, selected = "n.plasmids")
+selectInput('ycol', 'Y Variable', vars, selected = vars[[4]])
+#selectInput('group.var', 'Color by', vars[[2]], selected=vars[[2]])
+sliderInput("size", "Dot size", value=2, min = 0.5, max = 10)
+sliderInput("alpha", "Transparency", value=0.5, min = 0.1, max = 1)
+
+```
+
+```{r}
+#| panel: fill
+plotOutput('pairs.plot')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+library(dplyr)
+
+df <- readr::read_csv("data/features_amp_strain.csv") %>%
+      rename("n.plasmids"=n_plasmids)
+
+selectedData <- reactive({
+    select(df, input$xcol, input$ycol, resistance)
+  })
+
+output$pairs.plot <- renderPlot({
+  x <- paste0("`",input$xcol,"`")
+  y <- paste0("`",input$ycol,"`")
+  
+  ggplot(selectedData(), aes_string(x, y)) +
+    geom_point(aes(color=resistance), size = input$size, alpha = input$alpha) +
+    scale_color_brewer(palette="Set1", name="Resistance")+
+    theme(legend.position = "bottom")
+})
+# if you want coloring based on another grouping variable
+# color = unlist(selectedData()[,input$group.var])
+```
+
+
+# Correlation plot
+
+```{r}
+#| panel: sidebar
+vars <- names(select(features_amp_strain, -c("strain", "AB", "resistance")))
+
+#sliderInput(inputId = "sample", label = "Sample size", value = 6, min = 2, max = length(vars), step = 1)
+
+checkboxGroupInput(inputId = "vars", label="Variables", choices = vars, selected = vars[1:4])
+
+```
+
+```{r}
+#| panel: fill
+
+plotOutput('corr.plot', height = "100%")
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+#| context: server
+
+library(dplyr)
+library(readr)
+
+df <- read_csv("data/features_amp_strain.csv") %>% rename("n.plasmids" = n_plasmids)
+
+selected_data <- reactive({
+  # there are problems with cor() - Error: x must be numeric
+  #cor.matrix <- cor(as.matrix(df[, c(1:input$sample)]), use = "pairwise.complete.obs")
+  select(df, c("resistance", input$vars))
+})
+
+output$corr.plot <- renderPlot({
+  #corrplot::corrplot(selected_data(), hclust.method = "ward")
+  GGally::ggpairs(selected_data(), 
+        aes(color = resistance, alpha=0.2, dotsize=0.02), 
+        upper = list(continuous = GGally::wrap("cor", size = 2.5)),
+        diag=list(continuous ="barDiag")) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1")
+}, height=1000 )
+
+```
+
+# Count data
+
+```{r}
+#| panel: sidebar
+selectInput(inputId = "plot", label = "Plot type", choices = list("n.beta.lac", "n.plasmids"), selected = "n.beta.lac")
+
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('bar.plot')
+```
+
+
+```{r, eval=FALSE}
+#| context: server
+
+library(dplyr)
+library(readr)
+
+df <- read_csv("data/features_amp_strain.csv") %>% rename("n.plasmids" = n_plasmids)
+
+selected_data <- reactive({
+  select(df, c("resistance", input$plot))
+})
+
+output$bar.plot <- renderPlot({
+  x <- paste0("`",input$plot,"`")
+  ggplot(selected_data(), aes_string(x))+
+  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  scale_fill_brewer(palette="Set1", name="Resistance")+
+  theme(legend.position = "bottom") +
+  xlab("BL")+
+  ylab("count")
+})
+
+```
+
+
+
