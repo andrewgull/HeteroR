@@ -35,7 +35,7 @@ Data set `features_amp_strain` has been made previously in `feature_engineering.
 Here I add BL genes counts as ordered factor and as binary features (if BL > 3)
 
 ```{r, cache=F}
-feat_amp <- read_csv("tables/features_amp_strain.csv", na = c("NA", "-Inf"))
+feat_amp <- read_csv("data/features_amp_strain.csv", na = c("NA", "-Inf"))
 
 # resistance as factor
 feat_amp$resistance <- as.factor(feat_amp$resistance)
@@ -1045,7 +1045,7 @@ perf_metrics <- as_tibble(perf_metrics) %>% relocate(Metric, .before = V1)
 # make other columns names
 colnames(perf_metrics) <- c("Metric", "RLR.hand", "RLR.nocorr", "RLR.nocorr.2", "RLR.top5.auto", "RF.all", "RF.all.no.n.ampC", "RF.best", "RF.nocorr", "SVM.all", "SVM.nocorr", "XGB.all", "XGB.best", "XGB.nocorr")
 # write to file
-write.csv(perf_metrics, "tables/metrics.csv", row.names = FALSE)
+write.csv(perf_metrics, "data/metrics.csv", row.names = FALSE)
 
 # show
 perf_metrics
