@@ -32,11 +32,11 @@ ui <- fluidPage(
   theme = bslib::bs_theme(bootswatch = "darkly"),
   
   # Application title
-  titlePanel("EDA"),
+  titlePanel("HR EDA"),
   
   # A separate panel for AMP data
   tabsetPanel(
-    tabPanel("AMP",
+    tabPanel("PIP/TAZ",
              
              # 1st row with a heat map
              fluidRow(
@@ -145,10 +145,10 @@ server <- function(input, output) {
   thematic::thematic_shiny()
   
   # read data with main features
-  df <- readr::read_csv("../data/features_ptz_strain.csv") 
+  df <- readr::read_csv("data/features_ptz_strain.csv") 
   
   # read data with BL types
-  df2 <- readr::read_csv("../data/amp_amr_types_strain.csv")
+  df2 <- readr::read_csv("data/bl_types_strain.csv")
   
   # Dot plot:
   output$dot.plot <- renderPlot({
