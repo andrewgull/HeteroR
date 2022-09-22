@@ -1,5 +1,5 @@
 ---
-title: "Exploratory Data Analysis of HR strains"
+title: "Exploratory Data Analysis of Pip/Tazo HR strains"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
@@ -72,7 +72,7 @@ Also, it seems reasonable to mege R and HR group, because of two reasons:
 
 1. We have too little R
 
-2. It is useful to predict whether a strains *is* or *turns* resistant, because both outcomes require similar actions from a clinician.
+2. It is useful to predict whether a strains *is* (R) or *turns* (HR) resistant, because both outcomes require similar actions from a clinician.
 
 
 ```{r}
