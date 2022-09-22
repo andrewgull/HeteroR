@@ -98,7 +98,7 @@ features_amp_strain$resistance <- as.factor(features_amp_strain$resistance)
 
 # remove strain
 # but keep them elsewhere
-strains <- features_amp_strain %>% select(strain)
+strains <- features_amp_strain$strain
 features_amp_strain <- features_amp_strain %>% select(-strain)
 
 features_amp_strain
@@ -140,7 +140,11 @@ features_amp_strain[is.na(features_amp_strain)] <- 0
 # Write data for shiny app
 
 ```{r}
-write.csv(features_amp_strain, "shiny/data/features_ptz_strain.csv", row.names = F)
+features_ptz_shiny <- features_amp_strain %>% 
+  mutate("strain" = strains) %>% 
+  relocate(strain, .before = resistance)
+
+write.csv(features_ptz_shiny, "shiny/data/features_ptz_strain.csv", row.names = F)
 ```
 
 
