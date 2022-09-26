@@ -90,10 +90,10 @@ features_bl_strain <- features_bl_strain %>%
   relocate(n.beta.lac.3, .before="n.beta.lac")
 
 # New target class and remove NA in resistance
-features_bl_strain <- features_bl_strain %>% 
-  select(-resistance) %>% 
-  left_join(hr_testing, by = "strain") %>% 
-  filter(!is.na(resistance))
+# features_bl_strain <- features_bl_strain %>% 
+#   select(-resistance) %>% 
+#   left_join(hr_testing, by = "strain") %>% 
+#   filter(!is.na(resistance))
 
 features_bl_strain <- features_bl_strain %>% relocate(resistance, .before = "n.plasmids")
 
