@@ -120,7 +120,7 @@ skimr::skim(features_bl_strain)
 
 non-HR: 265
 
-HR/R: 79+12 = 91
+HR/R: 79+13 = 91
 
 
 There are strains with NAs, we can replace NA s with 0s
@@ -255,6 +255,7 @@ gap_stat <- clusGap(feat_clust, FUN = kmeans, nstart = 25,
 
 fviz_gap_stat(gap_stat)
 ```
+
 ???
 
 # EDA
@@ -264,9 +265,9 @@ fviz_gap_stat(gap_stat)
 ### In strains tested for AMP
 
 ```{r, fig.width=6, fig.height=4}
-bl_n_genes <- features_bl %>% select(strain, record_id) %>% distinct() %>% group_by(strain) %>% summarise(N=n())
+rg_n_genes <- features_bl %>% select(strain, record_id) %>% distinct() %>% group_by(strain) %>% summarise(N=n())
 
-ggplot(bl_n_genes, aes(N)) + 
+ggplot(rg_n_genes, aes(N)) + 
   geom_histogram(fill="steelblue", binwidth = 1)+
   xlab("RG count")+
   ylab("Strains count")+
@@ -277,10 +278,10 @@ ggplot(bl_n_genes, aes(N)) +
 
 
 ```{r}
-summary(bl_n_genes$N)
+summary(rg_n_genes$N)
 ```
 
-It's almost the same number of RGs as in the total data set, because this data set size is 380 strains and total data set size is 414 strains.
+Same number as in the total data set.
 
 ### In strains with beta-lactamases genes only
 
@@ -322,7 +323,9 @@ n_beta_lac <- left_join(betaL_n_genes, features_bl %>%
 ```
 
  
-Bar plot because number of BL genes is count data.
+#### Bar plot 
+
+because number of BL genes is count data.
 
 ```{r, fig.width=6, fig.height=4}
 #features_bl_strain$resistance <- factor()
@@ -335,9 +338,10 @@ ggplot(features_bl_strain, aes(n.beta.lac))+
   ggtitle("Beta-lactamase genes count distribution")
 ```
 
-If number of BL-genes is higher than 3, the strain is likely HR/R
+If number of BL-genes is higher than 3, the strain is more likely to be HR/R
 
-We can check it on a plot
+#### Proportion
+
 
 ```{r, fig.width=6, fig.height=4}
 ggplot(features_bl_strain, aes(n.beta.lac.3)) +
@@ -353,7 +357,7 @@ When the number of BL genes is less or equal 3, most likely the strains is non-H
 
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
-### Number of ampC beta-lactamases and other beta-lactamases in R and S strains
+### Proportion of ampC beta-lactamases and other beta-lactamases in R and S strains
 
 ```{r, fig.width=6, fig.height=4}
 bl_count <- features_bl_strain %>% 
@@ -448,135 +452,65 @@ ggplot(amp_ampr_gene_presence_td, aes(record_id, AMR.type))+geom_tile(aes(fill=N
 
 Per strain, doesn't depend on beta-lactamase presence or absence
 
-### As a box plot
-
-```{r, fig.width=6, fig.height=4}
-ggplot(features_bl_strain, aes(resistance, n.plasmids))+
+```{r, fig.width=10, fig.height=6}
+plot.n.plasm.box <- ggplot(features_bl_strain, aes(resistance, n.plasmids))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Set1")+
-  ggtitle("Number of plasmids")+
+  ggtitle("")+
   ylab("N")+
   guides(fill="none")
 
-```
-
-### As a bar plot
-
-```{r, fig.width=6, fig.height=4}
-ggplot(features_bl_strain, aes(n.plasmids))+
+plot.n.plasm.bar <- ggplot(features_bl_strain, aes(n.plasmids))+
   geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
   scale_fill_brewer(palette="Set1")+
   xlab("number of plasmids")+
   ylab("number of strains")
+
+ggarrange(plot.n.plasm.box, plot.n.plasm.bar,
+          ncol=2, nrow=1, 
+          common.legend = T, legend = "bottom")
+
 ```
 
-## Repeat length
 
-Distribution of repeat length around all beta-lactamase genes in strains tested for AMP resistance
+## Number of genes on plasmids
 
-### All repeats
+```{r, fig.width=6, fig.height=4}
+ggplot(features_bl_strain, aes(n.genes.plasmids))+
+  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  scale_fill_brewer(palette="Set1")+
+  xlab("number of genes")+
+  ylab("number of strains")+
+  ggtitle("Beta-lactamase genes on plasmids")
+```
 
-some zeros will be removed for plotting purposes only
+Starting from 5 genes, it seems to be a very good predictor
+
+
+## Repeat length: all repeats
+
+
+### Average total, average on chromosome, average on plasmids
+
 
 ```{r, fig.height=6, fig.width=14}
 
-# all repeat length plot
-
-###########################################
-plot.mrl.all <- ggplot(features_bl_strain%>% filter(med.rep.len > 0), aes(resistance, med.rep.len)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="log") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("length, bp") +
-  ggtitle(label="Median repeat length", subtitle = "All repeats")+
-  guides(fill="none")
-
-######################################
-
-plot.mrl.cen <- ggplot(features_bl_strain %>% filter(med.rep.len.cen > 0), aes(resistance, med.rep.len.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth=T)+
-  geom_jitter(alpha=0.1, width=0.15, height = 0.1)+
-  coord_trans(y="log")+
-  scale_fill_brewer(palette = "Set1") +
-  scale_color_brewer(palette = "Set1")+
-  xlab("")+ ylab("length, bp")+
-  ggtitle("", subtitle = "repeats spanning center")+
-  guides(fill="none")
-
-#####################################
-
-plot.mrl.non.cen <- ggplot(features_bl_strain%>% filter(med.rep.len.non.cen > 0), aes(resistance, med.rep.len.non.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ ylab("length, bp")+
-  ggtitle("", subtitle = "repeats not spanning center")+
-  guides(fill="none")
-
-
-
-##########################################
-ggarrange(plot.mrl.all, plot.mrl.cen, plot.mrl.non.cen,
-          ncol=3, nrow=1, 
-          common.legend = T, legend = "bottom")
 ```
 
-### Repeats longer than 100 bp
+## Repeat length: repeats longer than 100 bp
+
+### Average on chromosome, average on plasmids, both
 
 ```{r, fig.height=6, fig.width=14}
 
-#######################################
 
-plot.mrl.all.100 <- ggplot(features_bl_strain, aes(resistance, med.rep.len.100)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("length") +
-  ggtitle(label="Median repeat length", subtitle = "min 100 bp")+
-  guides(fill="none")
-
-#######################################
-
-plot.mrl.cen.100 <- ggplot(features_bl_strain, aes(resistance, med.rep.len.cen.100)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth=T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ ylab("length")+
-  ggtitle("Median repeat length", subtitle = "repeats spanning center, min 100 bp")+
-  guides(fill="none")
-
-###########################################
-
-plot.mrl.non.cen.100 <- ggplot(features_bl_strain, aes(resistance, med.rep.len.non.cen.100)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ ylab("length")+
-  ggtitle("Median repeat length", subtitle = "repeats not spanning center, min 100 bp")+
-  guides(fill="none")
-
-
-ggarrange(plot.mrl.all.100, plot.mrl.cen.100, plot.mrl.non.cen.100,
-          ncol=3, nrow=1, 
-          common.legend = T, legend = "bottom")
 ```
 
-## Total repeat length
+## Sum repeat length
 
-total repeat length in each gene divided by number of genes
-
-total repeat length = sum of all repeats on one side of a gene from center-spanning repeat pairs
-
+### On chromosome, on plasmids, both
 
 ```{r, warning=F, fig.width=6, fig.height=4}
 ggplot(features_bl_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.tot.rep.len))+
@@ -586,7 +520,7 @@ ggplot(features_bl_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.t
   coord_trans(y="log") +
   scale_fill_brewer(palette = "Set1") +
   xlab("")+ylab("length") +
-  ggtitle("Total repeat length")+
+  ggtitle("Sum repeat length")+
   guides(fill="none")
 
 ```
@@ -595,157 +529,64 @@ ggplot(features_bl_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.t
 
 some zeros are removed for plotting purposes
 
+### On chromosome, on plasmids, both
+
 ```{r, fig.width=14, fig.height=6}
-plot.maxrl.all <- ggplot(features_bl_strain %>% filter(max.rep.len > 0), aes(resistance, max.rep.len)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("length") +
-  ggtitle("Maximum repeat length")
 
-plot.maxrl.cen <- ggplot(features_bl_strain %>% filter(max.rep.len.cen > 0), aes(resistance, max.rep.len.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("length") +
-  ggtitle("Maximum repeat length", subtitle = "repeats spanning gene's center")
-
-plot.maxrl.non.cen <- ggplot(features_bl_strain %>% filter(max.rep.len.non.cen > 0), aes(resistance, max.rep.len.non.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("length") +
-  ggtitle("Maximum repeat length", subtitle = "repeats not spanning gene's center")
-
-ggarrange(plot.maxrl.all, plot.maxrl.cen, plot.maxrl.non.cen,
-          ncol=3, nrow=1, 
-          common.legend = T, legend = "none")
 ```
 
 
 ## Repeat counts
 
-### Per strain
+### On chromosome, on plasmids, both
 
-```{r, fig.height=6, fig.width=14}
-plot.rc.all <- ggplot(features_bl_strain %>% filter(n.rep.total > 0), aes(resistance, n.rep.total)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
+```{r, fig.width=14, fig.height=6}
+plot.rc.total <- ggplot(features_bl_strain, aes(resistance, n.rep.total)) +
+  geom_violin(aes(fill=resistance), alpha=0.7) +
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T) +
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1) +
   scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("N") +
-  ggtitle("Total repeat count")
+  ylab("N") +
+  xlab("") +
+  ggtitle("Number of repeats in total")
 
-
-plot.rc.cen <- ggplot(features_bl_strain %>% filter(n.rep.tot.cen > 0), aes(resistance, n.rep.tot.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
+plot.rc.chrom <- ggplot(features_bl_strain, aes(resistance, n.rep.chrom)) +
+  geom_violin(aes(fill=resistance), alpha=0.7) +
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T) +
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1) +
   scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="Total repeat count", subtitle = "Repeats spanning region's center")
+  ylab("") +
+  xlab("") +
+  ggtitle("Number of repeats on chromosome")
 
-plot.rc.non.cen <- ggplot(features_bl_strain %>% filter(n.rep.tot.cen > 0), aes(resistance, n.rep.tot.non.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
+plot.rc.plasm <- ggplot(features_bl_strain, aes(resistance, n.rep.plasmid)) +
+  geom_violin(aes(fill=resistance), alpha=0.7) +
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T) +
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1) +
   scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="Total repeat count", subtitle = "Repeats not spanning region's center")
+  ylab("") +
+  xlab("") +
+  ggtitle("Number of repeats on plasmids")
+  
 
-
-ggarrange(plot.rc.all, plot.rc.cen, plot.rc.non.cen, 
+  
+ggarrange(plot.rc.total, plot.rc.chrom, plot.rc.plasm,
           ncol=3, nrow=1, 
           common.legend = T, legend = "none")
 ```
 
-## Median amplifiable region size
+## Amplifiable region size
 
-### All repeats
-
-```{r, fig.height=6, fig.width=14}
-
-plot.arl.all <- ggplot(features_bl_strain %>% filter(med.AR.len > 0), aes(resistance, med.AR.len)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="AR size", subtitle = "All repeats")
-
-plot.arl.cen <- ggplot(features_bl_strain %>% filter(med.AR.len.cen > 0), aes(resistance, med.AR.len.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="AR size", subtitle = "Repeats spanning region's center")
-
-plot.arl.non.cen <- ggplot(features_bl_strain%>% filter(med.AR.len.non.cen > 0), aes(resistance, med.AR.len.non.cen)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="AR size", subtitle = "Repeats not spanning region's center")
-
-
-ggarrange(plot.arl.all, plot.arl.cen, plot.arl.non.cen, 
-          ncol=3, nrow=1, 
-          common.legend = T, legend = "none")
-```
-
-### Repeats longer than 100 bp
-
-Some zeros will be removed for plotting purposes only
+### On chromosome, on plasmids both
 
 ```{r, fig.height=6, fig.width=14}
-plot.arl.100 <- ggplot(features_bl_strain %>% filter(med.AR.len.100 > 0), aes(resistance, med.AR.len.100)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="AR size, min repeat length 100 bp", subtitle = "All repeats")
 
-plot.arl.cen.100 <- ggplot(features_bl_strain %>% filter(med.AR.len.cen.100 > 0), aes(resistance, med.AR.len.cen.100)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="AR size, min repeat length 100 bp", subtitle = "Repeats spanning region's center")
-
-plot.arl.non.cen.100 <- ggplot(features_bl_strain %>% filter(med.AR.len.non.cen.100 > 0), aes(resistance, med.AR.len.non.cen.100)) + 
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="sqrt") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("")+
-  ggtitle(label="AR size, min repeat length 100 bp", subtitle = "Repeats not spanning region's center")
-
-
-ggarrange(plot.arl.100, plot.arl.cen.100, plot.arl.non.cen.100, 
-          ncol=3, nrow=1, 
-          common.legend = T, legend = "none")
 ```
+
 
 ## Distance to oriC
+
+### Median distance on chromnomsome, on plasmids, both
 
 ```{r}
 plot.min.dist.oric <- ggplot(features_bl_strain, aes(resistance, min.dist.oriC))+
@@ -774,9 +615,17 @@ plot.med.dist.oric <- ggplot(features_bl_strain, aes(resistance, med.dist.oriC))
 ggarrange(plot.min.dist.oric, plot.med.dist.oric, ncol=2, nrow=1, legend = "none")
 ```
 
-Average distance to oriC is smaller in HR/R strains
 
-## Genes on plus strand
+### Minimal distance on chromosome, on plasmids, both
+
+```{r}
+
+```
+
+
+## Number of genes on plus strand
+
+### On chromosome, on plasmids, both
 
 ```{r, fig.width=6, fig.height=4}
 ggplot(features_bl_strain, aes(n.genes.plus.strand))+
@@ -787,19 +636,6 @@ ggplot(features_bl_strain, aes(n.genes.plus.strand))+
   ggtitle("Beta-lactamase genes on plus-strand")
 ```
 
-
-## Genes on plasmids
-
-```{r, fig.width=6, fig.height=4}
-ggplot(features_bl_strain, aes(n.genes.plasmids))+
-  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
-  scale_fill_brewer(palette="Set1")+
-  xlab("number of genes")+
-  ylab("number of strains")+
-  ggtitle("Beta-lactamase genes on plasmids")
-```
-
-Starting from 5 genes, it seems to be a very good predictor
 
 ## ampC-type beta-lactamases
 
