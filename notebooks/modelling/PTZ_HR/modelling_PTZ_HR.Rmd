@@ -70,7 +70,14 @@ df_train %>% group_by(resistance) %>%
 
 ## Hyperparameters and training
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
+set.seed(122)
+
+library(doParallel)
+
+cl <- makePSOCKcluster(18)
+registerDoParallel(cl)
+
 fit_ctrl_roc <- trainControl(method = "repeatedcv",
                            number = 5,
                            repeats = 10, 
@@ -84,9 +91,11 @@ fit_rf <- train(resistance ~ .,
                  metric = "ROC", 
                  method = "rf", 
                  trControl = fit_ctrl_roc,
-                 tuneGrid = expand.grid(.mtry = seq(from = 20, to = 26, by = 0.5)),
+                 tuneGrid = expand.grid(.mtry = seq(from = 9, to = 12, by = 0.5)),
                  verbosity = 0,
                  verbose = FALSE)
+
+stopCluster(cl)
 
 fit_rf
 ```
@@ -113,6 +122,37 @@ imp_vars_rf <- varImp(fit_rf)
 
 plot(imp_vars_rf, main="Variable Importance with RF")
 ```
+
+## ROC
+
+A function for ROC
+
+```{r}
+get_roc <- function(fit.obj, testing.df){
+  pred_prob <- predict.train(fit.obj, newdata = testing.df, type="prob")
+  pred_roc <- prediction(predictions = pred_prob$nonHR, labels = testing.df$resistance)
+  perf_roc <- performance(pred_roc, measure="tpr", x.measure = "fpr")
+  return(list(perf_roc, pred_roc))
+}
+```
+
+
+
+```{r}
+# calculate ROC
+perf_pred <- get_roc(fit_rf, df_test)
+perf_rf <- perf_pred[[1]]
+pred_rf <- perf_pred[[2]]
+
+# take AUC 
+auc_rf <- round(unlist(slot(performance(pred_rf, measure = "auc"), "y.values")), 3)
+
+# plot
+plot(perf_rf, main = "RF ROC curve", col = "steelblue", lwd = 3)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+legend(x = 0.7, y = 0.3, legend = paste0("AUC = ", auc_rf))
+```
+
 
 ```{r}
 save.image("data/workspace.RData")
