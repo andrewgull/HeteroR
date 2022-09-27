@@ -826,7 +826,7 @@ Here I will analyse only strains tested for resistance to PTZ which acts on beta
 # keep for per gene feature calculations
 # features_amp <- features_filtered %>% filter(AB=="AMP") %>% distinct()
 # this df is for per strain calculation
-features_bl_strain <- features_filtered %>% select(strain, n.plasmids, resistance) %>% distinct()
+features_bl_strain <- features_filtered %>% select(strain, resistance, n.plasmids) %>% distinct()
 head(features_bl_strain)
 ```
 
@@ -970,7 +970,7 @@ features_filtered <- left_join(features_filtered, gff_bl, by="record_id")
 ```
 
 
-## Add 'strain' and 'record_id' to GFF with BL genes
+## Add 'strain' and 'record_id' to `gff_bl` (GFF with BL genes)
 
 
 ```{r}
@@ -978,7 +978,9 @@ gff_bl <- left_join(gff_bl, select(features_filtered, c(strain, record_id)) %>% 
 
 ```
 
-### Summarize some GFF features per strain
+### Summarize some BL-related features per strain
+
+(from GFF)
 
 - minimum distance to oriC
 
@@ -988,24 +990,39 @@ gff_bl <- left_join(gff_bl, select(features_filtered, c(strain, record_id)) %>% 
 
 - number of genes on plasmids
 
+All in three variants: on chromosome, on plasmids, both
+
 ```{r}
 min_dist_oriC <- gff_bl %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
+  spread(key = "on.plasmid", value = "min.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
+  rename("strain" = strain, "min.dist.oriC.chrom" = `0`, "min.dist.oriC.plasmid" = `1`) %>% 
+  mutate(min.dist.oriC = min.dist.oriC.chrom + min.dist.oriC.plasmid)
+
+med_dist_oriC <- gff_bl %>% 
+group_by(strain, on.plasmid) %>% 
+  summarise(med.dist.oriC = median(dist.to.oriC)) %>% 
+  spread(key = "on.plasmid", value = "med.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
+  rename("strain" = strain, "med.dist.oriC.chrom" = `0`, "med.dist.oriC.plasmid" = `1`) %>% 
+  mutate(med.dist.oriC = med.dist.oriC.chrom + med.dist.oriC.plasmid)
+
+n_genes_plus_strand <- gff_bl %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarise(n.genes.plus=sum(pos.strand)) %>% 
+  spread(key = "on.plasmid", value = "n.genes.plus", fill = 0) %>% 
+  rename("strain" = strain, "n.genes.plus.chrom" = `0`, "n.genes.plus.plasmid" = `1`) %>% 
+  mutate(n.genes.plus = n.genes.plus.chrom + n.genes.plus.plasmid)
+
+# genes on plasmids are always on plasmids
+n_genes_plasmids <- gff_bl %>% 
   group_by(strain) %>% 
-  summarise(min.dist.oriC=min(dist.to.oriC))
-
-med_dist_oriC <- gff_bl %>% group_by(strain) %>% 
-  summarise(med.dist.oriC=median(dist.to.oriC))
-
-n_genes_plus_strand <- gff_bl %>% group_by(strain) %>% 
-  summarise(n.genes.plus.strand=sum(pos.strand))
-
-n_genes_plasmids <- gff_bl %>% group_by(strain) %>% 
   summarise(n.genes.plasmids=sum(on.plasmid))
 
 features_bl_strain <- list(features_bl_strain, min_dist_oriC, med_dist_oriC, n_genes_plus_strand, n_genes_plasmids) %>% 
   reduce(left_join, by="strain")
 
-dim(features_bl_strain)
+head(features_bl_strain)
 ```
 
 
@@ -1076,31 +1093,32 @@ features_filtered <- features_filtered %>% relocate(n_repeats_gene, .before="ORF
 ### Add repeat count, min length 100 bp
 
 ```{r}
-# n reads longer than 100 bp
+# n reads longer than 100
 repeat_counts_strain_100 <- features_filtered %>% 
   filter(is_beta_lac) %>%
   filter(repeat_length >= 100) %>% 
-  group_by(strain) %>% 
-  summarise("n.rep.100"=n())
+  group_by(strain, on.plasmid) %>% 
+  summarise("n.rep.100"=n()) %>% 
+  spread(key = "on.plasmid", value = "n.rep.100", fill = 0) %>% 
+  rename("strain" = strain, "n.rep.100.chrom" = `0`, "n.rep.100.plasmid" = `1`) %>% 
+  mutate(n.rep.100.total = n.rep.100.chrom + n.rep.100.plasmid)
+
 
 # add
 features_bl_strain <- left_join(features_bl_strain, repeat_counts_strain_100, by="strain")
-# NAs to 0s
-features_bl_strain$n.rep.100 <- ifelse(is.na(features_bl_strain$n.rep.100), 0, features_bl_strain$n.rep.100)
 
 # n repeats longer than 100 and spanning center
 repeat_counts_strain_100_center <- features_filtered %>% 
   filter(is_beta_lac, spans_center=="yes", repeat_length >= 100) %>%
-  group_by(strain) %>% 
-  summarise("n.rep.100.cen"=n())
+  group_by(strain, on.plasmid) %>% 
+  summarise("n.rep.100.cen"=n()) %>% 
+  spread(key = "on.plasmid", value = "n.rep.100.cen", fill = 0) %>% 
+  rename("strain" = strain, "n.rep.100.cen.chrom" = `0`, "n.rep.100.cen.plasmid" = `1`) %>% 
+  mutate(n.rep.100.cen.tot = n.rep.100.cen.chrom + n.rep.100.cen.plasmid)
 
 # add to the table, there will be NAs
 features_bl_strain <- left_join(features_bl_strain, repeat_counts_strain_100_center, by="strain")
-# replace NAs with 0s
-features_bl_strain$n.rep.100.cen <- ifelse(is.na(features_bl_strain$n.rep.100.cen), 0, features_bl_strain$n.rep.100.cen)
 
-## non spanning center
-features_bl_strain$n.rep.100.non.cen <- features_bl_strain$n.rep.100 - features_bl_strain$n.rep.100.cen
 
 #############################
 ## PER GENE
@@ -1130,34 +1148,12 @@ features_filtered <- features_filtered %>% relocate(n_repeats_gene_min100, .befo
 head(features_bl_strain)
 ```
 
+
 ### Add repeat count, min length 500 bp
 
+I leave only per gene statistic
+
 ```{r}
-# n reads longer than 500 bp
-repeat_counts_strain_500 <- features_filtered %>% 
-  filter(is_beta_lac) %>%
-  filter(repeat_length >= 500) %>% 
-  group_by(strain) %>% 
-  summarise("n.rep.500"=n())
-
-# add
-features_bl_strain <- left_join(features_bl_strain, repeat_counts_strain_500, by="strain")
-# NAs to 0s
-features_bl_strain$n.rep.500 <- ifelse(is.na(features_bl_strain$n.rep.500), 0, features_bl_strain$n.rep.500)
-
-# n repeats longer than 500 and spanning center
-repeat_counts_strain_500_center <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="yes", repeat_length >= 500) %>%
-  group_by(strain) %>% 
-  summarise("n.rep.500.cen"=n())
-
-# add to the table, there will be NAs
-features_bl_strain <- left_join(features_bl_strain, repeat_counts_strain_500_center, by="strain")
-# replace NAs with 0s
-features_bl_strain$n.rep.500.cen <- ifelse(is.na(features_bl_strain$n.rep.500.cen), 0, features_bl_strain$n.rep.500.cen)
-
-## non spanning center
-features_bl_strain$n.rep.500.non.cen <- features_bl_strain$n.rep.500 - features_bl_strain$n.rep.500.cen
 
 #############################
 ## PER GENE
@@ -1184,18 +1180,28 @@ features_filtered <- features_filtered %>% relocate(n_repeats_gene_min500, .befo
 ## SHOW FEATURES STRAIN
 ##################################
 
-head(features_bl_strain)
+head(features_filtered)
 
 ```
+## Repeat length
 
-## Median sum of repeat length
+### Median sum of repeat length
 
-total repeat length in each gene divided by number of genes
+I sum up repeat lengths in each gene and divide it by number of genes -> strain characteristic
 
-total repeat length = sum of all repeats on one side of a gene from center-spanning repeat pairs
+Sum of repeat length is sum of all repeats on *one side* of a gene from center-spanning repeat pairs
 
 ```{r}
 # calculate summarized repeat sum
+rep_len_sum_strain_split <- features_filtered %>% 
+  filter(is_beta_lac, spans_center=="yes") %>% 
+  group_by(strain, record_id, on.plasmid) %>%
+  summarise(total_repeat_length=sum(repeat_length)) %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarise(med.tot.rep.len=median(total_repeat_length)) %>% 
+  spread(key = "on.plasmid", value = "med.tot.rep.len", fill = 0) %>% 
+  rename("strain" = strain, "med.tot.rep.len.chrom" = `0`, "med.tot.rep.len.plasmid" = `1`) 
+
 rep_len_sum_strain <- features_filtered %>% 
   filter(is_beta_lac, spans_center=="yes") %>% 
   group_by(strain, record_id) %>%
@@ -1203,7 +1209,9 @@ rep_len_sum_strain <- features_filtered %>%
   group_by(strain) %>% 
   summarise(med.tot.rep.len=median(total_repeat_length))
 
-features_bl_strain <- left_join(features_bl_strain, rep_len_sum_strain, by="strain")
+# join both with features_bl_strain
+features_bl_strain <- list(features_bl_strain, rep_len_sum_strain_split, rep_len_sum_strain) %>% 
+  reduce(left_join, by="strain")
 
 # per gene
 rep_len_sum <- features_filtered %>% 
@@ -1217,117 +1225,78 @@ features_filtered <- left_join(features_filtered, rep_len_sum, by="record_id") %
 head(features_bl_strain)
 ```
 
-## Repeat density
+### Repeat density
 
 Under construction.
 
 This metric reflects maximum number of repeats per sliding window.
 
-## Median repeat length
+### Median repeat length
 
 Only repeats found around beta-lactamase genes should be taken into account.
 
 According to the current definition of *repeat*, `distinct()` should not be used.
 
-### All repeats
 
 ```{r}
 # I have removed distinct() and added filter(spans_center=="yes")
 # it significantly changes everything
+med_rep_len_split <- features_filtered %>% 
+  filter(is_beta_lac) %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(med.rep.len=median(repeat_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "med.rep.len", fill = 0) %>% 
+  rename("strain" = strain, "med.rep.len.chrom" = `0`, "med.rep.len.plasmid" = `1`)
+
 med_rep_len <- features_filtered %>% 
   filter(is_beta_lac) %>% 
-  select(strain, repeat_length) %>% 
   group_by(strain) %>% 
   summarize(med.rep.len=median(repeat_length, na.rm = T))
 
-# spanning gene center
-med_rep_len_center <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="yes") %>% 
-  select(strain, repeat_length) %>% 
-  group_by(strain) %>% 
-  summarize(med.rep.len.cen=median(repeat_length, na.rm = T))
 
-# non spanning
-med_rep_len_non_center <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="no") %>% 
-  select(strain, repeat_length) %>% 
-  group_by(strain) %>% 
-  summarize(med.rep.len.non.cen=median(repeat_length, na.rm = T))
+# add both
+features_bl_strain <- list(features_bl_strain, med_rep_len_split, med_rep_len) %>% 
+  reduce(left_join, by="strain")
 
-# add
-features_bl_strain <- left_join(features_bl_strain, med_rep_len_center, by="strain")
-features_bl_strain <- left_join(features_bl_strain, med_rep_len_non_center, by="strain")
-features_bl_strain <- left_join(features_bl_strain, med_rep_len, by="strain") # features_bl_strain <- features_bl_strain %>% relocate(med.rep.len, .before = "med.rep.len.cen")
-
-
-# NAs to 0s
-features_bl_strain$med.rep.len.cen <- ifelse(is.na(features_bl_strain$med.rep.len.cen), 0, features_bl_strain$med.rep.len.cen)
-features_bl_strain$med.rep.len.non.cen <- ifelse(is.na(features_bl_strain$med.rep.len.non.cen), 0, features_bl_strain$med.rep.len.non.cen)
-
-# older way of counting
-# med_rep_len_old <- features_filtered %>% 
-#   filter(is_beta_lac) %>% 
-#   select(strain, repeat_length) %>% 
-#   distinct() %>% 
-#   group_by(strain) %>% 
-#   summarize(median_repeat_length=median(repeat_length, na.rm = T))
 
 head(features_bl_strain)
 ```
 
-### Repeats min 100
+### Maximum repeat length
 
 ```{r}
-med_rep_len_m100 <- features_filtered %>% 
-  filter(is_beta_lac, repeat_length >= 100) %>% 
-  select(strain, repeat_length) %>% 
+max_rep_len_all_split <- features_filtered %>% 
+  filter(is_beta_lac) %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(max.rep.len=max(repeat_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "max.rep.len", fill = 0) %>% 
+  rename("strain" = strain, "max.rep.len.chrom" = `0`, "max.rep.len.plasmid" = `1`)
+
+max_rep_len_all <- features_filtered %>% 
+  filter(is_beta_lac) %>% 
   group_by(strain) %>% 
-  summarize(med.rep.len.100=median(repeat_length, na.rm = T))
+  summarize(max.rep.len=max(repeat_length, na.rm = T))
 
-# spanning gene center
-med_rep_len_center_m100 <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="yes", repeat_length >= 100) %>% 
-  select(strain, repeat_length) %>% 
+# add both
+features_bl_strain <- list(features_bl_strain, max_rep_len_all_split, max_rep_len_all) %>% 
+  reduce(left_join, by="strain")
+
+# center spanning
+max_rep_len_cen_split <- features_filtered %>%
+  filter(is_beta_lac, spans_center == "yes") %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(max.rep.len=max(repeat_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "max.rep.len", fill = 0) %>% 
+  rename("strain" = strain, "max.rep.len.cen.chrom" = `0`, "max.rep.len.cen.plasmid" = `1`)
+
+max_rep_len_cen <- features_filtered %>%
+  filter(is_beta_lac, spans_center == "yes") %>% 
   group_by(strain) %>% 
-  summarize(med.rep.len.cen.100=median(repeat_length, na.rm = T))
+  summarize(max.rep.len.cen=max(repeat_length, na.rm = T))
 
-# non spanning
-med_rep_len_non_center_m100 <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="no", repeat_length >= 100) %>% 
-  select(strain, repeat_length) %>% 
-  group_by(strain) %>% 
-  summarize(med.rep.len.non.cen.100=median(repeat_length, na.rm = T))
-
-# add
-features_bl_strain <- left_join(features_bl_strain, med_rep_len_m100, by="strain")
-features_bl_strain <- left_join(features_bl_strain, med_rep_len_center_m100, by="strain")
-features_bl_strain <- left_join(features_bl_strain, med_rep_len_non_center_m100, by="strain")
-
-# replace NAs
-features_bl_strain$med.rep.len.100 <- ifelse(is.na(features_bl_strain$med.rep.len.100), 0, features_bl_strain$med.rep.len.100)
-features_bl_strain$med.rep.len.cen.100 <- ifelse(is.na(features_bl_strain$med.rep.len.cen.100), 0, features_bl_strain$med.rep.len.cen.100)
-features_bl_strain$med.rep.len.non.cen.100 <- ifelse(is.na(features_bl_strain$med.rep.len.non.cen.100), 0, features_bl_strain$med.rep.len.non.cen.100)
-
-# show
-head(features_bl_strain)
-```
-
-## Maximum repeat length
-
-```{r}
-max_rep_len_all <- features_filtered %>% group_by(strain) %>% summarize(max.rep.len=max(repeat_length, na.rm = T))
-
-max_rep_len_cen <- features_filtered %>% filter(spans_center=="yes") %>% group_by(strain) %>% summarize(max.rep.len.cen=max(repeat_length, na.rm = T))
-
-max_rep_len_non_cen <- features_filtered %>% filter(spans_center=="no") %>% group_by(strain) %>% summarize(max.rep.len.non.cen=max(repeat_length, na.rm = T))
-
-# add
-features_bl_strain <- left_join(features_bl_strain, max_rep_len_all, by="strain")
-features_bl_strain <- left_join(features_bl_strain, max_rep_len_cen, by="strain")
-features_bl_strain <- left_join(features_bl_strain, max_rep_len_non_cen, by="strain")
-
-# NAs to 0
-features_bl_strain$max.rep.len.cen <- ifelse(is.na(features_bl_strain$max.rep.len.cen), 0, features_bl_strain$max.rep.len.cen)
+# add both
+features_bl_strain <- list(features_bl_strain, max_rep_len_cen_split, max_rep_len_cen) %>% 
+  reduce(left_join, by="strain")
 
 head(features_bl_strain)
 ```
