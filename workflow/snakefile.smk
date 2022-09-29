@@ -114,32 +114,24 @@ rule filter_nanopore:
         "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
 # Make an assembly with Unicycler
-rule hybrid_assembly:
+rule adaptive_hybrid_assembly:
     input:
-        short_read_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        short_read_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
-        long_read = "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+        short_reads_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
+        short_reads_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
+        long_reads = "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output:
-        directory("results/assemblies/{strain}")
+        assembly_dir = directory("results/assemblies/{strain}"),
+        draft_dir = directory("results/drafts/{strain}"),
+        polish_dir = directory("results/polished/{strain}")
     threads: 18
     message:
-        "executing Unicycler with {threads} threads on {wildcards.strain} reads"
+        "executing assembly script with {threads} threads on {wildcards.strain} reads"
     log:
-        "results/logs/{strain}_unicycler.log"
-    conda: "envs/unicycler.yaml"
-    shell:
-        "unicycler -1 {input.short_read_1} -2 {input.short_read_2} -l {input.long_read} -t {threads} -o {output} &> {log}"
-
-
-unicycler_log_path = "results/assemblies/DA62886/unicycler.log"
-
-completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
-                              "cut -d ' ' -f 2" % unicycler_log_path, shell=True, capture_output=True)
-
-completeness_stdout = completeness.stdout.decode("utf-8").splitlines()
-
-if completeness_stdout == "incomplete":
-    print("yeah")
+        "results/logs/{strain}_assembly.log"
+    conda: "envs/hybrid_assembly.yaml"
+    params: basecaller="r941_min_fast_g507", genome_size="5m", coverage=50
+    script:
+        "scripts/adaptive_hybrid_assembly.py"
 
 # assembly quality control
 rule qc_assembly:
