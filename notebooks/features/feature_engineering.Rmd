@@ -1302,71 +1302,80 @@ head(features_bl_strain)
 ```
 
 
-## Median amplifiable region size
+## Amplifiable region length
 
-### All repeat pairs
+### Median AR length
 
-`distinct()` should not be used again
+#### All repeat on chromosomes, plamids and both
 
 ```{r}
+med_ar_len_split <- features_filtered %>% 
+  filter(is_beta_lac) %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(med.AR.len=median(AR_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "med.AR.len", fill = 0) %>% 
+  rename("strain" = strain, "med.AR.len.chrom" = `0`, "med.AR.len.plasmid" = `1`)
+
+
 med_ar_len <- features_filtered %>% 
   filter(is_beta_lac) %>% 
-  select(strain, AR_length) %>% 
   group_by(strain) %>% 
   summarize(med.AR.len=median(AR_length, na.rm = T))
 
-
-med_ar_len_cen <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="yes") %>% 
-  select(strain, AR_length) %>% 
-  group_by(strain) %>% 
-  summarize(med.AR.len.cen=median(AR_length, na.rm = T))
-
-med_ar_len_non_cen <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="no") %>% 
-  select(strain, AR_length) %>% 
-  group_by(strain) %>% 
-  summarize(med.AR.len.non.cen=median(AR_length, na.rm = T))
-
 # add
-features_bl_strain <- left_join(features_bl_strain, med_ar_len, by="strain") # relocate(features_bl_strain, med.AR.len, .before="med.AR.len.cen")
-features_bl_strain <- left_join(features_bl_strain, med_ar_len_cen, by="strain")
-features_bl_strain <- left_join(features_bl_strain, med_ar_len_non_cen, by="strain")
+features_bl_strain <- list(features_bl_strain, med_ar_len_split, med_ar_len) %>% 
+  reduce(left_join, by="strain")
 
 head(features_bl_strain)
 ```
 
-### Repeats min 100
+#### Repeat pairs spanning center
 
 ```{r}
-med_ar_len_m100 <- features_filtered %>% 
-  filter(is_beta_lac, repeat_length >= 100) %>% 
-  select(strain, AR_length) %>% 
-  group_by(strain) %>% 
-  summarize(med.AR.len.100=median(AR_length, na.rm = T))
+med_ar_len_cen_split <- features_filtered %>% 
+  filter(is_beta_lac, spans_center == "yes") %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(med.AR.len.cen=median(AR_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "med.AR.len.cen", fill = 0) %>% 
+  rename("strain" = strain, "med.AR.len.cen.chrom" = `0`, "med.AR.len.cen.plasmid" = `1`)
 
-med_ar_len_cen_m100 <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="yes", repeat_length >= 100) %>% 
-  select(strain, AR_length) %>% 
-  group_by(strain) %>% 
-  summarize(med.AR.len.cen.100=median(AR_length, na.rm = T))
 
-med_ar_len_non_cen_m100 <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="no", repeat_length >= 100) %>% 
-  select(strain, AR_length) %>% 
+med_ar_len_cen <- features_filtered %>% 
+  filter(is_beta_lac, spans_center == "yes") %>% 
   group_by(strain) %>% 
-  summarize(med.AR.len.non.cen.100=median(AR_length, na.rm = T))
+  summarize(med.AR.len.cen=median(AR_length, na.rm = T))
 
 # add
-# NA can appear
-features_bl_strain <- left_join(features_bl_strain, med_ar_len_m100, by="strain")
-features_bl_strain <- left_join(features_bl_strain, med_ar_len_cen_m100, by="strain")
-features_bl_strain <- left_join(features_bl_strain, med_ar_len_non_cen_m100, by="strain")
+features_bl_strain <- list(features_bl_strain, med_ar_len_cen_split, med_ar_len_cen) %>% 
+  reduce(left_join, by="strain")
 
-# replace NAs with 0
-features_bl_strain$med.AR.len.cen.100 <- ifelse(is.na(features_bl_strain$med.AR.len.cen.100), 0, features_bl_strain$med.AR.len.cen.100)
-features_bl_strain$med.AR.len.non.cen.100 <- ifelse(is.na(features_bl_strain$med.AR.len.non.cen.100), 0, features_bl_strain$med.AR.len.non.cen.100)
-features_bl_strain$med.AR.len.100 <- ifelse(is.na(features_bl_strain$med.AR.len.100), 0, features_bl_strain$med.AR.len.100)
+
+head(features_bl_strain)
+```
+
+
+### Minimum AR length
+
+#### Only pairs spanning center
+
+Because it doesn't have much sense otherwise
+
+```{r}
+min_ar_len_cen_split <- features_filtered %>% 
+  filter(is_beta_lac, spans_center == "yes") %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(min.AR.len.cen=min(AR_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "min.AR.len.cen", fill = 0) %>% 
+  rename("strain" = strain, "min.AR.len.cen.chrom" = `0`, "min.AR.len.cen.plasmid" = `1`)
+
+min_ar_len_cen <- features_filtered %>% 
+  filter(is_beta_lac, spans_center == "yes") %>% 
+  group_by(strain) %>% 
+  summarize(min.AR.len.cen=min(AR_length, na.rm = T))
+
+# add
+features_bl_strain <- list(features_bl_strain, min_ar_len_cen_split, min_ar_len_cen) %>% 
+  reduce(left_join, by="strain")
 
 head(features_bl_strain)
 ```
