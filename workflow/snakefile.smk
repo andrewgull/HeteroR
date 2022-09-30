@@ -445,7 +445,6 @@ rule final:
         qc_ill_raw="results/qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv",
         qc_ill_trim="results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv",
         qc_nan_raw="results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
-        qc_nan_filt="results/qualcheck_reads/{strain}/Nanopore_filtered/{strain}_summary.tsv",
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
         summary="results/assemblies_joined/{strain}/summary.tsv",
         gff_nomism="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
