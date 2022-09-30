@@ -32,6 +32,7 @@ completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q
 completeness_stdout = completeness.stdout.decode("utf-8").splitlines()
 
 if completeness_stdout[2] == "incomplete":
+    print("The first assemblyis not complete. flye-medaka-polypolish have been chosen")
     # RUN FLYE
     subprocess.run("flye --nano-raw %s --threads %i --out-dir %s -g %s --asm-coverage %i" %
                    (long_reads, threads, assembly_dir, genome_size, coverage), shell=True)
@@ -59,9 +60,8 @@ if completeness_stdout[2] == "incomplete":
     # same file as for unicycler
     destination = os.path.join(cwd, "%s/assembly.fasta" % assembly_dir)
     os.symlink(source, destination)
-    print("flye-medaka-polypolish's been chosen")
 else:
-    print("unicycler's been chosen")
+    print("The first assembly is complete. Unicycler has been chosen")
 
 # CLOSE LOG
 log.close()
