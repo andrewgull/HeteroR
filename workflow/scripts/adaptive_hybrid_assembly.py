@@ -1,6 +1,5 @@
 # script for adaptive hybrid assembling
 # runs unicycler and then flye-medaka-polypolish if chromosomal assembly is not complete
-import snakemake
 import subprocess
 import os
 
@@ -18,7 +17,7 @@ polish_dir = snakemake.output[2]
 unicycler_log_path = os.path.join(assembly_dir, "unicycler.log")
 
 # DEFINE PARAMS
-threads = snakemake.threads[0]
+threads = snakemake.threads
 basecaller = snakemake.params[0]
 genome_size = snakemake.params[1]
 coverage = snakemake.params[2]
