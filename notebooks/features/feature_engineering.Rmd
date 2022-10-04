@@ -1393,86 +1393,88 @@ features_filtered %>% select(strain, record_id, AMR.Gene.Family) %>% distinct() 
 
 In real life, every E.coli has at least I ampC gene on chromosome - so, the table above should be empty.
 
+### Filter features with ampC genes only
+
 ```{r}
 # there are 21 types of AMR gene families, only one type's name contain ampC
 features_ampC <- filter(features_filtered, grepl("ampC", AMR.Gene.Family))
+```
 
-# add total rep count, med repeat length, max repeat length, sum repeat length, med AR length
 
-###########
-## TOT REP
-###########
+### Repeat counts
+
+On chromosome, on plasmid, both
+
+```{r}
 
 repeat_counts_ampC <- features_ampC %>% 
   filter(is_beta_lac) %>% 
-  group_by(strain) %>%
-  summarise("ampC.n.rep.tot"=n())
+  group_by(strain, on.plasmid) %>%
+  summarise("n.rep.ampC" = n()) %>% 
+  spread(key = "on.plasmid", value = "n.rep.ampC", fill = 0) %>% 
+  rename("strain" = strain, "n.rep.chrom.ampC" = `0`, "n.rep.plasmid.ampC" = `1`) %>% 
+  mutate(n.rep.total.ampC = n.rep.chrom.ampC + n.rep.plasmid.ampC)
+
 
 features_bl_strain <- left_join(features_bl_strain, repeat_counts_ampC, by="strain")
 
-###############
-## MED REP LEN
-###############
+```
 
-med_rep_len_ampC <- features_ampC %>% 
+
+### AR length
+
+On chromosome, on plasmid, both
+
+```{r}
+med_ar_len_split_ampC <- features_ampC %>% 
   filter(is_beta_lac) %>% 
-  select(strain, repeat_length) %>% 
-  group_by(strain) %>% 
-  summarize("ampC.med.rep.len"=median(repeat_length, na.rm = T))
+  group_by(strain, on.plasmid) %>% 
+  summarize(med.AR.len.ampC = median(AR_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "med.AR.len.ampC", fill = 0) %>% 
+  rename("strain" = strain, "med.AR.len.chrom.ampC" = `0`, "med.AR.len.plasmid.ampC" = `1`)
 
-features_bl_strain <- left_join(features_bl_strain, med_rep_len_ampC, by="strain")
-
-################
-## MAX REP LEN
-################
-
-max_rep_len_all_ampC <- features_ampC %>% 
-  group_by(strain) %>% 
-  summarize("ampC.max.rep.len"=max(repeat_length, na.rm = T))
-
-features_bl_strain <- left_join(features_bl_strain, max_rep_len_all_ampC, by="strain")
-
-#####################################
-## SUM REP LEN only spanning center!
-#####################################
-
-rep_len_sum_ampC <- features_ampC %>% 
-  filter(is_beta_lac, spans_center=="yes") %>% 
-  group_by(strain, record_id) %>%
-  summarise("total_repeat_length"=sum(repeat_length)) %>% 
-  group_by(strain) %>% 
-  summarise("ampC.med.tot.rep.len"=median(total_repeat_length))
-
-features_bl_strain <- left_join(features_bl_strain, rep_len_sum_ampC, by="strain")
-
-################
-## MED AR SIZE
-################
 
 med_ar_len_ampC <- features_ampC %>% 
   filter(is_beta_lac) %>% 
-  select(strain, AR_length) %>% 
   group_by(strain) %>% 
-  summarize("ampC.med.AR.len"=median(AR_length, na.rm = T))
+  summarize(med.AR.len.ampC=median(AR_length, na.rm = T))
 
-features_bl_strain <- left_join(features_bl_strain, med_ar_len_ampC, by="strain")
+# add
+features_bl_strain <- list(features_bl_strain, med_ar_len_split_ampC, med_ar_len_ampC) %>% 
+  reduce(left_join, by="strain")
 
-###################
-## MED AR SPANNING
-###################
-
-med_ar_len_cen_ampC <- features_ampC %>% 
-  filter(is_beta_lac, spans_center=="yes") %>% 
-  select(strain, AR_length) %>% 
-  group_by(strain) %>% 
-  summarize("ampC.med.AR.len.cen"=median(AR_length, na.rm = T))
-
-features_bl_strain <- left_join(features_bl_strain, med_ar_len_cen_ampC, by="strain")
-features_bl_strain$ampC.med.AR.len.cen <- ifelse(is.na(features_bl_strain$ampC.med.AR.len.cen), 0, features_bl_strain$ampC.med.AR.len.cen)
-
+head(features_bl_strain)
 ```
 
-## Make AMR genes counts per strain for the heatmap
+
+### Repeat length
+
+On chromosome, on plasmid, both
+
+```{r}
+med_rep_len_split_ampC <- features_ampC %>% 
+  filter(is_beta_lac) %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(med.rep.len.ampC=median(repeat_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "med.rep.len.ampC", fill = 0) %>% 
+  rename("strain" = strain, "med.rep.len.chrom.ampC" = `0`, "med.rep.len.plasmid.ampC" = `1`)
+
+med_rep_len_ampC <- features_ampC %>% 
+  filter(is_beta_lac) %>% 
+  group_by(strain) %>% 
+  summarize(med.rep.len.ampC=median(repeat_length, na.rm = T))
+
+
+# add both
+features_bl_strain <- list(features_bl_strain, med_rep_len_split_ampC, med_rep_len_ampC) %>% 
+  reduce(left_join, by="strain")
+
+
+head(features_bl_strain)
+```
+
+
+## AMR genes counts per strain for the heatmap
 
 **OBS** Not every gene here is a beta-lactamase!
 
@@ -1516,8 +1518,7 @@ Remove intermediate resistance and not tested strains, relocate some columns
 # add plasmids if you forgot
 # features_bl_strain <- left_join(features_bl_strain, features_amp %>% select(strain, n.plasmids) %>% distinct(), by="strain") %>% relocate(n.plasmids, .before="n.rep.total")
 features_bl_strain_noNA <- features_bl_strain %>% 
-  filter(!is.na(resistance)) %>% 
-  relocate(resistance, .before = n.plasmids)
+  filter(!is.na(resistance)) 
 
 features_bl_strain_noNA
 ```
