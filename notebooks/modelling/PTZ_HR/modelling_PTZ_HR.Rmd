@@ -18,7 +18,7 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = T)
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = F)
 library(tidyverse)
 library(caret)
 library(ROCR)
@@ -27,18 +27,212 @@ library(DMwR)
 
 # Read data
 
-Here I use processed and scaled data from EDA_PTZ
+Here I use processed and scaled data from EDA_PTZ.
+
+R will be removed
 
 ```{r}
 feat <- read_csv("data/features_ptz_hr_scaled.csv")
 
 # replace HR/R with HR.R otherwise train() will complain
-feat$resistance <- as.factor(str_replace(feat$resistance, "HR/R", "HR.R"))
+#feat$resistance <- as.factor(str_replace(feat$resistance, "HR/R", "HR.R"))
+
+feat <- feat %>% filter(resistance != "R")
+
+feat$resistance<- ordered(feat$resistance, levels=c("nonHR", "HR"))
 
 feat %>% group_by(resistance) %>% 
   summarize(N = n())
 ```
 
+# Identify correlated features
+
+## Summary of pairwise correlations between numeric predictors (on scaled data)
+
+```{r, cache=F}
+# exclude resistance, n.beta.lac.3
+feat_num <- select(feat, -c(resistance, n.beta.lac.3, APH.4.))
+
+descr_cor <- cor(feat_num)
+summary(descr_cor[upper.tri(descr_cor)])
+```
+
+Remove those predictors that have correlation coefficient greater than 0.75
+
+## Summary of the new filtered correlations
+
+```{r}
+highly_cor <- findCorrelation(descr_cor, cutoff = .75)
+
+feat_nocorr <- feat_num[,-highly_cor]
+
+# check new correlations
+descr_cor2 <- cor(feat_nocorr)
+summary(descr_cor2[upper.tri(descr_cor2)])
+```
+
+Add `resistance` and `n.beta.lac.3` columns to filtered columns
+
+```{r}
+feat_nocorr$n.beta.lac.3 <- feat$n.beta.lac.3
+
+feat_nocorr$resistance <- feat$resistance
+
+```
+
+
+# Regularized Logistic Regression
+
+On non-correlated predictors
+
+## Split data set
+
+```{r}
+set.seed(10)
+
+sample_set_nocorr <- createDataPartition(y = feat_nocorr$resistance, p = .75, list = FALSE)
+
+df_train_nocorr <- feat_nocorr[sample_set_nocorr,]
+df_test_nocorr <- feat_nocorr[-sample_set_nocorr,]
+
+df_train_nocorr <- SMOTE(resistance ~ ., data.frame(df_train_nocorr), perc.over = 200, perc.under = 150)
+
+df_train_nocorr %>% group_by(resistance) %>% 
+     summarize(N = n())
+```
+
+## Train
+
+```{r}
+set.seed(100)
+
+library(doParallel)
+
+cl <- makePSOCKcluster(18)
+registerDoParallel(cl)
+
+fit_ctrl_roc <- trainControl(method = "repeatedcv",
+                           number = 5,
+                           repeats = 10, 
+                           allowParallel = T,
+                           classProbs = T,
+                           summaryFunction = twoClassSummary)
+
+
+fit_lr <- train(resistance ~ ., 
+                 data = df_train_nocorr, 
+                 metric = "ROC", 
+                 method = "regLogistic", 
+                 trControl = fit_ctrl_roc,
+                 tuneGrid = expand.grid(
+                   .cost = seq(0.5, 6, 0.5), 
+                   .loss = c("L1", "L2_dual", "L2_primal"), 
+                   .epsilon = seq(1.0, 4.0, 1)),
+                 verbosity = 0,
+                 verbose = FALSE)
+
+stopCluster(cl)
+
+fit_lr
+```
+
+## Testing
+
+probabilty cutoff = 0.5
+
+```{r}
+predClasses_lr <- predict(fit_lr, newdata=df_test_nocorr)
+
+cm_lr <- confusionMatrix(data = predClasses_lr, 
+                reference = df_test_nocorr$resistance,
+                mode="everything",
+                positive="HR")
+
+cm_lr
+```
+
+
+## ROC
+
+A function for ROC
+
+```{r}
+get_roc <- function(fit.obj, testing.df){
+  pred_prob <- predict.train(fit.obj, newdata = testing.df, type="prob")
+  pred_roc <- prediction(predictions = pred_prob$HR, labels = testing.df$resistance)
+  perf_roc <- performance(pred_roc, measure="tpr", x.measure = "fpr")
+  return(list(perf_roc, pred_roc))
+}
+```
+
+
+```{r}
+# calculate ROC
+perf_pred <- get_roc(fit_lr, df_test_nocorr)
+perf_lr <- perf_pred[[1]]
+pred_lr <- perf_pred[[2]]
+
+# take AUC 
+auc_lr <- round(unlist(slot(performance(pred_lr, measure = "auc"), "y.values")), 3)
+
+# plot
+plot(perf_lr, main = "RLR ROC curve", col = "steelblue", lwd = 3)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+legend(x = 0.7, y = 0.3, legend = paste0("AUC = ", auc_lr))
+```
+
+
+## TPR v FPR
+
+```{r lr.tpr}
+
+plot(performance(pred_lr, measure = "tpr", x.measure = "cutoff"),
+     col="steelblue", 
+     ylab = "Rate", 
+     xlab="Probability cutoff")
+
+plot(performance(pred_lr, measure = "fpr", x.measure = "cutoff"), 
+     add = T, col = "red")
+
+legend(x = 0.7,y = 0.99, c("TPR (Recall)", "FPR (1-Spec)"), 
+       lty = 1, col =c('steelblue', 'red'), bty = 'n', cex = 1, lwd = 2)
+
+#abline(v = 0.02, lwd = 2, lty=6)
+
+title("Regularized Logistic Regression")
+```
+
+## Features Importance
+
+```{r, fig.height=6}
+imp_vars_lr <- varImp(fit_lr)
+
+plot(imp_vars_lr, main="Variable Importance with RLR")
+```
+
+## Coefficients
+
+Here: "the change in the log-odds of the response as a results of a unit change in the predictor variable"
+
+As a reminder:
+
+$log(\frac{p(X)}{1-p(X)}) = \beta_0 + \beta_1X$
+
+
+```{r}
+coeff <- as_tibble(fit_lr$finalModel$W) %>% 
+  gather("variable", "log.odds", 1:43) %>% 
+  mutate("odds.ratio" = exp(log.odds)) %>% 
+  arrange(-abs(log.odds))
+
+coeff 
+```
+
+Bias is intercept.
+
+Odds ratio `r unlist(coeff[1,3])` means: for a one unit increase in `r unlist(coeff[1,1])`, the odds of a strain to be non-HR increase by a factor of `r unlist(coeff[1,3])`
+
+Odds ration `r unlist(coeff[3,3])` means: for one unit increase in `r unlist(coeff[3,1])`, the odds of a strain to be non-HR increase by a factor of `r unlist(coeff[3,3])` 
 
 # RF
 
@@ -49,7 +243,7 @@ ROC-optimization is better for imbalanced data
 Imbalanced data - use SMOTE to create training data set, but not testing data set
 
 ```{r}
-set.seed(123)
+set.seed(12)
 
 sample_set <- createDataPartition(y = feat$resistance, p = .75, list = FALSE)
 
@@ -57,6 +251,8 @@ df_train <- feat[sample_set,]
 df_test <- feat[-sample_set,]
 
 df_train <- SMOTE(resistance ~ ., data.frame(df_train), perc.over = 200, perc.under = 150)
+
+#df_train$resistance <- ordered(df_train$resistance, levels=c("nonHR", "HR"))
 
 ```
 
@@ -68,7 +264,7 @@ df_train %>% group_by(resistance) %>%
      summarize(N = n())
 ```
 
-## Hyperparameters and training
+## Train
 
 ```{r, message=FALSE, warning=FALSE}
 set.seed(122)
@@ -91,8 +287,9 @@ fit_rf <- train(resistance ~ .,
                  metric = "ROC", 
                  method = "rf", 
                  trControl = fit_ctrl_roc,
-                 tuneGrid = expand.grid(.mtry = seq(from = 9, to = 12, by = 0.5)),
-                 verbosity = 0,
+                 tuneGrid = expand.grid(.mtry = 6),
+                 ntree = 50,
+                 nodesize = 1,
                  verbose = FALSE)
 
 stopCluster(cl)
@@ -103,40 +300,19 @@ fit_rf
 ## Testing
 
 ```{r}
+#df_test$resistance <- ordered(df_test$resistance, levels=c("nonHR", "HR"))
+
 predClasses_rf <- predict(fit_rf, newdata=df_test)
 
 cm_rf <- confusionMatrix(data = predClasses_rf, 
                 reference = df_test$resistance,
                 mode="everything",
-                positive="HR.R")
+                positive="HR")
 
 cm_rf
 ```
 
-
-
-## Feature importance
-
-```{r, fig.height=8}
-imp_vars_rf <- varImp(fit_rf)
-
-plot(imp_vars_rf, main="Variable Importance with RF")
-```
-
 ## ROC
-
-A function for ROC
-
-```{r}
-get_roc <- function(fit.obj, testing.df){
-  pred_prob <- predict.train(fit.obj, newdata = testing.df, type="prob")
-  pred_roc <- prediction(predictions = pred_prob$nonHR, labels = testing.df$resistance)
-  perf_roc <- performance(pred_roc, measure="tpr", x.measure = "fpr")
-  return(list(perf_roc, pred_roc))
-}
-```
-
-
 
 ```{r}
 # calculate ROC
@@ -153,6 +329,34 @@ abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
 legend(x = 0.7, y = 0.3, legend = paste0("AUC = ", auc_rf))
 ```
 
+## TPR v FPR
+
+```{r}
+plot(performance(pred_rf, measure = "tpr", x.measure = "cutoff"),
+     col="steelblue", 
+     ylab = "Rate", 
+     xlab="Probability cutoff")
+
+plot(performance(pred_rf, measure = "fpr", x.measure = "cutoff"), 
+     add = T, col = "red")
+
+legend(x = 0.7,y = 0.95, c("TPR (Recall)", "FPR (1-Spec)"), 
+       lty = 1, col =c('steelblue', 'red'), bty = 'n', cex = 1, lwd = 2)
+
+#abline(v = 0.02, lwd = 2, lty=6)
+
+title("Random Forest")
+```
+
+## Feature importance
+
+```{r, fig.height=8}
+imp_vars_rf <- varImp(fit_rf)
+
+plot(imp_vars_rf, main="Variable Importance with RF")
+```
+
+---
 
 ```{r}
 save.image("data/workspace.RData")
