@@ -77,32 +77,16 @@ It seems reasonable to merge R and HR group, because of two reasons:
 On the other hand, it has perfect sense to remove R strains completely: if our task is to distinguish susceptible strains and heteroresistant ones.
 
 
-I will make two data sets with and without R strains, if with, they will be merged with HR.
+Here, I will remove R-strains.
 
 
 ```{r}
 # BL counted as binary > 3
 data_strain$n.beta.lac.3 <- ifelse(data_strain$n.beta.lac > 3, 1, 0)
+
 data_strain <- data_strain %>% 
-  relocate(n.beta.lac.3, .before = "n.beta.lac")
-
-# New target class and remove NA in resistance
-# data_strain <- data_strain %>% 
-#   select(-resistance) %>% 
-#   left_join(hr_testing, by = "strain") %>% 
-#   filter(!is.na(resistance))
-
-# data_strain <- data_strain %>% relocate(resistance, .before = "n.plasmids")
-
-# merge R and HR into HR/R
-data_strain$resistance.mrg <- str_replace(data_strain$resistance, "^R$", "HR/R")
-data_strain$resistance.mrg <- str_replace(data_strain$resistance, "^HR$", "HR/R")
-
-# remove R labels
-data_strain$resistance.xcl <- na_if(data_strain$resistance, "R")
-
-# relocate them
-data_strain <- data_strain %>% relocate(resistance.mrg, resistance.xcl, .before = "n.plasmids")
+  relocate(n.beta.lac.3, .before = "n.beta.lac") %>% 
+  filter(resistance != "R") 
 
 # resistance as factor
 data_strain$resistance <- as.factor(data_strain$resistance)
@@ -121,20 +105,9 @@ data_strain
 skimr::skim(data_strain)
 ```
 
-non-HR: 265
+All missing data should be replaced with zeros.
 
-HR/R: 79+13 = 91
-
-It's EDA, do it with all testing lables!
-
-```{r}
-data_strain <- data_strain %>% select(-c(resistance.mrg, resistance.xcl))
-```
-
-
-There are strains with NAs, we can replace NA s with 0s
-
-# Removing non-informative columns
+# Remove non-informative columns
 
 ```{r}
 sum_cols <- apply(data_strain[, -1], 2, function(x){sum(x, na.rm = T)})
@@ -146,7 +119,7 @@ Some columns contain only 0, I will remove them
 
 ```{r}
 data_strain <- data_strain %>% 
-  select(-DHA.beta.lactamase)
+  select(-c(DHA.beta.lactamase, APH.4.))
 ```
 
 
@@ -230,10 +203,10 @@ The darker is the color, the higher is dissimilarity
 
 ## k-means clustering
 
-k = 3
+k = 2
 
 ```{r, fig.width=8, fig.height=6}
-cent <- 3
+cent <- 2
 km <- kmeans(feat_clust, centers = cent, nstart = 100)
 fviz_cluster(km, data = feat_clust, repel = T, show.clust.cent = F, labelsize = 6)
 ```
@@ -280,8 +253,7 @@ rg_n_genes <- data %>% select(strain, record_id) %>% distinct() %>% group_by(str
 ggplot(rg_n_genes, aes(N)) + 
   geom_histogram(fill="steelblue", binwidth = 1)+
   xlab("RG count")+
-  ylab("Strains count")+
-  ggtitle("Resistance genes count distributiion")
+  ylab("Strains count")
 
 
 ```
@@ -306,8 +278,7 @@ betaL_n_genes <- data %>%
 ggplot(betaL_n_genes, aes(N)) + 
   geom_histogram(fill="steelblue", binwidth = 1)+
   xlab("BL count")+
-  ylab("Strains count")+
-  ggtitle("Beta-lactamases genes count distribution")
+  ylab("Strains count")
 
 ```
 
@@ -345,21 +316,26 @@ ggplot(data_strain, aes(n.beta.lac))+
   scale_fill_brewer(palette="Set1")+
   xlab("BL")+
   ylab("count")+
-  ggtitle("Beta-lactamase genes count distribution")
+  theme(legend.title=element_blank())+
+  scale_x_continuous(breaks = c(1,2,3,4,5,6))
 ```
 
-If number of BL-genes is higher than 3, the strain is more likely to be HR/R
+**OBS!** 
 
-#### Proportion
+1. If number of BL-genes is higher than 3, the strain is more likely to be HR/R
 
+2. There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
+
+#### Stacked bar-plot
 
 ```{r}
 ggplot(data_strain, aes(n.beta.lac.3)) +
-  geom_bar(aes(fill=resistance), position = "fill") +
+  geom_bar(aes(fill=resistance), position = "stack") +
   scale_fill_brewer(palette="Set1") +
-  xlab("n.beta.lac > 3") +
-  ylab("proportion") +
-  scale_x_continuous(breaks =c(0,1), labels = c("0" = "No", "1" = "Yes"))
+  xlab("N beta-lact > 3") +
+  ylab("N") +
+  scale_x_continuous(breaks =c(0,1), labels = c("0" = "No", "1" = "Yes"))+
+  theme(legend.title=element_blank())
   
 ```
 
@@ -367,7 +343,44 @@ When the number of BL genes is less or equal 3, most likely the strains is non-H
 
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
-### Proportion of ampC beta-lactamases and other beta-lactamases in R and S strains
+### Number of beta-lactamases on plasmids and on chromosome
+
+Variable `n.genes.plasmids` means number of beta-lactamases on plasmids
+
+Let's check this.
+
+It should always be less or equal than `n.beta.lac`.
+
+How many strains in our data set `n.beta.lac` greater or equal `n.genes.plasmids`: `r sum(data_strain$n.beta.lac >= data_strain$n.genes.plasmids)`
+
+How many strains in total: `r nrow(data_strain)`
+
+These numbers must be equal.
+
+#### Stacked bar-plot
+
+```{r}
+
+n_bl_loc <- data_strain %>% 
+  select(resistance, n.genes.plasmids, n.beta.lac) %>% 
+  mutate(n.bl.chrom = n.beta.lac - n.genes.plasmids) %>% 
+  rename("n.bl.plasmids" = n.genes.plasmids) %>% 
+  select(-n.beta.lac) %>% 
+  gather("loc", "N", 2:3)
+
+ggplot(n_bl_loc, aes(loc, N))+
+  geom_col(aes(fill = resistance), position = "stack" ) + 
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("") +
+  ylab("N")+
+  scale_x_discrete(labels = c("on chromosome", "on plasmid"))+
+  theme(legend.title=element_blank()) +
+  ggtitle("Number of beta-lactamases on chromosomes and plasmids")
+
+```
+
+
+### ampC beta-lactamases and non-ampC beta-lactamases
 
 ```{r}
 bl_count <- data_strain %>% 
@@ -380,10 +393,11 @@ bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>%
 
 
 ggplot(bl_count_tidy, aes(gene, sum))+
-  geom_col(aes(fill=resistance), position = "fill", alpha=0.8) + 
+  geom_col(aes(fill=resistance), position = "fill", alpha=1) + 
   scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("BL-gene type") +
-  ylab("proportion")
+  xlab("") +
+  ylab("Proportion")+
+  scale_x_discrete(labels = c("ampC", "non-ampC"))
   
 ```
 
@@ -433,29 +447,7 @@ ggplot(bl_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
 *ampC* is present in every strain
 
 
-### Beta-lactamases types per gene
-
-There are too many genes to visualize this heat map properly
-
-```{r, fig.width=30, fig.height=6, eval=F}
-# add record_id
-amp_ampr_gene_presence$record_id <- amp_amr_gene_types$record_id
-amp_ampr_gene_presence <- relocate(amp_ampr_gene_presence, record_id, .before="ampC.type.beta.lactamase")
-
-# names
-names(amp_ampr_gene_presence) <- c("strain", "record_id" , "ampC", "DFR", "APH6", "APH3.1", "SUL", "TEM", "SAT", "ANT3", "MPH", "APH3.2", "CTX.M", "CAT", "AAC3", "OXA", "AAC6", "ANT2", "FTT", "SHV", "TR.RPP", "APH4", "QNR")
-
-# make it tidy
-amp_ampr_gene_presence_td <- gather(amp_ampr_gene_presence, key="AMR.type", value="N", 3:23)
-amp_ampr_gene_presence_td$N <- factor(amp_ampr_gene_presence_td$N, ordered=T, levels=c(0,1))
-
-# make a plot
-ggplot(amp_ampr_gene_presence_td, aes(record_id, AMR.type))+geom_tile(aes(fill=N))+
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1, size = 0.1))+
-  xlab("")+
-  scale_fill_discrete(type=c("white", "steelblue"))
-  
-```
+###
 
 
 ## Number of plasmids
@@ -499,6 +491,18 @@ ggplot(data_strain, aes(n.genes.plasmids)) +
 Starting from 5 genes, it seems to be a very good predictor
 
 
+## Number of genes on plus strand
+
+```{r, fig.width=6, fig.height=4}
+ggplot(data_strain, aes(n.genes.plus.strand)) +
+  geom_bar(aes(fill = resistance), position = "dodge", alpha = 0.8) +
+  scale_fill_brewer(palette = "Set1")+
+  xlab("number of genes") +
+  ylab("number of strains") +
+  ggtitle("Beta-lactamase genes on plus strand")
+```
+
+
 ## Repeat length: all repeats
 
 
@@ -506,7 +510,14 @@ Starting from 5 genes, it seems to be a very good predictor
 
 
 ```{r, fig.height=6, fig.width=14}
-
+ggplot(data_strain, aes(resistance, med.tot.rep.len)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T) +
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("")+
+  ylab("N")+
+  guides(fill="none")
 ```
 
 ## Repeat length: repeats longer than 100 bp
