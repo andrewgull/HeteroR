@@ -14,8 +14,8 @@ strains <- features_ptz_strain$strain
 
 # get ampC and non-ampC counts 
 bl_count <- features_ptz_strain %>% 
-  select(resistance, n.beta.lac, ampC) %>% 
-  mutate(non.ampC = n.beta.lac - ampC) %>% 
+  select(resistance, n.beta.lac, ampC.type.beta.lactamase) %>% 
+  mutate(non.ampC = n.beta.lac - ampC.type.beta.lactamase) %>% 
   select(-n.beta.lac)
 
 # make it tidy
