@@ -84,8 +84,10 @@ Here, I will remove R-strains.
 # BL counted as binary > 3
 data_strain$n.beta.lac.3 <- ifelse(data_strain$n.beta.lac > 3, 1, 0)
 
+data_strain$n.beta.lac.4 <- ifelse(data_strain$n.beta.lac > 4, 1, 0)
+
 data_strain <- data_strain %>% 
-  relocate(n.beta.lac.3, .before = "n.beta.lac") %>% 
+  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.beta.lac") %>% 
   filter(resistance != "R") 
 
 # resistance as factor
@@ -135,7 +137,7 @@ data_strain[is.na(data_strain)] <- 0
 
 # Write data for shiny app
 
-```{r}
+```{r, eval=FALSE}
 features_bl_shiny <- data_strain %>% 
   mutate("strain" = strains) %>% 
   relocate(strain, .before = resistance)
@@ -148,20 +150,24 @@ write.csv(features_bl_shiny, "shiny/data/features_ptz_strain.csv", row.names = F
 
 scale and center numeric features (real numeric + count, not dummies!)
 
-```{r, cache=F}
+```{r, eval=F}
 end <- length(data_strain)
-# except for resistance and n.beta.lac.3
+# except for resistance and n.beta.lac.3 and n.beta.lac.4
 data_strain_scaled <- as_tibble(
   scale(
-    x = data_strain %>% select(-c(resistance, n.beta.lac.3)),
+    x = data_strain %>% select(-c(resistance, n.beta.lac.3, n.beta.lac.4)),
     center = T, scale = T
     ))
 
 data_strain_scaled$resistance <- data_strain$resistance
 data_strain_scaled$n.beta.lac.3 <- data_strain$n.beta.lac.3
+data_strain_scaled$n.beta.lac.4 <- data_strain$n.beta.lac.4
 
-data_strain_scaled <- relocate(data_strain_scaled, n.beta.lac.3, .before = "n.beta.lac")
-data_strain_scaled <- relocate(data_strain_scaled, resistance, .before = "n.plasmids")
+data_strain_scaled <- data_strain_scaled %>% 
+  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.beta.lac")
+
+data_strain_scaled <- data_strain_scaled %>% 
+  relocate(resistance, .before = "n.plasmids")
 
 # write it for modelling
 write.csv(data_strain_scaled, "../../modelling/PTZ_HR/data/features_ptz_hr_scaled.csv", row.names = F)
@@ -169,15 +175,6 @@ write.csv(data_strain_scaled, "../../modelling/PTZ_HR/data/features_ptz_hr_scale
 
 
 ---
-
-
-## Correlated predictors
-
-```{r, fig.width=12, fig.height=12, cache=F}
-# without resistance
-cor_matrix <- cor(data_strain[,c(2:end)], use = "pairwise.complete.obs")
-corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
-```
 
 
 # Clustering
@@ -243,6 +240,15 @@ fviz_gap_stat(gap_stat)
 
 # EDA
 
+## Correlation plot
+
+```{r, fig.width=8, fig.height=8}
+# without resistance
+cor_matrix <- cor(data_strain[,c(2:end)], use = "pairwise.complete.obs")
+corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
+```
+
+
 ## RG counts distribution
 
 ### In strains tested for AMP
@@ -294,16 +300,6 @@ This supposed to be the main predictor of HR
 
 ### Number of beta-lactamases
 
-
-```{r, fig.width=6, fig.height=4}
-# add resistance testing results
-n_beta_lac <- left_join(betaL_n_genes, data %>% 
-                          select(strain, resistance) %>% 
-                          distinct(), by="strain")
-  
-```
-
- 
 #### Bar plot 
 
 because number of BL genes is count data.
@@ -311,12 +307,12 @@ because number of BL genes is count data.
 ```{r}
 #data_strain$resistance <- factor()
 
-ggplot(data_strain, aes(n.beta.lac))+
-  geom_bar(aes(fill=resistance), position="dodge")+
-  scale_fill_brewer(palette="Set1")+
-  xlab("BL")+
-  ylab("count")+
-  theme(legend.title=element_blank())+
+ggplot(data_strain, aes(n.beta.lac)) +
+  geom_bar(aes(fill = resistance), position = "dodge") +
+  scale_fill_brewer(palette = "Set1") +
+  xlab("n beta-lactamases") +
+  ylab("n strains") +
+  theme(legend.title = element_blank()) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6))
 ```
 
@@ -326,16 +322,16 @@ ggplot(data_strain, aes(n.beta.lac))+
 
 2. There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
 
-#### Stacked bar-plot
+#### Proportion bar-plot
 
 ```{r}
 ggplot(data_strain, aes(n.beta.lac.3)) +
-  geom_bar(aes(fill=resistance), position = "stack") +
-  scale_fill_brewer(palette="Set1") +
+  geom_bar(aes(fill = resistance), position = "fill") +
+  scale_fill_brewer(palette = "Set1") +
   xlab("N beta-lact > 3") +
-  ylab("N") +
-  scale_x_continuous(breaks =c(0,1), labels = c("0" = "No", "1" = "Yes"))+
-  theme(legend.title=element_blank())
+  ylab("proportion of strains") +
+  scale_x_continuous(breaks = c(0,1), labels = c("0" = "No", "1" = "Yes"))+
+  theme(legend.title = element_blank())
   
 ```
 
@@ -343,9 +339,21 @@ When the number of BL genes is less or equal 3, most likely the strains is non-H
 
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
-### Number of beta-lactamases on plasmids and on chromosome
+```{r}
+ggplot(data_strain, aes(n.beta.lac.4)) +
+  geom_bar(aes(fill=resistance), position = "fill") +
+  scale_fill_brewer(palette="Set1") +
+  xlab("N beta-lact > 4") +
+  ylab("proportion of strains") +
+  scale_x_continuous(breaks = c(0,1), labels = c("0" = "No", "1" = "Yes"))+
+  theme(legend.title=element_blank())
+```
+ 
+Even more striking difference
 
-Variable `n.genes.plasmids` means number of beta-lactamases on plasmids
+### Beta-lactamases on plasmids and chromosome
+
+Variable `n.genes.plasmids` means number of **beta-lactamases** on plasmids
 
 Let's check this.
 
@@ -357,30 +365,79 @@ How many strains in total: `r nrow(data_strain)`
 
 These numbers must be equal.
 
-#### Stacked bar-plot
+#### Number of beta-lact on plasmids
 
 ```{r}
+ggplot(data_strain, aes(n.genes.plasmids)) +
+  geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  xlab("n beta-lactamases on plasmids") +
+  ylab("n strains")
+```
 
+Starting from 3 bl genes (on plasmids), it seems to be a very good predictor
+
+#### Proportion bar plot
+
+```{r}
 n_bl_loc <- data_strain %>% 
   select(resistance, n.genes.plasmids, n.beta.lac) %>% 
   mutate(n.bl.chrom = n.beta.lac - n.genes.plasmids) %>% 
   rename("n.bl.plasmids" = n.genes.plasmids) %>% 
   select(-n.beta.lac) %>% 
-  gather("loc", "N", 2:3)
+  gather("loc", "N", 2:3) %>% 
+  filter(N > 0)
 
-ggplot(n_bl_loc, aes(loc, N))+
-  geom_col(aes(fill = resistance), position = "stack" ) + 
-  scale_fill_brewer(palette = "Set1", name = "") +
+bl_loc_sum <- n_bl_loc %>% 
+  group_by(resistance, loc) %>% 
+  summarise(sum.n = sum(N))
+
+ggplot(bl_loc_sum, aes(loc, sum.n)) +
+  geom_col(aes(fill = resistance), position = "fill") +
+  scale_fill_brewer(palette = "Set1") +
   xlab("") +
-  ylab("N")+
-  scale_x_discrete(labels = c("on chromosome", "on plasmid"))+
-  theme(legend.title=element_blank()) +
-  ggtitle("Number of beta-lactamases on chromosomes and plasmids")
+  ylab("proportion of strains") +
+  scale_x_discrete(labels = c("on chromosome", "on plasmids")) +
+  theme(legend.title = element_blank())
+```
 
+If a strain has BL genes on chromosome only it's more likely to be non-HR than HR
+
+### Beta-lactamases on plus strand
+
+#### Total
+
+```{r}
+ggplot(data_strain, aes(n.genes.plus)) +
+  geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("n beta-lactamases on plus strand") +
+  ylab("n strains") 
+```
+
+#### On plasmids
+
+```{r}
+ggplot(data_strain, aes(n.genes.plus.plasmid)) +
+  geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("n beta-lactamases on plus strand on plasmids") +
+  ylab("n strains") 
+```
+
+#### On chromosomes
+
+```{r}
+ggplot(data_strain, aes(n.genes.plus.chrom)) +
+  geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("n beta-lactamases on plus strand on chromosome") +
+  ylab("n strains") 
 ```
 
 
-### ampC beta-lactamases and non-ampC beta-lactamases
+### ampC and non-ampC beta-lactamases
 
 ```{r}
 bl_count <- data_strain %>% 
@@ -393,10 +450,11 @@ bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>%
 
 
 ggplot(bl_count_tidy, aes(gene, sum))+
-  geom_col(aes(fill=resistance), position = "fill", alpha=1) + 
+  geom_col(aes(fill=resistance), position = "fill", alpha = 1) + 
+  # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("") +
-  ylab("Proportion")+
+  ylab("proportion")+
   scale_x_discrete(labels = c("ampC", "non-ampC"))
   
 ```
@@ -447,193 +505,196 @@ ggplot(bl_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
 *ampC* is present in every strain
 
 
-###
-
-
 ## Number of plasmids
 
 Per strain, doesn't depend on beta-lactamase presence or absence
 
-```{r, fig.width=10, fig.height=6}
-plot.n.plasm.box <- ggplot(data_strain, aes(resistance, n.plasmids)) +
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T) +
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
-  ggtitle("")+
-  ylab("N")+
-  guides(fill="none")
+### Box plot
 
-plot.n.plasm.bar <- ggplot(data_strain, aes(n.plasmids))+
-  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
-  scale_fill_brewer(palette="Set1")+
-  xlab("number of plasmids")+
-  ylab("number of strains")
-
-ggarrange(plot.n.plasm.box, plot.n.plasm.bar,
-          ncol=2, nrow=1, 
-          common.legend = T, legend = "bottom")
-
+```{r}
+ggplot(data_strain, aes(resistance, n.plasmids)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T) +
+  geom_jitter(alpha = 0.2, width = 0.15, height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
 ```
 
+### Bar plot
 
-## Number of genes on plasmids
-
-```{r, fig.width=6, fig.height=4}
-ggplot(data_strain, aes(n.genes.plasmids)) +
-  geom_bar(aes(fill = resistance), position = "dodge", alpha = 0.8) +
-  scale_fill_brewer(palette = "Set1")+
-  xlab("number of genes") +
-  ylab("number of strains") +
-  ggtitle("Beta-lactamase genes on plasmids")
+```{r}
+ggplot(data_strain, aes(n.plasmids)) +
+  geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "")+
+  xlab("n plasmids") +
+  ylab("n strains")
 ```
-
-Starting from 5 genes, it seems to be a very good predictor
-
-
-## Number of genes on plus strand
-
-```{r, fig.width=6, fig.height=4}
-ggplot(data_strain, aes(n.genes.plus.strand)) +
-  geom_bar(aes(fill = resistance), position = "dodge", alpha = 0.8) +
-  scale_fill_brewer(palette = "Set1")+
-  xlab("number of genes") +
-  ylab("number of strains") +
-  ggtitle("Beta-lactamase genes on plus strand")
-```
-
 
 ## Repeat length: all repeats
 
+```{r}
+med_rep_len <- data_strain %>% 
+  select(resistance, med.tot.rep.len.chrom, med.tot.rep.len.plasmid, med.tot.rep.len) %>% 
+  gather("location", "med.len", 2:4)
 
-### Average total, average on chromosome, average on plasmids
+facet_names <- c("med.tot.rep.len.chrom" = "chromosome",
+                 "med.tot.rep.len.plasmid" = "plasmids",
+                 "med.tot.rep.len" = "total")
 
-
-```{r, fig.height=6, fig.width=14}
-ggplot(data_strain, aes(resistance, med.tot.rep.len)) +
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T) +
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
-  ggtitle("")+
-  ylab("N")+
-  guides(fill="none")
-```
-
-## Repeat length: repeats longer than 100 bp
-
-### Average on chromosome, average on plasmids, both
-
-```{r, fig.height=6, fig.width=14}
-
-
-```
-
-## Sum repeat length
-
-### On chromosome, on plasmids, both
-
-```{r, warning=F, fig.width=6, fig.height=4}
-ggplot(data_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.tot.rep.len))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  coord_trans(y="log") +
+ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
   scale_fill_brewer(palette = "Set1") +
-  xlab("")+ylab("length") +
-  ggtitle("Sum repeat length")+
-  guides(fill="none")
+  coord_trans(y = "sqrt") +
+  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
+  ylab("avg repeat length") +
+  xlab("") +
+  guides(fill = "none")
+```
 
+
+### Average total
+
+```{r}
+ggplot(data_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.tot.rep.len)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y = "sqrt") +
+  ylab("med repeat length") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+### Average on chromosome
+
+```{r}
+ggplot(data_strain %>% filter(med.tot.rep.len.chrom > 0), aes(resistance, med.tot.rep.len.chrom)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y = "sqrt") +
+  ylab("med repeat length") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+
+### Average on plasmids
+
+```{r}
+ggplot(data_strain %>% filter(med.tot.rep.len.plasmid > 0), aes(resistance, med.tot.rep.len.plasmid)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y = "sqrt") +
+  ylab("med repeat length") +
+  xlab("") +
+  guides(fill = "none")
 ```
 
 ## Maximum repeat length
 
-some zeros are removed for plotting purposes
+```{r}
+max_rep_len <- data_strain %>% 
+  select(resistance, max.rep.len.chrom, max.rep.len.plasmid, max.rep.len) %>% 
+  gather("location", "max.len", 2:4)
 
-### On chromosome, on plasmids, both
+facet_names <- c("max.rep.len.chrom" = "chromosome",
+                 "max.rep.len.plasmid" = "plasmids",
+                 "max.rep.len" = "total")
 
-```{r, fig.width=14, fig.height=6}
-
+ggplot(max_rep_len %>% filter(max.len > 0), aes(resistance, max.len)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y = "sqrt") +
+  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
+  ylab("max repeat length") +
+  xlab("") +
+  guides(fill = "none")
 ```
-
 
 ## Repeat counts
 
-### On chromosome, on plasmids, both
+```{r}
+rep_count <- data_strain %>% 
+  select(resistance, n.rep.chrom, n.rep.plasmid, n.rep.total) %>% 
+  gather("location", "n.rep", 2:4)
 
-```{r, fig.width=14, fig.height=6}
-plot.rc.total <- ggplot(data_strain, aes(resistance, n.rep.total)) +
-  geom_violin(aes(fill=resistance), alpha=0.7) +
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T) +
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1) +
+facet_names <- c("n.rep.chrom" = "chromosome",
+                 "n.rep.plasmid" = "plasmids",
+                 "n.rep.total" = "both")
+
+ggplot(rep_count %>% filter(n.rep > 0), aes(resistance, n.rep)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
   scale_fill_brewer(palette = "Set1") +
-  ylab("N") +
+  coord_trans(y = "sqrt") +
+  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
+  ylab("n repeats") +
   xlab("") +
-  ggtitle("Number of repeats in total")
-
-plot.rc.chrom <- ggplot(data_strain, aes(resistance, n.rep.chrom)) +
-  geom_violin(aes(fill = resistance), alpha=0.7) +
-  geom_boxplot(aes(fill = resistance), alpha=0.2, notch = F, varwidth = T) +
-  geom_jitter(alpha = 0.2, width=0.15, height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
-  ylab("") +
-  xlab("") +
-  ggtitle("Number of repeats on chromosome")
-
-plot.rc.plasm <- ggplot(data_strain, aes(resistance, n.rep.plasmid)) +
-  geom_violin(aes(fill=resistance), alpha=0.7) +
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T) +
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
-  ylab("") +
-  xlab("") +
-  ggtitle("Number of repeats on plasmids")
-  
-
-  
-ggarrange(plot.rc.total, plot.rc.chrom, plot.rc.plasm,
-          ncol=3, nrow=1, 
-          common.legend = T, legend = "none")
+  guides(fill = "none")
 ```
 
 ## Amplifiable region size
 
-### On chromosome, on plasmids both
+```{r}
+ar_len <- data_strain %>% 
+  select(resistance, med.AR.len.chrom, med.AR.len.plasmid, med.AR.len) %>% 
+  gather("location", "ar.len", 2:4)
 
-```{r, fig.height=6, fig.width=14}
+facet_names <- c("med.AR.len.chrom" = "chromosome",
+                 "med.AR.len.plasmid" = "plasmids",
+                 "med.AR.len" = "both")
 
+ggplot(ar_len %>% filter(ar.len > 0), aes(resistance, ar.len)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  scale_fill_brewer(palette = "Set1") +
+  #coord_trans(y = "sqrt") +
+  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
+  ylab("avg AR length") +
+  xlab("") +
+  guides(fill = "none")
 ```
-
 
 ## Distance to oriC
 
 ### Median distance on chromnomsome, on plasmids, both
 
 ```{r}
-plot.min.dist.oric <- ggplot(data_strain, aes(resistance, min.dist.oriC))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
-  ggtitle("Minimal dist to oriC")+
-  coord_trans(y="sqrt") +
-  ylab("distance")+
+min_ori <- data_strain %>% 
+  select(resistance, min.dist.oriC.chrom, min.dist.oriC.plasmid, min.dist.oriC) %>% 
+  gather("location", "dist", 2:4)
+
+# for plots
+min_ori$dist <- if_else(min_ori$dist == 0, 1, min_ori$dist)
+
+facet_names <- c("min.dist.oriC.chrom" = "chromosome",
+                 "min.dist.oriC.plasmid" = "plasmids",
+                 "min.dist.oriC" = "both")
+
+ggplot(min_ori, aes(resistance, dist)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
+  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y = "sqrt") +
+  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
+  ylab("min dist oriC") +
   xlab("") +
-  guides(fill="none")
-
-plot.med.dist.oric <- ggplot(data_strain, aes(resistance, med.dist.oriC))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
-  ggtitle("Median dist to oriC")+
-  coord_trans(y="sqrt") +
-  ylab("")+
-  xlab("") +
-  guides(fill="none")
-
-
-ggarrange(plot.min.dist.oric, plot.med.dist.oric, ncol=2, nrow=1, legend = "none")
+  guides(fill = "none")
 ```
 
 
