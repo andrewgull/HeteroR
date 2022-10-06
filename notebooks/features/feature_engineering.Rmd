@@ -832,7 +832,7 @@ head(features_bl_strain)
 
 Number of strains tested for AMP resistance `r length(unique(features_filtered$strain))`
 
-## Add RG presence column
+## Add number of beta-lactamases
 
 We need a column with number of beta-lactamase genes per strain (instead of absence/presence)
 
@@ -1009,18 +1009,23 @@ group_by(strain, on.plasmid) %>%
 
 n_genes_plus_strand <- gff_bl %>% 
   group_by(strain, on.plasmid) %>% 
-  summarise(n.genes.plus=sum(pos.strand)) %>% 
-  spread(key = "on.plasmid", value = "n.genes.plus", fill = 0) %>% 
-  rename("strain" = strain, "n.genes.plus.chrom" = `0`, "n.genes.plus.plasmid" = `1`) %>% 
-  mutate(n.genes.plus = n.genes.plus.chrom + n.genes.plus.plasmid)
+  summarise(n.beta.lac.plus=sum(pos.strand)) %>% 
+  spread(key = "on.plasmid", value = "n.beta.lac.plus", fill = 0) %>% 
+  rename("strain" = strain, "n.beta.lac.plus.chrom" = `0`, "n.beta.lac.plus.plasmid" = `1`) %>% 
+  mutate(n.beta.lac.plus = n.beta.lac.plus.chrom + n.beta.lac.plus.plasmid)
 
 # genes on plasmids are always on plasmids
 n_genes_plasmids <- gff_bl %>% 
   group_by(strain) %>% 
-  summarise(n.genes.plasmids=sum(on.plasmid))
+  summarise(n.beta.lac.plasmid=sum(on.plasmid))
 
 features_bl_strain <- list(features_bl_strain, min_dist_oriC, med_dist_oriC, n_genes_plus_strand, n_genes_plasmids) %>% 
   reduce(left_join, by="strain")
+
+features_bl_strain <- features_bl_strain %>% 
+  mutate(n.beta.lac.chrom = n.beta.lac - n.beta.lac.plasmid)
+
+features_bl_strain <- features_bl_strain %>% relocate(n.beta.lac.plasmid, n.beta.lac.chrom, .before = min.dist.oriC.chrom)
 
 head(features_bl_strain)
 ```
