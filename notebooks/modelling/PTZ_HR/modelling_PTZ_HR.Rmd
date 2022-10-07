@@ -51,7 +51,7 @@ feat %>% group_by(resistance) %>%
 
 ```{r, cache=F}
 # exclude resistance, n.beta.lac.3
-feat_num <- select(feat, -c(resistance, n.beta.lac.3, APH.4.))
+feat_num <- select(feat, -c(resistance, n.beta.lac.3, n.beta.lac.3))
 
 descr_cor <- cor(feat_num)
 summary(descr_cor[upper.tri(descr_cor)])
@@ -75,7 +75,7 @@ Add `resistance` and `n.beta.lac.3` columns to filtered columns
 
 ```{r}
 feat_nocorr$n.beta.lac.3 <- feat$n.beta.lac.3
-
+feat_nocorr$n.beta.lac.4 <- feat$n.beta.lac.4
 feat_nocorr$resistance <- feat$resistance
 
 ```
@@ -271,7 +271,7 @@ set.seed(122)
 
 library(doParallel)
 
-cl <- makePSOCKcluster(18)
+cl <- makePSOCKcluster(8)
 registerDoParallel(cl)
 
 fit_ctrl_roc <- trainControl(method = "repeatedcv",
@@ -287,7 +287,7 @@ fit_rf <- train(resistance ~ .,
                  metric = "ROC", 
                  method = "rf", 
                  trControl = fit_ctrl_roc,
-                 tuneGrid = expand.grid(.mtry = 6),
+                 tuneGrid = expand.grid(.mtry = seq(2, 15, 1)),
                  ntree = 50,
                  nodesize = 1,
                  verbose = FALSE)
@@ -298,6 +298,8 @@ fit_rf
 ```
 
 ## Testing
+
+default cutoff 0.5
 
 ```{r}
 #df_test$resistance <- ordered(df_test$resistance, levels=c("nonHR", "HR"))
@@ -324,7 +326,7 @@ pred_rf <- perf_pred[[2]]
 auc_rf <- round(unlist(slot(performance(pred_rf, measure = "auc"), "y.values")), 3)
 
 # plot
-plot(perf_rf, main = "RF ROC curve", col = "steelblue", lwd = 3)
+plot(perf_rf, main = "Random Forest ROC curve", col = "steelblue", lwd = 3)
 abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
 legend(x = 0.7, y = 0.3, legend = paste0("AUC = ", auc_rf))
 ```
@@ -340,7 +342,7 @@ plot(performance(pred_rf, measure = "tpr", x.measure = "cutoff"),
 plot(performance(pred_rf, measure = "fpr", x.measure = "cutoff"), 
      add = T, col = "red")
 
-legend(x = 0.7,y = 0.95, c("TPR (Recall)", "FPR (1-Spec)"), 
+legend(x = 0.65,y = 0.95, c("TPR (Recall)", "FPR (1-Spec)"), 
        lty = 1, col =c('steelblue', 'red'), bty = 'n', cex = 1, lwd = 2)
 
 #abline(v = 0.02, lwd = 2, lty=6)
@@ -353,7 +355,7 @@ title("Random Forest")
 ```{r, fig.height=8}
 imp_vars_rf <- varImp(fit_rf)
 
-plot(imp_vars_rf, main="Variable Importance with RF")
+plot(imp_vars_rf, main="Variable Importance with Random Forest")
 ```
 
 ---
