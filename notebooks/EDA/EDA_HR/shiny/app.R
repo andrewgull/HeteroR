@@ -32,7 +32,7 @@ ui <- fluidPage(
   theme = bslib::bs_theme(bootswatch = "darkly"),
   
   # Application title
-  titlePanel("HR EDA"),
+  titlePanel("PIP-TAZO Hetero-Resistance EDA"),
   
   # A separate panel for AMP data
   tabsetPanel(
@@ -55,30 +55,19 @@ ui <- fluidPage(
                # first column with controls
                column(2, 
                       selectInput(inputId = "bar", label = "Count data",
-                                  choices = c("n.beta.lac", "n.plasmids", 
-                                              "n.genes.plus.strand", 
-                                              "n.genes.plasmids", "ampC", "DFR", 
-                                              "APH6", "APH3.1", "SUL", "TEM", 
-                                              "SAT", "ANT3", "MPH", "APH3.2", 
-                                              "CTX.M", "CAT", "AAC3", "OXA", 
-                                              "AAC6", "ANT2", "FTT", "SHV", 
-                                              "TR.RPP", "APH4", "QNR"),
-                                  selected = "n.beta.lac")
+                                  choices = c("n.plasmids", "n.beta.lac.3", "n.beta.lac.4",
+                                              "n.beta.lac", "n.beta.lac.plasmid", 
+                                              "n.beta.lac.chrom", "n.beta.lac.plus",
+                                              "n.beta.lac.plus.plasmid", "n.beta.lac.plus.chrom",
+                                              "ampC.type.beta.lactamase", "TEM.beta.lactamase",
+                                              "CTX.M.beta.lactamase", "OXA.beta.lactamase", "SHV.beta.lactamase"),
+                                  selected = "n.plasmids"),
+                      selectInput(inputId = "bar.type", label = "bar type",
+                                  choices = c("stack", "fill", "dodge"),
+                                  selected = "dodge")
                ),
                # second column with the plot itself
                column(10, plotOutput("bar.plot"))
-             ),
-             
-             # 2b row with a bar pot for ampc-non.ampC counts
-             fluidRow(
-               # first column with controls
-               column(2, 
-                      selectInput(inputId = "bar.type", label = "bar type",
-                                  choices = c("stack", "fill"),
-                                  selected = "fill")
-               ),
-               # second column with the plot itself
-               column(10, plotOutput("ampC.bar.plot"))
              ),
              
              # 3rd row with a box plot
@@ -146,6 +135,8 @@ server <- function(input, output) {
   
   # read data with main features
   df <- readr::read_csv("data/features_ptz_strain.csv") 
+  # replace 0 with 1 for transformation
+  #df[df == 0] <- 1
   
   # read data with BL types
   df2 <- readr::read_csv("data/bl_types_strain.csv")
@@ -173,27 +164,15 @@ server <- function(input, output) {
   output$bar.plot <- renderPlot({
     x <- paste0("`",input$bar,"`")
     ggplot(df, aes_string(x)) +
-      geom_bar(aes(fill = resistance), position = "dodge", alpha = 0.8) +
+      geom_bar(aes(fill = resistance), position = input$bar.type, alpha = 0.8) +
       scale_fill_brewer(palette = "Set1", name = "Resistance") +
       theme(legend.position = "bottom") +
       xlab("N") +
-      ylab("count") +
+      ylab("count / proportion") +
       ggtitle(paste0("Count data: ", input$bar))
   })
   
-  # Bar plot B
-  output$ampC.bar.plot <- renderPlot({
-    ggplot(bl_count_tidy, aes(gene, sum))+
-      geom_col(aes(fill=resistance), position = input$bar.type, alpha=0.8) + 
-      scale_fill_brewer(palette = "Set1", name = "") +
-      theme(legend.position = "bottom") +
-      xlab("") +
-      ylab("n/share beta-lac genes")+
-      ggtitle("Count data: ampC vs non-ampC genes")
-  })
-  
-  
-  # Box plot
+    # Box plot
   output$box.plot <- renderPlot({
     y <- paste0("`",input$box,"`")
     ggplot(df, aes_string("resistance", y)) +
