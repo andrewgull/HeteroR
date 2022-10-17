@@ -31,7 +31,7 @@ completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q
 completeness_stdout = completeness.stdout.decode("utf-8").splitlines()
 
 if completeness_stdout[2] == "incomplete":
-    print("The first assemblyis not complete. flye-medaka-polypolish have been chosen")
+    print("The first assembly is not complete. The flye-medaka-polypolish pipeline will be ran")
     # RUN FLYE
     subprocess.run("flye --nano-raw %s --threads %i --out-dir %s -g %s --asm-coverage %i" %
                    (long_reads, threads, assembly_dir, genome_size, coverage), shell=True)

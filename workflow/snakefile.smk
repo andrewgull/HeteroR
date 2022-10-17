@@ -108,7 +108,7 @@ rule filter_nanopore:
         "executing filtlong on {wildcards.strain} long reads"
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
-    threads: 14
+    threads: 18
     params: min_len=1000
     shell:
         "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
