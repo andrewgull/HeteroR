@@ -625,12 +625,23 @@ bl_amr_types_strain_td <- gather(bl_amr_types_strain, key = "AMR.type", value = 
 
 # make a plot
 ggplot(bl_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1, size = 4))+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1, size = 3))+
   xlab("")+
   scale_fill_gradient2(high="blue")
 ```
 
 *ampC* is present in every strain
+
+#### Interactive version
+
+```{r, eval=F}
+vals <- scales::rescale(c(0,1,2,3,4))
+o <- order(vals, decreasing = FALSE)
+cols <- scales::col_numeric("Blues", domain = NULL)(vals)
+colz <- setNames(data.frame(vals[o], cols[o]), NULL)
+fig <- plot_ly(z = bl_amr_types_strain_td$N, x = bl_amr_types_strain_td$strain, y = bl_amr_types_strain_td$AMR.type, type = "heatmap", colorscale = colz)
+fig
+```
 
 
 ## Number of plasmids
