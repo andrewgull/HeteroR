@@ -3,7 +3,6 @@
 # configfile: specify via command line
 # example command: snakemake --use-conda --cores 14 --configfile config.yaml --resources mem_mb=10000
 # to get DAG: snakemake --dag results/final/DA63360_all.done | dot -Tpng > dag.png
-import subprocess
 
 from snakemake.io import touch, directory, temp, expand
 
@@ -113,7 +112,7 @@ rule filter_nanopore:
     shell:
         "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
-# Make an assembly with Unicycler
+# Make an assembly with Unicycler or FLye-Medaka-Polypolish
 rule adaptive_hybrid_assembly:
     input:
         short_reads_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
