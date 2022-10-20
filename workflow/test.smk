@@ -24,11 +24,25 @@ rule adaptive_hybrid_assembly:
     script:
         "scripts/adaptive_hybrid_assembly.py"
 
+rule assembly_summary:
+    input:
+        "tests/assemblies/{strain}",
+        "tests/plasmids/{strain}"
+    output:
+         "tests/assemblies_joined/{strain}/summary.tsv"
+    threads: 1
+    params: position=2
+    message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
+    log: "results/logs/{strain}_assembly_summary.log"
+    script:
+        "scripts/assembly_summary.py"
+
 rule final:
     input:
         ass_dir="tests/assemblies/{strain}",
         draft_dir="tests/drafts/{strain}",
-        polish_dir="tests/polished/{strain}"
+        polish_dir="tests/polished/{strain}",
+        summ="tests/assemblies_joined/{strain}/summary.tsv"
     output: touch("tests/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
