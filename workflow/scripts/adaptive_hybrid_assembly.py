@@ -94,7 +94,10 @@ with open(snakemake.log[0], "w") as f:
         destination = os.path.join(cwd, "%s/assembly.fasta" % assembly_dir)
         os.symlink(source, destination)
     else:
-        print("Unicycler assembly is complete.")
+        # create dirs: polished, drafts
+        os.mkdir(draft_dir)
+        os.mkdir(polish_dir)
+        print("Unicycler assembly is complete. Empty draft and polish dirs were created.")
 
     # PRINT STDOUT/STDERR TO LOG
     for out in outs:
