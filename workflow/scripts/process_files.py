@@ -53,7 +53,7 @@ def get_args():
 
 
 def copy_files(strain_file, argos_path, destination="resources/data_raw"):
-    """A function to copy files from ARGOS except fast5 files"""
+    """A function to copy files from ARGOS except fast5 and fast5.gz files"""
     # collect strain names
     with open(strain_file, 'r') as f:
         strains = [line.rstrip() for line in f.readlines()]
@@ -65,7 +65,7 @@ def copy_files(strain_file, argos_path, destination="resources/data_raw"):
         # no whitespace mirroring in path string
         source = os.path.join(argos_path, strain)
         # if it shows any stdout replace it with subprocess.Popen
-        out = subprocess.call("rsync -avrq --exclude='*.fast5' %s %s" % (source, destination), shell=True)
+        out = subprocess.call("rsync -avrq --exclude='*.fast5' --exclude='*.fast5.gz' %s %s" % (source, destination), shell=True)
         results.append(out)
         # proc = subprocess.Popen("rsync -avr --exclude='*.fast5' %s %s" % (os.path.join(argos_path, strain),
         # destination), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -160,14 +160,14 @@ def prepare_files(strain_file, threads):
         # strain looks like 'DA62920'
         path = "resources/data_raw/" + strain + "/Nanopore"
         # strain_name = strain.split("/")[-1]
-        if os.path.isfile(path + "/" + "%s_all.fastq.gz" % strain):
-            messages.append("Joined Nanopore file for strain %s exists" % strain)
+        #if os.path.isfile(path + "/" + "%s_all.fastq.gz" % strain):
+        #    messages.append("Joined Nanopore file for strain %s exists" % strain)
             # print("Joined Nanopore file for strain %s exists" % strain)
-        else:
-            proc = subprocess.Popen("zcat %s/*.fastq.gz | pigz -c -p %i > %s/%s_all.fastq.gz" %
-                                    (path, threads, path, strain),
-                                    shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = proc.communicate()
+        #else:
+        proc = subprocess.Popen("zcat %s/*.fastq.gz | pigz -c -p %i > %s/%s_all.fastq.gz" %
+                                (path, threads, path, strain),
+                                shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = proc.communicate()
         # now you can safely remove links, leave only DA[0-9]_all.fastq.gz
         # this is not optimal way but it's easy to embed into this script
         gz_files = glob.glob("%s/*.fastq.gz" % path)
