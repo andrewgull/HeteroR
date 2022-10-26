@@ -160,18 +160,18 @@ def prepare_files(strain_file, threads):
         # strain looks like 'DA62920'
         path = "resources/data_raw/" + strain + "/Nanopore"
         # strain_name = strain.split("/")[-1]
-        #if os.path.isfile(path + "/" + "%s_all.fastq.gz" % strain):
-        #    messages.append("Joined Nanopore file for strain %s exists" % strain)
-            # print("Joined Nanopore file for strain %s exists" % strain)
-        #else:
+        joined_file = path + "/" + "%s_all.fastq.gz" % strain
+        if os.path.isfile(joined_file):
+            messages.append("Joined Nanopore file for strain %s exists. It will be removed." % strain)
+            os.remove(joined_file)
+        # make (new) joined file
         proc = subprocess.Popen("zcat %s/*.fastq.gz | pigz -c -p %i > %s/%s_all.fastq.gz" %
                                 (path, threads, path, strain),
                                 shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
         # now you can safely remove links, leave only DA[0-9]_all.fastq.gz
         # this is not optimal way but it's easy to embed into this script
-        gz_files = glob.glob("%s/*.fastq.gz" % path)
-        gz_files = [f for f in gz_files if "_all.fastq.gz" not in f]
+        gz_files = [f for f in glob.glob("%s/*.fastq.gz" % path) if "_all.fastq.gz" not in f]
         for file in gz_files:
             os.remove(file)
 
@@ -234,19 +234,19 @@ if __name__ == '__main__':
     args = get_args()
 
     # 1. Copy files
-    print("1. Transfer files from ARGOS...")
+    print("1. Transferring files from ARGOS...")
     copy_results = copy_files(strain_file=args.strains, argos_path=args.argos)
     if copy_results > 0:
         print("WARNING! Something went wrong during raw files transfer: at least one process finished with exit code 1")
 
     # 2. Prepare files
-    print("\n2. Prepare files...")
+    print("\n2. Preparing files...")
     info_messages, no_files = prepare_files(strain_file=args.strains, threads=args.threads)
     for msg in info_messages:
         print(msg)
 
     # 3. Calculate coverage
-    print("\n3. Calculate coverage...")
+    print("\n3. Calculating coverage...")
     coverage_stats = coverage(strain_file=args.strains, genome_length=args.genome_length)
     min_cov, max_cov, avg_cov = coverage_stats["coverage"].min(), coverage_stats["coverage"].max(), coverage_stats["coverage"].mean()
     # write it to a file
@@ -255,7 +255,7 @@ if __name__ == '__main__':
     print("\nQuick stats:\nmin = %f\navg = %f\nmax = %f\nCoverage ~25x or less is sparse, good for Unicycler" % (min_cov, avg_cov, max_cov))
 
     # 4. Create a config file
-    print("\n4. Create config file...")
+    print("\n4. Creating config file...")
     config_dict = create_config(strain_file=args.strains, no_reads=no_files)
     print("%i strains have been written to the config file" % len(config_dict['strains']))
     # write as yaml
