@@ -5,7 +5,7 @@
 results/**
 resources/**
 .idea/
-**/**/__pychache__/
+workflow/scripts/__pycache__/
 notebooks/modelling/tables/metrics_before_BL_types.csv
 workflow/scripts/testing_negative_coords.py
 workflow/scripts/compare_grf_outputs.py
