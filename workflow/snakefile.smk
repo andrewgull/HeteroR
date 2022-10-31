@@ -441,14 +441,15 @@ rule dr_summary:
 rule features:
     input: 
         repeats = expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
-        beds = expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"])
+        beds = expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"]),
+        rgs = expand("results/resistance_genes/{strain}/rgi_table.txt", strain=config["strains"])
     output: 
         "results/tables/features.tsv"
     log: "results/logs/features.log"
     message: "making features tables for all strains"
     conda: "envs/rscripts.yaml"
     shell:
-        "Rscript -b {input.repeats} -b {input.beds} -o {output}"
+        "Rscript -b {input.repeats} -b {input.beds} -r {input.rgs} -o {output}"
 
 # join outputs together
 rule final:
