@@ -442,14 +442,17 @@ rule features:
     input: 
         repeats = expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
         beds = expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"]),
-        rgs = expand("results/resistance_genes/{strain}/rgi_table.txt", strain=config["strains"])
+        rgs = expand("results/resistance_genes/{strain}/rgi_table.txt", strain=config["strains"]),
+        summaries = expand("/home/andrei/Data/HeteroR/results/assemblies_joined/{strain}/summary.tsv", strain=config["strains"]),
+        gffs = expand()
+        tests = "resources/heteroresistance_testing_ptz.csv"
     output: 
         "results/tables/features.tsv"
     log: "results/logs/features.log"
     message: "making features tables for all strains"
     conda: "envs/rscripts.yaml"
     shell:
-        "Rscript -b {input.repeats} -b {input.beds} -r {input.rgs} -o {output}"
+        "Rscript -r {input.repeats} -b {input.beds} -g {input.rgs} -t {input.tests} -a {input.summaries} -o {output}"
 
 # join outputs together
 rule final:
