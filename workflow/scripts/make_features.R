@@ -4,7 +4,7 @@
 library(optparse)
 library(tidyverse)
 
-# CLI options
+#### CLI options ####
 option_list <- list(
    make_option(c("-b", "--bed"),
                type = "character",
@@ -31,6 +31,11 @@ option_list <- list(
                default = NULL,
                help = "A path to assemblies summaries tables (tsv)",
                metavar = "character"),
+   make_option(c("-f", "--gff_files"),
+               type = "character",
+               default = NULL,
+               help = "GFF files names",
+               metavar = "character"),
    make_option(c("-o", "--out"),
                 type = "character",
                 default = NULL,
@@ -50,20 +55,19 @@ if (is.null(opt$table)) {
  stop("repeat table input files must be provided", call. = FALSE)
 }
 
-# SHORTCUTS FOR INPUTS/OUTPUTS
+#### Assign values from opt ####
 bed_file_paths <- opt$bed # character vector from expand()
 repeat_csv_paths <- opt$table # character vector from expand()
 rgi_csv_paths <- opt$resistance_genes # character vector from expand()
 testing_csv <- opt$resistance_testing # one file
 assembly_summaries <- opt$assembly_summaries # character vector from expand()
+gff_files <- opt$gff_files # character vector from expand()
 output_file <- opt$out # a tsv file
 rgi_identity <- 90
 rgi_length_percent <- 90
 target_rg <- "beta-lactamase"
 
-###################
-### READ INPUTS ###
-###################
+#### Read inputs ####
 
 # READ REPEAT TABLES
 repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x) {
@@ -73,7 +77,7 @@ repeat_df <- bind_rows(lapply(repeat_csv_paths, function(x) {
 # READ BED FILES
 # to determine center spanning repeat pairs
 bed_df <- bind_rows(lapply(bed_file_paths, function(x) {
-  df <- read_delim(x, header = FALSE)
+  df <- read_delim(x, col_names = FALSE)
   # parse strain name from input path
   df$strain <- "strain"
   return(df)
@@ -81,7 +85,7 @@ bed_df <- bind_rows(lapply(bed_file_paths, function(x) {
 
 # READ RGI DATA
 rgi <- bind_rows(lapply(rgi_csv_paths, function(x) {
-  df <- read_delim(x, na.strings = "n/a")
+  df <- read_delim(x, na = "n/a")
   # parse strain name from input path
   df$strain <- "strain"
   return(df)
@@ -107,23 +111,24 @@ assembly_summary <- lapply(assembly_summaries, function(x) {
 
 # READ GFF FILES
 # a function to read GFF files using STANDARD read.delim
-read_gff <- function(gff_filename){
+read_gff <- function(gff_filename) {
   # read and process
-  df <- as_tibble(read.delim(gff_filename, header=F, comment.char="#")) %>%
-  select(V1, V3, V4, V5, V7, V9) %>% 
-  filter(V3=="gene")
-  return(df)
-  }
+  # read_delim() didn't work
+  df <- read.delim(gff_filename, header = FALSE, comment.char = "#") %>%
+    dplyr::select(V1, V3, V4, V5, V7, V9) %>%
+    dplyr::filter(V3 == "gene")
+  return(tibble::as_tibble(df))
+}
+# read gff files, it takes time
+gff <- map_dfr(gff_files, ~ read_gff(.))
 
 
-#############################
-### SOME INPUT PROCESSING ###
-#############################
+#### Input processing ####
 
 # bind assembly summaries to a single file
 assembly_summary <- bind_rows(assembly_summary)
 
-# calculate plasmid counts
+# PLASMID COUNTS
 plasmid_counts <- assembly_summary %>%
   group_by(Strain, Type) %>%
   summarise(n.plasmids = n()) %>%
@@ -131,7 +136,7 @@ plasmid_counts <- assembly_summary %>%
   select(-Type) %>%
   rename("strain" = Strain)
 
-# calculate AR length
+# AR LENGTH
 repeat_df$AR_length <- repeat_df$start_2 - repeat_df$end_1 + 1
 
 # find gene center in bed files
@@ -155,7 +160,7 @@ repeat_df <- repeat_df %>%
   rename("strain" = strain.x) %>%
   relocate(strain, .before = record_id)
 
-# RGI filtering
+# RGI FILTERING
 # add record id and put it in front of the table
 rgi$record_id <- map_chr(rgi$ORF_ID, function(x) strsplit(x, " ")[[1]][1])
 rgi <- relocate(rgi, strain, record_id, .before = ORF_ID)
@@ -179,9 +184,7 @@ rgi <- filter(rgi, Resistance.Mechanism %in% stay)
 # filter by SNP
 rgi <- filter(rgi, is.na(SNPs_in_Best_Hit_ARO))
 
-##############################
-### MAKE BASIC FEATURES DF ###
-##############################
+#### Basic features DF ####
 features <- repeat_df %>%
   select(-c(gene_center, start_1, end_1, start_2, end_2, X))
 
@@ -206,9 +209,7 @@ features <- left_join(features, plasmid_counts, by = "strain")
 features$n.plasmids <- ifelse(is.na(features$n.plasmids), 0, features$n.plasmids) # nolint
 features <- features %>% relocate(n.plasmids, .before = "ORF_ID")
 
-##########################
-### BL LABELS & COUNTS ###
-##########################
+#### Beta-Lac labels & counts ####
 
 # label beta-lactamases (or other RGs of interest)
 f_bl_filt <- features %>%
@@ -227,9 +228,7 @@ features <- left_join(features, f_bl_filt %>%
   select(record_id, is_beta_lac), by = "record_id") %>%
     relocate(is_beta_lac, .before = "ORF_ID")
 
-###########################
-### FEATURES PER STRAIN ###
-###########################
+#### Features per strain ####
 features_strain <- features %>%
   select(strain, resistance, n.plasmids) %>%
   distinct()
@@ -237,6 +236,35 @@ features_strain <- features %>%
 # join BL counts with features_strain
 features_strain <- left_join(features_strain, n_beta_lac, by = "strain")
 
-###########################
-### LOCATION ON PLASMID ###
-###########################
+#### Location on plasmid ####
+# process GFFs
+# transform the last column to get the same record_id as in features
+gff <- separate(gff, V9, sep = ";locus_tag=", into = c("V10", "V11")) %>%
+  select(-V10)
+# give new names
+names(gff) <- c("seq.region", "type", "start", "stop", "strand", "record_id")
+# filter out genes that are not in features
+gff_in_features <- gff %>%
+  filter(record_id %in% unique(features$record_id))
+# remove these >2 million rows
+rm(gff)
+# add 'located on plasmid': if there is '1' in seq.region then its a chromosome
+# (the first element of an assembly)
+gff_in_features$on.plasmid <- if_else(str_detect(gff_in_features$seq.region, "1", negate = T), 1, 0)
+#gff_in_features$on.plasmid <- if_else(gff_in_features$located.on.plasmid, 1, 0)
+
+#### Distance to oriC ####
+gff_in_features <- rename(gff_in_features, "dist.to.oriC" = start)
+
+#### On plus strand ####
+gff_in_features$pos.strand <- if_else(gff_in_features$strand == "+", 1, 0)
+
+# remove some columns
+gff_in_features <- select(gff_in_features, c(record_id, dist.to.oriC, pos.strand, on.plasmid))
+
+# add is beta lac
+gff_in_features <- left_join(gff_in_features, select(features, c(record_id, is_beta_lac)) %>% distinct(), by = "record_id")
+gff_bl <- gff_in_features %>%  filter(is_beta_lac) %>% select(-is_beta_lac)
+
+#### Add dist to oriC and plus strand to features ####
+features <- left_join(features, gff_bl, by="record_id")
