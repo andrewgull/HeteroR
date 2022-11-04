@@ -876,11 +876,11 @@ t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...)
 # biomartr couldn't be installed
 
 # a function to read GFF files using STANDARD read.delim
-read_gff <- function(gff_filename){
+read_gff <- function(gff_filename) {
   # read and process
-  df <- as_tibble(read.delim(gff_filename, header=F, comment.char="#")) %>%
+  df <- as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
   select(V1, V3, V4, V5, V7, V9) %>% 
-  filter(V3=="gene")
+  filter(V3 == "gene")
   return(df)
   }
 
@@ -1545,5 +1545,5 @@ write.csv(amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amr_types_
 # Save the workspace
 
 ```{r, eval=TRUE}
-save.image(f="/home/andrei/Data/HeteroR/notebooks/features.RData")
+save.image(f = "/home/andrei/Data/HeteroR/notebooks/features.RData")
 ```

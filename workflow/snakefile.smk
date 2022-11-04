@@ -436,6 +436,23 @@ rule dr_summary:
     message: "making summary table with repeat coordinates for all strains"
     script: "scripts/make_repeat_summary_table.py"
 
+# get features table
+# read input from expand to get data on EVERY strain
+rule features:
+    input: 
+        repeats = expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
+        beds = expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"]),
+        rgs = expand("results/resistance_genes/{strain}/rgi_table.txt", strain=config["strains"]),
+        summaries = expand("/home/andrei/Data/HeteroR/results/assemblies_joined/{strain}/summary.tsv", strain=config["strains"]),
+        gffs = expand("/home/andrei/Data/HeteroR/results/assemblies_joined/{strain}/summary.tsv", strain=config["strains"])
+        tests = "resources/heteroresistance_testing_ptz.csv"
+    output: 
+        "results/tables/features.tsv"
+    log: "results/logs/features.log"
+    message: "making features tables for all strains"
+    conda: "envs/rscripts.yaml"
+    shell:
+        "Rscript -r {input.repeats} -b {input.beds} -g {input.rgs} -t {input.tests} -a {input.summaries} -o {output}"
 
 # join outputs together
 rule final:
