@@ -34,6 +34,7 @@ with open(snakemake.log[0], "w") as f:
     outs.append(unicycler_out)
 
     # CHECK ASSEMBLY COMPLETENESS
+    unicycler_log_path = "results/assemblies/DA63356/unicycler.log"
     completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
                                   "cut -d ' ' -f 8" % unicycler_log_path, shell=True, capture_output=True, text=True)
     completeness_stdout = completeness.stdout.splitlines()
@@ -48,7 +49,7 @@ with open(snakemake.log[0], "w") as f:
         chrom_status_index = 2
     # now use this index to determine chromosome completeness status
     if completeness_stdout[chrom_status_index] == "incomplete":
-        outs.append("Unicycler assembly is not complete.\nFlye-Medaka-Polypolish have been chosen to produce new assembly.")
+        print("Unicycler assembly is not complete.\nFlye-Medaka-Polypolish have been chosen to produce new assembly.")
         os.rename("%s/assembly.fasta" % assembly_dir, "%s/assembly_unicycler.fasta" % assembly_dir)
         # RUN FLYE
         flye_out = subprocess.run("flye --nano-raw %s --threads %i --out-dir %s -g %s --asm-coverage %i" %
@@ -93,6 +94,13 @@ with open(snakemake.log[0], "w") as f:
                                         shell=True, capture_output=True, text=True)
         outs.append(plp_polish_out)
 
+        # REMOVE SAM FILES
+        sam_files = ["alignments_1.sam", "alignments_2.sam", "filtered_1.sam", "filtered_2.sam"]
+        for sam in sam_files:
+            os.remove(os.path.join(polish_dir, sam))
+        
+        print("SAM files have been removed")
+
         # RENAME FLYE ASSEMBLY
         os.rename("%s/assembly.fasta" % assembly_dir, "%s/assembly_flye_raw.fasta" % assembly_dir)
         # LINK ASSEMBLY TO RESULTS/ASSEMBLIES
@@ -110,4 +118,5 @@ with open(snakemake.log[0], "w") as f:
 
     # PRINT STDOUT/STDERR TO LOG
     for out in outs:
+        # every out is subrocess.run output not string! 
         print(out.stdout, out.stderr)
