@@ -24,11 +24,12 @@ library(tidyverse)
 library(ggpubr)
 library(factoextra)
 library(cluster)
+library(skimr)
 ```
 
 # Intro
 
-Here I explore strains tested as HR and non-HR according to the most recent update from Karin.
+Here I explore features of strains tested as HR and non-HR according to the most recent update from Karin.
 
 AB is Piperacillin/Tazobactam
 
@@ -81,33 +82,32 @@ Here, I will remove R-strains.
 
 
 ```{r}
-# BL counted as binary > 3
-data_strain$n.beta.lac.3 <- ifelse(data_strain$n.beta.lac > 3, 1, 0)
-
-data_strain$n.beta.lac.4 <- ifelse(data_strain$n.beta.lac > 4, 1, 0)
+# keep strains elsewhere
+strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
+  mutate(n.beta.lac.3 = ifelse(n.beta.lac > 3, 1, 0)) %>% 
+  mutate(n.beta.lac.4 = ifelse(n.beta.lac > 4, 1, 0)) %>% 
   relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.beta.lac") %>% 
-  filter(resistance != "R") 
-
-# resistance as factor
-data_strain$resistance <- as.factor(data_strain$resistance)
-
-# remove strain
-# but keep them elsewhere
-strains <- data_strain$strain
-data_strain <- data_strain %>% select(-strain)
-
+  filter(resistance != "R") %>% 
+  select(-strain) %>% 
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")))
+  
 data_strain
 ```
 
 # Descriptive stats
 
 ```{r}
-skimr::skim(data_strain)
+skim(data_strain) %>% yank("factor")
 ```
 
-All missing data should be replaced with zeros.
+```{r}
+skim(data_strain) %>% yank("numeric")
+```
+
+
+All the missing values should be replaced with zeros.
 
 # Remove non-informative columns
 
