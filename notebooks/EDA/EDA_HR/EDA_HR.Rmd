@@ -170,7 +170,7 @@ data_strain_scaled <- data_strain_scaled %>%
   relocate(resistance, .before = "n.plasmids")
 
 # write it for modelling
-write.csv(data_strain_scaled, "../../modelling/PTZ_HR/data/features_ptz_hr_scaled.csv", row.names = F)
+#write.csv(data_strain_scaled, "../../modelling/PTZ_HR/data/features_ptz_hr_scaled.csv", row.names = F)
 ```
 
 
