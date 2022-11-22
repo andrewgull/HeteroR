@@ -19,346 +19,660 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = F)
-library(tidyverse)
-library(caret)
-library(ROCR)
-library(DMwR)
+library(tidymodels)
+library(themis)
+library(probably)
+library(vip)
+library(skimr)
+library(stacks)
 ```
 
 # Read data
 
 Here I use processed and scaled data from EDA_PTZ.
 
-R will be removed
+All 'R' strains will be removed
 
 ```{r}
-feat <- read_csv("data/features_ptz_hr_scaled.csv")
+df <- readr::read_csv("data/features_ptz_strain.csv") %>% 
+  filter(resistance != "R") %>% 
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR"))) %>%
+  mutate(n.beta.lac.3 = factor(if_else(n.beta.lac.3 == 1, "yes", "no"))) %>%
+  mutate(n.beta.lac.4 = factor(if_else(n.beta.lac.4 == 1, "yes", "no")))
 
-# replace HR/R with HR.R otherwise train() will complain
-#feat$resistance <- as.factor(str_replace(feat$resistance, "HR/R", "HR.R"))
-
-feat <- feat %>% filter(resistance != "R")
-
-feat$resistance<- ordered(feat$resistance, levels=c("nonHR", "HR"))
-
-feat %>% group_by(resistance) %>% 
-  summarize(N = n())
+df 
 ```
-
-# Identify correlated features
-
-## Summary of pairwise correlations between numeric predictors (on scaled data)
-
-```{r, cache=F}
-# exclude resistance, n.beta.lac.3
-feat_num <- select(feat, -c(resistance, n.beta.lac.3, n.beta.lac.3))
-
-descr_cor <- cor(feat_num)
-summary(descr_cor[upper.tri(descr_cor)])
-```
-
-Remove those predictors that have correlation coefficient greater than 0.75
-
-## Summary of the new filtered correlations
 
 ```{r}
-highly_cor <- findCorrelation(descr_cor, cutoff = .75)
-
-feat_nocorr <- feat_num[,-highly_cor]
-
-# check new correlations
-descr_cor2 <- cor(feat_nocorr)
-summary(descr_cor2[upper.tri(descr_cor2)])
+skim(df) %>% yank("factor")
 ```
 
-Add `resistance` and `n.beta.lac.3` columns to filtered columns
+Unbalanced target class
+
+# Data split
+
+Stratified split
 
 ```{r}
-feat_nocorr$n.beta.lac.3 <- feat$n.beta.lac.3
-feat_nocorr$n.beta.lac.4 <- feat$n.beta.lac.4
-feat_nocorr$resistance <- feat$resistance
+set.seed(124)
+
+data_split <- initial_split(df, prop = 0.8, strata = resistance)
+
+df_train <- training(data_split)
+df_test <- testing(data_split)
+
+df_train %>% 
+  count(resistance) %>% 
+  mutate(prop = n/sum(n))
+```
+
+```{r}
+df_test %>% 
+  count(resistance) %>% 
+  mutate(prop = n/sum(n))
+```
+
+# Preprocessing
+
+## Recipe
+
+```{r}
+main_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+  
+main_recipe
+```
+
+## Bake ancd check
+
+```{r}
+train_data <- main_recipe %>% 
+  prep(training = df_train) %>% 
+  bake(new_data = NULL) # df_train will be processed
+
+head(train_data)
+```
+
+## NZV predictors
+
+```{r}
+setdiff(names(df), names(train_data))
+```
+
+
+## Folds and metrics
+
+>If a model is poorly calibrated, the ROC curve value might not show diminished performance. However, the J index would be lower for models with pathological distributions for the class probabilities.
+
+```{r}
+# Stratified, repeated 10-fold cross-validation is used to resample the model:
+cv_folds <- vfold_cv(df_train, strata = "resistance", v = 10, repeats = 10)
+# metrics for imbalanced classes
+cls_metrics <- metric_set(roc_auc, j_index)
+```
+
+# Penalized Logistic regression
+
+## Tuning
+
+```{r}
+# adjust the main recipe
+lr_recipe <- main_recipe %>%
+  step_corr(threshold = 0.75)
+
+# set model type/engine
+lr_mod <- 
+  logistic_reg(
+    penalty = tune(), 
+    mixture = 1) %>% 
+  set_engine("glmnet")
+
+# define the workflow
+lr_workflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(lr_recipe)
+
+# create a tune grid
+lr_reg_grid <- tibble(penalty = 10**seq(-4, 0, length.out = 30))
+
+# train and tune the model
+lr_res <- tune_grid(lr_workflow,
+              grid = lr_reg_grid,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+```
+
+## Metrics autoplot
+
+```{r}
+autoplot(lr_res)
+```
+
+## Best models
+
+```{r}
+top_lr <-
+  lr_res %>% 
+  show_best("roc_auc", n = 5) %>% 
+  arrange(penalty) 
+
+top_lr %>% arrange(penalty)
+```
+
+### ROC of the best model
+
+```{r}
+lr_best <- lr_res %>%
+  select_best(metric = "roc_auc")
+
+lr_auc <- 
+  lr_res %>% 
+  collect_predictions(parameters = lr_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "LR")
+
+autoplot(lr_auc)
+```
+
+# Multivariate adaptive regression splines (MARS)
+
+## Tune
+
+```{r}
+# prune method default: ‘backward’ 
+# other methods "backward", "none", "exhaustive", "forward", "seqrep", "cv"
+mars_mod <- 
+  mars(
+    mode = "classification",
+    engine = "earth",
+    num_terms = tune(),
+    prod_degree = tune(),
+    prune_method = "backward") %>% 
+  translate()
+
+# define the workflow
+mars_workflow <- 
+  workflow() %>% 
+  add_model(mars_mod) %>% 
+  add_recipe(lr_recipe) # recipe for LR here
+
+# train and tune the model
+mars_res <- tune_grid(mars_workflow,
+              grid = 25,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+```
+
+## Metrics autoplot
+
+```{r}
+autoplot(mars_res)
+```
+
+## Best models
+
+### Based on AUC
+
+```{r}
+mars_res %>% 
+  show_best(metric = "roc_auc")
+```
+
+### Based on J-index
+
+```{r}
+mars_res %>% 
+  show_best(metric = "j_index")
+```
+
+
+### ROC of the best model
+
+```{r}
+mars_best <- mars_res %>%
+  select_best(metric = "roc_auc")
+
+mars_auc <- 
+  mars_res %>% 
+  collect_predictions(parameters = mars_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "MARS")
+
+autoplot(mars_auc)
+```
+
+# Linear support vector machines (lSVM)
+
+## Tune
+
+```{r}
+svm_mod <- 
+  svm_linear(
+    cost = tune()) %>% # margin - for regression only
+  set_mode("classification") %>%
+  set_engine("kernlab")  # default
+
+# define the workflow
+svm_workflow <- 
+  workflow() %>% 
+  add_model(svm_mod) %>% 
+  add_recipe(lr_recipe) # recipe for LR here
+
+# train and tune the model
+svm_res <- tune_grid(svm_workflow,
+              grid = 25,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+```
+
+
+## Metrics autoplot
+
+```{r}
+autoplot(svm_res)
+```
+
+## Best models
+
+```{r}
+svm_res %>% 
+  show_best(metric = "roc_auc")
+```
+
+
+### ROC of the best model
+
+```{r}
+svm_best <- svm_res %>%
+  select_best(metric = "roc_auc")
+
+svm_auc <- 
+  svm_res %>% 
+  collect_predictions(parameters = svm_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "SVM")
+
+autoplot(svm_auc)
+```
+
+# K-nearest neighbors (KNN)
+
+## Tune
+
+```{r}
+knn_mod <- nearest_neighbor(
+    neighbors = tune(),
+    weight_func = tune(),
+    dist_power = tune()) %>% #
+  set_engine("kknn") %>%
+  set_mode("classification")
+
+# define the workflow
+knn_workflow <- 
+  workflow() %>% 
+  add_model(knn_mod) %>% 
+  add_recipe(lr_recipe) # recipe for LR here
+
+
+# train and tune the model
+knn_res <- tune_grid(knn_workflow,
+              grid = 25,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+```
+
+## Metrics autoplot
+
+```{r}
+autoplot(knn_res)
+```
+
+## Best models
+
+```{r}
+knn_res %>% 
+  show_best(metric = "roc_auc")
+```
+
+
+### ROC of the best model
+
+```{r}
+knn_best <- knn_res %>%
+  select_best(metric = "roc_auc")
+
+knn_auc <- 
+  knn_res %>% 
+  collect_predictions(parameters = knn_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "KNN")
+
+autoplot(knn_auc)
+```
+
+# Random Forest (RF)
+
+## Tune
+
+```{r}
+cores <- 4L
+
+# model
+rf_mod <- 
+  rand_forest(
+      mtry = tune(), 
+      min_n = tune(), 
+      trees = 1000) %>% 
+  set_engine("ranger", num.threads = cores) %>% 
+  set_mode("classification")
+
+rm_cv_wf <- workflow() %>% 
+  add_model(rf_mod) %>% 
+  add_recipe(main_recipe) # main recipe here
+
+set.seed(5732)
+# run
+rf_res <- tune_grid(rm_cv_wf,
+            grid = 25,
+            resamples = cv_folds,
+            control = control_grid(save_pred = TRUE),
+            metrics = cls_metrics)
+```
+
+## Metrics autoplot
+
+```{r}
+autoplot(rf_res)
+```
+
+## Best models
+
+```{r}
+# automatic choice of the best model
+rf_res %>% 
+  show_best(metric = "roc_auc")
+```
+
+
+### ROC of the best model
+
+```{r}
+rf_best <- 
+  rf_res %>% 
+  select_best(metric = "roc_auc")
+
+rf_auc <- 
+  rf_res %>% 
+  collect_predictions(parameters = rf_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "RF")
+
+autoplot(rf_auc)
+```
+
+# Boosted Trees (BT)
+
+Using eXtreme Gradient Boosting
+
+## Tune 
+
+```{r}
+set.seed(732)
+
+# number of cores available on Kaggle
+cores <- 4L 
+
+# model specification
+xgb_mod <- 
+  boost_tree(
+    trees = 50, 
+    mtry = tune(), 
+    min_n = tune(), 
+    tree_depth = tune(), 
+    learn_rate = tune(), 
+    loss_reduction = tune(), 
+    sample_size = tune(), 
+    stop_iter = tune()) %>% 
+  set_engine("xgboost", num.threads = cores) %>% 
+  set_mode("classification")
+
+# join model and processing recipe
+xgb_cv_wf <- workflow() %>% 
+  add_model(xgb_mod) %>% 
+  add_recipe(main_recipe)
+
+# tune models, this takes time
+xgb_res <- tune_grid(xgb_cv_wf,
+            grid = 25,
+            resamples = cv_folds,
+            control = control_grid(save_pred = TRUE),
+            metrics = cls_metrics)
+```
+
+## Metrics autoplot
+
+```{r, fig.width=14}
+autoplot(xgb_res)
+```
+
+## Best models
+
+```{r}
+xgb_res %>% 
+  show_best(metric = "roc_auc", n = 5)
+```
+
+
+```{r}
+xgb_res %>% 
+  show_best(metric = "j_index", n=40) %>% 
+  filter(.config == "Preprocessor1_Model11")
+```
+
+### ROC of the best
+
+```{r}
+xgb_best <- xgb_res %>% 
+  select_best(metric = "roc_auc")
+
+xgb_auc <- xgb_res %>% 
+  collect_predictions(parameters = xgb_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "BT")
+
+autoplot(xgb_auc)
+```
+
+
+# Ensemble of the models
+
+```{r}
 
 ```
 
 
-# Regularized Logistic Regression
+# Comparison of all models
 
-On non-correlated predictors
+```{r, fig.width=14}
+roc_plot <- bind_rows(xgb_auc, rf_auc, lr_auc, mars_auc, svm_auc, knn_auc) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  scale_color_brewer(palette = "Dark2")
 
-## Split data set
-
-```{r}
-set.seed(10)
-
-sample_set_nocorr <- createDataPartition(y = feat_nocorr$resistance, p = .75, list = FALSE)
-
-df_train_nocorr <- feat_nocorr[sample_set_nocorr,]
-df_test_nocorr <- feat_nocorr[-sample_set_nocorr,]
-
-df_train_nocorr <- SMOTE(resistance ~ ., data.frame(df_train_nocorr), perc.over = 200, perc.under = 150)
-
-df_train_nocorr %>% group_by(resistance) %>% 
-     summarize(N = n())
+roc_plot
 ```
 
-## Train
+SVM is the best according to AUC, RF and BT are close
 
 ```{r}
-set.seed(100)
-
-library(doParallel)
-
-cl <- makePSOCKcluster(18)
-registerDoParallel(cl)
-
-fit_ctrl_roc <- trainControl(method = "repeatedcv",
-                           number = 5,
-                           repeats = 10, 
-                           allowParallel = T,
-                           classProbs = T,
-                           summaryFunction = twoClassSummary)
-
-
-fit_lr <- train(resistance ~ ., 
-                 data = df_train_nocorr, 
-                 metric = "ROC", 
-                 method = "regLogistic", 
-                 trControl = fit_ctrl_roc,
-                 tuneGrid = expand.grid(
-                   .cost = seq(0.5, 6, 0.5), 
-                   .loss = c("L1", "L2_dual", "L2_primal"), 
-                   .epsilon = seq(1.0, 4.0, 1)),
-                 verbosity = 0,
-                 verbose = FALSE)
-
-stopCluster(cl)
-
-fit_lr
+ggsave("plots/roc.png", roc_plot)
 ```
 
-## Testing
 
-probabilty cutoff = 0.5
+# Final fit
 
 ```{r}
-predClasses_lr <- predict(fit_lr, newdata=df_test_nocorr)
+# the last model
+# last_mod <- 
+#   boost_tree(trees = 1000,
+#              mtry = xgb_best$mtry, 
+#              min_n = xgb_best$min_n, 
+#              tree_depth = xgb_best$tree_depth,
+#              learn_rate = xgb_best$learn_rate,
+#              loss_reduction = xgb_best$loss_reduction,
+#              sample_size = xgb_best$sample_size,
+#              stop_iter = xgb_best$stop_iter) %>%
+#   set_engine("xgboost", num.threads = cores) %>% 
+#   set_mode("classification")
 
-cm_lr <- confusionMatrix(data = predClasses_lr, 
-                reference = df_test_nocorr$resistance,
-                mode="everything",
-                positive="HR")
+last_mod <-
+  svm_linear(
+    cost = svm_best$cost
+  ) %>% 
+  set_mode("classification") %>%
+  set_engine("kernlab") 
 
-cm_lr
+# the last workflow
+last_wf <- 
+  svm_workflow %>% 
+  update_model(last_mod)
+
+# the last fit
+set.seed(345)
+last_fit <- 
+  last_wf %>% 
+  last_fit(data_split)
+
+last_fit %>% 
+  collect_metrics()
+```
+
+```{r}
+last_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 77)
+```
+
+```{r}
+last_fit %>% extract_fit_parsnip() 
 ```
 
 
 ## ROC
 
-A function for ROC
+```{r}
+last_fit %>% 
+  collect_predictions() %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  autoplot()
+```
+
+## Confusion Matrix
 
 ```{r}
-get_roc <- function(fit.obj, testing.df){
-  pred_prob <- predict.train(fit.obj, newdata = testing.df, type="prob")
-  pred_roc <- prediction(predictions = pred_prob$HR, labels = testing.df$resistance)
-  perf_roc <- performance(pred_roc, measure="tpr", x.measure = "fpr")
-  return(list(perf_roc, pred_roc))
-}
+cm <- last_fit %>%
+  collect_predictions() %>%
+  conf_mat(truth = resistance, estimate = .pred_class)
+
+autoplot(cm, type = "heatmap")
+```
+
+## Performance
+
+```{r}
+summary(cm)
+```
+
+## Probability cutoff adjustment
+
+```{r}
+# collect sens, spec, j-index at various cut-offs
+threshold_data <- 
+  last_fit %>%
+  collect_predictions() %>%
+  threshold_perf(resistance, .pred_HR, thresholds = seq(0.0, 1, by = 0.05)) %>% 
+  filter(.metric != "distance") %>%
+  mutate(group = case_when(
+    .metric == "sens" | .metric == "spec" ~ "1",
+    TRUE ~ "2"
+  ))
+
+# find max j-index
+max_j_index_threshold <- threshold_data %>%
+  filter(.metric == "j_index") %>%
+  filter(.estimate == max(.estimate)) %>%
+  pull(.threshold)
+
+# plot metrics v cut-offs
+sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, color = .metric, alpha = group)) +
+  geom_line(size = 1) +
+  #theme_minimal() +
+  #scale_color_viridis_d(end = 0.9) +
+  scale_color_brewer(palette = "Set1") +
+  scale_alpha_manual(values = c(.4, 1), guide = "none") +
+  geom_vline(xintercept = max_j_index_threshold, alpha = .8, color = "grey30", linetype = "longdash") +
+  labs(
+    x = "Probability",
+    y = "Metric Estimate",
+    title = "Final model: linear SVM"
+  )
+
+sens_spec_j_plot
+```
+
+Moving threshold to the crossing point between sensitivity and specificity curves (0.405) doesn't imporve overall performance of the model.
+
+```{r}
+ggsave("plots/prob_cutoff.png", sens_spec_j_plot)
+```
+
+
+## Optimized confusion matrix
+
+j-index
+
+```{r}
+pred_optimized <- last_fit %>%
+  collect_predictions() %>% 
+  mutate(
+    .pred = make_two_class_pred(
+      estimate = .pred_HR, 
+      levels = levels(resistance), 
+      threshold = max_j_index_threshold
+    )
+  ) %>%
+  select(resistance, contains(".pred"))
+
+cm_optimized <- pred_optimized %>% 
+  conf_mat(truth = resistance, estimate = .pred)
+
+cm_heatmap <- autoplot(cm_optimized, type = "heatmap")
+cm_heatmap
+```
+
+```{r}
+ggsave("plots/confusion_matrix.png", cm_heatmap)
 ```
 
 
 ```{r}
-# calculate ROC
-perf_pred <- get_roc(fit_lr, df_test_nocorr)
-perf_lr <- perf_pred[[1]]
-pred_lr <- perf_pred[[2]]
-
-# take AUC 
-auc_lr <- round(unlist(slot(performance(pred_lr, measure = "auc"), "y.values")), 3)
-
-# plot
-plot(perf_lr, main = "RLR ROC curve", col = "steelblue", lwd = 3)
-abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
-legend(x = 0.7, y = 0.3, legend = paste0("AUC = ", auc_lr))
+summary(cm_optimized)
 ```
 
-
-## TPR v FPR
-
-```{r lr.tpr}
-
-plot(performance(pred_lr, measure = "tpr", x.measure = "cutoff"),
-     col="steelblue", 
-     ylab = "Rate", 
-     xlab="Probability cutoff")
-
-plot(performance(pred_lr, measure = "fpr", x.measure = "cutoff"), 
-     add = T, col = "red")
-
-legend(x = 0.7,y = 0.99, c("TPR (Recall)", "FPR (1-Spec)"), 
-       lty = 1, col =c('steelblue', 'red'), bty = 'n', cex = 1, lwd = 2)
-
-#abline(v = 0.02, lwd = 2, lty=6)
-
-title("Regularized Logistic Regression")
-```
-
-## Features Importance
-
-```{r, fig.height=6}
-imp_vars_lr <- varImp(fit_lr)
-
-plot(imp_vars_lr, main="Variable Importance with RLR")
-```
-
-## Coefficients
-
-Here: "the change in the log-odds of the response as a results of a unit change in the predictor variable"
-
-As a reminder:
-
-$log(\frac{p(X)}{1-p(X)}) = \beta_0 + \beta_1X$
-
-
-```{r}
-coeff <- as_tibble(fit_lr$finalModel$W) %>% 
-  gather("variable", "log.odds", 1:43) %>% 
-  mutate("odds.ratio" = exp(log.odds)) %>% 
-  arrange(-abs(log.odds))
-
-coeff 
-```
-
-Bias is intercept.
-
-Odds ratio `r unlist(coeff[1,3])` means: for a one unit increase in `r unlist(coeff[1,1])`, the odds of a strain to be non-HR increase by a factor of `r unlist(coeff[1,3])`
-
-Odds ration `r unlist(coeff[3,3])` means: for one unit increase in `r unlist(coeff[3,1])`, the odds of a strain to be non-HR increase by a factor of `r unlist(coeff[3,3])` 
-
-# RF
-
-ROC-optimization is better for imbalanced data
-
-## Split data
-
-Imbalanced data - use SMOTE to create training data set, but not testing data set
-
-```{r}
-set.seed(12)
-
-sample_set <- createDataPartition(y = feat$resistance, p = .75, list = FALSE)
-
-df_train <- feat[sample_set,]
-df_test <- feat[-sample_set,]
-
-df_train <- SMOTE(resistance ~ ., data.frame(df_train), perc.over = 200, perc.under = 150)
-
-#df_train$resistance <- ordered(df_train$resistance, levels=c("nonHR", "HR"))
-
-```
-
-In new training data target classes look like this:
-
-```{r}
-
-df_train %>% group_by(resistance) %>% 
-     summarize(N = n())
-```
-
-## Train
-
-```{r, message=FALSE, warning=FALSE}
-set.seed(122)
-
-library(doParallel)
-
-cl <- makePSOCKcluster(8)
-registerDoParallel(cl)
-
-fit_ctrl_roc <- trainControl(method = "repeatedcv",
-                           number = 5,
-                           repeats = 10, 
-                           allowParallel = T,
-                           classProbs = T,
-                           summaryFunction = twoClassSummary)
-
-
-fit_rf <- train(resistance ~ ., 
-                 data = df_train, 
-                 metric = "ROC", 
-                 method = "rf", 
-                 trControl = fit_ctrl_roc,
-                 tuneGrid = expand.grid(.mtry = seq(2, 15, 1)),
-                 ntree = 50,
-                 nodesize = 1,
-                 verbose = FALSE)
-
-stopCluster(cl)
-
-fit_rf
-```
-
-## Testing
-
-default cutoff 0.5
-
-```{r}
-#df_test$resistance <- ordered(df_test$resistance, levels=c("nonHR", "HR"))
-
-predClasses_rf <- predict(fit_rf, newdata=df_test)
-
-cm_rf <- confusionMatrix(data = predClasses_rf, 
-                reference = df_test$resistance,
-                mode="everything",
-                positive="HR")
-
-cm_rf
-```
-
-## ROC
-
-```{r}
-# calculate ROC
-perf_pred <- get_roc(fit_rf, df_test)
-perf_rf <- perf_pred[[1]]
-pred_rf <- perf_pred[[2]]
-
-# take AUC 
-auc_rf <- round(unlist(slot(performance(pred_rf, measure = "auc"), "y.values")), 3)
-
-# plot
-plot(perf_rf, main = "Random Forest ROC curve", col = "steelblue", lwd = 3)
-abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
-legend(x = 0.7, y = 0.3, legend = paste0("AUC = ", auc_rf))
-```
-
-## TPR v FPR
-
-```{r}
-plot(performance(pred_rf, measure = "tpr", x.measure = "cutoff"),
-     col="steelblue", 
-     ylab = "Rate", 
-     xlab="Probability cutoff")
-
-plot(performance(pred_rf, measure = "fpr", x.measure = "cutoff"), 
-     add = T, col = "red")
-
-legend(x = 0.65,y = 0.95, c("TPR (Recall)", "FPR (1-Spec)"), 
-       lty = 1, col =c('steelblue', 'red'), bty = 'n', cex = 1, lwd = 2)
-
-#abline(v = 0.02, lwd = 2, lty=6)
-
-title("Random Forest")
-```
-
-## Feature importance
-
-```{r, fig.height=8}
-imp_vars_rf <- varImp(fit_rf)
-
-plot(imp_vars_rf, main="Variable Importance with Random Forest")
-```
 
 ---
+
 
 ```{r}
 save.image("data/workspace.RData")
