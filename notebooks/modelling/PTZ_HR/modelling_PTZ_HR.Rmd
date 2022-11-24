@@ -76,6 +76,8 @@ df_test %>%
 
 ## Recipe
 
+>Some models (notably neural networks, KNN, and support vector machines) require predictors that have been centered and scaled, so some model workflows will require recipes with these preprocessing steps. For other models, a traditional response surface design model expansion (i.e., quadratic and two-way interactions) is a good idea.
+
 ```{r}
 main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
@@ -157,12 +159,9 @@ autoplot(lr_res)
 ## Best models
 
 ```{r}
-top_lr <-
-  lr_res %>% 
+lr_res %>% 
   show_best("roc_auc", n = 5) %>% 
   arrange(penalty) 
-
-top_lr %>% arrange(penalty)
 ```
 
 ### ROC of the best model
@@ -303,6 +302,122 @@ svm_auc <-
 autoplot(svm_auc)
 ```
 
+# Polynomial SVM
+
+## Tune
+
+```{r}
+set.seed(101)
+
+svm_poly_mod <- svm_poly(
+    cost = tune(),
+    degree = tune(),
+    scale_factor = tune(),
+    margin = NULL ) %>% # regression only 
+set_mode("classification") %>%
+set_engine("kernlab", num.threads = 4L)  # default
+
+# define the workflow
+svm_poly_workflow <- 
+  workflow() %>% 
+  add_model(svm_poly_mod) %>% 
+  add_recipe(lr_recipe) # recipe for LR here
+
+# train and tune the model
+svm_poly_res <- tune_grid(svm_poly_workflow,
+              grid = 25,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+```
+
+
+## Metrics autoplot
+
+```{r}
+autoplot(svm_poly_res)
+```
+
+## Best models
+
+```{r}
+svm_poly_res %>% 
+  show_best(metric = "roc_auc")
+```
+
+### ROC of the best model
+
+```{r}
+svm_poly_best <- svm_poly_res %>%
+  select_best(metric = "roc_auc")
+
+svm_poly_auc <- 
+  svm_poly_res %>% 
+  collect_predictions(parameters = svm_poly_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "SVM_polynomial")
+
+autoplot(svm_poly_auc)
+```
+
+
+# Radial basis function SVM
+
+## Tune
+
+```{r}
+svm_rbf_mod <- 
+  svm_rbf(
+    cost = tune(),
+    rbf_sigma = tune(),
+    margin = NULL) %>% # regression only 
+set_mode("classification") %>%
+set_engine("kernlab")  # default
+
+# define the workflow
+svm_rbf_workflow <- 
+  workflow() %>% 
+  add_model(svm_rbf_mod) %>% 
+  add_recipe(lr_recipe) # recipe for LR here
+
+# train and tune the model
+svm_rbf_res <- tune_grid(svm_rbf_workflow,
+              grid = 25,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+```
+
+## Metrics autoplot
+
+```{r}
+autoplot(svm_rbf_res)
+```
+
+## Best models
+
+```{r}
+svm_rbf_res %>% 
+  show_best(metric = "roc_auc")
+```
+
+
+### ROC of the best model
+
+```{r}
+svm_rbf_best <- svm_rbf_res %>%
+  select_best(metric = "roc_auc")
+
+svm_rbf_auc <- 
+  svm_rbf_res %>% 
+  collect_predictions(parameters = svm_rbf_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "SVM_radial")
+
+autoplot(svm_rbf_auc)
+```
+
+
 # K-nearest neighbors (KNN)
 
 ## Tune
@@ -408,16 +523,46 @@ rf_res %>%
 ```{r}
 rf_best <- 
   rf_res %>% 
-  select_best(metric = "roc_auc")
+    select_best(metric = "roc_auc")
 
 rf_auc <- 
   rf_res %>% 
-  collect_predictions(parameters = rf_best) %>% 
-  roc_curve(resistance, .pred_HR) %>% 
-  mutate(model = "RF")
+    collect_predictions(parameters = rf_best) %>% 
+    roc_curve(resistance, .pred_HR) %>% 
+    mutate(model = "RF")
 
 autoplot(rf_auc)
 ```
+
+### Variable Importance
+
+```{r}
+# the last model
+
+rf_best_mod <-
+  rand_forest(
+      mtry = rf_best$mtry, 
+      min_n = rf_best$min_n, 
+      trees = 1000) %>% 
+  set_engine("ranger", num.threads = 2) %>% 
+  set_mode("classification")
+
+# the last workflow
+rf_best_wf <- 
+  svm_poly_workflow %>% 
+  update_model(rf_best_mod)
+
+# the last fit
+set.seed(345)
+rf_best_fit <- 
+  rf_best_wf %>% 
+  last_fit(data_split)
+
+rf_best_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 67)
+```
+
 
 # Boosted Trees (BT)
 
@@ -474,7 +619,7 @@ xgb_res %>%
 
 ```{r}
 xgb_res %>% 
-  show_best(metric = "j_index", n=40) %>% 
+  show_best(metric = "j_index", n = 40) %>% 
   filter(.config == "Preprocessor1_Model11")
 ```
 
@@ -492,6 +637,12 @@ xgb_auc <- xgb_res %>%
 autoplot(xgb_auc)
 ```
 
+### Variable Importance
+
+```{r}
+xgb_res %>% vip() 
+```
+
 
 # Ensemble of the models
 
@@ -502,8 +653,8 @@ autoplot(xgb_auc)
 
 # Comparison of all models
 
-```{r, fig.width=14}
-roc_plot <- bind_rows(xgb_auc, rf_auc, lr_auc, mars_auc, svm_auc, knn_auc) %>% 
+```{r, fig.width=8}
+roc_plot <- bind_rows(xgb_auc, rf_auc, lr_auc, mars_auc, svm_auc, svm_poly_auc, svm_rbf_auc, knn_auc) %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
@@ -524,28 +675,19 @@ ggsave("plots/roc.png", roc_plot)
 
 ```{r}
 # the last model
-# last_mod <- 
-#   boost_tree(trees = 1000,
-#              mtry = xgb_best$mtry, 
-#              min_n = xgb_best$min_n, 
-#              tree_depth = xgb_best$tree_depth,
-#              learn_rate = xgb_best$learn_rate,
-#              loss_reduction = xgb_best$loss_reduction,
-#              sample_size = xgb_best$sample_size,
-#              stop_iter = xgb_best$stop_iter) %>%
-#   set_engine("xgboost", num.threads = cores) %>% 
-#   set_mode("classification")
 
 last_mod <-
-  svm_linear(
-    cost = svm_best$cost
+  svm_poly(
+    cost = svm_poly_best$cost,
+    degree = svm_poly_best$degree,
+    scale_factor = svm_poly_best$scale_factor
   ) %>% 
   set_mode("classification") %>%
   set_engine("kernlab") 
 
 # the last workflow
 last_wf <- 
-  svm_workflow %>% 
+  svm_poly_workflow %>% 
   update_model(last_mod)
 
 # the last fit
@@ -580,7 +722,7 @@ last_fit %>%
 
 ## Confusion Matrix
 
-```{r}
+```{r, fig.width=6}
 cm <- last_fit %>%
   collect_predictions() %>%
   conf_mat(truth = resistance, estimate = .pred_class)
@@ -596,7 +738,7 @@ summary(cm)
 
 ## Probability cutoff adjustment
 
-```{r}
+```{r, fig.width=6}
 # collect sens, spec, j-index at various cut-offs
 threshold_data <- 
   last_fit %>%
@@ -625,7 +767,7 @@ sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, co
   labs(
     x = "Probability",
     y = "Metric Estimate",
-    title = "Final model: linear SVM"
+    title = "Final model: polynomial SVM"
   )
 
 sens_spec_j_plot
@@ -642,7 +784,7 @@ ggsave("plots/prob_cutoff.png", sens_spec_j_plot)
 
 j-index
 
-```{r}
+```{r, fig.width=6}
 pred_optimized <- last_fit %>%
   collect_predictions() %>% 
   mutate(
@@ -670,11 +812,13 @@ ggsave("plots/confusion_matrix.png", cm_heatmap)
 summary(cm_optimized)
 ```
 
+Metrics are better after the probability threshold adjustment.
 
 ---
 
 
 ```{r}
-save.image("data/workspace.RData")
+# updated workspace
+save.image("data/all_models_local_update.RData")
 ```
 
