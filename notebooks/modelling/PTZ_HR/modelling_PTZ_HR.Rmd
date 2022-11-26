@@ -117,6 +117,10 @@ cv_folds <- vfold_cv(df_train, strata = "resistance", v = 10, repeats = 10)
 cls_metrics <- metric_set(roc_auc, j_index)
 ```
 
+## Grid
+
+For creating a tuning grid the maximum entropy design is used `tune()`'s default.
+
 # Penalized Logistic regression
 
 ## Tuning
@@ -304,7 +308,7 @@ autoplot(svm_auc)
 
 # Polynomial SVM
 
-## Tune
+## Tune with space-filling grid
 
 ```{r}
 set.seed(101)
@@ -329,6 +333,42 @@ svm_poly_res <- tune_grid(svm_poly_workflow,
               resamples = cv_folds,
               control = control_grid(save_pred = TRUE),
               metrics = cls_metrics)
+```
+
+
+## Tune with Bayesian-optimized grid
+
+```{r}
+svm_set <- extract_parameter_set_dials(svm_poly_workflow)
+svm_set
+```
+
+
+
+```{r}
+library(doParallel)
+registerDoParallel(cores=4)
+library(foreach)
+
+set.seed(12)
+
+# use foreach here
+
+svm_poly_bres <-
+  svm_poly_workflow %>% 
+  tune_bayes(
+    resamples = cv_folds,
+    # To use non-default parameter ranges
+    param_info = svm_set,
+    # Generate five at semi-random to start
+    initial = 5,
+    iter = 50,
+    # How to measure performance?
+    metrics = metric_set(roc_auc),
+    control = control_bayes(no_improve = 30, verbose = TRUE)
+  )
+
+
 ```
 
 
@@ -567,6 +607,24 @@ rf_best_fit %>%
 # Boosted Trees (BT)
 
 Using eXtreme Gradient Boosting
+
+```{r}
+# extended grid search preparation
+xgb_param <- extract_parameter_set_dials(xgb_mod)
+xgb_param
+xgb_param %>% extract_parameter_dials("tree_depth")
+
+# one way to make a regular grid
+grid_regular(xgb_param, levels = 2)
+
+# or more flexible
+xgb_param %>% 
+  grid_regular(levels = c( min_n = 2, tree_depth = 2, learn_rate = 2, loss_reduction = 2, sample_size = 2, stop_iter = 2))
+
+# or random grid of defined size
+xgb_param %>% grid_random(size = 10)
+```
+
 
 ## Tune 
 
