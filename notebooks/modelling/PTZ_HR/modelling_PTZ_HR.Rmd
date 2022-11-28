@@ -154,6 +154,30 @@ lr_res <- tune_grid(lr_workflow,
               metrics = cls_metrics)
 ```
 
+## Bayesian grid search
+
+```{r}
+set.seed(12)
+
+lr_bres <-
+  lr_workflow %>% 
+  tune_bayes(
+    resamples = cv_folds,
+    # To use non-default parameter ranges
+    param_info = lr_set,
+    # Generate five at semi-random to start
+    initial = 5,
+    iter = 50,
+    # How to measure performance?
+    metrics = metric_set(roc_auc),
+    control = control_bayes(no_improve = 30, verbose = FALSE)
+  )
+
+# roc_auc=0.8889 (+/-0.00785)
+# penalty=0.00913
+```
+
+
 ## Metrics autoplot
 
 ```{r}
