@@ -99,6 +99,11 @@ train_data <- main_recipe %>%
 head(train_data)
 ```
 
+```{r}
+train_data %>% group_by(resistance) %>% count()
+```
+
+
 ## NZV predictors
 
 ```{r}
