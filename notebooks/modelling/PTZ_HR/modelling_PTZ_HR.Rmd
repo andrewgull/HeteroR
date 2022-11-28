@@ -178,8 +178,8 @@ lr_bres <-
     control = control_bayes(no_improve = 30, verbose = FALSE)
   )
 
-# roc_auc=0.8889 (+/-0.00785)
-# penalty=0.00913
+# roc_auc = 0.8889232 (+/-0.00785)
+# penalty=  0.009127915	
 ```
 
 
