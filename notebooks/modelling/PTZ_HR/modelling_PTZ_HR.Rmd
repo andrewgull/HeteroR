@@ -117,7 +117,7 @@ setdiff(names(df), names(train_data))
 
 ```{r}
 # Stratified, repeated 10-fold cross-validation is used to resample the model:
-cv_folds <- vfold_cv(df_train, strata = "resistance", v = 10, repeats = 10)
+cv_folds <- vfold_cv(df_train, strata = "resistance", v = 10, repeats = 10) # is better than v=5
 # metrics for imbalanced classes
 cls_metrics <- metric_set(roc_auc, j_index)
 ```
@@ -162,6 +162,9 @@ lr_res <- tune_grid(lr_workflow,
 ## Bayesian grid search
 
 ```{r}
+# extraxt settings
+lr_set <- extract_parameter_set_dials(lr_workflow)
+
 set.seed(12)
 
 lr_bres <-
@@ -303,6 +306,32 @@ svm_res <- tune_grid(svm_workflow,
               resamples = cv_folds,
               control = control_grid(save_pred = TRUE),
               metrics = cls_metrics)
+```
+
+## Bayesian tuning
+
+```{r}
+# extract settings
+svm_set <- extract_parameter_set_dials(svm_workflow)
+
+set.seed(12)
+
+svm_bres <-
+  lr_workflow %>% 
+  tune_bayes(
+    resamples = cv_folds,
+    # To use non-default parameter ranges
+    param_info = svm_set,
+    # Generate five at semi-random to start
+    initial = 5,
+    iter = 50,
+    # How to measure performance?
+    metrics = metric_set(roc_auc),
+    control = control_bayes(no_improve = 30, verbose = FALSE)
+  )
+
+svm_bres %>% 
+  show_best(metric = "roc_auc")
 ```
 
 
