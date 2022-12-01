@@ -47,7 +47,7 @@ df
 skim(df) %>% yank("factor")
 ```
 
-We havw unbalanced target class
+We have unbalanced target class
 
 # PCA
 
@@ -266,7 +266,7 @@ main_recipe <- recipe(resistance ~ ., data = df_train) %>%
 main_recipe
 ```
 
-## Bake ancd check
+### Bake and check
 
 ```{r}
 train_data <- main_recipe %>% 
@@ -281,7 +281,7 @@ train_data %>% group_by(resistance) %>% count()
 ```
 
 
-## NZV predictors
+### NZV predictors
 
 ```{r}
 setdiff(names(df), names(train_data))
@@ -307,7 +307,6 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
   step_normalize(all_numeric_predictors()) %>% 
-  
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 #  step_YeoJohnson(all_numeric_predictors()) %>% 
@@ -471,6 +470,30 @@ lr_bres <-
 # penalty=  0.009127915	
 ```
 
+## Bayesian grid: PCA recipe
+
+```{r}
+# extraxt settings
+lr_set <- extract_parameter_set_dials(lr_workflow)
+
+set.seed(12)
+
+lr_pca_bres <-
+  lr_pca_workflow %>% 
+  tune_bayes(
+    resamples = cv_folds,
+    # To use non-default parameter ranges
+    param_info = lr_set,
+    # Generate five at semi-random to start
+    initial = 5,
+    iter = 50,
+    # How to measure performance?
+    metrics = metric_set(roc_auc),
+    control = control_bayes(no_improve = 30, verbose = FALSE, save_pred = TRUE)
+  )
+```
+
+
 # Multivariate adaptive regression splines (MARS)
 
 ## Space-filling grid
@@ -501,22 +524,22 @@ mars_res <- tune_grid(mars_workflow,
               metrics = cls_metrics)
 ```
 
-## Metrics autoplot
+### Metrics autoplot
 
 ```{r}
 autoplot(mars_res)
 ```
 
-## Best models
+### Best models
 
-### Based on AUC
+#### Based on AUC
 
 ```{r}
 mars_res %>% 
   show_best(metric = "roc_auc")
 ```
 
-### Based on J-index
+#### Based on J-index
 
 ```{r}
 mars_res %>% 
@@ -524,7 +547,7 @@ mars_res %>%
 ```
 
 
-### ROC of the best model
+#### ROC of the best model
 
 ```{r}
 mars_best <- mars_res %>%
@@ -539,9 +562,38 @@ mars_auc <-
 autoplot(mars_auc)
 ```
 
+## Space-filling grid with PCA recipe
+
+Works better than with LR recipe
+
+```{r}
+mars_pca_workflow <- 
+  workflow() %>% 
+  add_model(mars_mod) %>% 
+  add_recipe(pca_recipe)
+
+# train and tune the model
+mars_pca_res <- tune_grid(mars_pca_workflow,
+              grid = 25,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+```
+
+### Best models
+
+```{r}
+mars_pca_res %>% 
+  show_best("roc_auc", n = 5)
+
+# best auc = 0.87
+```
+
+
+
 # Linear support vector machines (lSVM)
 
-## Tune
+## Space-filling grid: LR recipe
 
 ```{r}
 svm_mod <- 
@@ -564,7 +616,27 @@ svm_res <- tune_grid(svm_workflow,
               metrics = cls_metrics)
 ```
 
-## Bayesian tuning
+## Space-filling grid: PCA recipe
+
+```{r}
+# define the workflow
+svm_pca_workflow <- 
+  workflow() %>% 
+  add_model(svm_mod) %>% 
+  add_recipe(pca_recipe) # recipe for LR here
+
+# train and tune the model
+svm_pca_res <- tune_grid(svm_pca_workflow,
+              grid = 25,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+# roc_auc = 0.8513420
+# cost = 0.002377809
+```
+
+
+## Bayesian grid
 
 ```{r}
 # extract settings
@@ -583,7 +655,7 @@ svm_bres <-
     iter = 50,
     # How to measure performance?
     metrics = metric_set(roc_auc),
-    control = control_bayes(no_improve = 30, verbose = FALSE)
+    control = control_bayes(no_improve = 30, verbose = FALSE, save_pred = TRUE)
   )
 
 svm_bres %>% 
