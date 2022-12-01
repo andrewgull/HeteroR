@@ -47,7 +47,184 @@ df
 skim(df) %>% yank("factor")
 ```
 
-Unbalanced target class
+We havw unbalanced target class
+
+# PCA
+
+```{r}
+pca_rec <- recipe(resistance ~., data = df) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_predictors()) %>%
+  step_pca(all_predictors())
+
+pca_prep <- prep(pca_rec)
+```
+
+>Let us access the third element (of steps) to get the standard deviations from the PCA analysis and use them to compute percentage of variation explained by each PC.
+
+```{r}
+# find the step number corresponding to PCA, here it's 4
+sdev <- pca_prep$steps[[4]]$res$sdev
+percent_variation <- sdev^2 / sum(sdev^2)
+
+var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
+                     var_explained = percent_variation,
+                     stringsAsFactors = FALSE)
+
+var_df <- var_df %>% 
+  mutate(var_cum_sum = cumsum(var_explained))
+
+var_df
+```
+
+```{r}
+var_df %>%
+  mutate(PC = forcats::fct_inorder(PC)) %>%
+  ggplot(aes(x = PC, y = var_explained)) + 
+  geom_col(aes(fill = var_cum_sum)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+  scale_fill_continuous(type = "viridis")
+```
+
+
+## How much each predictor contributes to each Principal Component
+
+```{r, fig.height=8}
+tidied_pca <- tidy(pca_prep, 4)
+
+tidied_pca %>%
+  filter(component %in% paste0("PC", 1:6)) %>%
+  mutate(component = forcats::fct_inorder(component)) %>%
+  ggplot(aes(value, terms, fill = terms)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~component, nrow = 1) +
+  labs(y = NULL)
+```
+
+## Top 8 absolute contributers to each Principal Components
+
+```{r, fig.width=12}
+library(tidytext)
+
+my_colors <- RColorBrewer::brewer.pal(12, "Paired")[c(2,4)]
+
+tidied_pca %>%
+  filter(component %in% paste0("PC", 1:6)) %>%
+  group_by(component) %>%
+  top_n(8, abs(value)) %>%
+  ungroup() %>%
+  mutate(terms = reorder_within(terms, abs(value), component)) %>%
+  ggplot(aes(abs(value), terms, fill = value > 0)) +
+  geom_col() +
+  facet_wrap(~component, scales = "free_y") +
+  scale_y_reordered() +
+  scale_fill_brewer(palette = "Dark2", direction = -1) +
+  labs(
+    x = "Absolute value of contribution",
+    y = NULL, fill = "Positive"
+  )
+```
+
+```{r}
+library(rgl)
+
+
+pca_df <- juice(pca_prep) %>% mutate(color = if_else(resistance == "HR", "red", "blue"))
+
+
+plot3d(x = pca_df$PC01, y = pca_df$PC02, z = pca_df$PC03,
+       col = pca_df$color,
+       type = "s", 
+       radius = 0.2,
+       xlab = "PC1",
+       ylab = "PC2",
+       zlab = "PC3")
+```
+
+
+```{r}
+pca_df %>%
+  ggplot(aes(PC01, PC02, label = strain)) +
+  geom_point(aes(color = resistance, shape = resistance), alpha = 0.7, size = 2) +
+  labs(color = NULL) +
+  scale_color_brewer(palette = "Set1")
+```
+
+```{r}
+pca_df %>%
+  ggplot(aes(PC02, PC03, label = strain)) +
+  geom_point(aes(color = resistance, shape = resistance), alpha = 0.7, size = 2) +
+  labs(color = NULL) +
+  scale_color_brewer(palette = "Set1")
+```
+
+```{r}
+pca_df %>%
+  ggplot(aes(PC03, PC01, label = strain)) +
+  geom_point(aes(color = resistance, shape = resistance), alpha = 0.7, size = 2) +
+  labs(color = NULL) +
+  scale_color_brewer(palette = "Set1")
+```
+
+
+# Uniform Manifold Approximation and Projection (UMAP)
+
+## UMAP from 'umap' package
+
+Default settings
+
+```{r}
+library(umap)
+
+umap_rec <- recipe(resistance ~., data = df) %>%
+  update_role(strain, new_role = "id") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_predictors()) 
+
+umap_prep <- juice(prep(umap_rec))
+
+umap_embed <- umap::umap(d = umap_prep[, -c(1, 67)], 
+                         n_neighbors = 20, 
+                         min_dist = 0.1, 
+                         metric = "manhattan", 
+                         n_epochs = 200)
+
+
+umap_tib <- tibble(resistance = umap_prep$resistance,
+                  UMAP1 = umap_embed$layout[, 1],
+                  UMAP2 = umap_embed$layout[, 2])
+
+ggplot(umap_tib, aes(UMAP1, UMAP2)) +
+  geom_point(aes(color = resistance, shape = resistance), alpha = 0.7, size = 2) +
+  labs(color = NULL) +
+  scale_color_brewer(palette = "Set1")
+  
+```
+
+## UMAP from 'embed' and 'tidyverse'
+
+```{r}
+library(embed)
+
+umap_rec <- recipe(resistance ~., data = df) %>%
+  update_role(strain, new_role = "id") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_predictors()) %>%
+  step_umap(all_predictors(), neighbors = 10)
+
+umap_prep <- prep(umap_rec)
+
+juice(umap_prep) %>%
+  ggplot(aes(UMAP1, UMAP2)) +
+  geom_point(aes(color = resistance, shape = resistance), alpha = 0.7, size = 2) +
+  labs(color = NULL) +
+  scale_color_brewer(palette = "Set1")
+```
+
 
 # Data split
 
@@ -74,7 +251,7 @@ df_test %>%
 
 # Preprocessing
 
-## Recipe
+## Basic Recipe
 
 >Some models (notably neural networks, KNN, and support vector machines) require predictors that have been centered and scaled, so some model workflows will require recipes with these preprocessing steps. For other models, a traditional response surface design model expansion (i.e., quadratic and two-way interactions) is a good idea.
 
@@ -111,6 +288,44 @@ setdiff(names(df), names(train_data))
 ```
 
 
+## PCA + Yeo-Johnson transformation recipe
+
+From [here](https://www.tmwr.org/grid-search.html):
+
+>Because of the high degree of correlation between predictors, it makes sense to use PCA feature extraction to decorrelate the predictors. The following recipe contains steps to transform the predictors to increase symmetry, normalize them to be on the same scale, then conduct feature extraction. The number of PCA components to retain is also tuned, along with the model parameters.
+
+>While the resulting PCA components are technically on the same scale, the lower-rank components tend to have a wider range than the higher-rank components. For this reason, we normalize again to coerce the predictors to have the same mean and variance.
+
+>Many of the predictors have skewed distributions. Since PCA is variance based, extreme values can have a detrimental effect on these calculations. To counter this, let’s add a recipe step estimating a Yeo-Johnson transformation for each predictor (Yeo and Johnson 2000). While originally intended as a transformation of the outcome, it can also be used to estimate transformations that encourage more symmetric distributions
+
+```{r}
+pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+#  step_YeoJohnson(all_numeric_predictors()) %>% 
+#  step_normalize(all_numeric_predictors()) %>% 
+#  step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
+#  step_normalize(all_numeric_predictors())
+
+pca_recipe
+```
+
+## LR recipe
+
+```{r}
+# adjust the main recipe
+lr_recipe <- main_recipe %>%
+  step_corr(threshold = 0.75)
+```
+
 ## Folds and metrics
 
 >If a model is poorly calibrated, the ROC curve value might not show diminished performance. However, the J index would be lower for models with pathological distributions for the class probabilities.
@@ -128,13 +343,10 @@ For creating a tuning grid the maximum entropy design is used `tune()`'s default
 
 # Penalized Logistic regression
 
-## Tuning
+## Space-filling grid: LR recipe
 
 ```{r}
-# adjust the main recipe
-lr_recipe <- main_recipe %>%
-  step_corr(threshold = 0.75)
-
+set.seed(333)
 # set model type/engine
 lr_mod <- 
   logistic_reg(
@@ -149,17 +361,91 @@ lr_workflow <-
   add_recipe(lr_recipe)
 
 # create a tune grid
-lr_reg_grid <- tibble(penalty = 10**seq(-4, 0, length.out = 30))
+# lr_reg_grid <- tibble(penalty = 10**seq(-4, 0, length.out = 30))
 
 # train and tune the model
 lr_res <- tune_grid(lr_workflow,
-              grid = lr_reg_grid,
+              grid = 30,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+
+```
+
+### Metrics autoplot
+
+```{r}
+autoplot(lr_res)
+```
+
+### Best models
+
+```{r}
+lr_res %>% 
+  show_best("roc_auc", n = 5) 
+```
+
+#### ROC of the best model
+
+```{r}
+lr_best <- lr_res %>%
+  select_best(metric = "roc_auc")
+
+lr_auc <- 
+  lr_res %>% 
+  collect_predictions(parameters = lr_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "LR")
+
+autoplot(lr_auc)
+```
+
+## Space-filling grid: PCA recipe
+
+```{r}
+lr_pca_workflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(pca_recipe)
+
+# train and tune the model
+lr_pca_res <- tune_grid(lr_pca_workflow,
+              grid = 25,
               resamples = cv_folds,
               control = control_grid(save_pred = TRUE),
               metrics = cls_metrics)
 ```
 
-## Bayesian grid search
+### Metrics autoplot
+
+```{r}
+autoplot(lr_pca_res)
+```
+
+
+### Best models
+
+```{r}
+lr_pca_res %>% 
+  show_best("roc_auc", n = 5)
+```
+
+### ROC
+
+```{r}
+lr_pca_best <- lr_pca_res %>%
+  select_best(metric = "roc_auc")
+
+lr_pca_auc <- 
+  lr_pca_res %>% 
+  collect_predictions(parameters = lr_pca_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "LR + PCA")
+
+autoplot(lr_pca_auc)
+```
+
+## Bayesian grid: LR recipe
 
 ```{r}
 # extraxt settings
@@ -185,39 +471,9 @@ lr_bres <-
 # penalty=  0.009127915	
 ```
 
-
-## Metrics autoplot
-
-```{r}
-autoplot(lr_res)
-```
-
-## Best models
-
-```{r}
-lr_res %>% 
-  show_best("roc_auc", n = 5) %>% 
-  arrange(penalty) 
-```
-
-### ROC of the best model
-
-```{r}
-lr_best <- lr_res %>%
-  select_best(metric = "roc_auc")
-
-lr_auc <- 
-  lr_res %>% 
-  collect_predictions(parameters = lr_best) %>% 
-  roc_curve(resistance, .pred_HR) %>% 
-  mutate(model = "LR")
-
-autoplot(lr_auc)
-```
-
 # Multivariate adaptive regression splines (MARS)
 
-## Tune
+## Space-filling grid
 
 ```{r}
 # prune method default: ‘backward’ 
@@ -317,7 +573,7 @@ svm_set <- extract_parameter_set_dials(svm_workflow)
 set.seed(12)
 
 svm_bres <-
-  lr_workflow %>% 
+  svm_workflow %>% 
   tune_bayes(
     resamples = cv_folds,
     # To use non-default parameter ranges
@@ -332,6 +588,9 @@ svm_bres <-
 
 svm_bres %>% 
   show_best(metric = "roc_auc")
+
+# cost = 0.01040482
+# mean auc = 0.8893831	
 ```
 
 
@@ -664,27 +923,9 @@ rf_best_fit %>%
 
 # Boosted Trees (BT)
 
-Using eXtreme Gradient Boosting
+Using Extreme Gradient Boosting
 
-```{r}
-# extended grid search preparation
-xgb_param <- extract_parameter_set_dials(xgb_mod)
-xgb_param
-xgb_param %>% extract_parameter_dials("tree_depth")
-
-# one way to make a regular grid
-grid_regular(xgb_param, levels = 2)
-
-# or more flexible
-xgb_param %>% 
-  grid_regular(levels = c( min_n = 2, tree_depth = 2, learn_rate = 2, loss_reduction = 2, sample_size = 2, stop_iter = 2))
-
-# or random grid of defined size
-xgb_param %>% grid_random(size = 10)
-```
-
-
-## Tune 
+## Space-fiiling grid 
 
 ```{r}
 set.seed(732)
@@ -717,6 +958,43 @@ xgb_res <- tune_grid(xgb_cv_wf,
             resamples = cv_folds,
             control = control_grid(save_pred = TRUE),
             metrics = cls_metrics)
+```
+
+## Bayesian tuning
+
+```{r}
+# extract settings
+xgb_set <- extract_parameter_set_dials(xgb_cv_wf) %>%
+  finalize(x = df_train %>% select(-resistance))
+
+set.seed(12)
+
+xgb_bres <-
+  xgb_cv_wf %>% 
+  tune_bayes(
+    resamples = cv_folds,
+    # To use non-default parameter ranges
+    param_info = xgb_set,
+    # Generate 5x7 at semi-random to start
+    initial = 35,
+    iter = 50,
+    # How to measure performance?
+    metrics = metric_set(roc_auc),
+    control = control_bayes(no_improve = 30, verbose = FALSE)
+  )
+
+xgb_bres %>% 
+  show_best(metric = "roc_auc")
+
+# mtry = 74 or 13
+# min_n = 2 or 2
+# tree_depth = 10 or 7
+# learn_rate = 0.18751350 or 0.10381054
+# loss_reduction = 5.456852e-07 or 1.287068e-06
+# sample_size = 0.6358425 or 0.6781397
+# stop_iter = 6 or 6
+# roc_auc = 0.8840152 or 0.8811742	
+# n = 100
 ```
 
 ## Metrics autoplot
@@ -791,7 +1069,7 @@ ggsave("plots/roc.png", roc_plot)
 
 ```{r}
 # the last model
-
+# svm poly
 last_mod <-
   svm_poly(
     cost = svm_poly_best$cost,
@@ -801,23 +1079,45 @@ last_mod <-
   set_mode("classification") %>%
   set_engine("kernlab") 
 
+# xgb bayes
+# mtry = 74 or 13
+# min_n = 2 or 2
+# tree_depth = 10 or 7
+# learn_rate = 0.18751350 or 0.10381054
+# loss_reduction = 5.456852e-07 or 1.287068e-06
+# sample_size = 0.6358425 or 0.6781397
+# stop_iter = 6 or 6
+
+last_mod <-
+  boost_tree(
+    mtry = 74,
+    min_n = 2,
+    tree_depth = 10,
+    learn_rate = 0.18751350,
+    loss_reduction = 5.456852e-07,
+    sample_size = 0.6358425,
+    stop_iter = 6
+  ) %>% 
+  set_engine("xgboost", num.threads = cores) %>% 
+  set_mode("classification") 
+
 # the last workflow
-last_wf <- 
-  svm_poly_workflow %>% 
+xgb_last_wf <- 
+  xgb_cv_wf %>% 
   update_model(last_mod)
 
 # the last fit
 set.seed(345)
-last_fit <- 
-  last_wf %>% 
+xgb_last_fit <- 
+  xgb_last_wf %>% 
   last_fit(data_split)
 
-last_fit %>% 
+xgb_last_fit %>% 
   collect_metrics()
 ```
 
 ```{r}
-last_fit %>% 
+xgb_last_fit %>% 
   extract_fit_parsnip() %>% 
   vip(num_features = 77)
 ```
@@ -836,6 +1136,14 @@ last_fit %>%
   autoplot()
 ```
 
+```{r}
+xgb_last_fit %>% 
+  collect_predictions() %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  autoplot()
+```
+
+
 ## Confusion Matrix
 
 ```{r, fig.width=6}
@@ -846,10 +1154,22 @@ cm <- last_fit %>%
 autoplot(cm, type = "heatmap")
 ```
 
+```{r, fig.width=6}
+cm_xgb <- xgb_last_fit %>%
+  collect_predictions() %>%
+  conf_mat(truth = resistance, estimate = .pred_class)
+
+autoplot(cm_xgb, type = "heatmap")
+```
+
 ## Performance
 
 ```{r}
 summary(cm)
+```
+
+```{r}
+summary(cm_xgb)
 ```
 
 ## Probability cutoff adjustment
@@ -891,8 +1211,43 @@ sens_spec_j_plot
 
 Moving threshold to the crossing point between sensitivity and specificity curves (0.405) doesn't imporve overall performance of the model.
 
+```{r, fig.width=6}
+# collect sens, spec, j-index at various cut-offs
+threshold_data <- 
+  xgb_last_fit %>%
+  collect_predictions() %>%
+  threshold_perf(resistance, .pred_HR, thresholds = seq(0.0, 1, by = 0.05)) %>% 
+  filter(.metric != "distance") %>%
+  mutate(group = case_when(
+    .metric == "sens" | .metric == "spec" ~ "1",
+    TRUE ~ "2"
+  ))
+
+# find max j-index
+max_j_index_threshold_BT <- threshold_data %>%
+  filter(.metric == "j_index") %>%
+  filter(.estimate == max(.estimate)) %>%
+  pull(.threshold)
+
+# plot metrics v cut-offs
+sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, color = .metric, alpha = group)) +
+  geom_line(size = 1) +
+  #theme_minimal() +
+  #scale_color_viridis_d(end = 0.9) +
+  scale_color_brewer(palette = "Set1") +
+  scale_alpha_manual(values = c(.4, 1), guide = "none") +
+  geom_vline(xintercept = max_j_index_threshold_BT, alpha = .8, color = "grey30", linetype = "longdash") +
+  labs(
+    x = "Probability",
+    y = "Metric Estimate",
+    title = "Final model: BT"
+  )
+
+sens_spec_j_plot
+```
+
 ```{r}
-ggsave("plots/prob_cutoff.png", sens_spec_j_plot)
+ggsave("plots/prob_cutoff_BT_final.png", sens_spec_j_plot)
 ```
 
 
@@ -920,15 +1275,37 @@ cm_heatmap
 ```
 
 ```{r}
-ggsave("plots/confusion_matrix.png", cm_heatmap)
+summary(cm_optimized)
 ```
 
+Metrics are better after the probability threshold adjustment.
+
+```{r, fig.width=6}
+pred_optimized <- xgb_last_fit %>%
+  collect_predictions() %>% 
+  mutate(
+    .pred = make_two_class_pred(
+      estimate = .pred_HR, 
+      levels = levels(resistance), 
+      threshold = max_j_index_threshold_BT
+    )
+  ) %>%
+  select(resistance, contains(".pred"))
+
+cm_optimized <- pred_optimized %>% 
+  conf_mat(truth = resistance, estimate = .pred)
+
+cm_heatmap <- autoplot(cm_optimized, type = "heatmap")
+cm_heatmap
+```
 
 ```{r}
 summary(cm_optimized)
 ```
 
-Metrics are better after the probability threshold adjustment.
+```{r}
+ggsave("plots/confusion_matrix_BT.png", cm_heatmap)
+```
 
 ---
 
