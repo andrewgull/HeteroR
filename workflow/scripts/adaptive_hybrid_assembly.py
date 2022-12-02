@@ -34,7 +34,6 @@ with open(snakemake.log[0], "w") as f:
     outs.append(unicycler_out)
 
     # CHECK ASSEMBLY COMPLETENESS
-    unicycler_log_path = "results/assemblies/DA63356/unicycler.log"
     completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
                                   "cut -d ' ' -f 8" % unicycler_log_path, shell=True, capture_output=True, text=True)
     completeness_stdout = completeness.stdout.splitlines()
