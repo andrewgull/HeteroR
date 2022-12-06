@@ -1,0 +1,5 @@
+name: polypolish-env
+channels:
+  - bioconda
+dependencies:
+  - polypolish=0.5.0

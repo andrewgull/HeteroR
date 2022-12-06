@@ -1,0 +1,5 @@
+name: flye-env
+channels:
+  - bioconda
+dependencies:
+  - flye=2.9.1
