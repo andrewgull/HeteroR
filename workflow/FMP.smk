@@ -29,7 +29,7 @@ rule flye:
 
 rule medaka:
     input: 
-        reads="resources/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz", 
+        reads="results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz", 
         assembly="results/flye/{strain}"
     output: directory("results/medaka/{strain}")
     message: "executing Medaka with {threads} threads on {wildcards.strain} filtered long reads and Flye assembly"
