@@ -25,7 +25,7 @@ rule flye:
     threads: 14
     conda: "envs/flye.yaml"
     params: genome_size="5m", coverage=50
-    shell: "flye --nano-raw {input}  --treads {threads} --out-dir {output} -g {params.genome_size} --asm-coverage {params.coverage}"
+    shell: "flye --nano-raw {input}  --threads {threads} --out-dir {output} -g {params.genome_size} --asm-coverage {params.coverage}"
 
 rule medaka:
     input: 
