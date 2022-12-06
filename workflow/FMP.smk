@@ -18,7 +18,7 @@ rule filter_nanopore:
     shell: "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
 rule flye:
-    input: "resources/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+    input: "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
     output: directory("results/flye/{strain}")
     message: "executing Flye with {threads} threads on {wildcards.strain} filtered long reads"
     log: "results/logs/{strain}_flye.log"
