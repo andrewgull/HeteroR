@@ -81,7 +81,7 @@ rule polypolish:
 rule final:
     input: filt="results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz",
            flye="results/flye/{strain}",
-           medaka="results/medaka/{strain}"
+           medaka="results/medaka/{strain}",
            sam1="results/polypolish/{strain}/alignments_1.sam",
            sam2="results/polypolish/{strain}/alignments_2.sam",
            filt1="results/polypolish/{strain}/filtered_1.sam",
