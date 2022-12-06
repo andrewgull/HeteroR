@@ -5,7 +5,7 @@ from snakemake.io import touch, directory, temp, expand
 # Rule to join together all inputs and outputs
 rule all:
     input:
-        expand("results/final/{strain}_all.done", strain=config['strains'])
+        expand("results/final/FMP/{strain}_all.done", strain=config['strains'])
 
 rule filter_nanopore:
     input: "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
