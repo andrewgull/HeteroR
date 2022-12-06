@@ -76,7 +76,7 @@ rule polypolish:
     log: "results/logs/{strain}_polypolish.log"
     threads: 14
     conda: "envs/polypolish.yaml"
-    shell: "polypolish {input.assembly} {input.filt1} {input.filt2} > {output}"
+    shell: "polypolish {input.assembly}/consensus.fasta {input.filt1} {input.filt2} > {output}"
 
 rule final:
     input: filt="results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz",
