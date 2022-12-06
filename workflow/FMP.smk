@@ -57,8 +57,10 @@ rule map_reads:
            "bwa mem -t {threads} -a {input.assembly}/consensus.fasta {input.r2} -o {output.sam2} &> {log.sam2}"
 
 rule insert_filter:
-    input: sam1="results/polypolish/{strain}/alignments_1.sam", sam2="results/polypolish/{strain}/alignments_2.sam"
-    output: filt1=temp("results/polypolish/{strain}/filtered_1.sam"), filt2=temp("results/polypolish/{strain}/filtered_2.sam")
+    input: sam1="results/polypolish/{strain}/alignments_1.sam", 
+           sam2="results/polypolish/{strain}/alignments_2.sam"
+    output: filt1=temp("results/polypolish/{strain}/filtered_1.sam"),
+            filt2=temp("results/polypolish/{strain}/filtered_2.sam")
     message: "Executing Polypolish inser filter script on {wildcards.strain} SAM files"
     log: "results/logs/{strain}_insert_filter.log"
     threads: 14
@@ -77,7 +79,14 @@ rule polypolish:
     shell: "polypolish {input.assembly} {input.filt1} {input.filt2} > {output}"
 
 rule final:
-    input: "results/polypolish/{strain}/assembly_fmp.fasta"
+    input: filt="results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz",
+           flye="results/flye/{strain}",
+           medaka="results/medaka/{strain}"
+           sam1="results/polypolish/{strain}/alignments_1.sam",
+           sam2="results/polypolish/{strain}/alignments_2.sam",
+           filt1="results/polypolish/{strain}/filtered_1.sam",
+           filt2="results/polypolish/{strain}/filtered_2.sam",
+           polish="results/polypolish/{strain}/assembly_fmp.fasta"
     output: touch("results/final/FMP/{strain}_all.done")
     shell: "echo 'DONE'"
 
