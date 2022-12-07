@@ -78,14 +78,14 @@ rule polypolish:
     conda: "envs/polypolish.yaml"
     shell: "polypolish {input.assembly}/consensus.fasta {input.filt1} {input.filt2} > {output}"
 
-rule link:
+rule make_copy:
     input: assembly="results/polypolish/{strain}/assembly_fmp.fasta",
            info="results/flye/{strain}/assembly_info.txt"
-    output: link_assembly="results/assemblies/{strain}/assembly.fasta",
-            link_info = "results/assemblies/{strain}/assembly_info.txt"
-    message: "linking flye assemblies and assembly info of {wildcards.strain} to 'assemblies' dir"
-    log: "results/logs/{strain}_links.log"
-    shell: "ln -s {input.assembly} {output.link_assembly} && ln -s {input.info} {output.link_info} &> {log}"
+    output: copy_assembly="results/assemblies/{strain}/assembly.fasta",
+            copy_info = "results/assemblies/{strain}/assembly_info.txt"
+    message: "copying flye assemblies and assembly info of {wildcards.strain} to 'assemblies' dir"
+    log: "results/logs/{strain}_copies.log"
+    shell: "cp {input.assembly} {output.copy_assembly} && cp {input.info} {output.copy_info} &> {log}"
 
 rule final:
     input: filt="results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz",
