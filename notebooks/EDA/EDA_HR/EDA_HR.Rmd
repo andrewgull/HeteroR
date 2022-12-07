@@ -48,7 +48,9 @@ data_strain <- read_csv("data/features_bl_strain.csv", na = c("NA", "-Inf"))
 
 hr_testing <- read_csv("data/heteroresistance_testing.csv")
 
-hr_testing %>% group_by(resistance) %>% summarize(N=n())
+hr_testing %>% 
+  group_by(resistance) %>% 
+  count()
 ```
 
 Quite imbalanced target class
@@ -56,7 +58,9 @@ Quite imbalanced target class
 Look at target class distribution in the data set you're working with (414 strains)
 
 ```{r}
-data_strain %>% group_by(resistance) %>% summarize(N = n())
+data_strain %>% 
+  group_by(resistance) %>% 
+  count()
 ```
 
 Well, 120 strains out of 500 tested are not assembled yet and, out of 414 assembled strains, 47 are not tested...
@@ -241,6 +245,16 @@ fviz_gap_stat(gap_stat)
 # EDA
 
 ## Correlation plot
+
+```{r}
+library(corrplot)
+tmwr_cols <- colorRampPalette(c("#91CBD765", "#CA225E"))
+data_strain %>% 
+  select(-resistance) %>% 
+  cor() %>% 
+  corrplot(col = tmwr_cols(200), tl.col = "black", method = "ellipse")
+```
+
 
 ```{r, fig.width=12, fig.height=12}
 # without resistance
