@@ -36,7 +36,7 @@ ui <- fluidPage(
   
   # A separate panel for AMP data
   tabsetPanel(
-    tabPanel("PIP/TAZ",
+    tabPanel("Basic plots",
              
              # 1st row with a heat map
              fluidRow(
@@ -112,14 +112,12 @@ ui <- fluidPage(
              )
              
     ),
-    # Tab for CFX data
-    tabPanel("CFX", "no data yet"),
-    # Tab for MCN data
-    tabPanel("MCN", "no data yet"),
-    # Tab for GM data
-    tabPanel("GM", "no data yet"),
-    # Tab for NFT data
-    tabPanel("NFT", "no data yet")
+    # Tab for heatmap of genes
+    tabPanel("Heatmap", "no data yet"),
+    # Tab for PCA plots
+    tabPanel("PCA", "no data yet"),
+    # Tab for UMAP
+    tabPanel("UMAP", "no data yet")
   )
   
   

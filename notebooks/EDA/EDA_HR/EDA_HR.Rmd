@@ -30,15 +30,17 @@ library(readr)
 
 # Intro
 
-Here I explore features of strains tested as HR and non-HR according to the most recent update from Karin.
+Here I explore features of strains tested as HR and non-HR according to
+the most recent update from Karin.
 
 AB is Piperacillin/Tazobactam
 
----
+------------------------------------------------------------------------
 
 # Read the data
 
-Data set `data_strain` has been made earlier in `feature_engineering.Rmd`
+Data set `data_strain` has been made earlier in
+`feature_engineering.Rmd`
 
 Look at target class distribution in full data set (500 strains)
 
@@ -56,7 +58,8 @@ hr_testing %>%
 
 Quite imbalanced target class
 
-Look at target class distribution in the data set you're working with (414 strains)
+Look at target class distribution in the data set you're working with
+(414 strains)
 
 ```{r}
 data_strain %>% 
@@ -64,27 +67,31 @@ data_strain %>%
   count()
 ```
 
-Well, 120 strains out of 500 tested are not assembled yet and, out of 414 assembled strains, 47 are not tested...
+Well, 120 strains out of 500 tested are not assembled yet and, out of
+414 assembled strains, 47 are not tested...
 
 :(
 
 ## Some processing
 
-1. Add BL genes counts as ordered factor and as binary features (if BL > 3)
+1.  Add BL genes counts as ordered factor and as binary features (if BL
+    \> 3)
 
-2. Filter/Rename HR labels
+2.  Filter/Rename HR labels
 
 It seems reasonable to merge R and HR group, because of two reasons:
 
- - We have too little R
+-   We have too little R
 
- - It is useful to predict whether a strains *is* (R) or *turns* (HR) resistant, because both outcomes require similar actions from a clinician.
- 
-On the other hand, it has perfect sense to remove R strains completely: if our task is to distinguish susceptible strains and heteroresistant ones.
+-   It is useful to predict whether a strains *is* (R) or *turns* (HR)
+    resistant, because both outcomes require similar actions from a
+    clinician.
 
+On the other hand, it has perfect sense to remove R strains completely:
+if our task is to distinguish susceptible strains and heteroresistant
+ones.
 
 Here, I will remove R-strains.
-
 
 ```{r}
 # keep strains elsewhere
@@ -110,32 +117,23 @@ skim(data_strain) %>% yank("factor")
 skim(data_strain) %>% yank("numeric")
 ```
 
-
 All the missing values should be replaced with zeros.
 
-# Data imputation
-
-`caret::preProcess()` doesn't have method for replacing with zeros...
+# NAs to 0s
 
 ```{r}
-
 data_strain[is.na(data_strain)] <- 0
-
 ```
 
 # Write data for shiny app
 
 ```{r, eval=FALSE}
-features_bl_shiny <- data_strain %>% 
-  mutate("strain" = strains) %>% 
-  relocate(strain, .before = resistance)
-
-write.csv(features_bl_shiny, "shiny/data/features_ptz_strain.csv", row.names = F)
+write.csv(data_strain, "shiny/data/features_ptz_strain.csv", row.names = F)
 ```
 
 All pre-processing will be done with `recipes`
 
----
+------------------------------------------------------------------------
 
 # EDA
 
@@ -148,7 +146,6 @@ corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.8)
 ```
 
 We see a lot of correlated features.
-
 
 ## PCA
 
@@ -169,7 +166,6 @@ data_prep <- prep(data_rec, retain = TRUE)
 # processed data 
 data_prep$template
 ```
-
 
 ### Compare distributions
 
@@ -263,7 +259,6 @@ plot3d(x = pca_df$PC1, y = pca_df$PC2, z = pca_df$PC3,
        zlab = "PC3")
 ```
 
-
 ### Explained variance percentage
 
 ```{r}
@@ -281,6 +276,8 @@ var_df <- var_df %>%
 var_df
 ```
 
+Plot
+
 ```{r, fig.width=12}
 var_df %>%
   mutate(PC = forcats::fct_inorder(PC)) %>%
@@ -290,9 +287,11 @@ var_df %>%
   scale_fill_continuous(type = "viridis")
 ```
 
-### Top laodings
+### Top loadings
 
 ```{r, fig.width=8, fig.height=6}
+# install.packages("devtools")
+# devtools::install_github("tidymodels/learntidymodels")
 library(learntidymodels)
 
 data_pca %>%
@@ -304,7 +303,6 @@ data_pca %>%
 ## PLS - Partial Least Squares
 
 ```{r, fig.width=12, fig.height=8}
-## PLS
 # BiocManager::install("mixOmics")
 
 pls_rec <- data_rec %>%
@@ -317,6 +315,8 @@ data_pls$template %>%
   ggtitle("Partial Least Squares")
 ```
 
+### Top loadings
+
 ```{r, fig.width=12, fig.height=6}
 data_pls %>%
   plot_top_loadings(component_number <= 4, n = 5, type = "pls") + 
@@ -324,7 +324,7 @@ data_pls %>%
   ggtitle("Partial Least Squares")
 ```
 
-#### 3D version
+### 3D version
 
 ```{r, eval=FALSE}
 pls_df <- data_pls$template %>%
@@ -339,7 +339,6 @@ plot3d(x = pls_df$PLS1, y = pls_df$PLS2, z = pls_df$PLS3,
        ylab = "PLS2",
        zlab = "PLS3")
 ```
-
 
 ## ICA - Independent Component Analysis
 
@@ -388,7 +387,7 @@ data_umap$template %>%
   ggtitle("UMAP")
 ```
 
-### UMPA supervised
+### UMAP supervised
 
 ```{r, fig.width=12, fig.height=8}
 ## UMAP Supervised
@@ -403,7 +402,8 @@ data_umap_sup$template %>%
   ggtitle("UMAP (supervised)")
 ```
 
-Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
+Supervised UMAP look really promising. HR clusters are more compact and
+some of them are more distant from non-HR ones.
 
 #### 3D version
 
@@ -420,7 +420,6 @@ plot3d(x = umap_df$UMAP1, y = umap_df$UMAP2, z = umap_df$UMAP3,
        ylab = "UMAP2",
        zlab = "UMAP3")
 ```
-
 
 ## RG counts distribution
 
@@ -441,9 +440,8 @@ ggplot(rg_n_genes, aes(n)) +
 
 ```
 
-
 ```{r}
-summary(rg_n_genes$N)
+summary(rg_n_genes$n)
 ```
 
 Same number as in the total data set.
@@ -456,9 +454,9 @@ betaL_n_genes <- data %>%
   select(strain, record_id) %>% 
   distinct() %>% 
   group_by(strain) %>% 
-  summarise(N=n())
+  count()
 
-ggplot(betaL_n_genes, aes(N)) + 
+ggplot(betaL_n_genes, aes(n)) + 
   geom_histogram(fill="steelblue", binwidth = 1)+
   xlab("BL count")+
   ylab("Strains count")
@@ -466,7 +464,7 @@ ggplot(betaL_n_genes, aes(N)) +
 ```
 
 ```{r}
-summary(betaL_n_genes$N)
+summary(betaL_n_genes$n)
 ```
 
 Every strain has at least one beta-lactamase gene.
@@ -477,7 +475,7 @@ This supposed to be the main predictor of HR
 
 ### Number of beta-lactamases
 
-#### Bar plot 
+#### Bar plot
 
 because number of BL genes is count data.
 
@@ -495,7 +493,6 @@ ggplot(data_strain, aes(n.beta.lac)) +
 
 #### Proportion
 
-
 ```{r}
 #data_strain$resistance <- factor()
 
@@ -508,11 +505,14 @@ ggplot(data_strain, aes(n.beta.lac)) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6))
 ```
 
-**OBS!** 
+**OBS!**
 
-1. If number of BL-genes is higher than 3, the strain is more likely to be HR/R
+1.  If number of BL-genes is higher than 3, the strain is more likely to
+    be HR/R
 
-2. There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
+2.  There are
+    `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))`
+    HR strain with only 1 beta-lactamase (which is *ampC*)
 
 #### Proportion bar-plot
 
@@ -522,36 +522,41 @@ ggplot(data_strain, aes(n.beta.lac.3)) +
   scale_fill_brewer(palette = "Set1") +
   xlab("N beta-lact > 3") +
   ylab("proportion of strains") +
-  scale_x_continuous(breaks = c(0,1), labels = c("0" = "No", "1" = "Yes"))+
+  scale_x_discrete(breaks = c(0,1))+
   theme(legend.title = element_blank())
   
 ```
 
-When the number of BL genes is less or equal 3, most likely the strains is non-HR
+When the number of BL genes is less or equal 3, most likely the strains
+is non-HR
 
-When number of BL genes is greater than 3, quite likely that the strain is HR or R
+When number of BL genes is greater than 3, quite likely that the strain
+is HR or R
 
 ```{r}
 ggplot(data_strain, aes(n.beta.lac.4)) +
-  geom_bar(aes(fill=resistance), position = "fill") +
+  geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
   xlab("N beta-lact > 4") +
   ylab("proportion of strains") +
-  scale_x_continuous(breaks = c(0,1), labels = c("0" = "No", "1" = "Yes"))+
+  scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
   theme(legend.title=element_blank())
 ```
- 
+
 Even more striking difference
 
 ### Beta-lactamases on plasmids and chromosome
 
-Variable `n.genes.plasmids` means number of **beta-lactamases** on plasmids (it was renamed).
+Variable `n.genes.plasmids` means number of **beta-lactamases** on
+plasmids (it was renamed).
 
 Let's check this.
 
 It should always be less or equal than `n.beta.lac`.
 
-How many strains in our data set `n.beta.lac` greater or equal `n.beta.lac.plasmid`: `r sum(data_strain$n.beta.lac >= data_strain$n.beta.lac.plasmid)`
+How many strains in our data set `n.beta.lac` greater or equal
+`n.beta.lac.plasmid`:
+`r sum(data_strain$n.beta.lac >= data_strain$n.beta.lac.plasmid)`
 
 How many strains in total: `r nrow(data_strain)`
 
@@ -568,7 +573,8 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   ylab("n strains")
 ```
 
-Starting from 3 bl genes (on plasmids), it seems to be a very good predictor
+Starting from 3 bl genes (on plasmids), it seems to be a very good
+predictor
 
 #### Number of beta-lact on chrom
 
@@ -594,7 +600,6 @@ ggplot(data_strain, aes(n.beta.lac.chrom)) +
   ylab("proportion")
 ```
 
-
 #### Proportion bar plot
 
 ```{r}
@@ -616,7 +621,8 @@ ggplot(bl_loc_sum, aes(loc, sum.n)) +
   theme(legend.title = element_blank())
 ```
 
-If a strain has BL genes on chromosome only it's more likely to be non-HR than HR
+If a strain has BL genes on chromosome only it's more likely to be
+non-HR than HR
 
 ### Beta-lactamases on plus strand
 
@@ -631,7 +637,6 @@ ggplot(data_strain, aes(n.beta.lac.plus)) +
 ```
 
 As proportion
-
 
 ```{r}
 ggplot(data_strain, aes(n.beta.lac.plus)) +
@@ -689,7 +694,7 @@ bl_type_count <- data_strain %>%
   mutate(non.ampC = n.beta.lac - ampC.type.beta.lactamase) %>% 
   select(-n.beta.lac)
 
-bl_type_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>% 
+bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>% 
   group_by(resistance, gene) %>% summarize(sum=sum(n))
 
 
@@ -767,7 +772,6 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
   ylab("proportion")
 ```
 
-
 ## Beta-lactamases heatmap
 
 ### AMR types in each strain
@@ -820,7 +824,6 @@ fig <- plot_ly(z = bl_amr_types_strain_td$N, x = bl_amr_types_strain_td$strain, 
 fig
 ```
 
-
 ## Number of plasmids
 
 Per strain, doesn't depend on beta-lactamase presence or absence
@@ -872,7 +875,6 @@ ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
   guides(fill = "none")
 ```
 
-
 ### Average total
 
 ```{r}
@@ -900,7 +902,6 @@ ggplot(data_strain %>% filter(med.tot.rep.len.chrom > 0), aes(resistance, med.to
   xlab("") +
   guides(fill = "none")
 ```
-
 
 ### Average on plasmids
 
@@ -941,7 +942,6 @@ ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
   guides(fill = "none")
 ```
 
-
 ```{r}
 ggplot(med_rep_len %>% filter(location == "med.rep.len.plasmid"), aes(resistance, med.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
@@ -953,7 +953,6 @@ ggplot(med_rep_len %>% filter(location == "med.rep.len.plasmid"), aes(resistance
   xlab("") +
   guides(fill = "none")
 ```
-
 
 ## Maximum repeat length
 
@@ -992,7 +991,6 @@ ggplot(max_rep_len %>% filter(location == "max.rep.len.plasmid"), aes(resistance
   guides(fill = "none")
 ```
 
-
 ## Repeat counts
 
 ```{r}
@@ -1029,7 +1027,6 @@ ggplot(rep_count %>% filter(location == "n.rep.plasmid"), aes(resistance, n.rep)
   xlab("") +
   guides(fill = "none")
 ```
-
 
 ## Amplifiable region size
 
@@ -1094,27 +1091,24 @@ ggplot(min_ori %>% filter(location=="min.dist.oriC.plasmid"), aes(resistance, di
   guides(fill = "none")
 ```
 
-
 ### Minimal distance on chromosome, on plasmids, both
 
 ```{r}
 
 ```
 
-
 ## Number of genes on plus strand
 
 ### On chromosome, on plasmids, both
 
 ```{r, fig.width=6, fig.height=4}
-ggplot(data_strain, aes(n.genes.plus.strand))+
+ggplot(data_strain, aes(n.beta.lac.plus))+
   geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
   scale_fill_brewer(palette="Set1")+
   xlab("number of genes")+
   ylab("number of strains")+
   ggtitle("Beta-lactamase genes on plus-strand")
 ```
-
 
 ## ampC-type beta-lactamases
 
@@ -1175,7 +1169,6 @@ ggplot(data_strain %>% filter(ampC.max.rep.len > 0), aes(resistance, ampC.max.re
   guides(fill="none")
 ```
 
-
 ### Median sum of repeat lengths
 
 ```{r, warning=F, fig.width=6, fig.height=4}
@@ -1189,7 +1182,6 @@ ggplot(data_strain %>% filter(ampC.med.tot.rep.len > 0), aes(resistance, ampC.me
   ylab("length")+
   guides(fill="none")
 ```
-
 
 ### Median AR size
 
@@ -1216,7 +1208,6 @@ plot.ampc.med.AR.cen <- ggplot(data_strain %>% filter(ampC.med.AR.len.cen > 0), 
 ggarrange(plot.ampc.med.AR, plot.ampc.med.AR.cen, ncol=2, nrow=1, legend = "none")
 
 ```
-
 
 ------------------------------------------------------------------------
 
