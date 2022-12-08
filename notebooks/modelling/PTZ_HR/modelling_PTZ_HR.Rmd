@@ -25,26 +25,52 @@ library(probably)
 library(vip)
 library(skimr)
 library(stacks)
+library(bestNormalize) # for ord QQ norm
+library(embed) # for UMAP
 ```
 
 # Read data
 
-Here I use processed and scaled data from EDA_PTZ.
-
-All 'R' strains will be removed
+The data sets are the same as in EDA
 
 ```{r}
-df <- readr::read_csv("data/features_ptz_strain.csv") %>% 
-  filter(resistance != "R") %>% 
-  mutate(resistance = factor(resistance, levels = c("HR", "nonHR"))) %>%
-  mutate(n.beta.lac.3 = factor(if_else(n.beta.lac.3 == 1, "yes", "no"))) %>%
-  mutate(n.beta.lac.4 = factor(if_else(n.beta.lac.4 == 1, "yes", "no")))
+data_strain <- readr::read_csv("data/features_bl_strain.csv", na = c("NA", "-Inf"))
 
-df 
+hr_testing <- readr::read_csv("data/heteroresistance_testing.csv")
+
+hr_testing %>% 
+  group_by(resistance) %>% 
+  count()
 ```
 
 ```{r}
-skim(df) %>% yank("factor")
+data_strain %>% 
+  group_by(resistance) %>% 
+  count()
+```
+
+Add n.beta.lac > 3 and >4
+
+```{r}
+data_strain <- data_strain %>% 
+  mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
+  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
+  filter(resistance != "R") %>% 
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")))
+  
+data_strain
+```
+
+NAs to 0s - there shoudl be a tidy way?
+
+```{r}
+data_strain[is.na(data_strain)] <- 0
+```
+
+
+```{r}
+skim(data_strain) %>% yank("factor")
 ```
 
 We have unbalanced target class
@@ -56,7 +82,7 @@ Stratified split
 ```{r}
 set.seed(124)
 
-data_split <- initial_split(df, prop = 0.8, strata = resistance)
+data_split <- initial_split(data_strain, prop = 0.8, strata = resistance)
 
 df_train <- training(data_split)
 df_test <- testing(data_split)
@@ -140,6 +166,49 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
 pca_recipe
 ```
 
+## UMAP and Ordered-Quantile normalization
+
+I use supervised UMAP
+
+```{r}
+# function for umap plot
+library(ggforce)
+
+plot_validation_results <- function(dat) {
+  dat %>%
+    select(-strain) %>% 
+    # Create the scatterplot matrix
+    ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
+    geom_point(alpha = 0.4, size = 1) +
+    geom_autodensity(alpha = .3) +
+    facet_matrix(vars(-resistance), layer.diag = 2) + 
+    scale_color_brewer(palette = "Set1") + 
+    scale_fill_brewer(palette = "Set1")
+}
+```
+
+What position of `step_smote()` is preferable??
+
+```{r, fig.width=12, fig.height=12}
+umap_rec <- recipe(resistance ~., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_orderNorm(all_numeric_predictors()) %>% 
+  step_normalize(all_predictors()) %>% 
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10) 
+
+# to make a plot
+data_umap <- prep(umap_rec, retain = TRUE)
+
+data_umap$template %>% 
+  plot_validation_results() +
+  ggtitle("UMAP (supervised)")
+```
+
+Seems OK
+
 ## LR recipe
 
 ```{r}
@@ -162,6 +231,37 @@ cls_metrics <- metric_set(roc_auc, j_index)
 ## Grid
 
 For creating a tuning grid the maximum entropy design is used `tune()`'s default.
+
+# Penalized LR with UMAP
+
+```{r}
+set.seed(233)
+
+lr_mod <- 
+  logistic_reg(
+    penalty = tune(), 
+    mixture = 1) %>% 
+  set_engine("glmnet")
+
+# define the workflow
+lr_umap_workflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(umap_rec)
+
+# create a tune grid
+# lr_reg_grid <- tibble(penalty = 10**seq(-4, 0, length.out = 30))
+
+# train and tune the model
+lr_umap_res <- tune_grid(lr_umap_workflow,
+              grid = 30,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE),
+              metrics = cls_metrics)
+
+autoplot(lr_umap_res)
+```
+
 
 # Penalized Logistic regression
 
