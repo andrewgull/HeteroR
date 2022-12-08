@@ -20,11 +20,12 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message = F, warning = F, cache = T)
-library(tidyverse)
+library(tidymodels)
 library(ggpubr)
 library(factoextra)
 library(cluster)
 library(skimr)
+library(readr)
 ```
 
 # Intro
@@ -90,11 +91,10 @@ Here, I will remove R-strains.
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  mutate(n.beta.lac.3 = ifelse(n.beta.lac > 3, 1, 0)) %>% 
-  mutate(n.beta.lac.4 = ifelse(n.beta.lac > 4, 1, 0)) %>% 
-  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.beta.lac") %>% 
+  mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
+  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
-  select(-strain) %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")))
   
 data_strain
@@ -113,27 +113,11 @@ skim(data_strain) %>% yank("numeric")
 
 All the missing values should be replaced with zeros.
 
-# Remove non-informative columns
-
-```{r}
-sum_cols <- apply(data_strain[, -1], 2, function(x){sum(x, na.rm = T)})
-sum_cols[sum_cols == 0]
-```
-
-
-Some columns contain only 0, I will remove them
-
-```{r}
-data_strain <- data_strain %>% 
-  select(-c(DHA.beta.lactamase, APH.4.))
-```
-
-
 # Data imputation
 
 `caret::preProcess()` doesn't have method for replacing with zeros...
 
-```{r, cache=F}
+```{r}
 
 data_strain[is.na(data_strain)] <- 0
 
@@ -149,117 +133,292 @@ features_bl_shiny <- data_strain %>%
 write.csv(features_bl_shiny, "shiny/data/features_ptz_strain.csv", row.names = F)
 ```
 
-
-# Data scaling
-
-scale and center numeric features (real numeric + count, not dummies!)
-
-```{r, eval=F}
-end <- length(data_strain)
-# except for resistance and n.beta.lac.3 and n.beta.lac.4
-data_strain_scaled <- as_tibble(
-  scale(
-    x = data_strain %>% select(-c(resistance, n.beta.lac.3, n.beta.lac.4)),
-    center = T, scale = T
-    ))
-
-data_strain_scaled$resistance <- data_strain$resistance
-data_strain_scaled$n.beta.lac.3 <- data_strain$n.beta.lac.3
-data_strain_scaled$n.beta.lac.4 <- data_strain$n.beta.lac.4
-
-data_strain_scaled <- data_strain_scaled %>% 
-  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.beta.lac")
-
-data_strain_scaled <- data_strain_scaled %>% 
-  relocate(resistance, .before = "n.plasmids")
-
-# write it for modelling
-#write.csv(data_strain_scaled, "../../modelling/PTZ_HR/data/features_ptz_hr_scaled.csv", row.names = F)
-```
-
+All pre-processing will be done with `recipes`
 
 ---
-
-
-# Clustering
-
-Let's do some clustering analysis on predictors.
-
-Predictors should be standardized and imputed (they are).
-
-## Dissimilarities heat map
-
-Distance measure: Kendall's correlation
-
-```{r, fig.width=10, fig.height=8}
-feat_clust <- data_strain_scaled %>% select(-resistance)
-row.names(feat_clust) <- strains
-#feat_clust <- data_strain %>% select(-resistance)
-
-distance <- get_dist(feat_clust, stand = F, method = "kendall")
-fviz_dist(distance, gradient = list(low = "#bbab00", high = "#0000bb"), show_labels = T, lab_size = 6)
-```
-
-The darker is the color, the higher is dissimilarity
-
-## k-means clustering
-
-k = 2
-
-```{r, fig.width=8, fig.height=6}
-cent <- 2
-km <- kmeans(feat_clust, centers = cent, nstart = 100)
-fviz_cluster(km, data = feat_clust, repel = T, show.clust.cent = F, labelsize = 6)
-```
-
-### Correspondence between clusters and resistance
-
-```{r}
-feat_clust %>%
-  mutate(cluster = km$cluster, resistance = data_strain$resistance) %>%
-  select(resistance, cluster) %>% 
-  table()
-```
-
-
-### Silhouette method
-
-```{r, fig.width=6, fig.height=4}
-fviz_nbclust(feat_clust, kmeans, method = "silhouette", diss = distance)
-```
-
-### Gap statistic
-
-Suggests more clusters
-
-```{r, fig.width=6, fig.height=4}
-set.seed(123)
-gap_stat <- clusGap(feat_clust, FUN = kmeans, nstart = 25,
-                    K.max = 25, B = 50)
-
-fviz_gap_stat(gap_stat)
-```
-
-???
 
 # EDA
 
 ## Correlation plot
 
+```{r, fig.width=12, fig.height=12}
+# without resistance
+cor_matrix <- cor(data_strain[,c(5:ncol(data_strain))], use = "pairwise.complete.obs")
+corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.8)
+```
+
+We see a lot of correlated features.
+
+
+## PCA
+
+### Normalization
+
 ```{r}
-library(corrplot)
-tmwr_cols <- colorRampPalette(c("#91CBD765", "#CA225E"))
-data_strain %>% 
-  select(-resistance) %>% 
-  cor() %>% 
-  corrplot(col = tmwr_cols(200), tl.col = "black", method = "ellipse")
+library(bestNormalize)
+
+data_rec <- recipe(resistance ~., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_orderNorm(all_numeric_predictors()) %>% 
+  step_normalize(all_predictors()) 
+
+data_prep <- prep(data_rec, retain = TRUE)
+
+# processed data 
+data_prep$template
 ```
 
 
-```{r, fig.width=12, fig.height=12}
-# without resistance
-cor_matrix <- cor(data_strain[,c(2:end)], use = "pairwise.complete.obs")
-corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
+### Compare distributions
+
+```{r, fig.width=10, fig.height=8}
+library(patchwork)
+
+p1 <- 
+  data_strain %>% 
+  ggplot(aes(x = min.dist.oriC)) + 
+  geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
+  ggtitle("Original data (min.dist.oriC)")
+
+p2 <- 
+  data_prep$template %>% 
+  ggplot(aes(x = min.dist.oriC)) + 
+  geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
+  ggtitle("Processed data (min.dist.oriC)")
+
+p3 <- data_strain %>% 
+  ggplot(aes(x = n.plasmids)) + 
+  geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
+  ggtitle("Original data (n.plasmids)")
+  
+p4 <-
+  data_prep$template %>% 
+  ggplot(aes(x = n.plasmids)) + 
+  geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
+  ggtitle("Processed data (n.plasmids)")
+
+p5 <- data_strain %>% 
+  ggplot(aes(x = n.rep.total)) + 
+  geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
+  ggtitle("Original data (n.rep.total)")
+
+p6 <-
+  data_prep$template %>% 
+  ggplot(aes(x = n.rep.total)) + 
+  geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
+  ggtitle("Processed data (n.rep.total)")
+
+(p1 | p2 ) /
+(p3 | p4 ) /
+(p5 | p6)
+```
+
+```{r}
+library(ggforce)
+
+plot_validation_results <- function(dat) {
+  dat %>%
+    select(-strain) %>% 
+    # Create the scatterplot matrix
+    ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
+    geom_point(alpha = 0.4, size = 1) +
+    geom_autodensity(alpha = .3) +
+    facet_matrix(vars(-resistance), layer.diag = 2) + 
+    scale_color_brewer(palette = "Set1") + 
+    scale_fill_brewer(palette = "Set1")
+}
+```
+
+### PCA plot
+
+```{r, fig.width=10, fig.height=8}
+pca_rec <- data_rec %>%
+  step_pca(all_numeric_predictors(), num_comp = 8)
+
+data_pca <- prep(pca_rec, retain = TRUE)
+
+data_pca$template %>% 
+  plot_validation_results() + 
+  ggtitle("Principal Component Analysis")
+```
+
+#### 3D version
+
+```{r, eval=FALSE}
+library(rgl)
+
+
+pca_df <- data_pca$template %>%
+  mutate(color = if_else(resistance == "HR", "red", "blue"))
+
+
+plot3d(x = pca_df$PC1, y = pca_df$PC2, z = pca_df$PC3,
+       col = pca_df$color,
+       type = "s", 
+       radius = 0.2,
+       xlab = "PC1",
+       ylab = "PC2",
+       zlab = "PC3")
+```
+
+
+### Explained variance percentage
+
+```{r}
+# find the step number corresponding to PCA, here it's 5
+sdev <- data_pca$steps[[5]]$res$sdev
+percent_variation <- sdev^2 / sum(sdev^2)
+
+var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
+                     var_explained = percent_variation,
+                     stringsAsFactors = FALSE)
+
+var_df <- var_df %>% 
+  mutate(var_cum_sum = cumsum(var_explained))
+
+var_df
+```
+
+```{r, fig.width=12}
+var_df %>%
+  mutate(PC = forcats::fct_inorder(PC)) %>%
+  ggplot(aes(x = PC, y = var_explained)) + 
+  geom_col(aes(fill = var_cum_sum)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+  scale_fill_continuous(type = "viridis")
+```
+
+### Top laodings
+
+```{r, fig.width=8, fig.height=6}
+library(learntidymodels)
+
+data_pca %>%
+  plot_top_loadings(component_number <= 4, n = 5) + 
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Principal Component Analysis")
+```
+
+## PLS - Partial Least Squares
+
+```{r, fig.width=12, fig.height=8}
+## PLS
+# BiocManager::install("mixOmics")
+
+pls_rec <- data_rec %>%
+  step_pls(all_numeric_predictors(), outcome = "resistance", num_comp = 8)
+
+data_pls <- prep(pls_rec, retain = TRUE)
+
+data_pls$template %>% 
+  plot_validation_results() + 
+  ggtitle("Partial Least Squares")
+```
+
+```{r, fig.width=12, fig.height=6}
+data_pls %>%
+  plot_top_loadings(component_number <= 4, n = 5, type = "pls") + 
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Partial Least Squares")
+```
+
+#### 3D version
+
+```{r, eval=FALSE}
+pls_df <- data_pls$template %>%
+  mutate(color = if_else(resistance == "HR", "red", "blue"))
+
+
+plot3d(x = pls_df$PLS1, y = pls_df$PLS2, z = pls_df$PLS3,
+       col = pls_df$color,
+       type = "s", 
+       radius = 0.2,
+       xlab = "PLS1",
+       ylab = "PLS2",
+       zlab = "PLS3")
+```
+
+
+## ICA - Independent Component Analysis
+
+```{r, fig.width=12, fig.height=8}
+## ICA
+#install.packages("fastICA")
+ica_rec <- data_rec %>%
+  step_ica(all_numeric_predictors(), num_comp = 8)
+
+data_ica <- prep(ica_rec, retain = TRUE)
+
+data_ica$template %>% 
+  plot_validation_results() + 
+  ggtitle("Independent Component Analysis")
+```
+
+#### 3D version
+
+```{r, eval=FALSE}
+ica_df <- data_ica$template %>%
+  mutate(color = if_else(resistance == "HR", "red", "blue"))
+
+
+plot3d(x = ica_df$IC1, y = ica_df$IC2, z = ica_df$IC3,
+       col = ica_df$color,
+       type = "s", 
+       radius = 0.1,
+       xlab = "IC1",
+       ylab = "IC2",
+       zlab = "IC3")
+```
+
+## UMAP
+
+```{r, fig.width=12, fig.height=8}
+## UMAP
+library(embed)
+
+umap_rec <- data_rec %>%
+  step_umap(all_numeric_predictors(), num_comp = 8) 
+
+data_umap <- prep(umap_rec, retain = TRUE)
+
+data_umap$template %>% 
+  plot_validation_results() +
+  ggtitle("UMAP")
+```
+
+### UMPA supervised
+
+```{r, fig.width=12, fig.height=8}
+## UMAP Supervised
+
+umap_rec_sup <- data_rec %>%
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 8)
+
+data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
+
+data_umap_sup$template %>% 
+  plot_validation_results() +
+  ggtitle("UMAP (supervised)")
+```
+
+Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
+
+#### 3D version
+
+```{r, eval=FALSE}
+umap_df <- data_umap_sup$template %>%
+  mutate(color = if_else(resistance == "HR", "red", "blue"))
+
+
+plot3d(x = umap_df$UMAP1, y = umap_df$UMAP2, z = umap_df$UMAP3,
+       col = umap_df$color,
+       type = "s", 
+       radius = 0.1,
+       xlab = "UMAP1",
+       ylab = "UMAP2",
+       zlab = "UMAP3")
 ```
 
 
@@ -268,11 +427,15 @@ corrplot::corrplot(cor_matrix, type="upper", tl.col = "black")
 ### In strains tested for AMP
 
 ```{r}
-rg_n_genes <- data %>% select(strain, record_id) %>% distinct() %>% group_by(strain) %>% summarise(N=n())
+rg_n_genes <- data %>% 
+  select(strain, record_id) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  count()
 
-ggplot(rg_n_genes, aes(N)) + 
-  geom_histogram(fill="steelblue", binwidth = 1)+
-  xlab("RG count")+
+ggplot(rg_n_genes, aes(n)) + 
+  geom_histogram(fill = "steelblue", binwidth = 1) +
+  xlab("RG count") +
   ylab("Strains count")
 
 
