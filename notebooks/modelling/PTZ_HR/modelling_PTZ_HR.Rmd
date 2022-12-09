@@ -1204,7 +1204,7 @@ sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, co
 sens_spec_j_plot
 ```
 
-Moving threshold to the crossing point between sensitivity and specificity curves (0.405) doesn't imporve overall performance of the model.
+Moving threshold to the crossing point between sensitivity and specificity curves (0.405) doesn't improve overall performance of the model.
 
 ```{r, fig.width=6}
 # collect sens, spec, j-index at various cut-offs
