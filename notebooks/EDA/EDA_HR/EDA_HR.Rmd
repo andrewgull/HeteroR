@@ -139,7 +139,7 @@ All pre-processing will be done with `recipes`
 
 ## Correlation plot
 
-```{r, fig.width=12, fig.height=12}
+```{r, fig.width=5, fig.height=5, warning=FALSE}
 # without resistance
 cor_matrix <- cor(data_strain[,c(5:ncol(data_strain))], use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.8)
@@ -229,7 +229,7 @@ plot_validation_results <- function(dat) {
 
 ### PCA plot
 
-```{r, fig.width=10, fig.height=8}
+```{r, fig.width=6, fig.height=3}
 pca_rec <- data_rec %>%
   step_pca(all_numeric_predictors(), num_comp = 8)
 
@@ -278,7 +278,7 @@ var_df
 
 Plot
 
-```{r, fig.width=12}
+```{r, fig.width=6, fig.height=3}
 var_df %>%
   mutate(PC = forcats::fct_inorder(PC)) %>%
   ggplot(aes(x = PC, y = var_explained)) + 
@@ -289,7 +289,7 @@ var_df %>%
 
 ### Top loadings
 
-```{r, fig.width=8, fig.height=6}
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=3}
 # install.packages("devtools")
 # devtools::install_github("tidymodels/learntidymodels")
 library(learntidymodels)
@@ -302,7 +302,7 @@ data_pca %>%
 
 ## PLS - Partial Least Squares
 
-```{r, fig.width=12, fig.height=8}
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=3}
 # BiocManager::install("mixOmics")
 
 pls_rec <- data_rec %>%
@@ -317,7 +317,7 @@ data_pls$template %>%
 
 ### Top loadings
 
-```{r, fig.width=12, fig.height=6}
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=3}
 data_pls %>%
   plot_top_loadings(component_number <= 4, n = 5, type = "pls") + 
   scale_fill_brewer(palette = "Paired") +
@@ -342,7 +342,7 @@ plot3d(x = pls_df$PLS1, y = pls_df$PLS2, z = pls_df$PLS3,
 
 ## ICA - Independent Component Analysis
 
-```{r, fig.width=12, fig.height=8}
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=3}
 ## ICA
 #install.packages("fastICA")
 ica_rec <- data_rec %>%
@@ -371,14 +371,18 @@ plot3d(x = ica_df$IC1, y = ica_df$IC2, z = ica_df$IC3,
        zlab = "IC3")
 ```
 
-## UMAP
+## UMAP - uniform manifold approximation and projection
 
-```{r, fig.width=12, fig.height=8}
+>while high values will push UMAP towards representing the big-picture structure while losing fine detail.
+
+### Unsupervised
+
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=3}
 ## UMAP
 library(embed)
 
 umap_rec <- data_rec %>%
-  step_umap(all_numeric_predictors(), num_comp = 8) 
+  step_umap(all_numeric_predictors(), num_comp = 8, ) 
 
 data_umap <- prep(umap_rec, retain = TRUE)
 
@@ -389,11 +393,11 @@ data_umap$template %>%
 
 ### UMAP supervised
 
-```{r, fig.width=12, fig.height=8}
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=3}
 ## UMAP Supervised
 
 umap_rec_sup <- data_rec %>%
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 8)
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10, neighbors = 15)
 
 data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 
@@ -412,7 +416,7 @@ umap_df <- data_umap_sup$template %>%
   mutate(color = if_else(resistance == "HR", "red", "blue"))
 
 
-plot3d(x = umap_df$UMAP1, y = umap_df$UMAP2, z = umap_df$UMAP3,
+plot3d(x = umap_df$UMAP01, y = umap_df$UMAP02, z = umap_df$UMAP03,
        col = umap_df$color,
        type = "s", 
        radius = 0.1,
