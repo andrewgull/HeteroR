@@ -29,28 +29,15 @@ bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>%
 ui <- fluidPage(
   
   # bslib::bs_theme_preview(bs_theme(bootswatch = "theme_name"))
-  theme = bslib::bs_theme(bootswatch = "darkly"),
+  theme = bslib::bs_theme(bootswatch = "yeti"),
   
   # Application title
   titlePanel("PIP-TAZO Hetero-Resistance EDA"),
   
-  # A separate panel for AMP data
+  # A separate panel for basic plots
   tabsetPanel(
     tabPanel("Basic plots",
-             
-             # 1st row with a heat map
-             fluidRow(
-               # Left column with controls
-               column(2, sliderInput("sample", 
-                                     "Sample size", 
-                                     value = 10, 
-                                     min = 10, 
-                                     max = length(strains))),
-               # Right column with the heat map itself
-               column(10, plotOutput("heatmap"))
-             ),
-             
-             # 2a row with a bar pot for count data
+             # 1a row with a bar pot for count data
              fluidRow(
                # first column with controls
                column(2, 
@@ -70,12 +57,12 @@ ui <- fluidPage(
                column(10, plotOutput("bar.plot"))
              ),
              
-             # 3rd row with a box plot
+             # 2nd row with a box plot
              fluidRow(
                # Left column with controls for the box plot
                column(2, 
                       selectInput(inputId = "box", label = "Median & distribution",
-                                  choices = vars, selected = "med.dist.oriC"),
+                                  choices = vars, selected = "n.plasmids"),
                       radioButtons(inputId = "trans", label = "Y-axis transformation", 
                                    choices = c("identity", "log", "sqrt"), selected = "identity", 
                                    choiceNames = c("none", "log", "sqrt")),
@@ -86,7 +73,7 @@ ui <- fluidPage(
                column(10, plotOutput("box.plot"))
              ),
              
-             # 4th row for a dot plot widget
+             # 3rd row for a dot plot widget
              fluidRow(
                # Left side with widget's controls
                column(2, 
@@ -105,7 +92,7 @@ ui <- fluidPage(
                column(10, plotOutput("dot.plot", brush = "plot_brush"))
              ),
              
-             # 5 th row with hover/brush output
+             # 4th row with hover/brush output
              fluidRow(
                column(6),
                column(6, tableOutput("dot.plot.data"))
@@ -113,7 +100,20 @@ ui <- fluidPage(
              
     ),
     # Tab for heatmap of genes
-    tabPanel("Heatmap", "no data yet"),
+    tabPanel("Heatmap", 
+             
+             # 1st row with a heat map
+             fluidRow(
+               # Left column with controls
+               column(2, sliderInput("sample", 
+                                     "Sample size", 
+                                     value = 10, 
+                                     min = 10, 
+                                     max = length(strains))),
+               # Right column with the heat map itself
+               column(10, plotOutput("heatmap"))
+             ),
+        ),
     # Tab for PCA plots
     tabPanel("PCA", "no data yet"),
     # Tab for UMAP
