@@ -103,8 +103,11 @@ rule final:
            filt1="results/polypolish/{strain}/filtered_1.sam",
            filt2="results/polypolish/{strain}/filtered_2.sam",
            polish="results/polypolish/{strain}/assembly_fmp.fasta",
-           link_ass="results/assemblies/{strain}/assembly.fasta",
-           link_info="results/assemblies/{strain}/assembly_info.txt"
+           copy_ass="results/assemblies/{strain}/assembly.fasta",
+           copy_info="results/assemblies/{strain}/assembly_info.txt",
+           draft_dir = "results/drafts/{strain}",
+           polish_dir = "results/polished/{strain}"
+
     output: touch("results/final/FMP/{strain}_all.done")
     shell: "echo 'DONE'"
 
