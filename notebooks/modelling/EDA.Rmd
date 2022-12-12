@@ -44,12 +44,30 @@ Data set `data_strain` has been made earlier in
 
 Look at target class distribution in full data set (500 strains)
 
+We have two classifications of HR:
+
+1.  Groups I and II are considered HR
+
+2.  Groups II and III are considered HR
+
+With the 1st classification and a single best model (XGBTree), I got
+decent results:
+
+|            |     |        |
+|------------|-----|--------|
+|            | HR  | nonHR  |
+| HR pred    | 12  | 9      |
+| nonHR pred | 4   | 46     |
+
+So, the results below will look different depending on the classification scheme chosen!
+
 ```{r, cache=F}
 data <- read_csv("/home/andrei/Data/HeteroR/results/tables/features_bl.csv")
 
-data_strain <- read_csv("data/features_bl_strain.csv", na = c("NA", "-Inf"))
+data_strain <- read_csv("data/features_bl_strain.csv", na = c("NA", "-Inf")) %>% select(-resistance) # remove select when features.Rmd is fixed!
 
-hr_testing <- read_csv("data/heteroresistance_testing.csv")
+# TWO SCHEMES IN TWO FILES
+hr_testing <- read_csv("data/heteroresistance_testing_gr13.csv")
 
 hr_testing %>% 
   group_by(resistance) %>% 
@@ -62,36 +80,25 @@ Look at target class distribution in the data set you're working with
 (414 strains)
 
 ```{r}
+data_strain <- data_strain %>% 
+  left_join(hr_testing, by = "strain")
+
 data_strain %>% 
   group_by(resistance) %>% 
   count()
 ```
 
-Well, 120 strains out of 500 tested are not assembled yet and, out of
-414 assembled strains, 47 are not tested...
+The data set is not yet complete.
 
-:(
-
-## Some processing
+## Some additional features and filtering
 
 1.  Add BL genes counts as ordered factor and as binary features (if BL
     \> 3)
 
-2.  Filter/Rename HR labels
+2.  Filter/Rename HR labels (we're not doing this)
 
-It seems reasonable to merge R and HR group, because of two reasons:
+3. Remove R strains
 
--   We have too little R
-
--   It is useful to predict whether a strains *is* (R) or *turns* (HR)
-    resistant, because both outcomes require similar actions from a
-    clinician.
-
-On the other hand, it has perfect sense to remove R strains completely:
-if our task is to distinguish susceptible strains and heteroresistant
-ones.
-
-Here, I will remove R-strains.
 
 ```{r}
 # keep strains elsewhere
@@ -125,11 +132,6 @@ All the missing values should be replaced with zeros.
 data_strain[is.na(data_strain)] <- 0
 ```
 
-# Write data for shiny app
-
-```{r, eval=FALSE}
-write.csv(data_strain, "shiny/data/features_ptz_strain.csv", row.names = F)
-```
 
 All pre-processing will be done with `recipes`
 
@@ -141,7 +143,7 @@ All pre-processing will be done with `recipes`
 
 ```{r, fig.width=5, fig.height=5, warning=FALSE}
 # without resistance
-cor_matrix <- cor(data_strain[,c(5:ncol(data_strain))], use = "pairwise.complete.obs")
+cor_matrix <- cor(data_strain %>% select(-c(strain, resistance, n.beta.lac.3, n.beta.lac.4)), use = "pairwise.complete.obs")
 corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.8)
 ```
 
@@ -373,7 +375,8 @@ plot3d(x = ica_df$IC1, y = ica_df$IC2, z = ica_df$IC3,
 
 ## UMAP - uniform manifold approximation and projection
 
->while high values will push UMAP towards representing the big-picture structure while losing fine detail.
+> while high values will push UMAP towards representing the big-picture
+> structure while losing fine detail.
 
 ### Unsupervised
 
