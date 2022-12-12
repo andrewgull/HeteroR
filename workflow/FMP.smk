@@ -87,6 +87,13 @@ rule make_copy:
     log: "results/logs/{strain}_copies.log"
     shell: "cp {input.assembly} {output.copy_assembly} && cp {input.info} {output.copy_info} &> {log}"
 
+rule make_dummies:
+    input: "results/assemblies/{strain}/assembly.fasta"
+    output: 
+        draft_dir = directory("results/drafts/{strain}"),
+        polish_dir = directory("results/polished/{strain}")
+    shell: "mkdir {output.draft_dir}; mkdir {output.polish_dir}"
+
 rule final:
     input: filt="results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz",
            flye="results/flye/{strain}",
