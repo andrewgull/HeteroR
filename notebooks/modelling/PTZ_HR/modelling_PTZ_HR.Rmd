@@ -1298,6 +1298,41 @@ cm_heatmap
 summary(cm_optimized)
 ```
 
+## Extract predictions
+
+### Collect False Positives
+
+Should be 9 of them
+
+```{r}
+test_row_numbers <- df %>% 
+  select(strain, resistance) %>% 
+  mutate(.row = row_number())
+
+xgb_last_fit %>%
+  collect_predictions() %>% 
+  select(.row, .pred_class, resistance) %>% 
+  left_join(test_row_numbers, by = ".row") %>% 
+  filter(.pred_class == "HR", resistance.x == "nonHR") %>% 
+  select(strain)
+  
+```
+
+### Collect False Negatives
+
+Should be 4 of them
+
+```{r}
+xgb_last_fit %>%
+  collect_predictions() %>% 
+  select(.row, .pred_class, resistance) %>% 
+  left_join(test_row_numbers, by = ".row") %>% 
+  filter(.pred_class == "nonHR", resistance.x == "HR") %>% 
+  select(strain)
+```
+
+
+
 ```{r}
 ggsave("plots/confusion_matrix_BT.png", cm_heatmap)
 ```
