@@ -4,7 +4,7 @@ library(shiny)
 library(tidyverse)
 
 # Read the main data table with features
-features_ptz_strain <- read_csv("data/features_ptz_strain.csv")
+features_ptz_strain <- read_csv("data/features_bl_strain.csv")
 
 # get vars to use later in UI (selectInput)
 vars <- names(select(features_ptz_strain, -c("strain", "resistance")))
