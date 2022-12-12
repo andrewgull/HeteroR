@@ -132,7 +132,7 @@ server <- function(input, output) {
   thematic::thematic_shiny()
   
   # read data with main features
-  df <- readr::read_csv("data/features_ptz_strain.csv") 
+  df <- readr::read_csv("data/features_bl_strain.csv") 
   # replace 0 with 1 for transformation
   #df[df == 0] <- 1
   
