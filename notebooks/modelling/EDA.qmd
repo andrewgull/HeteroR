@@ -4,7 +4,7 @@ author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 format: 
   html:
-    theme: "minty"
+    theme: "sandstone"
     toc: true
     toc-depth: 2
     toc-title: Contents
