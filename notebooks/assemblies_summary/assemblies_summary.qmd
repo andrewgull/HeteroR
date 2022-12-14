@@ -2,23 +2,20 @@
 title: "Genome assemblies summary"
 author: "by AG"
 date: "last update: `r format(Sys.time(), format = '%d %B %Y, %H:%M CET')`"
-output:
-  html_document:
-    fig_width: 8
-    code_folding: hide
-    df_print: paged
+format: 
+  html:
+    theme: "sandstone"
     toc: true
-    toc_float: true
-    rmdformats:
-      theme: cerulean
-      highlight: github
+    toc-depth: 2
+    toc-title: Contents
+    toc-location: left
+    df-print: paged
+    standalone: true
+    code-fold: true
+editor: visual
 ---
 
-```{r setup, include=F}
-# output setup
-knitr::opts_chunk$set(fig.width=10, fig.height=5, message = F, warning = F)
-
-# libs
+```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(plotly)
 library(GGally)
