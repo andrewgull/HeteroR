@@ -22,7 +22,7 @@ library(GGally)
 
 # paths
 ass_join <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
-summary_table_output_file <- "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv"
+assemblies_output_file <- "/home/andrei/Data/HeteroR/results/genome_assembly_summary.csv"
 coverage_table <- "~/Data/HeteroR/results/coverage/coverage_strain_in_data_filt.tsv"
 
 busco_path <- "/home/andrei/Data/HeteroR/results/qualcheck_assembly/"
@@ -36,88 +36,45 @@ busco_filename <- "short_summary.specific.gammaproteobacteria_odb10.busco_result
 # get paths to assembly summary files
 summary_files <- dir(path=ass_join,  pattern = "summary.tsv", recursive=TRUE)
 
-# read and fix
-summary_table <- lapply(summary_files, function(x){
-  df <- read_delim(paste0(ass_join, x))
-  df$Links <- as.integer(gsub(",", "", df$Links, fixed=TRUE))
-  df$Length <- as.integer(gsub(",", "", df$Length, fixed=TRUE))
-  df$N50 <- as.integer(gsub(",", "", df$N50, fixed=TRUE))
-  df$Longest_component <- as.integer(gsub(",", "", df$Longest_component, fixed=TRUE))
-  return(df)
-  })
+assemblies <- map_dfr(summary_files, function(x){read_delim(paste0(ass_join, x), col_types = "cccccccccccc")}) %>% 
+  mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
+                Length = as.integer(gsub(",", "", Length, fixed = TRUE)),
+                N50 = as.integer(gsub(",", "", N50, fixed = TRUE)),
+                Longest_component = as.integer(gsub(",", "", Longest_component, fixed = TRUE)),
+                Status2 = case_when(Status == "incomplete" ~ "linear",
+                             Status == "complete" | Status == "Y" ~ "circular",
+                             Status == "scaffold" ~ "add.plasmid"))
 
-# merge into one table
-summary_table <- bind_rows(summary_table)
-
-# add wet-lab-biologist-readable Status
-status_new <- sub("incomplete", "linear", summary_table$Status)
-status_new <- sub("complete", "circular", status_new)
-status_new <- sub("scaffold", "additional_plasmid", status_new)
-status_new <- factor(status_new, levels = c("circular", "linear", "additional_plasmid"))
-
-summary_table$Status2 <- status_new
 ```
 
-Assembly summary information has been taken from Unicycler log files, total number of summary files `r length(summary_files)`
-
+Assembly summary information has been taken from Unicycler's log files and Flye's info files, total number of summary files `r length(summary_files)`
 
 ## Descriptive stat
 
 ```{r}
-skimr::skim(summary_table)
+assemblies %>% 
+  group_by(Status2) %>% 
+  count()
+```
 
+```{r, fig.width=12}
+assemblies %>% 
+  group_by(Strain, Status2) %>% 
+  count() %>% 
+  ggplot(aes(Strain, n)) +
+    geom_bar(stat = "identity", position = "dodge", aes(fill = Status2)) +
+    scale_fill_brewer(palette = "Set2") +
+    coord_trans(y = "sqrt")
 ```
 
 
-## Incomplete assemblies total
+## Incomplete chromosomes total
 
 ```{r}
-incomplete_assemblies <- summary_table %>% filter(Status=="incomplete")
-incomplete_assemblies
+assemblies %>% 
+  filter(Type == "Chromosome", Status == "incomplete")
 ```
 
-## Incomplete chromosomes
-
-```{r}
-summary_table %>% filter(Type == "Chromosome", Status == "incomplete")
-```
-
-## Incomplete plasmids
-
-```{r}
-summary_table %>% filter(Type == "Plasmid", Status == "incomplete")
-```
-
-## Summarize
-
-```{r}
-summary_table_short <- summary_table %>% 
-  select(Strain,Type, Length, Status) %>% 
-  filter(Type == "Chromosome") %>% 
-  select(-Type) %>% 
-  rename("chrom.length" = Length) %>% 
-  rename("chrom.status" = Status)
-
-n.plasm.complete <- summary_table %>% 
-  select(Strain, Type, Status) %>% 
-  filter(Status == "complete", Type == "Plasmid") %>% 
-  group_by(Strain) %>% 
-  summarize(n.plasm.complete = n())
-
-n.plasm.incomplete <- summary_table %>% 
-  select(Strain, Type, Status) %>% 
-  filter(Status == "incomplete", Type == "Plasmid") %>% 
-  group_by(Strain) %>% 
-  summarize(n.plasm.incomplete = n())
-
-summary_table_short <- left_join(summary_table_short, n.plasm.complete, by="Strain") %>% left_join(n.plasm.incomplete, by="Strain")
-
-summary_table_short$n.plasm.complete <- ifelse(is.na(summary_table_short$n.plasm.complete), 0, summary_table_short$n.plasm.complete)
-
-summary_table_short$n.plasm.incomplete <- ifelse(is.na(summary_table_short$n.plasm.incomplete), 0, summary_table_short$n.plasm.incomplete)
-
-summary_table_short
-```
 
 
 # Coverage
@@ -142,7 +99,7 @@ workflow/scripts/coverage_cli.py ~/Data/HeteroR/resources/strain_lists/strains_i
 
 ```
 
-## Data 
+## Data
 
 Read and process coverage data
 
@@ -159,17 +116,16 @@ coverage
 Join with summary and write results to a file
 
 ```{r}
-summary_table <- left_join(summary_table, coverage, by="Strain")
+assemblies <- left_join(assemblies, coverage, by="Strain")
 
-write.csv(summary_table, summary_table_output_file, row.names = F)
+write.csv(assemblies, assemblies_output_file, row.names = F)
 
 ```
-
 
 ## Circularity and coverage
 
 ```{r, fig.width=9, fig.height=4}
-ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, coverage)) +
+ggplot(assemblies %>% filter(Status2 != "additional_plasmid"), aes(Status2, coverage)) +
   geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
   facet_grid(cols = vars(Type))+
   scale_fill_brewer(palette = "Set2")+
@@ -183,7 +139,7 @@ Coverage as well as Type may be good predictors for Circularity
 ## Circularity and reads sum length
 
 ```{r, fig.width=9, fig.height=4}
-ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, sum_len)) +
+ggplot(assemblies %>% filter(Status2 != "additional_plasmid"), aes(Status2, sum_len)) +
   geom_boxplot(aes(fill=Type), notch=F, varwidth = T) +
   coord_trans(y="sqrt") +
   facet_grid(cols = vars(Type)) +
@@ -196,10 +152,10 @@ ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, s
 
 Ryan Wick writes the following:
 
->... assuming that your reads are sufficiently long. Practically, this means longer than the longest repeat in the genome, as this will allow most assemblies to reach completion. For many bacterial genomes, the longest repeat will be the ribosomal RNA operon which is ~5.5 kbp, in which case a read N50 of 10 kbp is sufficient. However, some genomes have much longer repeats and will require longer reads. Overly-long reads rarely cause a problem, so you should aim for the longest reads you reasonably can.
+> ... assuming that your reads are sufficiently long. Practically, this means longer than the longest repeat in the genome, as this will allow most assemblies to reach completion. For many bacterial genomes, the longest repeat will be the ribosomal RNA operon which is \~5.5 kbp, in which case a read N50 of 10 kbp is sufficient. However, some genomes have much longer repeats and will require longer reads. Overly-long reads rarely cause a problem, so you should aim for the longest reads you reasonably can.
 
 ```{r, fig.width=9, fig.height=4}
-ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, max_len)) +
+ggplot(assemblies %>% filter(Status2 != "additional_plasmid"), aes(Status2, max_len)) +
   geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
   facet_grid(cols = vars(Type))+
   scale_fill_brewer(palette = "Set2")+
@@ -211,7 +167,7 @@ ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, m
 ## Circularity and reads avg length
 
 ```{r, fig.width=9, fig.height=4}
-ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, avg_len)) +
+ggplot(assemblies %>% filter(Status2 != "additional_plasmid"), aes(Status2, avg_len)) +
   geom_boxplot(aes(fill=Type), notch=T, varwidth = T) +
   facet_grid(cols = vars(Type))+
   scale_fill_brewer(palette = "Set2")+
@@ -223,7 +179,7 @@ ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, a
 ## Circularity and number of reads
 
 ```{r, fig.width=9, fig.height=4}
-ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, num_seqs)) +
+ggplot(assemblies %>% filter(Status2 != "additional_plasmid"), aes(Status2, num_seqs)) +
   geom_boxplot(aes(fill=Type), notch=F, varwidth = T) +
   facet_grid(cols = vars(Type))+
   coord_trans(y="sqrt")+
@@ -236,17 +192,16 @@ ggplot(summary_table %>% filter(Status2 != "additional_plasmid"), aes(Status2, n
 ## Strains with incomplete chromosomes arranged by coverage
 
 ```{r}
-ggplot(summary_table %>% filter(Type=="Chromosome" & Status2 == "linear"), aes(coverage))+
+ggplot(assemblies %>% filter(Type=="Chromosome" & Status2 == "linear"), aes(coverage))+
   geom_histogram(fill="steelblue", bins = 100)
 ```
-
 
 ### Lowest coverage
 
 Some of the strains were not re-sequenced yet
 
 ```{r}
-summary_table %>% 
+assemblies %>% 
   filter(Type=="Chromosome" & Status2 == "linear") %>% 
   select(Strain, coverage) %>% 
   arrange(coverage)
@@ -257,24 +212,22 @@ summary_table %>%
 To resequence or re-assemble with Flye-Medaka-Polypolish
 
 ```{r}
-summary_table %>% 
+assemblies %>% 
   filter(Type=="Chromosome" & Status2 == "linear") %>% 
   select(Strain, coverage) %>% 
   arrange(-coverage)
 ```
 
-
 # Number of plasmids per strain
 
 ```{r, message = FALSE}
-plasmids_count <- summary_table %>% group_by(Strain, Type) %>% summarise(Count = n()) %>% filter(Type=="Plasmid")
+plasmids_count <- assemblies %>% group_by(Strain, Type) %>% summarise(Count = n()) %>% filter(Type=="Plasmid")
 plasmids_count
 ```
 
 Total number of strains with plasmids identified `r length(plasmids_count$Strain)`
 
-Could not find any plasmids in `r length(unique(summary_table$Strain)) - length(plasmids_count$Strain)` strains
-
+Could not find any plasmids in `r length(unique(assemblies$Strain)) - length(plasmids_count$Strain)` strains
 
 ## Plasmid counts per strain
 
@@ -292,9 +245,7 @@ bar_plasmid <- plot_ly(
 bar_plasmid %>% layout(title="Plasmids count per strain")
 ```
 
-
 ### Plasmid counts distribution
-
 
 ```{r, message=FALSE, warning=FALSE, fig.width=12}
 # boxplot and violin plot
@@ -334,11 +285,10 @@ fig <- subplot(box_plasmid, hist_plasmids) %>%
 fig
 ```
 
-
 ## Number of complete and incomplete segments per strain
 
 ```{r, warning = FALSE, message = FALSE, fig.width=12}
-complete_incomplete <- summary_table %>% group_by(Strain, Status2) %>% summarise(Count = n())
+complete_incomplete <- assemblies %>% group_by(Strain, Status2) %>% summarise(Count = n())
 
 bar_complete <- plot_ly(data = complete_incomplete,
   x = ~Strain,
@@ -354,26 +304,25 @@ bar_complete
 
 Note:
 
-- "complete" - circular assembly (by Unicycler)
+-   "complete" - circular assembly (by Unicycler)
 
-- "incomplete" - linear assembly (by Unicycler)
+-   "incomplete" - linear assembly (by Unicycler)
 
-- "scaffold" - linear assembly (assembly made by SPAdes in a 'plasmid' mode)
-
+-   "scaffold" - linear assembly (assembly made by SPAdes in a 'plasmid' mode)
 
 ### Strain DA68966 sticks out
 
 ```{r}
-DA68966_summary <- summary_table %>% filter(Strain=="DA68966")
+DA68966_summary <- assemblies %>% filter(Strain=="DA68966")
 DA68966_summary
 ```
 
 Very low coverage
 
-## Summary table of plasmids assembled by SPAdes 
+## Summary table of plasmids assembled by SPAdes
 
 ```{r}
-summary_table %>% filter(Status=="scaffold")
+assemblies %>% filter(Status=="scaffold")
 ```
 
 ## Genome length distribution
@@ -381,7 +330,7 @@ summary_table %>% filter(Status=="scaffold")
 Both chromosomes and plasmids
 
 ```{r, fig.width=10}
-hist_chrom_plasm_len <- plot_ly(data = summary_table,
+hist_chrom_plasm_len <- plot_ly(data = assemblies,
         alpha=0.9,
         x=~Length,
         color = ~Type,
@@ -392,19 +341,18 @@ hist_chrom_plasm_len <- plot_ly(data = summary_table,
 hist_chrom_plasm_len
 ```
 
-
 These longest outliers among plasmids (250k, 400k, 700k and 900k) are parts of incomplete chromosomes
 
 ### "Plasmids" sorted by length
 
 ```{r}
-summary_table %>% filter(Type=='Plasmid') %>% arrange(-Length)
+assemblies %>% filter(Type=='Plasmid') %>% arrange(-Length)
 ```
 
 #### Summary table for DA63676
 
 ```{r}
-summary_table %>% filter(Strain=="DA63676")
+assemblies %>% filter(Strain=="DA63676")
 ```
 
 Chromosome is incomplete and adds up to 5 Mbp together with the longest 'plasmid'
@@ -412,11 +360,10 @@ Chromosome is incomplete and adds up to 5 Mbp together with the longest 'plasmid
 #### Summary table for DA63676
 
 ```{r}
-summary_table %>% filter(Strain=="DA63914")
+assemblies %>% filter(Strain=="DA63914")
 ```
 
 Same here...
-
 
 # Benchmarking Universal Single-Copy Orthologues
 
@@ -463,12 +410,11 @@ bar_busco <- bar_busco %>%
 bar_busco
 ```
 
-
 ## Summary by category
 
 ### Complete
 
->If found to be complete, whether single-copy or duplicated, the BUSCO matches have scored within the expected range of scores and within the expected range of length alignments to the BUSCO profile. If in fact an ortholog is not present in the input dataset, or the ortholog is only partially present (highly fragmented), and a high-identity full-length homolog is present, it is possible that this homolog could be mistakenly identified as the complete BUSCO. The score thresholds are optimised to minimise this possibility, but it can still occur.
+> If found to be complete, whether single-copy or duplicated, the BUSCO matches have scored within the expected range of scores and within the expected range of length alignments to the BUSCO profile. If in fact an ortholog is not present in the input dataset, or the ortholog is only partially present (highly fragmented), and a high-identity full-length homolog is present, it is possible that this homolog could be mistakenly identified as the complete BUSCO. The score thresholds are optimised to minimise this possibility, but it can still occur.
 
 Counts
 
@@ -486,7 +432,7 @@ busco_table %>% filter(Category == "Complete and single-copy BUSCOs (S)") %>% su
 
 ### Fragmented
 
->If found to be fragmented, the BUSCO matches have scored within the range of scores but not within the range of length alignments to the BUSCO profile. For genome assemblies this could indicate either that the gene is only partially present or that the sequence search and gene prediction steps failed to produce a full-length gene model even though the full gene could indeed be present in the assembly.
+> If found to be fragmented, the BUSCO matches have scored within the range of scores but not within the range of length alignments to the BUSCO profile. For genome assemblies this could indicate either that the gene is only partially present or that the sequence search and gene prediction steps failed to produce a full-length gene model even though the full gene could indeed be present in the assembly.
 
 Counts
 
@@ -500,7 +446,7 @@ busco_table %>% filter(Category == "Fragmented BUSCOs (F)" & Count > 0)
 
 ### Missing
 
->If found to be missing, there were either no significant matches at all, or the BUSCO matches scored below the range of scores for the BUSCO profile. For genome assemblies this could indicate either that these orthologs are indeed missing, or that the sequence search step failed to identify any significant matches, or that the gene prediction step failed to produce even a partial gene model that might have been recognised as a fragmented BUSCO match.
+> If found to be missing, there were either no significant matches at all, or the BUSCO matches scored below the range of scores for the BUSCO profile. For genome assemblies this could indicate either that these orthologs are indeed missing, or that the sequence search step failed to identify any significant matches, or that the gene prediction step failed to produce even a partial gene model that might have been recognised as a fragmented BUSCO match.
 
 Counts
 
@@ -508,8 +454,127 @@ Counts
 busco_table %>% filter(Category == "Missing BUSCOs (MFragmented)") %>% summary()
 ```
 
+
+# Flye Medaka Polypolish (FMP)
+
+I've made 131 assemblies all by both Unicycler and Flye-Medaka-Ployploish pipeline.
+I should keep only the best of each pair.
+
+```{r}
+strains <- yaml::read_yaml("~/Data/HeteroR/configs/strains_incomplete_config.yaml")
+
+strains <- names(strains$strains)
+
+length(strains)
+```
+
+## Find and read assembly summaries
+
+```{r}
+summaries <- map_dfr(strains, 
+        function(x){
+          df <- read_delim(paste0("~/Data/HeteroR/results/assemblies_joined/", x, "/summary.tsv"))
+          if (is_double(df$Component)) {df$Component <- as.character(df$Component)}
+          return(df)
+        } )
+
+
+summaries
+```
+
+How many complete chromosomes?
+
+```{r}
+summaries %>% 
+  filter(Type == "Chromosome") %>%  
+  group_by(Status) %>%
+  count() 
+```
+
+The word 'incomplete' comes from Unicycler's log **or** from 'N' in FMP assembly info ('N' is replaced by 'incomplete' later on)
+
+```{r}
+summaries %>% filter(Status == "complete")
+```
+
+```{r}
+summaries %>% 
+  filter(Status == "complete", Type == "Chromosome") %>% 
+  pull(Strain)
+```
+
+15 strains have 'complete' chromosomes, therefore were assembled by Unicycler but not by FMP. They don't have linked assembly from FMp as their main assembly- which is OK.
+
+## Still incomplete assemblies
+
+```{r}
+summaries %>% 
+  filter(Type == "Chromosome", Status == "incomplete") %>% pull(Strain)
+```
+
+These are were assembled by FMP, still incomplete.
+
+### Pairs plot
+
+```{r}
+incomplete_strains <- summaries %>% 
+  filter(Type == "Chromosome", Status == "incomplete") %>% pull(Strain)
+
+cov <- read_delim("~/Data/HeteroR/results/coverage/strains525.tsv") %>%
+  mutate(strain = str_extract(file, "DA[0-9]*")) %>% 
+  filter(strain %in% summaries$Strain) %>% 
+  mutate(completeness = if_else(strain %in% incomplete_strains, "incomplete", "complete"),
+         completeness.dummy = if_else(strain %in% incomplete_strains, 0, 1))
+
+cov %>% 
+  select(completeness, coverage, max_len, num_seqs, avg_len) %>% 
+  GGally::ggpairs(aes(fill=completeness, color=completeness, alpha=0.3))
+```
+
+
+```{r}
+cov.fit <- glm(completeness.dummy ~ coverage * max_len, data = cov, family = "binomial")
+
+summary(cov.fit)
+```
+
+##  Strains that broke RACON
+
+Eventually assembled by FMP (separate pipeline)
+
+```{r}
+strains <- yaml::read_yaml("~/Data/HeteroR/configs/strains_incomplete_broke.yaml")
+
+strains <- names(strains$strains)
+
+strains
+```
+
+Their assemblies are in `results/polypolish` and summary files in `results/flye`
+
+```{r}
+fpath <- "~/Data/HeteroR/results/flye/"
+summary <- read_delim("~/Data/HeteroR/results/flye/DA62892/assembly_info.txt")
+
+info_files <- dir(fpath, pattern = "*info.txt", recursive = T)
+
+fmp_summaries <- map_dfr(info_files, function(x){
+  df <- read_delim(paste0(fpath, x), col_types = "cddccdcc")
+  df$strain <- str_extract(x, "DA[0-9]*")
+  return(df)
+  })
+
+fmp_summaries %>% 
+  group_by(strain) %>% 
+  filter(length == max(length)) %>% 
+  group_by(circ.) %>% 
+  count()
+```
+
+All good, now them can add them to directory structure and ru the rest of the main pipeline
+
 # Save workspace
 
 ```{r}
-save.image(f="/home/andrei/Data/HeteroR/notebooks/genome_assembly_summary.RData")
+save.image(f="/home/andrei/Data/HeteroR/notebooks/assemblies_summary.RData")
 ```
