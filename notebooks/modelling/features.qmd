@@ -148,6 +148,8 @@ length(strains)
 
 ### Read repeats tables
 
+Some table are empty!
+
 ```{r, message=FALSE}
 repeat_df <- map_dfr(strains, function(x){
   path <- paste0("/home/andrei/Data/HeteroR/results/annotations/", x,"/repeats/", x, "_repeats.csv")
@@ -163,7 +165,7 @@ In this table there are `r length(unique(repeat_df$strain))` strains.
 
 ### Read BED files to determine center spanning repeat pairs
 
-```{r}
+```{r, message=FALSE}
 bed_df <- map_dfr(strains, function(x){
     path <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
     df <- read_delim(path, col_names = FALSE) %>% mutate(strain = x)
@@ -180,7 +182,7 @@ We have bed files for `r length(unique(bed_df$strain))` strains.
 
 ### Join bed files and repeats table to one features table.
 
-`bed_df` contains slightly more genes than `repeat_df` (+624), but `repeat_df` is important, that's why I use `left_join()` below
+`bed_df` contains more strains and genes than `repeat_df`, but if there is no repeats AR length and gene center - `repeat_df` is important, that's why I use `left_join()` below.
 
 ```{r}
 # join the two tables
@@ -225,16 +227,14 @@ Number of repeat pairs detected `r nrow(features)`.
 
 They are required for filtering of resistance genes and much more...
 
+
 ### Read ouput tables
 
 'Loose' hits must be removed!
 
 ```{r, message=FALSE}
-# read only strains from features
-strains <- unique(features$strain)
-
 rgi <- map_dfr(strains, function(x){
-        read_delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = "n/a", name_repair = "universal") %>% 
+        read_delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = c("n/a", ""), name_repair = "universal") %>% 
           mutate(strain = x)}) %>% 
   filter(Cut_Off != "Loose") %>% 
   select(-c(Predicted_Protein, CARD_Protein_Sequence, Contig, Start, Stop, Orientation, Predicted_DNA, Note)) %>% 
@@ -278,7 +278,7 @@ Criteria:
 
 #### Number of RGs per strain: before filtering
 
-```{r}
+```{r, warning=FALSE}
 rgi %>% 
   group_by(strain) %>% 
   count() %>% 
@@ -287,7 +287,10 @@ rgi %>%
 ```
 
 ```{r}
-summary(n_RG$n)
+rgi %>% 
+  group_by(strain) %>% 
+  count() %>% 
+  summary()
 ```
 
 These numbers should be lower!
@@ -515,6 +518,78 @@ dim(features)
 
 This is the dimensions of new `features`
 
+How many strains in features?
+
+```{r}
+length(unique(features$strain))
+```
+
+
+# Per-strain dataset
+
+Here will be 'per strain' features kept, that will be used for predictions
+
+## Coverage and max read length
+
+I've decided to add `coverage` and `max_len` to features. This data comes from coverage statistics.
+
+Check on the pairs plot from assemblies summary and coverage analysis to find out why.
+
+```{bash, eval=FALSE}
+# from ~/Data/HeteroR
+workflow/scripts/coverage_cli.py resources/strain_lists/strains525.txt 5131220 results/coverage/strains525.tsv filtered
+```
+
+Read the coverage table
+
+```{r, message=FALSE}
+coverage <- read_delim("/home/andrei/Data/HeteroR/results/coverage/strains525.tsv", na = c("", "NaN")) %>% 
+  mutate(strain = str_extract(file, "DA[0-9]*")) %>% 
+  select(strain, coverage, max_len)
+
+head(coverage)
+```
+
+
+## Completeness and N50
+
+`completeness` and `N50` come from assemblies summary files
+
+```{r, message=FALSE}
+summaries <- dir(path = "/home/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
+
+assemblies <- map_dfr(summaries, function(x){
+  read_delim(paste0("/home/andrei/Data/HeteroR/results/assemblies_joined/", x), col_types = "cccccccccccc")
+  }) %>% mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
+                Length = as.integer(gsub(",", "", Length, fixed = TRUE)),
+                N50 = as.integer(gsub(",", "", N50, fixed = TRUE)),
+                Longest_component = as.integer(gsub(",", "", Longest_component, fixed = TRUE)),
+                Status2 = case_when(Status == "incomplete" ~ "linear",
+                             Status == "complete" | Status == "Y" ~ "circular",
+                             Status == "scaffold" ~ "add.plasmid"))
+
+head(assemblies)
+```
+
+
+Join these two tables to make per strain features
+
+```{r}
+features_strain <- assemblies %>% 
+  filter(Type == "Chromosome") %>% 
+  select(Strain, Status2, N50) %>% 
+  rename("strain" = Strain, "chrom.status" = Status2) %>% 
+  left_join(coverage, by = "strain") %>% 
+  rename("read.max.len" = max_len)
+  
+head(features_strain)
+```
+
+How many strains here?
+
+```{r}
+length(unique(features_strain$strain))
+```
 
 ## Number of plasmids
 
@@ -522,46 +597,25 @@ This is the dimensions of new `features`
 
 Info on plasmids is in tables `summary.tsv` in `results/assemblies_joined` and it has been collected in `genome_assembly_summary.Rmd`
 
-To build the table anew run the following chunk of code (by default its evaluation is OFF)
-
-```{r, eval=TRUE, message=FALSE}
-assembly_summary_files <- dir(path = "/home/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
-
-assembly_summary <- map_dfr(assembly_summary_files, function(x){
-  read_delim(paste0("/home/andrei/Data/HeteroR/results/assemblies_joined/", x), col_types = "cccccccccccc")
-  }) %>% mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
-                Length = as.integer(gsub(",", "", Length, fixed = TRUE)),
-                N50 = as.integer(gsub(",", "", N50, fixed = TRUE)),
-                Longest_component = as.integer(gsub(",", "", Longest_component, fixed = TRUE)))
-
-head(assembly_summary)
-```
-
-### Calculate plasmid counts from summary files
+### Plasmid counts from assemblies summary files
 
 ```{r}
-plasmid_counts <- assembly_summary %>% 
+plasmid_counts <- assemblies %>% 
   filter(Type == "Plasmid") %>% 
   group_by(Strain) %>% 
   count() %>% 
   rename("strain" = Strain, "n.plasmids" = n)
-```
 
-and add it to `features`
-
-```{r}
-features <- left_join(features, plasmid_counts, by = "strain")
-
-head(features)
+features_strain <- left_join(features_strain, plasmid_counts, by = "strain")
 ```
 
 All NAs in `features` from now on should be 0s in the end.
 
-### Calculate number of plasmids from fasta headers + their relative coverage
+### Plasmid counts from fasta headers + their relative coverage
 
 We should take into account relative coverage of plasmids (i.e. number of copies), which can be found in an assembly header, but not every plasmid has this measure, since it is calculated only by Unicycler but not SPAdes or FMP.
 
-```{r, eval=TRUE}
+```{r, eval=FALSE}
 # use fread from data.table
 assemblies_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
 assembly_files <- dir(path=assemblies_path, pattern="assembly.fasta$", recursive=T)
@@ -584,22 +638,13 @@ headers$circular <- sapply(headers$V4, function(y){strsplit(y, "=")[[1]][2]})
 # sapply(headers_df$V2, function(x){round(as.numeric(strsplit(x, "=")[[1]][2]))})
 
 headers <- headers %>% select(-c(V2, V3, V4))
-
-headers
 ```
 
 From this table I can calculate number of plasmids as sum of depths
 
-First, remove DA68966 until it is resequenced.
-
-```{r}
-headers <- headers %>% 
-  filter(strain != "DA68966")
-```
-
 Let's look at the lengths distribution because length is the key to "smart" filtering of plasmids
 
-```{r, fig.width=12, fig.height=4}
+```{r, fig.width=12, fig.height=4, eval=FALSE}
 library(patchwork)
 
 h1 <- headers %>% 
@@ -620,14 +665,14 @@ h1 / h2
 
 Let's remove all segments shorter than 1000 bp
 
-```{r}
+```{r, eval=FALSE}
 headers <- headers %>% 
   filter(length >= 1000)
 ```
 
 Distribution of longest segments in each strain
 
-```{r}
+```{r, eval=FALSE}
 headers %>% 
   group_by(strain) %>% 
   summarise(max.length = max(length)) %>% 
@@ -654,7 +699,7 @@ if unmarked segments left: mark them as plasmids
 
 Let's try
 
-```{r}
+```{r, eval=FALSE}
 df.tmp <- headers %>% filter(strain=="DA62886")
 sum.len <- 0
 marks <- c()
@@ -674,7 +719,7 @@ df.tmp
 
 Apply it to full headers table
 
-```{r}
+```{r, eval=FALSE}
 # Naive algorithm will look like this
 
 get.labels <- function(lengths.vec, max.sum.len){
@@ -708,7 +753,7 @@ headers
 
 Now, I can calculate "real" plasmid count per strain and add it to the features table
 
-```{r}
+```{r, eval=FALSE}
 plasmid_counts_alt <- headers %>% 
   filter(label=="plasmid") %>% 
   group_by(strain) %>% 
@@ -719,98 +764,51 @@ plasmid_counts_alt
 
 Add this data set to filtered features
 
-```{r}
+```{r, eval=FALSE}
 features_filtered <- left_join(features_filtered, plasmid_counts_alt, by="strain")
 ```
 
-## Black-box
-
-One-hot encoding of DNA sequences.
-
-The function below is borrowed from [this repo](https://github.com/btmonier/monier/blob/master/R/oneHot.R)
-
-```{r, eval=FALSE}
-oneHot <- function(s, n = c("A", "C", "G", "T")) {
-
-    # Construct matrix
-    s <- toupper(s)
-    seq_len <- nchar(s)
-    seq_split <- unlist(strsplit(x = s, split = ""))
-
-    seq_mat <- matrix(data = rep(0, seq_len * length(n)), nrow = 4)
-
-    rownames(seq_mat) <- n
-    colnames(seq_mat) <- seq_split
-
-    # Encode
-    for (i in n) {
-        seq_mat[rownames(seq_mat) == i, colnames(seq_mat) == i] <- 1
-    }
-
-    return(seq_mat)
-
-}
-```
-
-Every one-hot encoded amplifiable region is a matrix.
-
-What is still unclear it's how to 'average' this feature across many amplifiable regions that every gene/strain has.
-
-Maybe it will be better to use **CNN** on Amplifiable region's sequences - and get nucleotides' importance.
-
-# PTZ tested strains
-
-Here I will analyse only strains tested for resistance to PTZ which acts on beta-lactamases
-
-## Create the "per-strain" data set
-
-**OBS!** Only per strain features should be kept in this table
-
-```{r}
-# filter those strains that were tested for AMP
-# keep for per gene feature calculations
-# features_amp <- features_filtered %>% filter(AB=="AMP") %>% distinct()
-# this df is for per strain calculation
-features_bl_strain <- features_filtered %>% select(strain, resistance, n.plasmids) %>% distinct()
-head(features_bl_strain)
-```
-
-Number of strains tested for AMP resistance `r length(unique(features_filtered$strain))`
-
-## Add number of beta-lactamases
+## Number of beta-lactamases
 
 We need a column with number of beta-lactamase genes per strain (instead of absence/presence)
 
 Those genes or strains that don't have b-l genes should have zeros in repeat counts, length etc.
 
+Here I will need this big `features` table!
+
 ```{r}
-f_bl_filt <- features_filtered %>% 
+n.beta.lac <- features %>% 
   select(strain, record_id, AMR.Gene.Family) %>% 
-  distinct()
+  distinct() %>% 
+  mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
+  group_by(strain) %>% 
+  summarise(n.beta.lac = sum(is.beta.lac))
 
-f_bl_filt$is_beta_lac <- grepl("beta-lactamase", f_bl_filt$AMR.Gene.Family)
-
-n.beta.lac <- f_bl_filt %>% group_by(strain) %>% summarise(n.beta.lac=sum(is_beta_lac))
-
-# join with features_bl_strain
-features_bl_strain <- left_join(features_bl_strain, n.beta.lac, by="strain")
-
-# add is beta lac to features amp for future calculations
-features_filtered <- left_join(features_filtered, f_bl_filt %>% select(record_id, is_beta_lac), by="record_id") %>% 
-  relocate(is_beta_lac, .before="ORF_ID")
-
-head(features_bl_strain)
+features_strain <- left_join(features_strain, n.beta.lac, by = "strain")
 ```
 
-## Location on plasmid
+## Location on plasmid, distance to oriC and plus strand
 
-`features_bl` contains gene names, so I can find if it's located on a plasmid.
+1) `features` contains gene names, so I can find if it's located on a plasmid.
 
 **OBS!** This feature should be "averaged" by strain!
 
 t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...)
 
 "Location on plasmid" can be used later to separate all features into two groups: on plasmid and not (repeat counts, distance to oriC etc.)
+
+2) `features` contains gene names, I can find this in annotation files (gff, gbk etc) and assembly summary tables (completeness)
+
+**OBS!** This feature should be "averaged" by strain!
+
+t.ex.: *closest distance to oriC* or *median/mean distance to oriC*
+
+If I assume that *oriC* is available only in circularized genomes then I might get NAs in some strains
+
+
+3) information on strandedness (gene orientation) is also in the gff files
+
+Code:
 
 ```{r}
 # the only working way to read gff files in R
@@ -828,93 +826,58 @@ read_gff <- function(gff_filename) {
   return(df)
   }
 
-
-
 # get gff full paths using strain names vector
 gff_files <- map_chr(strains, ~ str_c("/home/andrei/Data/HeteroR/results/annotations/", ., "/prokka/", ., "_genomic.gff"))
 
 # read gff files right in a tibble
 # it works quite long time
-gff <- map_dfr(gff_files, ~ read_gff(.))
-
-# transform the last column to get the same record_id as in features_amp
-gff <- separate(data = gff, col=V9, sep = ";locus_tag=", into=c("V10", "V11")) %>%  select(-V10)
-
-# give new names
-names(gff) <- c("seq.region", "type", "start", "stop", "strand", "record_id")
-
-# filter out genes that are not in features_amp
-gff_in_features <- filter(gff, record_id %in% unique(features_filtered$record_id))
-
-# remove this 2 million rows 
-rm(gff)
-
-# add 'located on plasmid' - if there is '1' in seq.region then its a chromosome (the first element of an assembly)
-gff_in_features$located.on.plasmid <- str_detect(gff_in_features$seq.region, "1", negate = T)
-#gff_amp$on.plasmid <- factor(if_else(gff_amp$located.on.plasmid, 1, 0))
-gff_in_features$on.plasmid <- if_else(gff_in_features$located.on.plasmid, 1, 0)
-```
-
-## Distance to *oriC*
-
-`features_amp` contains gene names,
-
-I can find this in annotation files (gff, gbk etc) and assembly summary tables (completeness)
-
-**OBS!** This feature should be "averaged" by strain!
-
-t.ex.: closest distance to oriC or median/mean distance to oriC
-
-If I assume that oriC is available only in circularized genomes then I might get NAs in some strains
-
-```{r}
-# find distance to oriC (here I assume that all genomes begin from oriC)
-gff_in_features <- rename(gff_in_features, "dist.to.oriC"=start)
-```
-
-## On plus strain
-
-It might also be useful
-
-```{r}
-gff_in_features$pos.strand <- if_else(gff_in_features$strand == "+", 1, 0)
-
-# remove some columns
-gff_in_features <- select(gff_in_features, c(record_id, dist.to.oriC, pos.strand, on.plasmid))
-
+gff <- map_dfr(gff_files, ~ read_gff(.)) %>% 
+  separate(col=V9, sep = ";locus_tag=", into=c("V10", "V11")) %>%
+  select(-V10) %>% 
+  set_names(c("seq.region", "type", "start", "stop", "strand", "record_id")) %>% 
+  filter(record_id %in% unique(features$record_id)) %>% 
+  mutate(located.on.plasmid = str_detect(seq.region, "1", negate = T),
+         on.plasmid = if_else(located.on.plasmid, "yes", "no"),
+         pos.strand = if_else(strand == "+", "yes", "no")) %>% 
+  rename("dist.to.oriC" = start) %>% 
+  select(record_id, dist.to.oriC, pos.strand, on.plasmid)
 
 ```
 
-## Remove non-beta-lactamase AMR genes
+
+## Remove non-beta-lactamase AMR genes from GFF
 
 ```{r}
 # add is beta lac
-gff_in_features <- left_join(gff_in_features, select(features_filtered, c(record_id, is_beta_lac)) %>% distinct(), by="record_id")
-  
-  
-gff_bl <- gff_in_features %>%  filter(is_beta_lac) %>% select(-is_beta_lac)
+gff <- features %>% 
+  mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
+  select(record_id, is.beta.lac) %>% 
+  distinct() %>% 
+  right_join(gff, by = "record_id") %>% 
+  filter(is.beta.lac) %>% 
+  select(-is.beta.lac)
+
+gff
 ```
 
-### GFF with BL genes only
-
-Overview
-
-```{r}
-gff_bl
-```
 
 ## Add 'on.plasmid', 'strand' and 'dit.to.oriC' to `features_filtered`
 
 ```{r}
-features_filtered <- left_join(features_filtered, gff_bl, by="record_id")
+features <- features %>% 
+  mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
+  left_join(gff, by = "record_id")
 
+head(features)
 ```
 
-## Add 'strain' and 'record_id' to `gff_bl` (GFF with BL genes)
+## Add 'strain' and 'record_id' to `gff` (GFF with BL genes)
 
 ```{r}
-gff_bl <- left_join(gff_bl, select(features_filtered, c(strain, record_id)) %>% distinct(), by="record_id")
-
+gff <- features %>% 
+  select(strain, record_id) %>% 
+  distinct() %>% 
+  right_join(gff, by = "record_id")
 ```
 
 ### Summarize some BL-related features per strain
@@ -932,41 +895,38 @@ gff_bl <- left_join(gff_bl, select(features_filtered, c(strain, record_id)) %>% 
 All in three variants: on chromosome, on plasmids, both
 
 ```{r}
-min_dist_oriC <- gff_bl %>% 
+min_dist_oriC <- gff %>% 
   group_by(strain, on.plasmid) %>% 
   summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
   spread(key = "on.plasmid", value = "min.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
-  rename("strain" = strain, "min.dist.oriC.chrom" = `0`, "min.dist.oriC.plasmid" = `1`) %>% 
+  rename("min.dist.oriC.chrom" = no, "min.dist.oriC.plasmid" = yes) %>% 
   mutate(min.dist.oriC = min.dist.oriC.chrom + min.dist.oriC.plasmid)
 
-med_dist_oriC <- gff_bl %>% 
+med_dist_oriC <- gff %>% 
 group_by(strain, on.plasmid) %>% 
   summarise(med.dist.oriC = median(dist.to.oriC)) %>% 
   spread(key = "on.plasmid", value = "med.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
-  rename("strain" = strain, "med.dist.oriC.chrom" = `0`, "med.dist.oriC.plasmid" = `1`) %>% 
+  rename("med.dist.oriC.chrom" = no, "med.dist.oriC.plasmid" = yes) %>% 
   mutate(med.dist.oriC = med.dist.oriC.chrom + med.dist.oriC.plasmid)
 
-n_genes_plus_strand <- gff_bl %>% 
+n_genes_plus_strand <- gff %>% 
   group_by(strain, on.plasmid) %>% 
-  summarise(n.beta.lac.plus=sum(pos.strand)) %>% 
+  summarise(n.beta.lac.plus = sum(pos.strand == "yes")) %>% 
   spread(key = "on.plasmid", value = "n.beta.lac.plus", fill = 0) %>% 
-  rename("strain" = strain, "n.beta.lac.plus.chrom" = `0`, "n.beta.lac.plus.plasmid" = `1`) %>% 
+  rename("n.beta.lac.plus.chrom" = no, "n.beta.lac.plus.plasmid" = yes) %>% 
   mutate(n.beta.lac.plus = n.beta.lac.plus.chrom + n.beta.lac.plus.plasmid)
 
 # genes on plasmids are always on plasmids
-n_genes_plasmids <- gff_bl %>% 
+n_genes_plasmids <- gff %>% 
   group_by(strain) %>% 
-  summarise(n.beta.lac.plasmid=sum(on.plasmid))
+  summarise(n.beta.lac.plasmid = sum(on.plasmid == "yes"))
 
-features_bl_strain <- list(features_bl_strain, min_dist_oriC, med_dist_oriC, n_genes_plus_strand, n_genes_plasmids) %>% 
-  reduce(left_join, by="strain")
+features_strain <- list(features_strain, min_dist_oriC, med_dist_oriC, n_genes_plus_strand, n_genes_plasmids) %>% 
+  reduce(left_join, by = "strain") %>% 
+  mutate(n.beta.lac.chrom = n.beta.lac - n.beta.lac.plasmid) %>% 
+  relocate(n.beta.lac.plasmid, n.beta.lac.chrom, .before = min.dist.oriC.chrom)
 
-features_bl_strain <- features_bl_strain %>% 
-  mutate(n.beta.lac.chrom = n.beta.lac - n.beta.lac.plasmid)
-
-features_bl_strain <- features_bl_strain %>% relocate(n.beta.lac.plasmid, n.beta.lac.chrom, .before = min.dist.oriC.chrom)
-
-head(features_bl_strain)
+head(features_strain)
 ```
 
 ## Repeat count
@@ -984,52 +944,40 @@ Also, repeat counts should be calculated separately for plasmid and chromosomal 
 # count number of rows per strains and on.plasmid
 # exclude non-beta-lac genes
 # according to the current repeat definition distinct() should not be used
-repeat_counts <- features_filtered %>% 
-  filter(is_beta_lac) %>% 
+repeat_counts <- features %>% 
+  filter(is.beta.lac) %>% 
   group_by(strain, on.plasmid) %>%
-  summarise("n.rep"=n()) %>% 
+  summarise("n.rep" = n()) %>% 
   spread(key = "on.plasmid", value = "n.rep", fill = 0) %>% 
-  rename("strain" = strain, "n.rep.chrom" = `0`, "n.rep.plasmid" = `1`) %>% 
-  mutate(n.rep.total = n.rep.chrom + n.rep.plasmid)
-
-
-# add to features strain
-features_bl_strain <- left_join(features_bl_strain, repeat_counts, by="strain")
+  rename("n.rep.chrom" = no, "n.rep.plasmid" = yes) %>% 
+  mutate(n.rep.total = n.rep.chrom + n.rep.plasmid) %>% 
+  select(strain, n.rep.chrom, n.rep.plasmid, n.rep.total)
 
 
 # count number of repeats spanning center
-rep_counts_center <- features_filtered %>% 
-  filter(is_beta_lac, spans_center=="yes") %>% 
+rep_counts_center <- features %>% 
+  filter(is.beta.lac, spans_center == "yes") %>% 
   group_by(strain, on.plasmid) %>%
-  summarise("n.rep.cen"=n()) %>% 
+  summarise("n.rep.cen" = n()) %>% 
   spread(key = "on.plasmid", value = "n.rep.cen", fill = 0) %>% 
-  rename("strain" = strain, "n.rep.cen.chrom" = `0`, "n.rep.cen.plasmid" = `1`) %>% 
-  mutate(n.rep.tot.cen = n.rep.cen.chrom + n.rep.cen.plasmid)
-
-features_bl_strain <- left_join(features_bl_strain, rep_counts_center, by="strain")
-
-# number of repeats not spanning center
-# features_bl_strain$n.rep.tot.non.cen <- features_bl_strain$n.rep.total - features_bl_strain$n.rep.tot.cen
-
+  rename("n.rep.cen.chrom" = no, "n.rep.cen.plasmid" = yes) %>% 
+  mutate(n.rep.tot.cen = n.rep.cen.chrom + n.rep.cen.plasmid) %>% 
+  select(strain, n.rep.tot.cen, n.rep.cen.chrom, n.rep.cen.plasmid)
 
 # repeats per gene = number of rows per record_id
 # exclude non-beta-lac genes
-repeat_counts_gene <- features_filtered %>%
-  filter(is_beta_lac) %>% 
+repeat_counts_gene <- features %>%
+  filter(is.beta.lac) %>% 
   group_by(record_id, on.plasmid) %>%
-  summarise("n_repeats_gene"=n())
+  summarise("n.repeats.gene" = n())
 
 # join only those counts that are in features_filtered
-features_filtered <- left_join(features_filtered, repeat_counts_gene, by=c("record_id", "on.plasmid"))
+features <- left_join(features, repeat_counts_gene, by = c("record_id", "on.plasmid") )%>% 
+  relocate(n.repeats.gene, .before="ORF_ID")
 
-# NAs to 0s
-# there is no NAs
-#features_filtered$n_repeats_gene <- ifelse(is.na(features_filtered$n_repeats_gene), 0, features_filtered$n_repeats_gene)
-#features_filtered$n_repeats_strain <- ifelse(is.na(features_filtered$n_repeats_strain), 0, features_filtered$n_repeats_strain)
-
-# locate
-features_filtered <- features_filtered %>% relocate(n_repeats_gene, .before="ORF_ID")
-
+# add the rest
+features_strain <- list(features_strain, repeat_counts, rep_counts_center) %>% 
+  reduce(left_join, by = "strain")
 
 ```
 
