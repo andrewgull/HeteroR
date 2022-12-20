@@ -33,23 +33,34 @@ with open(snakemake.log[0], "w") as f:
     # ADD CAPTURED OUT TO OUTS
     outs.append(unicycler_out)
 
-    # CHECK ASSEMBLY COMPLETENESS
-    completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
-                                  "cut -d ' ' -f 8" % unicycler_log_path, shell=True, capture_output=True, text=True)
-    completeness_stdout = completeness.stdout.splitlines()
-    # if this table with completeness in unicycler.log contains only 1 assembled component
-    # there is no 'total' line in this table
-    # therefore the length of completeness_stdout equals 2
-    # and index of the chromosome completeness status should be 1, not 2
-    # on the next line you should check this
-    if len(completeness_stdout) == 2:
-        chrom_status_index = 1
-    else:
-        chrom_status_index = 2
-    # now use this index to determine chromosome completeness status
-    if completeness_stdout[chrom_status_index] == "incomplete":
-        print("Unicycler assembly is not complete.\nFlye-Medaka-Polypolish have been chosen to produce new assembly.")
+    if len(unicycler_out.stderr) == 0:
+        # RENAME THE ASSEMBLY FILE
         os.rename("%s/assembly.fasta" % assembly_dir, "%s/assembly_unicycler.fasta" % assembly_dir)
+
+        # CHECK ASSEMBLY COMPLETENESS
+        completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
+                                      "cut -d ' ' -f 8" % unicycler_log_path, shell=True, capture_output=True, text=True)
+        completeness_stdout = completeness.stdout.splitlines()
+        # if this table with completeness in unicycler.log contains only 1 assembled component
+        # there is no 'total' line in this table
+        # therefore the length of completeness_stdout equals 2
+        # and index of the chromosome completeness status should be 1, not 2
+        # on the next line you should check this
+        # use this completeness status to decide to run FMP or not 
+        if len(completeness_stdout) == 2:
+            chrom_status = completeness_stdout[1]
+        else:
+            chrom_status = completeness_stdout[2]
+    else:
+        # something went wrong with Unicycler
+        # set chrom_status as "error" it will start FMP
+        chrom_status = "error"
+    
+    # CHECK UNICYCLER ASSEMBLY
+    if chrom_status == "incomplete" or chrom_status == "error":
+        print("Unicycler assembly is not complete or has exited with an error." \
+                "\nFlye-Medaka-Polypolish have been chosen to produce new assembly.")
+        
         # RUN FLYE
         flye_out = subprocess.run("flye --nano-raw %s --threads %i --out-dir %s -g %s --asm-coverage %i" %
                                   (long_reads, threads, assembly_dir, genome_size, coverage),
