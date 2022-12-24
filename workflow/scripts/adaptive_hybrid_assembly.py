@@ -34,8 +34,6 @@ with open(snakemake.log[0], "w") as f:
     outs.append(unicycler_out)
 
     if len(unicycler_out.stderr) == 0:
-        # RENAME THE ASSEMBLY FILE
-        os.rename("%s/assembly.fasta" % assembly_dir, "%s/assembly_unicycler.fasta" % assembly_dir)
 
         # CHECK ASSEMBLY COMPLETENESS
         completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
@@ -58,10 +56,16 @@ with open(snakemake.log[0], "w") as f:
     
     # CHECK UNICYCLER ASSEMBLY
     if chrom_status == "incomplete" or chrom_status == "error":
-        print("Unicycler assembly is not complete or has exited with an error." \
-                "\nFlye-Medaka-Polypolish have been chosen to produce new assembly.")
+
+        # RENAME THE UNI ASSEMBLY IF EXISTS (i.e. INCOMPLETE)
+        if os.path.isfile("%s/assembly.fasta"):
+            os.rename("%s/assembly.fasta" % assembly_dir, "%s/assembly_unicycler.fasta" % assembly_dir)
+            print("Unicycler assembly not found, Unicycler exited with an error.")
+        else:
+            print("Unicycler assembly is incomplete.")
         
         # RUN FLYE
+        print("Flye-Medaka-Polypolish will be used to assemble the genome.")
         flye_out = subprocess.run("flye --nano-raw %s --threads %i --out-dir %s -g %s --asm-coverage %i" %
                                   (long_reads, threads, assembly_dir, genome_size, coverage),
                                   shell=True, capture_output=True, text=True)
