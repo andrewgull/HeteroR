@@ -1,5 +1,5 @@
 # script for adaptive hybrid assembling
-# runs unicycler and then flye-medaka-polypolish if chromosomal assembly is not complete
+# it runs unicycler and/or flye-medaka-polypolish depending on the genome coverage
 import sys
 import subprocess
 import os
@@ -11,7 +11,6 @@ long_reads = snakemake.input[2]
 assembly_dir = snakemake.output[0]
 draft_dir = snakemake.output[1]
 polish_dir = snakemake.output[2]
-unicycler_log_path = os.path.join(assembly_dir, "unicycler.log")
 
 # DEFINE PARAMS
 threads = snakemake.threads
@@ -25,47 +24,41 @@ outs = list()
 # OPEN LOG
 with open(snakemake.log[0], "w") as f:
     sys.stderr = sys.stdout = f
+    
+    # CALCULATE COVERAGE
+    seqkit_out = subprocess.run("seqkit stats %s -T" % long_reads, shell=True, capture_output=True, text=True)
+    gen_coverage = int(seqkit_out.stdout.split("\n")[1].split("\t")[4])/5131220
 
-    # RUN UNICYCLER
-    unicycler_out = subprocess.run("unicycler -1 %s -2 %s -l %s -t %i -o %s "
+    # SET UNI STATUS
+    unicycler_status = "ok"
+
+    # SPARSE COV IS FOR UNI ELSE USE FMP
+    if gen_coverage <= 30:
+        # RUN UNICYCLER
+        unicycler_out = subprocess.run("unicycler -1 %s -2 %s -l %s -t %i -o %s "
                                    % (short_reads_1, short_reads_2, long_reads, threads, assembly_dir),
                                    shell=True, capture_output=True, text=True)
-    # ADD CAPTURED OUT TO OUTS
-    outs.append(unicycler_out)
+        # ADD CAPTURED OUT TO OUTS
+        outs.append(unicycler_out)
 
-    if len(unicycler_out.stderr) == 0:
-
-        # CHECK ASSEMBLY COMPLETENESS
-        completeness = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' %s | head -n -3 | tr -s ' ' | "
-                                      "cut -d ' ' -f 8" % unicycler_log_path, shell=True, capture_output=True, text=True)
-        completeness_stdout = completeness.stdout.splitlines()
-        # if this table with completeness in unicycler.log contains only 1 assembled component
-        # there is no 'total' line in this table
-        # therefore the length of completeness_stdout equals 2
-        # and index of the chromosome completeness status should be 1, not 2
-        # on the next line you should check this
-        # use this completeness status to decide to run FMP or not 
-        if len(completeness_stdout) == 2:
-            chrom_status = completeness_stdout[1]
+        # CHECK ERRORS
+        if len(unicycler_out.stderr) > 0:
+            unicycler_status = "error"
+            print("The genome coverage is sparse, but Unicycler has crashed.")
         else:
-            chrom_status = completeness_stdout[2]
-    else:
-        # something went wrong with Unicycler
-        # set chrom_status as "error" it will start FMP
-        chrom_status = "error"
+            # all good, no need to run FMP
+            # create dirs: polished, drafts
+            os.mkdir(draft_dir)
+            os.mkdir(polish_dir)
+            print("The genome coverage is sparse, Unicycler has been chosen.\nEmpty draft and polish dirs have been created.")
     
-    # CHECK UNICYCLER ASSEMBLY
-    if chrom_status == "incomplete" or chrom_status == "error":
-
-        # RENAME THE UNI ASSEMBLY IF EXISTS (i.e. INCOMPLETE)
-        if os.path.isfile("%s/assembly.fasta"):
-            os.rename("%s/assembly.fasta" % assembly_dir, "%s/assembly_unicycler.fasta" % assembly_dir)
-            print("Unicycler assembly not found, Unicycler exited with an error.")
-        else:
-            print("Unicycler assembly is incomplete.")
+    # RUN FMP IF UNI BROKE OR COV IS SPARSE
+    elif gen_coverage > 30 or unicycler_status == "error":     
+        # MK ASSEMBLY DIR
+        os.mkdir(assembly_dir)
         
         # RUN FLYE
-        print("Flye-Medaka-Polypolish will be used to assemble the genome.")
+        print("Flye-Medaka-Polypolish will be chosen to assemble the genome")
         flye_out = subprocess.run("flye --nano-raw %s --threads %i --out-dir %s -g %s --asm-coverage %i" %
                                   (long_reads, threads, assembly_dir, genome_size, coverage),
                                   shell=True, capture_output=True, text=True)
@@ -124,11 +117,7 @@ with open(snakemake.log[0], "w") as f:
         # same file as for unicycler
         destination = os.path.join(cwd, "%s/assembly.fasta" % assembly_dir)
         os.symlink(source, destination)
-    else:
-        # create dirs: polished, drafts
-        os.mkdir(draft_dir)
-        os.mkdir(polish_dir)
-        print("Unicycler assembly is complete. Empty draft and polish dirs were created.")
+ 
 
     # PRINT STDOUT/STDERR TO LOG
     for out in outs:
