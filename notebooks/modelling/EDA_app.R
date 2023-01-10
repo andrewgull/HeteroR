@@ -4,23 +4,35 @@ library(shiny)
 library(tidyverse)
 
 # Read the main data table with features
-features_ptz_strain <- read_csv("data/features_bl_strain.csv")
+features_strain <- read_csv("data/features_strain.csv") 
+
+# NA to 0
+features_strain[is.na(features_strain)] <- 0
+
+# read testing labels
+hr_testing <- read_csv("data/heteroresistance_testing_gr12.csv")
+
+features_strain <- features_strain %>% 
+  left_join(hr_testing, by = "strain") %>% 
+  filter(resistance != "R") %>% 
+  select(-N50)
 
 # get vars to use later in UI (selectInput)
-vars <- names(select(features_ptz_strain, -c("strain", "resistance")))
+vars <- names(select(features_strain, -c("strain", "resistance")))
 
 # get strain names to use in UI (heat map)
-strains <- features_ptz_strain$strain
+strains <- features_strain$strain
 
 # get ampC and non-ampC counts 
-bl_count <- features_ptz_strain %>% 
+bl_count <- features_strain %>% 
   select(resistance, n.beta.lac, ampC.type.beta.lactamase) %>% 
   mutate(non.ampC = n.beta.lac - ampC.type.beta.lactamase) %>% 
   select(-n.beta.lac)
 
 # make it tidy
 bl_count_tidy <- gather(bl_count, key = "gene", value = "n", 2:3) %>% 
-  group_by(resistance, gene) %>% summarize(sum=sum(n))
+  group_by(resistance, gene) %>% 
+  summarize(sum = sum(n))
 
 
 ################
@@ -42,12 +54,7 @@ ui <- fluidPage(
                # first column with controls
                column(2, 
                       selectInput(inputId = "bar", label = "Count data",
-                                  choices = c("n.plasmids", "n.beta.lac.3", "n.beta.lac.4",
-                                              "n.beta.lac", "n.beta.lac.plasmid", 
-                                              "n.beta.lac.chrom", "n.beta.lac.plus",
-                                              "n.beta.lac.plus.plasmid", "n.beta.lac.plus.chrom",
-                                              "ampC.type.beta.lactamase", "TEM.beta.lactamase",
-                                              "CTX.M.beta.lactamase", "OXA.beta.lactamase", "SHV.beta.lactamase"),
+                                  choices = vars,
                                   selected = "n.plasmids"),
                       selectInput(inputId = "bar.type", label = "bar type",
                                   choices = c("stack", "fill", "dodge"),
