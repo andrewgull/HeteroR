@@ -34,7 +34,7 @@ AB is Piperacillin/Tazobactam
 
 # Read the data
 
-Data set `data_strain` has been made earlier in `feature_engineering.Rmd`
+Data set `data_strain` has been made earlier in `features.qmd`
 
 Look at target class distribution in full data set (500 strains)
 
@@ -54,13 +54,23 @@ With the 1st classification and a single best model (XGBTree), I got decent resu
 
 So, the results below will look different depending on the classification scheme chosen!
 
-```{r, message=FALSE}
-data <- read_csv("data/features_bl.csv.gz")
+Copy the most up to date version of features tables to `data/`
 
-data_strain <- read_csv("data/features_bl_strain.csv", na = c("NA", "-Inf")) %>% select(-resistance) # remove select when features.Rmd is fixed!
+```{bash}
+#| eval: FALSE
+rsync ~/Data/HeteroR/results/tables/features.csv ./data
+rsync ~/Data/HeteroR/results/tables/features_strain.csv ./data
+```
+
+Read features and classification labels
+
+```{r, message=FALSE}
+data <- read_csv("data/features.csv")
+
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
 
 # TWO SCHEMES IN TWO FILES
-hr_testing <- read_csv("data/heteroresistance_testing_gr13.csv")
+hr_testing <- read_csv("data/heteroresistance_testing_gr12.csv")
 
 hr_testing %>% 
   group_by(resistance) %>% 
@@ -69,7 +79,7 @@ hr_testing %>%
 
 Quite imbalanced target class
 
-Look at target class distribution in the data set you're working with (414 strains)
+Look at target class distribution in the data set you're working with (521 strains)
 
 ```{r}
 data_strain <- data_strain %>% 
@@ -80,7 +90,11 @@ data_strain %>%
   count()
 ```
 
-The data set is not yet complete.
+For testing scheme 1+2, there are 81 HR, 377 nonHR, 13 R and 50 NAs
+
+For the sceme 2+3,there are 52 HR, 406 nonHR, 13 R and 50 NAs
+
+I will start with the scheme 1+2, because it gives more HR strains
 
 ## Some additional features and filtering
 
@@ -107,14 +121,25 @@ data_strain
 # Descriptive stats
 
 ```{r}
-skim(data_strain) %>% yank("factor")
+skim(data_strain) %>% 
+  yank("factor")
 ```
 
 ```{r}
-skim(data_strain) %>% yank("numeric")
+skim(data_strain) %>% 
+  yank("numeric")
 ```
 
-All the missing values should be replaced with zeros.
+All the missing values should be replaced with zero except N50. 
+
+N50 statistic comes only from Unicycler logs, that's why it is not avaialble for that many strains
+
+I will remove it.
+
+```{r}
+data_strain$N50 <- NULL
+```
+
 
 # NAs to 0s
 
@@ -130,11 +155,11 @@ All pre-processing will be done with `recipes`
 
 ## Correlation plot
 
-```{r, fig.width=8, fig.height=8, warning=FALSE}
+```{r, fig.width=12, fig.height=12, warning=FALSE}
 # without resistance
-cor_matrix <- cor(data_strain %>% 
-                    select(-c(strain, resistance, n.beta.lac.3, n.beta.lac.4)),
-                  use = "pairwise.complete.obs")
+cor_matrix <- data_strain %>% 
+  select(-c(strain, resistance, n.beta.lac.3, n.beta.lac.4, chrom.status)) %>%
+  cor(use = "pairwise.complete.obs")
 
 corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.6)
 ```
@@ -163,7 +188,7 @@ data_prep$template
 
 ### Compare distributions
 
-`n.plasmids` does not behasve well after transformation.
+`n.plasmids` does not behave well after transformation.
 Check other features as well.
 
 ```{r, fig.width=10, fig.height=8}
@@ -226,7 +251,7 @@ plot_validation_results <- function(dat) {
 
 ### PCA plot
 
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=12, fig.height=12}
 pca_rec <- data_rec %>%
   step_pca(all_numeric_predictors(), num_comp = 8)
 
@@ -299,7 +324,7 @@ data_pca %>%
 
 ## PLS - Partial Least Squares
 
-```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 # BiocManager::install("mixOmics")
 
 pls_rec <- data_rec %>%
@@ -339,7 +364,7 @@ plot3d(x = pls_df$PLS1, y = pls_df$PLS2, z = pls_df$PLS3,
 
 ## ICA - Independent Component Analysis
 
-```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 ## ICA
 #install.packages("fastICA")
 ica_rec <- data_rec %>%
@@ -374,7 +399,7 @@ plot3d(x = ica_df$IC1, y = ica_df$IC2, z = ica_df$IC3,
 
 ### Unsupervised
 
-```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 ## UMAP
 library(embed)
 
@@ -390,7 +415,7 @@ data_umap$template %>%
 
 ### UMAP supervised
 
-```{r, message=FALSE, warning=FALSE, fig.width=10, fig.height=8}
+```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 ## UMAP Supervised
 
 umap_rec_sup <- data_rec %>%
@@ -412,13 +437,13 @@ umap_df <- data_umap_sup$template %>%
   mutate(color = if_else(resistance == "HR", "red", "blue"))
 
 
-plot3d(x = umap_df$UMAP03, y = umap_df$UMAP06, z = umap_df$UMAP05,
+plot3d(x = umap_df$UMAP01, y = umap_df$UMAP02, z = umap_df$UMAP03,
        col = umap_df$color,
        type = "s", 
-       radius = 0.05,
-       xlab = "UMAP3",
-       ylab = "UMAP6",
-       zlab = "UMAP5")
+       radius = 0.1,
+       xlab = "UMAP1",
+       ylab = "UMAP2",
+       zlab = "UMAP3")
 ```
 
 ## RG counts distribution
@@ -507,7 +532,7 @@ ggplot(data_strain, aes(n.beta.lac)) +
 
 **OBS!**
 
-1.  If number of BL-genes is higher than 3, the strain is more likely to be HR/R
+1.  If number of BL-genes is higher than 3, the strain is more likely to be HR
 
 2.  There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
 
@@ -538,7 +563,7 @@ ggplot(data_strain, aes(n.beta.lac.4)) +
   theme(legend.title=element_blank())
 ```
 
-Even more striking difference
+Now the chance of being HR is higher than the chance of being nonHR
 
 ### Beta-lactamases on plasmids and chromosome
 
@@ -565,7 +590,7 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   ylab("n strains")
 ```
 
-Starting from 3 bl genes (on plasmids), it seems to be a very good predictor
+Starting from 4 bl genes (on plasmids), it seems to be a very good predictor
 
 #### Number of beta-lact on chrom
 
@@ -700,7 +725,7 @@ ggplot(bl_type_count_tidy, aes(gene, sum))+
 
 Among strains having only ampC beta-lactamases, the majority is non-HR
 
-Among strains having non-ampC beta-lactamases majority is HR or R
+Among strains having non-ampC beta-lactamases majority is HR
 
 ### ampC bar plot
 
@@ -805,7 +830,7 @@ ggplot(bl_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
 
 #### Interactive version
 
-```{r, eval=F}
+```{r, eval=F, fig.width=12}
 library(plotly)
 
 vals <- scales::rescale(c(0,1,2,3,4))
@@ -816,17 +841,22 @@ fig <- plot_ly(z = bl_amr_types_strain_td$N, x = bl_amr_types_strain_td$strain, 
 fig
 ```
 
-## Number of plasmids
 
-Per strain, doesn't depend on beta-lactamase presence or absence
-
-### Box plot
+## Coverage 
 
 ```{r}
-ggplot(data_strain, aes(resistance, n.plasmids)) +
+data_strain %>% 
+    ggplot(aes(resistance, coverage)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T) +
-  geom_jitter(alpha = 0.2, width = 0.15, height = 0.1) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
   scale_fill_brewer(palette = "Set1") +
   ggtitle("") +
   ylab("n") +
@@ -834,10 +864,83 @@ ggplot(data_strain, aes(resistance, n.plasmids)) +
   guides(fill = "none")
 ```
 
-### Bar plot
+## Sequencing reads lengths
 
 ```{r}
-ggplot(data_strain, aes(n.plasmids)) +
+data_strain %>% 
+    ggplot(aes(resistance, read.max.len)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+
+## Number of plasmids
+
+Per strain, doesn't depend on beta-lactamase presence or absence
+
+### Box plot
+
+```{r}
+data_strain %>%
+  ggplot(aes(resistance, n.plasmids)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+Without outliers (bad assemblies)
+
+```{r}
+data_strain %>% filter(n.plasmids < 50) %>%
+  ggplot(aes(resistance, n.plasmids)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+
+### Bar plot - filtered version
+
+```{r}
+data_strain %>% filter(n.plasmids < 50) %>% 
+  ggplot(aes(n.plasmids)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "")+
   xlab("n plasmids") +
@@ -1074,7 +1177,9 @@ ggplot(min_ori, aes(resistance, dist)) +
 ```
 
 ```{r}
-ggplot(min_ori %>% filter(location=="min.dist.oriC.plasmid"), aes(resistance, dist)) +
+min_ori %>% 
+  filter(location=="min.dist.oriC.plasmid") %>% 
+  ggplot(aes(resistance, dist)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
