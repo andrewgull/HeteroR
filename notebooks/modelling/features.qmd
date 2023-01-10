@@ -145,20 +145,75 @@ length(strains)
 
 ### Read repeats tables
 
-Some table are empty!
+Some tables are empty!
 
 ```{r, message=FALSE}
 repeat_df <- map_dfr(strains, function(x){
-  path <- paste0("/home/andrei/Data/HeteroR/results/annotations/", x,"/repeats/", x, "_repeats.csv")
+  path <- paste0("/home/andrei/Data/HeteroR/results/annotations/", x, "/repeats/", x, "_repeats.csv")
   df <- read_csv(path, col_types = "ccdddddc")
   return(df)
   }) %>% 
-  mutate(AR_length = start_2 - end_1 + 1)
+  mutate(AR_length = start_2 - end_1 + 1) %>% 
+  select(-...1)
   
 head(repeat_df)
 ```
 
-In this table there are `r length(unique(repeat_df$strain))` strains.
+Dimensions:
+
+```{r}
+dim(repeat_df)
+```
+
+
+In this table there are 
+
+```{r}
+length(unique(repeat_df$strain))
+```
+
+strains
+
+More than 100 strains don't have repeats?
+
+```{r}
+setdiff(strains, unique(repeat_df$strain))
+```
+
+I checked some of these strain, their `repeats.csv` tables are empty
+
+I checked `grf_perfect.log` files - this file is empty in DA62900, but have info on repeats in DA62906.
+
+Then I checked `results/direct_repeats/DA62*/repeats_no_mismatch` directories. In DA62900 all files are empty, in DA62906 only `perfect.id` is empty, `imperfect.id` has some data inside.
+
+I think, this is the explanation.
+
+Conclusion: the strains above do not have (perfect) repeats longer than 20 bp indeed.
+
+I should add them to the `repeat_df` with NAs in every column except `strain` (`skip_empty_rows=FALSE` in `read_csv` doesn't fix the problem)
+
+```{r}
+strains_no_repeats <- setdiff(strains, unique(repeat_df$strain))
+
+no_repeats_df <- tibble(record_id = rep(NA, length(strains_no_repeats)),
+                        start_1 = rep(NA, length(strains_no_repeats)),
+                        end_1 = rep(NA, length(strains_no_repeats)),
+                        start_2 = rep(NA, length(strains_no_repeats)),
+                        end_2 = rep(NA, length(strains_no_repeats)),
+                        length = rep(NA, length(strains_no_repeats)),
+                        strain = strains_no_repeats,
+                        AR_length = rep(NA, length(strains_no_repeats)))
+
+head(no_repeats_df)
+```
+
+
+```{r}
+repeat_df <- bind_rows(repeat_df, no_repeats_df)
+
+length(unique(repeat_df$strain))
+```
+
 
 ### Read BED files to determine center spanning repeat pairs
 
@@ -175,7 +230,13 @@ bed_df <- map_dfr(strains, function(x){
 head(bed_df)
 ```
 
-We have bed files for `r length(unique(bed_df$strain))` strains.
+We have bed files for 
+
+```{r}
+length(unique(bed_df$strain))
+```
+
+strains.
 
 ### Join bed files and repeats table to one features table.
 
@@ -195,7 +256,6 @@ features <- left_join(repeat_df, bed_df, by = "record_id") %>%
 # look at this!
 head(features)
 ```
-
 
 ## Read repeat table: way no. 2
 
@@ -224,17 +284,21 @@ Number of repeat pairs detected `r nrow(features)`.
 
 They are required for filtering of resistance genes and much more...
 
-
 ### Read ouput tables
 
 'Loose' hits must be removed!
 
 ```{r, message=FALSE}
+# in RGI tables I don't need the last two columns (Nudged and Note) 
+# because they cause problems during table reading
+
 rgi <- map_dfr(strains, function(x){
-        read_delim(paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = c("n/a", ""), name_repair = "universal") %>% 
+        read_delim(file = paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = c("n/a", ""), 
+                   name_repair = "universal",
+                   col_select = -c(Predicted_Protein, CARD_Protein_Sequence, Contig, Start, Stop, Orientation, Predicted_DNA, Note, Nudged),
+                   show_col_types = FALSE) %>% 
           mutate(strain = x)}) %>% 
   filter(Cut_Off != "Loose") %>% 
-  select(-c(Predicted_Protein, CARD_Protein_Sequence, Contig, Start, Stop, Orientation, Predicted_DNA, Note)) %>% 
   mutate(record_id = map_chr(ORF_ID, function(x) strsplit(x, " ")[[1]][1])) %>% 
   relocate(strain, record_id, .before=ORF_ID)
 
@@ -488,17 +552,17 @@ Like ARO, Cut_Off etc.
 ```{r}
 features <- features %>% 
   select(-c(ARO, Cut_Off, Pass_Bitscore, Best_Hit_Bitscore, Best_Hit_ARO, 
-            Best_Identities, Model_ID, Model_type, Nudged, SNPs_in_Best_Hit_ARO,
+            Best_Identities, Model_ID, Model_type, SNPs_in_Best_Hit_ARO,
             Other_SNPs, ID, Percentage.Length.of.Reference.Sequence))
 
 head(features)
 ```
 
-**OBS!** Features still contain resistance genes without repeats!
+**OBS!** Features still contain resistance genes without repeats and strains without repeats at all!
 
 ### Remove rows with excluded genes
 
-Since many genes were excluded from RGI results but their repeats, counts and AR lengths stay in Features, let's remove them 
+Since many genes were excluded from RGI results but their repeats, counts and AR lengths stay in Features, let's remove them
 
 #### Remove rows in Features without Resistance.Mechanism
 
@@ -521,6 +585,36 @@ How many strains in features?
 length(unique(features$strain))
 ```
 
+One strain has been removed because it doesn't have any RGs or repeats
+
+I should add it back and assign NAs everywhere
+
+```{r}
+strains_no_rg <- setdiff(strains, features$strain)
+
+na_col <- function(){
+  rep(NA, length(strains_no_rg))
+}
+
+l.rg <- length(strains_no_rg)
+
+no_rg_df <- tibble(strain = strains_no_rg, 
+                   record_id = na_col(),
+                   repeat_length = na_col(),
+                   AR_length = na_col(),
+                   spans_center = na_col(),
+                   ORF_ID = na_col(),
+                   Drug.Class = na_col(),
+                   Resistance.Mechanism = na_col(),
+                   AMR.Gene.Family = na_col())
+
+no_rg_df
+```
+
+```{r}
+features <- bind_rows(features, no_rg_df)
+```
+
 
 # Per-strain dataset
 
@@ -528,7 +622,7 @@ Here will be 'per strain' features kept, that will be used for predictions
 
 ## Coverage and max read length
 
-I've decided to add `coverage` and `max_len` to features. This data comes from coverage statistics.
+I've decided to add Nanopore's `coverage` and `max_len` to features. This data comes from coverage statistics.
 
 Check on the pairs plot from assemblies summary and coverage analysis to find out why.
 
@@ -546,7 +640,6 @@ coverage <- read_delim("/home/andrei/Data/HeteroR/results/coverage/strains525.ts
 
 head(coverage)
 ```
-
 
 ## Completeness and N50
 
@@ -568,7 +661,6 @@ assemblies <- map_dfr(summaries, function(x){
 head(assemblies)
 ```
 
-
 Join these two tables to make per strain features
 
 ```{r}
@@ -587,6 +679,8 @@ How many strains here?
 ```{r}
 length(unique(features_strain$strain))
 ```
+
+OK
 
 ## Number of plasmids
 
@@ -697,7 +791,7 @@ if unmarked segments left: mark them as plasmids
 Let's try
 
 ```{r, eval=FALSE}
-df.tmp <- headers %>% filter(strain=="DA62886")
+df.tmp <- headers %>% filter(strain == "DA62886")
 sum.len <- 0
 marks <- c()
 for (L in df.tmp$length){
@@ -786,7 +880,7 @@ features_strain <- left_join(features_strain, n.beta.lac, by = "strain")
 
 ## Location on plasmid, distance to oriC and plus strand
 
-1) `features` contains gene names, so I can find if it's located on a plasmid.
+1)  `features` contains gene names, so I can find if it's located on a plasmid.
 
 **OBS!** This feature should be "averaged" by strain!
 
@@ -794,7 +888,7 @@ t.ex.: number of genes located on plasmids (can be 0, 1, 2, 3, 4...)
 
 "Location on plasmid" can be used later to separate all features into two groups: on plasmid and not (repeat counts, distance to oriC etc.)
 
-2) `features` contains gene names, I can find this in annotation files (gff, gbk etc) and assembly summary tables (completeness)
+2)  `features` contains gene names, I can find this in annotation files (gff, gbk etc) and assembly summary tables (completeness)
 
 **OBS!** This feature should be "averaged" by strain!
 
@@ -802,18 +896,44 @@ t.ex.: *closest distance to oriC* or *median/mean distance to oriC*
 
 If I assume that *oriC* is available only in circularized genomes then I might get NAs in some strains
 
+3)  information on strandedness (gene orientation) is also in the gff files
 
-3) information on strandedness (gene orientation) is also in the gff files
 
-Code:
+```{python}
+#| eval: FALSE
+
+# This chunk is only for DA62886 gff file that was copied from Argos and
+# therefore has different record_id's than any other DA62886-related file
+
+from BCBio import GFF
+from Bio import SeqIO
+
+in_file = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gbk"
+out_file = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gff"
+in_handle = open(in_file)
+out_handle = open(out_file, "w")
+
+GFF.write(SeqIO.parse(in_handle, "genbank"), out_handle)
+
+in_handle.close()
+out_handle.close()
+
+```
+
+
+Here I read gff files using a custom function based on standard `read.delim()`
+
+It's the only working way to read gff files in R
+
+`genbankr::read.GenBank()` didn't work
+
+`ape::read.gff()` and `ape::read.GenBank()` didn't work
+
+`read_delim()` didn't work
+
+`biomartr` couldn't be installed
 
 ```{r}
-# the only working way to read gff files in R
-# genbankr::read.GenBank() didn't work
-# ape::read.gff() and ape::read.GenBank() didn't work
-# read_delim() didn't work
-# biomartr couldn't be installed
-
 # a function to read GFF files using STANDARD read.delim
 read_gff <- function(gff_filename) {
   # read and process
@@ -841,7 +961,6 @@ gff <- map_dfr(gff_files, ~ read_gff(.)) %>%
 
 ```
 
-
 ## Remove non-beta-lactamase AMR genes from GFF
 
 ```{r}
@@ -856,7 +975,6 @@ gff <- features %>%
 
 gff
 ```
-
 
 ## Add 'on.plasmid', 'strand' and 'dit.to.oriC' to `features_filtered`
 
