@@ -55,7 +55,8 @@ with open(snakemake.log[0], "w") as f:
     # RUN FMP IF UNI BROKE OR COV IS SPARSE
     elif gen_coverage > 30 or unicycler_status == "error":     
         # MK ASSEMBLY DIR
-        os.mkdir(assembly_dir)
+        if not os.path.exists(assembly_dir):
+            os.mkdir(assembly_dir)
         
         # RUN FLYE
         print("Flye-Medaka-Polypolish will be chosen to assemble the genome")
