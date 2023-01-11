@@ -113,31 +113,63 @@ data_strain <- data_strain %>%
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
-  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")))
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
+         chrom.status = factor(chrom.status))
   
 data_strain
 ```
 
 # Descriptive stats
 
+## Factors
+
 ```{r}
 skim(data_strain) %>% 
   yank("factor")
 ```
+
+## Circularity in tested strains
+
+```{r}
+data_strain %>% 
+  group_by(resistance, chrom.status) %>% 
+  count() %>% 
+  ggplot(aes(chrom.status, n)) +
+  geom_col(position = "dodge") + 
+  facet_grid(cols = vars(resistance))
+```
+
+
+## Numerical
 
 ```{r}
 skim(data_strain) %>% 
   yank("numeric")
 ```
 
-All the missing values should be replaced with zero except N50. 
+All the missing values should be replaced with zero except N50.
 
-N50 statistic comes only from Unicycler logs, that's why it is not avaialble for that many strains
+N50 statistic comes only from Unicycler logs, that's why it is not available for that many strains
 
 I will remove it.
 
 ```{r}
 data_strain$N50 <- NULL
+```
+
+### n.plasmids outliers
+
+```{r}
+data_strain %>% 
+  filter(n.plasmids > 20) %>% 
+  select(strain, chrom.status, resistance, n.plasmids)
+```
+
+All from nonHR class - easy to remove
+
+```{r}
+data_strain <- data_strain %>% 
+  filter(n.plasmids < 30)
 ```
 
 
@@ -146,6 +178,13 @@ data_strain$N50 <- NULL
 ```{r}
 data_strain[is.na(data_strain)] <- 0
 ```
+
+# Write the first processed version of the data set to shiny's data directory
+
+```{r}
+write.csv(data_strain, file = "EDA_app/data/features_strain.csv", row.names = FALSE)
+```
+
 
 All pre-processing will be done with `recipes`
 
@@ -170,6 +209,8 @@ We see a lot of correlated features.
 
 ### Normalization
 
+ORQ normalization is used here
+
 ```{r}
 library(bestNormalize)
 
@@ -186,52 +227,48 @@ data_prep <- prep(data_rec, retain = TRUE)
 data_prep$template
 ```
 
+```{r, fig.width=12, fig.height=12, warning=FALSE}
+# without resistance
+cor_matrix_norm <- data_prep$template %>% 
+  select(-c(strain, resistance)) %>%
+  cor(use = "pairwise.complete.obs")
+
+corrplot::corrplot(cor_matrix_norm, type = "upper", tl.col = "black", tl.cex = 0.6)
+```
+
 ### Compare distributions
 
-`n.plasmids` does not behave well after transformation.
-Check other features as well.
+Choose the variable of interest in the function below or check the **shiny app** out! 
 
-```{r, fig.width=10, fig.height=8}
+```{r}
 library(patchwork)
 
-p1 <- 
+comp_plots <- function(col_name){
+  p_orig <- 
   data_strain %>% 
-  ggplot(aes(x = min.dist.oriC)) + 
+  ggplot(aes_string(x = col_name)) + 
   geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
-  ggtitle("Original data (min.dist.oriC)")
-
-p2 <- 
-  data_prep$template %>% 
-  ggplot(aes(x = min.dist.oriC)) + 
-  geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
-  ggtitle("Processed data (min.dist.oriC)")
-
-p3 <- data_strain %>% 
-  ggplot(aes(x = n.plasmids)) + 
-  geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
-  ggtitle("Original data (n.plasmids)")
+  ggtitle(paste0("Original data (", col_name, ")"))
   
-p4 <-
+  p_norm <- 
   data_prep$template %>% 
-  ggplot(aes(x = n.plasmids)) + 
+  ggplot(aes_string(x = col_name)) + 
   geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
-  ggtitle("Processed data (n.plasmids)")
+  ggtitle(paste0("Processed data (", col_name, ")"))
+  
+  return(list(p_orig, p_norm))
+}
 
-p5 <- data_strain %>% 
-  ggplot(aes(x = n.rep.total)) + 
-  geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
-  ggtitle("Original data (n.rep.total)")
-
-p6 <-
-  data_prep$template %>% 
-  ggplot(aes(x = n.rep.total)) + 
-  geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
-  ggtitle("Processed data (n.rep.total)")
-
-(p1 | p2 ) /
-(p3 | p4 ) /
-(p5 | p6)
+plots <- comp_plots("n.plasmids")
 ```
+
+
+```{r, fig.width = 10, fig.height=5}
+(plots[[1]] | plots[[2]])
+```
+
+If the original distribution is very skewed then normalization doesn't help much.
+
 
 ```{r}
 library(ggforce)
@@ -419,7 +456,7 @@ data_umap$template %>%
 ## UMAP Supervised
 
 umap_rec_sup <- data_rec %>%
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10, neighbors = 15)
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10)
 
 data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 
@@ -710,7 +747,8 @@ bl_type_count <- data_strain %>%
   select(-n.beta.lac)
 
 bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>% 
-  group_by(resistance, gene) %>% summarize(sum=sum(n))
+  group_by(resistance, gene) %>% 
+  summarize(sum=sum(n))
 
 
 ggplot(bl_type_count_tidy, aes(gene, sum))+
@@ -833,16 +871,19 @@ ggplot(bl_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
 ```{r, eval=F, fig.width=12}
 library(plotly)
 
-vals <- scales::rescale(c(0,1,2,3,4))
+vals <- scales::rescale(c(0:6))
 o <- order(vals, decreasing = FALSE)
 cols <- scales::col_numeric("Blues", domain = NULL)(vals)
 colz <- setNames(data.frame(vals[o], cols[o]), NULL)
-fig <- plot_ly(z = bl_amr_types_strain_td$N, x = bl_amr_types_strain_td$strain, y = bl_amr_types_strain_td$AMR.type, type = "heatmap", colorscale = colz)
+fig <- plot_ly(z = bl_amr_types_strain_td$N, 
+               x = bl_amr_types_strain_td$strain, 
+               y = bl_amr_types_strain_td$AMR.type, 
+               type = "heatmap", 
+               colorscale = colz)
 fig
 ```
 
-
-## Coverage 
+## Coverage
 
 ```{r}
 data_strain %>% 
@@ -885,7 +926,6 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
-
 
 ## Number of plasmids
 
@@ -934,7 +974,6 @@ data_strain %>% filter(n.plasmids < 50) %>%
   xlab("") +
   guides(fill = "none")
 ```
-
 
 ### Bar plot - filtered version
 
@@ -1036,8 +1075,6 @@ ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
   xlab("") +
   guides(fill = "none")
 ```
-
-
 
 ```{r}
 ggplot(med_rep_len %>% filter(location == "med.rep.len.plasmid"), aes(resistance, med.len)) +
