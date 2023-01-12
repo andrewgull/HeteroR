@@ -1,5 +1,5 @@
 # script for adaptive hybrid assembling
-# it runs unicycler and/or flye-medaka-polypolish depending on the genome coverage
+# runs unicycler if covergae is shallow or flye-medaka-polypolish otherwise
 import sys
 import subprocess
 import os
@@ -16,7 +16,9 @@ polish_dir = snakemake.output[2]
 threads = snakemake.threads
 basecaller = snakemake.params[0]
 genome_size = snakemake.params[1]
-coverage = snakemake.params[2]
+coverage = snakemake.params[2]   # coverage for Flye
+genome_length = snakemake.params[3]  # expected genome length
+cov_threshold = snakemake.params[4]  # threshold value to choose assembler, < 20x is good for Uni
 
 # LIST TO KEEP STDOUT/STDERR
 outs = list()
@@ -27,13 +29,13 @@ with open(snakemake.log[0], "w") as f:
     
     # CALCULATE COVERAGE
     seqkit_out = subprocess.run("seqkit stats %s -T" % long_reads, shell=True, capture_output=True, text=True)
-    gen_coverage = int(seqkit_out.stdout.split("\n")[1].split("\t")[4])/5131220
+    gen_coverage = int(seqkit_out.stdout.split("\n")[1].split("\t")[4])/genome_length
 
     # SET UNI STATUS
     unicycler_status = "ok"
 
     # SPARSE COV IS FOR UNI ELSE USE FMP
-    if gen_coverage <= 30:
+    if gen_coverage <= cov_threshold:
         # RUN UNICYCLER
         unicycler_out = subprocess.run("unicycler -1 %s -2 %s -l %s -t %i -o %s "
                                    % (short_reads_1, short_reads_2, long_reads, threads, assembly_dir),
@@ -53,8 +55,9 @@ with open(snakemake.log[0], "w") as f:
             print("The genome coverage is sparse, Unicycler has been chosen.\nEmpty draft and polish dirs have been created.")
     
     # RUN FMP IF UNI BROKE OR COV IS SPARSE
-    elif gen_coverage > 30 or unicycler_status == "error":     
+    elif gen_coverage > cov_threshold or unicycler_status == "error":     
         # MK ASSEMBLY DIR
+        # it can exist after previous runs of the pipeline
         if not os.path.exists(assembly_dir):
             os.mkdir(assembly_dir)
         
@@ -119,7 +122,6 @@ with open(snakemake.log[0], "w") as f:
         destination = os.path.join(cwd, "%s/assembly.fasta" % assembly_dir)
         os.symlink(source, destination)
  
-
     # PRINT STDOUT/STDERR TO LOG
     for out in outs:
         # every out is subrocess.run output not string! 

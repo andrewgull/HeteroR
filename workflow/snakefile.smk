@@ -128,7 +128,7 @@ rule adaptive_hybrid_assembly:
     log:
         "results/logs/{strain}_assembly.log"
     conda: "envs/hybrid_assembly.yaml"
-    params: basecaller="r941_min_fast_g507", genome_size="5m", coverage=50
+    params: basecaller="r941_min_fast_g507", genome_size="5m", coverage=50, genome_length=5131220, cov_threshold=30
     script:
         "scripts/adaptive_hybrid_assembly.py"
 
