@@ -165,8 +165,7 @@ Dimensions:
 dim(repeat_df)
 ```
 
-
-In this table there are 
+In this table there are
 
 ```{r}
 length(unique(repeat_df$strain))
@@ -207,13 +206,11 @@ no_repeats_df <- tibble(record_id = rep(NA, length(strains_no_repeats)),
 head(no_repeats_df)
 ```
 
-
 ```{r}
 repeat_df <- bind_rows(repeat_df, no_repeats_df)
 
 length(unique(repeat_df$strain))
 ```
-
 
 ### Read BED files to determine center spanning repeat pairs
 
@@ -230,7 +227,7 @@ bed_df <- map_dfr(strains, function(x){
 head(bed_df)
 ```
 
-We have bed files for 
+We have bed files for
 
 ```{r}
 length(unique(bed_df$strain))
@@ -615,7 +612,6 @@ no_rg_df
 features <- bind_rows(features, no_rg_df)
 ```
 
-
 # Per-strain dataset
 
 Here will be 'per strain' features kept, that will be used for predictions
@@ -690,9 +686,12 @@ Info on plasmids is in tables `summary.tsv` in `results/assemblies_joined` and i
 
 ### Plasmid counts from assemblies summary files
 
+Thousands of shorter fragments (less than 1000) should be filtered out
+
 ```{r}
 plasmid_counts <- assemblies %>% 
-  filter(Type == "Plasmid") %>% 
+  filter(Type == "Plasmid",
+         Length >= 1000) %>% 
   group_by(Strain) %>% 
   count() %>% 
   rename("strain" = Strain, "n.plasmids" = n)
@@ -846,9 +845,9 @@ Now, I can calculate "real" plasmid count per strain and add it to the features 
 
 ```{r, eval=FALSE}
 plasmid_counts_alt <- headers %>% 
-  filter(label=="plasmid") %>% 
+  filter(label == "plasmid") %>% 
   group_by(strain) %>% 
-  summarise(n.plasmids_alt=sum(depth.rounded))
+  summarise(n.plasmids_alt = sum(depth.rounded))
 
 plasmid_counts_alt
 ```
@@ -898,7 +897,6 @@ If I assume that *oriC* is available only in circularized genomes then I might g
 
 3)  information on strandedness (gene orientation) is also in the gff files
 
-
 ```{python}
 #| eval: FALSE
 
@@ -919,7 +917,6 @@ in_handle.close()
 out_handle.close()
 
 ```
-
 
 Here I read gff files using a custom function based on standard `read.delim()`
 
