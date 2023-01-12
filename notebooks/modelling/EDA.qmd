@@ -159,19 +159,13 @@ data_strain$N50 <- NULL
 
 ### n.plasmids outliers
 
+I have fixed this filtering by plasmid length in `features.qmd`
+
 ```{r}
 data_strain %>% 
   filter(n.plasmids > 20) %>% 
   select(strain, chrom.status, resistance, n.plasmids)
 ```
-
-All from nonHR class - easy to remove
-
-```{r}
-data_strain <- data_strain %>% 
-  filter(n.plasmids < 30)
-```
-
 
 # NAs to 0s
 
@@ -296,7 +290,7 @@ data_pca <- prep(pca_rec, retain = TRUE)
 
 data_pca$template %>% 
   plot_validation_results() + 
-  ggtitle("Principal Component Analysis")
+  ggtitle("Principal Component Analysis (HR12)")
 ```
 
 #### 3D version
@@ -456,32 +450,32 @@ data_umap$template %>%
 ## UMAP Supervised
 
 umap_rec_sup <- data_rec %>%
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10)
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 3)
 
 data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 
 data_umap_sup$template %>% 
   plot_validation_results() +
-  ggtitle("UMAP (supervised)")
+  ggtitle("Supervised UMAP (HR12)")
 ```
 
 Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
 
-#### 3D version
+#### 3D version (plotly)
 
 ```{r, eval=FALSE}
-umap_df <- data_umap_sup$template %>%
-  mutate(color = if_else(resistance == "HR", "red", "blue"))
+library(plotly)
 
+fig2 <- plot_ly(umap_df, x = ~UMAP1, y = ~UMAP2, z = ~UMAP3, color = ~umap_df$resistance, colors = c('#cf280c', '#1b56f7')) 
+fig2 <- fig2 %>% add_markers(size = 2, text = ~umap_df$strain) 
+fig2 <- fig2 %>% layout(scene = list(xaxis = list(title = 'UMAP1'), 
+                                     yaxis = list(title = 'UMAP2'), 
+                                     zaxis = list(title = 'UMAP3'))) 
 
-plot3d(x = umap_df$UMAP01, y = umap_df$UMAP02, z = umap_df$UMAP03,
-       col = umap_df$color,
-       type = "s", 
-       radius = 0.1,
-       xlab = "UMAP1",
-       ylab = "UMAP2",
-       zlab = "UMAP3")
+fig2
+
 ```
+
 
 ## RG counts distribution
 
