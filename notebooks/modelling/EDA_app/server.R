@@ -85,7 +85,8 @@ server <- function(input, output) {
       step_umap(all_numeric_predictors(), 
                 num_comp = input$umap.comp, 
                 neighbors = input$umap.neighb,
-                min_dist = input$umap.dist) 
+                min_dist = input$umap.dist,
+                outcome = "resistance") 
     
     data_umap <- prep(umap_rec, retain = TRUE)
     
@@ -93,4 +94,37 @@ server <- function(input, output) {
       plot_validation_results() +
       ggtitle("Supervised Uniform Manifold Approximation and Projection")
   }, height = 1000)
+  
+  output$umap.3d <- renderPlotly({
+    umap_rec <- data_rec %>%
+      step_umap(all_numeric_predictors(), 
+                num_comp = 3, 
+                neighbors = input$umap.3d.neighb,
+                min_dist = input$umap.3d.dist,
+                outcome = "resistance") 
+    
+    data_umap <- prep(umap_rec, retain = TRUE)
+    
+    umap3d <-
+      plot_ly(
+        data_umap$template,
+        x = ~ UMAP1,
+        y = ~ UMAP2,
+        z = ~ UMAP3,
+        color = ~ data_umap$template$resistance,
+        colors = c('#cf280c', '#1b56f7')
+      )
+    
+    umap3d <- umap3d %>% 
+      add_markers(size = 2, text = ~ data_umap$template$strain)
+    
+    umap3d <- umap3d %>% 
+      layout(scene = list(
+        xaxis = list(title = 'UMAP1'),
+        yaxis = list(title = 'UMAP2'),
+        zaxis = list(title = 'UMAP3')
+      ))
+    
+    umap3d
+  })
 }

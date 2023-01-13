@@ -51,7 +51,7 @@ vars_norm <- names(features_norm %>% select(-strain, resistance))
 ###########
 
 # get per gene data
-data <- read_csv("~/GitProjects/HeteroR/notebooks/modelling/data/features.csv")
+data <- read_csv("../data/features.csv")
 
 # get unique AMR types
 amr_types <- unique(data$AMR.Gene.Family)

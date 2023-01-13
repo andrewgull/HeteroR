@@ -11,7 +11,32 @@ ui <- fluidPage(
   # A separate panel for basic plots
   tabsetPanel(
     tabPanel("Basic plots",
-             # 1a row with a bar pot for count data
+             # row for a dot plot widget
+             fluidRow(
+               # Left side with widget's controls
+               column(2, 
+                      selectInput(inputId = "xcol",label = "X variable",
+                                  choices = num_vars, selected = "n.rep.total"),
+                      selectInput(inputId = "ycol", label = "Y variable",
+                                  choices = num_vars, selected = "n.rep.chrom"),
+                      radioButtons(inputId = "x.trans", label = "X-axis transformation", 
+                                   choices = c("identity", "log", "sqrt"), selected = "identity", 
+                                   choiceNames = c("none", "log", "sqrt")),
+                      radioButtons(inputId = "y.trans", label = "Y-axis transformation", 
+                                   choices = c("identity", "log", "sqrt"), selected = "identity", 
+                                   choiceNames = c("none", "log", "sqrt"))
+               ),
+               # Right part with the dot plot itself
+               column(10, plotOutput("dot.plot", brush = "plot_brush"))
+             ),
+             
+             # 4th row with hover/brush output
+             fluidRow(
+               column(6),
+               column(6, tableOutput("dot.plot.data"))
+             ),
+             
+             # row with a bar pot for count data
              fluidRow(
                # first column with controls
                column(2, 
@@ -40,31 +65,6 @@ ui <- fluidPage(
                ),
                # Right column with the box plot itself
                column(10, plotOutput("box.plot"))
-             ),
-             
-             # 3rd row for a dot plot widget
-             fluidRow(
-               # Left side with widget's controls
-               column(2, 
-                      selectInput(inputId = "xcol",label = "X variable",
-                                  choices = num_vars, selected = "n.rep.total"),
-                      selectInput(inputId = "ycol", label = "Y variable",
-                                  choices = num_vars, selected = "n.rep.chrom"),
-                      radioButtons(inputId = "x.trans", label = "X-axis transformation", 
-                                   choices = c("identity", "log", "sqrt"), selected = "identity", 
-                                   choiceNames = c("none", "log", "sqrt")),
-                      radioButtons(inputId = "y.trans", label = "Y-axis transformation", 
-                                   choices = c("identity", "log", "sqrt"), selected = "identity", 
-                                   choiceNames = c("none", "log", "sqrt"))
-               ),
-               # Right part with the dot plot itself
-               column(10, plotOutput("dot.plot", brush = "plot_brush"))
-             ),
-             
-             # 4th row with hover/brush output
-             fluidRow(
-               column(6),
-               column(6, tableOutput("dot.plot.data"))
              )
              
     ),
@@ -90,7 +90,7 @@ ui <- fluidPage(
     tabPanel("Heatmap", 
              fluidRow(
                column(12, plotlyOutput("heatmap"))
-             ),
+             )
     ),
     # Tab for PCA plots
     tabPanel("PCA", "no data yet"),
@@ -113,13 +113,29 @@ ui <- fluidPage(
                       sliderInput(inputId = "umap.dist",
                                   label = "Minimal distance",
                                   min = 0.01,
-                                  max = 0.1,
+                                  max = 0.5,
                                   step = 0.01,
                                   value = 0.01)),
                column(width = 10,
                       plotOutput("umap"))
-             ))
+             )),
+    tabPanel("UMAP 3D",
+             fluidRow(
+               column(width = 2, 
+                      sliderInput(inputId = "umap.3d.neighb",
+                                  label = "Number of neighbors",
+                                  min = 4,
+                                  max = 40,
+                                  step = 1,
+                                  value = 15),
+                      sliderInput(inputId = "umap.3d.dist",
+                                  label = "Minimal distance",
+                                  min = 0.01,
+                                  max = 0.3,
+                                  step = 0.01,
+                                  value = 0.05)),
+               column(width = 10,
+                      plotlyOutput("umap.3d")))
+    )
   )
-  
-  
 )
