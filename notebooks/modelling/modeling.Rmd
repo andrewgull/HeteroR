@@ -29,21 +29,18 @@ library(bestNormalize) # for ord QQ norm
 library(embed) # for UMAP
 ```
 
-# Read data
+# Read and process data
 
 The data sets are the same as in EDA
 
 ```{r}
-data_strain <- readr::read_csv("data/features_bl_strain.csv", na = c("NA", "-Inf"))
+data_strain <- readr::read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
 
-hr_testing <- readr::read_csv("data/heteroresistance_testing.csv")
+hr_testing <- readr::read_csv("data/heteroresistance_testing_gr12.csv")
 
-hr_testing %>% 
-  group_by(resistance) %>% 
-  count()
-```
+data_strain <- data_strain %>% 
+  left_join(hr_testing, by = "strain")
 
-```{r}
 data_strain %>% 
   group_by(resistance) %>% 
   count()
@@ -52,19 +49,18 @@ data_strain %>%
 Add n.beta.lac > 3 and >4
 
 ```{r}
+strains <- data_strain$strain
+
 data_strain <- data_strain %>% 
   mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
-  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")))
-  
-data_strain
-```
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
+         chrom.status = factor(chrom.status))
 
-NAs to 0s - there shoudl be a tidy way?
-
-```{r}
+data_strain$N50 <- NULL
+data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 ```
 
@@ -196,7 +192,6 @@ umap_rec <- recipe(resistance ~., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10) 
 
 # to make a plot
@@ -208,6 +203,16 @@ data_umap$template %>%
 ```
 
 Seems OK
+
+### Update the recipe adding SMOTE step
+
+```{r}
+umap_rec <- umap_rec %>% 
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+umap_rec
+```
+
 
 ## LR recipe
 
@@ -260,6 +265,21 @@ lr_umap_res <- tune_grid(lr_umap_workflow,
               metrics = cls_metrics)
 
 autoplot(lr_umap_res)
+```
+
+## Best ROC-AUC
+
+```{r}
+lr_umap_best <- lr_umap_res %>%
+  select_best(metric = "roc_auc")
+
+lr_umap_auc <- 
+  lr_umap_res %>% 
+  collect_predictions(parameters = lr_umap_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "LR (UMAP)")
+
+autoplot(lr_umap_auc)
 ```
 
 
@@ -332,7 +352,7 @@ lr_pca_workflow <-
 
 # train and tune the model
 lr_pca_res <- tune_grid(lr_pca_workflow,
-              grid = 25,
+              grid = 30,
               resamples = cv_folds,
               control = control_grid(save_pred = TRUE),
               metrics = cls_metrics)
@@ -370,7 +390,7 @@ autoplot(lr_pca_auc)
 ## Bayesian grid: LR recipe
 
 ```{r}
-# extraxt settings
+# extract settings
 lr_set <- extract_parameter_set_dials(lr_workflow)
 
 set.seed(12)
@@ -386,12 +406,38 @@ lr_bres <-
     iter = 50,
     # How to measure performance?
     metrics = metric_set(roc_auc),
-    control = control_bayes(no_improve = 30, verbose = FALSE)
+    control = control_bayes(no_improve = 30, verbose = FALSE, save_pred = TRUE)
   )
 
 # roc_auc = 0.8889232 (+/-0.00785)
 # penalty=  0.009127915	
+
+autoplot(lr_bres)
 ```
+
+### Best models
+
+```{r}
+lr_bres %>% 
+  show_best("roc_auc", n = 5)
+```
+
+### ROC
+
+```{r}
+lr_bres_best <- lr_bres %>%
+  select_best(metric = "roc_auc")
+
+lr_bres_auc <- 
+  lr_bres %>% 
+  collect_predictions(parameters = lr_bres_best) %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  mutate(model = "LR + Bayes")
+
+autoplot(lr_bres_auc)
+```
+
+
 
 ## Bayesian grid: PCA recipe
 

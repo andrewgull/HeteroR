@@ -281,7 +281,7 @@ Number of repeat pairs detected `r nrow(features)`.
 
 They are required for filtering of resistance genes and much more...
 
-### Read ouput tables
+### Read output tables
 
 'Loose' hits must be removed!
 
