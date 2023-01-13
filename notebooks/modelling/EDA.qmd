@@ -157,6 +157,13 @@ I will remove it.
 data_strain$N50 <- NULL
 ```
 
+There is also a weird `NA.` column, I will remove it as well.
+
+```{r}
+data_strain$NA. <- NULL
+```
+
+
 ### n.plasmids outliers
 
 I have fixed this filtering by plasmid length in `features.qmd`
@@ -471,7 +478,7 @@ data_umap$template %>%
 ## UMAP Supervised
 
 umap_rec_sup <- data_rec %>%
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 3)
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 8, min_dist = 0.1, neighbors = 25)
 
 data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 
@@ -509,6 +516,25 @@ umap3d <- umap3d %>%
 
 umap3d
 
+```
+
+### On 'captured variance'
+
+The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes himself:
+
+>As a non-linear manifold learning technique that ultimately works with
+metric spaces at its heart rather than feature based data UMAP doesn't
+really have a notion of explained variance the way algorithms like PCA do.
+A colleague is working on developing some alternative measures of how well
+an embedding has performed, but that is still preliminary work and we don't
+have any published code for that yet -- ultimately UMAP remains a research
+project with additional features and utilities still being developed.
+
+
+### write UMAP results to a file
+
+```{r}
+write.csv(data_umap_sup$template, "data/umap_hr12.csv", row.names = FALSE)
 ```
 
 
