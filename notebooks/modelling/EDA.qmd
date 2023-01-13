@@ -92,7 +92,7 @@ data_strain %>%
 
 For testing scheme 1+2, there are 81 HR, 377 nonHR, 13 R and 50 NAs
 
-For the sceme 2+3,there are 52 HR, 406 nonHR, 13 R and 50 NAs
+For the scheme 2+3, there are 52 HR, 406 nonHR, 13 R and 50 NAs
 
 I will start with the scheme 1+2, because it gives more HR strains
 
@@ -295,21 +295,26 @@ data_pca$template %>%
 
 #### 3D version
 
-```{r, eval=FALSE}
-library(rgl)
+```{r}
+library(plotly)
 
+pca3d <- plot_ly(data_pca$template, 
+                 x = ~PC1, 
+                 y = ~PC2, 
+                 z = ~PC3, 
+                 color = ~data_pca$template$resistance, 
+                 colors = c('#cf280c', '#1b56f7')) 
 
-pca_df <- data_pca$template %>%
-  mutate(color = if_else(resistance == "HR", "red", "blue"))
+pca3d <- pca3d %>% 
+  add_markers(size = 2,
+              text = ~data_pca$template$strain)
 
+pca3d <- pca3d %>% 
+  layout(scene = list(xaxis = list(title = 'PC1'),
+                      yaxis = list(title = 'PC2'),
+                      zaxis = list(title = 'PC3'))) 
 
-plot3d(x = pca_df$PC1, y = pca_df$PC2, z = pca_df$PC3,
-       col = pca_df$color,
-       type = "s", 
-       radius = 0.2,
-       xlab = "PC1",
-       ylab = "PC2",
-       zlab = "PC3")
+pca3d
 ```
 
 ### Explained variance percentage
@@ -379,18 +384,26 @@ data_pls %>%
 
 ### 3D version
 
-```{r, eval=FALSE}
-pls_df <- data_pls$template %>%
-  mutate(color = if_else(resistance == "HR", "red", "blue"))
+```{r}
+#library(plotly)
 
+pls3d <- plot_ly(data_pls$template, 
+                 x = ~PLS1, 
+                 y = ~PLS2, 
+                 z = ~PLS3, 
+                 color = ~data_pls$template$resistance, 
+                 colors = c('#cf280c', '#1b56f7')) 
 
-plot3d(x = pls_df$PLS1, y = pls_df$PLS2, z = pls_df$PLS3,
-       col = pls_df$color,
-       type = "s", 
-       radius = 0.2,
-       xlab = "PLS1",
-       ylab = "PLS2",
-       zlab = "PLS3")
+pls3d <- pls3d %>% 
+  add_markers(size = 2,
+              text = ~data_pls$template$strain)
+
+pls3d <- pls3d %>% 
+  layout(scene = list(xaxis = list(title = 'PLS1'),
+                      yaxis = list(title = 'PLS2'),
+                      zaxis = list(title = 'PLS3'))) 
+
+pls3d
 ```
 
 ## ICA - Independent Component Analysis
@@ -410,18 +423,26 @@ data_ica$template %>%
 
 #### 3D version
 
-```{r, eval=FALSE}
-ica_df <- data_ica$template %>%
-  mutate(color = if_else(resistance == "HR", "red", "blue"))
+```{r}
+#library(plotly)
 
+ica3d <- plot_ly(data_ica$template, 
+                 x = ~IC1, 
+                 y = ~IC2, 
+                 z = ~IC3, 
+                 color = ~data_ica$template$resistance, 
+                 colors = c('#cf280c', '#1b56f7')) 
 
-plot3d(x = ica_df$IC1, y = ica_df$IC2, z = ica_df$IC3,
-       col = ica_df$color,
-       type = "s", 
-       radius = 0.1,
-       xlab = "IC1",
-       ylab = "IC2",
-       zlab = "IC3")
+ica3d <- ica3d %>% 
+  add_markers(size = 2,
+              text = ~data_ica$template$strain)
+
+ica3d <- ica3d %>% 
+  layout(scene = list(xaxis = list(title = 'IC1'),
+                      yaxis = list(title = 'IC2'),
+                      zaxis = list(title = 'IC3'))) 
+
+ica3d
 ```
 
 ## UMAP - uniform manifold approximation and projection
@@ -461,18 +482,32 @@ data_umap_sup$template %>%
 
 Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
 
-#### 3D version (plotly)
+#### 3D version
 
-```{r, eval=FALSE}
-library(plotly)
+```{r}
+#library(plotly)
 
-fig2 <- plot_ly(umap_df, x = ~UMAP1, y = ~UMAP2, z = ~UMAP3, color = ~umap_df$resistance, colors = c('#cf280c', '#1b56f7')) 
-fig2 <- fig2 %>% add_markers(size = 2, text = ~umap_df$strain) 
-fig2 <- fig2 %>% layout(scene = list(xaxis = list(title = 'UMAP1'), 
-                                     yaxis = list(title = 'UMAP2'), 
-                                     zaxis = list(title = 'UMAP3'))) 
+umap3d <-
+  plot_ly(
+    data_umap_sup$template,
+    x = ~ UMAP1,
+    y = ~ UMAP2,
+    z = ~ UMAP3,
+    color = ~ data_umap_sup$template$resistance,
+    colors = c('#cf280c', '#1b56f7')
+  )
 
-fig2
+umap3d <- umap3d %>% 
+  add_markers(size = 2, text = ~ data_umap_sup$template$strain)
+
+umap3d <- umap3d %>% 
+  layout(scene = list(
+    xaxis = list(title = 'UMAP1'),
+    yaxis = list(title = 'UMAP2'),
+    zaxis = list(title = 'UMAP3')
+))
+
+umap3d
 
 ```
 
