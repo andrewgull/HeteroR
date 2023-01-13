@@ -80,6 +80,7 @@ server <- function(input, output) {
                    colorscale = colz)
   })
   
+  # UMAP plot multi-panel
   output$umap <- renderPlot({
     umap_rec <- data_rec %>%
       step_umap(all_numeric_predictors(), 
@@ -95,6 +96,7 @@ server <- function(input, output) {
       ggtitle("Supervised Uniform Manifold Approximation and Projection")
   }, height = 1000)
   
+  # UMAP 3D plotly
   output$umap.3d <- renderPlotly({
     umap_rec <- data_rec %>%
       step_umap(all_numeric_predictors(), 
@@ -127,4 +129,47 @@ server <- function(input, output) {
     
     umap3d
   })
+  
+  # PCA multi-panel
+  output$pca <- renderPlot({
+    pca_rec <- data_rec %>%
+      step_pca(all_numeric_predictors(),
+               num_comp = input$pca.comp)
+
+    data_pca <- prep(pca_rec, retain = TRUE)
+    
+    data_pca$template %>% 
+      plot_validation_results() + 
+      ggtitle("Principal Component Analysis (HR12)")
+  }, height = 1000)
+  
+  # PCA 3D plotly
+  output$pca.3d <- renderPlotly({
+    
+    pca_rec <- data_rec %>%
+      step_pca(all_numeric_predictors(),
+               num_comp = 3)
+    
+    data_pca <- prep(pca_rec, retain = TRUE)
+    
+    pca3d <- plot_ly(data_pca$template, 
+                     x = ~PC1, 
+                     y = ~PC2, 
+                     z = ~PC3, 
+                     color = ~data_pca$template$resistance, 
+                     colors = c('#cf280c', '#1b56f7')) 
+    
+    pca3d <- pca3d %>% 
+      add_markers(size = 2,
+                  text = ~data_pca$template$strain)
+    
+    pca3d <- pca3d %>% 
+      layout(scene = list(xaxis = list(title = 'PC1'),
+                          yaxis = list(title = 'PC2'),
+                          zaxis = list(title = 'PC3'))) 
+    
+    pca3d
+    
+  })
+  
 }

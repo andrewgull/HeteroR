@@ -89,11 +89,28 @@ ui <- fluidPage(
     # Tab for heatmap of genes
     tabPanel("Heatmap", 
              fluidRow(
-               column(12, plotlyOutput("heatmap"))
+               column(width = 12, plotlyOutput("heatmap"))
              )
     ),
     # Tab for PCA plots
-    tabPanel("PCA", "no data yet"),
+    tabPanel("PCA",
+             fluidRow(
+               column(width = 2, 
+                      sliderInput(inputId = "pca.comp",
+                                  label = "Number of components",
+                                  min = 2,
+                                  max = 40,
+                                  step = 1,
+                                  value = 8)),
+               column(width = 10,
+                      plotOutput("pca")))
+             ),
+    # Tab for PCA 3D
+    tabPanel("PCA 3D",
+             fluidRow(
+               column(width = 12,
+                      plotlyOutput("pca.3d", height = 1000))
+             )),
     # Tab for UMAP
     tabPanel("UMAP", 
              fluidRow(
@@ -109,13 +126,13 @@ ui <- fluidPage(
                                   min = 2,
                                   max = 40,
                                   step = 1,
-                                  value = 4),
+                                  value = 8),
                       sliderInput(inputId = "umap.dist",
                                   label = "Minimal distance",
                                   min = 0.01,
                                   max = 0.5,
                                   step = 0.01,
-                                  value = 0.01)),
+                                  value = 0.1)),
                column(width = 10,
                       plotOutput("umap"))
              )),
@@ -131,11 +148,11 @@ ui <- fluidPage(
                       sliderInput(inputId = "umap.3d.dist",
                                   label = "Minimal distance",
                                   min = 0.01,
-                                  max = 0.3,
+                                  max = 0.5,
                                   step = 0.01,
-                                  value = 0.05)),
+                                  value = 0.1)),
                column(width = 10,
-                      plotlyOutput("umap.3d")))
+                      plotlyOutput("umap.3d", height = 1000)))
     )
   )
 )
