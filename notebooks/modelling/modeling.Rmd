@@ -309,7 +309,7 @@ lr_workflow <-
 lr_res <- tune_grid(lr_workflow,
               grid = 30,
               resamples = cv_folds,
-              control = control_grid(save_pred = TRUE),
+              control = control_grid(save_pred = TRUE, save_workflow = TRUE),
               metrics = cls_metrics)
 
 ```
@@ -406,7 +406,7 @@ lr_bres <-
     iter = 50,
     # How to measure performance?
     metrics = metric_set(roc_auc),
-    control = control_bayes(no_improve = 30, verbose = FALSE, save_pred = TRUE)
+    control = control_bayes(no_improve = 30, verbose = FALSE, save_pred = TRUE, save_workflow = TRUE)
   )
 
 # roc_auc = 0.8889232 (+/-0.00785)
@@ -581,9 +581,19 @@ svm_workflow <-
 svm_res <- tune_grid(svm_workflow,
               grid = 25,
               resamples = cv_folds,
-              control = control_grid(save_pred = TRUE),
+              control = control_grid(save_pred = TRUE, save_workflow = TRUE),
               metrics = cls_metrics)
+
+autoplot(svm_res)
 ```
+
+### Best models
+
+```{r}
+svm_res %>% 
+  show_best("roc_auc", n = 5)
+```
+
 
 ## Space-filling grid: PCA recipe
 
@@ -1384,6 +1394,64 @@ ggsave("plots/confusion_matrix_BT.png", cm_heatmap)
 ```
 
 ---
+
+# Stacking test
+
+Let's take a couple of simple models and make a stack object: `lr_res` and `svm_res` with `save_pred=TRUE` and `save_workflow=TRUE`
+
+```{r}
+library(stacks)
+
+test_stack <- 
+  stacks() %>% 
+  add_candidates(lr_res) %>% 
+  add_candidates(svm_res)
+
+test_stack
+```
+
+```{r}
+as_tibble(test_stack)
+```
+
+```{r}
+test_stack_model <- 
+  test_stack %>% 
+  blend_predictions(penalty = c(0.01, 0.015, 0.02, 0.025, 0.03, 0.04, 0.1))
+
+autoplot(test_stack_model)
+```
+
+```{r}
+autoplot(test_stack_model, type = "members")
+```
+
+```{r}
+autoplot(test_stack_model, type = "weights")
+```
+
+```{r}
+test_stack_model <- 
+  test_stack_model %>% 
+  fit_members()
+```
+
+
+```{r}
+df_stack_test <- 
+  df_test %>%
+  bind_cols(predict(test_stack_model, .))
+```
+
+
+```{r}
+df_stack_test
+```
+
+```{r}
+test_stack_model
+```
+
 
 
 ```{r}
