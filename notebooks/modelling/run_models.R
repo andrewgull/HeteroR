@@ -141,13 +141,24 @@ set_model <- function(mod, cores) {
 my_model <- set_model(mod = model_type, cores = threads)
 
 # make a workflow with no_corr recipe
-my_workflow <- 
-  workflow() %>% 
-  add_model(my_model) %>% 
-  add_recipe(non_corr_recipe)
+if (model_type == "rf" | model_type == "bt"){
+  my_workflow <- workflow() %>% 
+    add_model(my_model) %>% 
+    add_recipe(main_recipe)
+  
+param_set <- extract_parameter_set_dials(my_workflow) %>%
+  finalize(x = df_train %>% select(-resistance))
 
-# extract settings for bayesian grid search
-param_set <- extract_parameter_set_dials(my_workflow)
+} else {
+  my_workflow <- workflow() %>% 
+    add_model(my_model) %>% 
+    add_recipe(non_corr_recipe)
+  
+  # extract settings for bayesian grid search
+  param_set <- extract_parameter_set_dials(my_workflow)
+}
+
+
 
 set.seed(12)
 
