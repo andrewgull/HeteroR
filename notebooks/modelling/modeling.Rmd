@@ -1399,13 +1399,42 @@ ggsave("plots/confusion_matrix_BT.png", cm_heatmap)
 
 Let's take a couple of simple models and make a stack object: `lr_res` and `svm_res` with `save_pred=TRUE` and `save_workflow=TRUE`
 
+You can use `run_models.R` to get trained models and then use them for stacking
+
+```{r}
+# don't forget to make a copy of each model before you load new environment
+load("/home/andrei/Data/HeteroR/notebooks/svmb.RData")
+svm_bres <- model_bres
+
+# and so on for each new environment
+load("/home/andrei/Data/HeteroR/notebooks/knnb.RData")
+knn_bres <- model_bres
+
+load("/home/andrei/Data/HeteroR/notebooks/marsb.RData")
+mars_bres <- model_bres
+
+load("/home/andrei/Data/HeteroR/notebooks/lrb.RData")
+lr_bres <- model_bres
+```
+
+
+Let's choose the best models
+
+```{r}
+models_list <- list(lr_bres, knn_bres, mars_bres, svm_bres)
+
+lapply(models_list, function(x){show_best(x, metric = "roc_auc", n = 1)}) 
+```
+
+
+
 ```{r}
 library(stacks)
 
 test_stack <- 
   stacks() %>% 
-  add_candidates(lr_res) %>% 
-  add_candidates(svm_res)
+  add_candidates(lr_bres) %>% 
+  add_candidates(svm_bres) 
 
 test_stack
 ```
@@ -1417,7 +1446,7 @@ as_tibble(test_stack)
 ```{r}
 test_stack_model <- 
   test_stack %>% 
-  blend_predictions(penalty = c(0.01, 0.015, 0.02, 0.025, 0.03, 0.04, 0.1))
+  blend_predictions(penalty = c(0.01, 0.015, 0.02, 0.03, 0.04, 0.045, 0.05))
 
 autoplot(test_stack_model)
 ```
