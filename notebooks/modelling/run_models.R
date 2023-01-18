@@ -170,7 +170,7 @@ model_bres <-
     # To use non-default parameter ranges
     param_info = param_set,
     # Generate five at semi-random to start
-    initial = 5,
+    initial = 8,
     iter = 50,
     # How to measure performance?
     metrics = metric_set(roc_auc),
