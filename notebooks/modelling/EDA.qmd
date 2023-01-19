@@ -139,7 +139,6 @@ data_strain %>%
   facet_grid(cols = vars(resistance))
 ```
 
-
 ## Numerical
 
 ```{r}
@@ -163,7 +162,6 @@ There is also a weird `NA.` column, I will remove it as well.
 data_strain$NA. <- NULL
 ```
 
-
 ### n.plasmids outliers
 
 I have fixed this filtering by plasmid length in `features.qmd`
@@ -186,7 +184,6 @@ data_strain[is.na(data_strain)] <- 0
 write.csv(data_strain, file = "EDA_app/data/features_strain.csv", row.names = FALSE)
 ```
 
-
 All pre-processing will be done with `recipes`
 
 ------------------------------------------------------------------------
@@ -208,21 +205,21 @@ We see a lot of correlated features.
 
 ## PCA
 
-### Normalization
+### ORQ Normalization
 
 ORQ normalization is used here
 
 ```{r}
 library(bestNormalize)
 
-data_rec <- recipe(resistance ~., data = data_strain) %>%
+orq_recipe <- recipe(resistance ~., data = data_strain) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) 
 
-data_prep <- prep(data_rec, retain = TRUE)
+data_prep <- prep(orq_recipe, retain = TRUE)
 
 # processed data 
 data_prep$template
@@ -237,9 +234,9 @@ cor_matrix_norm <- data_prep$template %>%
 corrplot::corrplot(cor_matrix_norm, type = "upper", tl.col = "black", tl.cex = 0.6)
 ```
 
-### Compare distributions
+#### Compare distributions
 
-Choose the variable of interest in the function below or check the **shiny app** out! 
+Choose the variable of interest in the function below or check the **shiny app** out!
 
 ```{r}
 library(patchwork)
@@ -260,16 +257,14 @@ comp_plots <- function(col_name){
   return(list(p_orig, p_norm))
 }
 
-plots <- comp_plots("n.plasmids")
+plots <- comp_plots("min.dist.oriC")
 ```
-
 
 ```{r, fig.width = 10, fig.height=5}
 (plots[[1]] | plots[[2]])
 ```
 
 If the original distribution is very skewed then normalization doesn't help much.
-
 
 ```{r}
 library(ggforce)
@@ -287,10 +282,39 @@ plot_validation_results <- function(dat) {
 }
 ```
 
+
+### Yeo-Johnson transformation
+
+```{r}
+yj_recipe <- recipe(resistance ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors())
+```
+
+
+#### Check the distributions
+
+```{r}
+data_prep <- prep(yj_recipe, retain = TRUE)
+
+plots <- comp_plots("min.dist.oriC")
+```
+
+```{r, fig.width = 12, fig.height=5}
+(plots[[1]] | plots[[2]])
+```
+
+**NB**: Yeo-Johnson transformation works comparable or worse than ORQ normalization
+
 ### PCA plot
 
+based on recipe with ORQ normalization
+
 ```{r, fig.width=12, fig.height=12}
-pca_rec <- data_rec %>%
+pca_rec <- orq_recipe %>%
   step_pca(all_numeric_predictors(), num_comp = 8)
 
 data_pca <- prep(pca_rec, retain = TRUE)
@@ -522,21 +546,13 @@ umap3d
 
 The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes himself:
 
->As a non-linear manifold learning technique that ultimately works with
-metric spaces at its heart rather than feature based data UMAP doesn't
-really have a notion of explained variance the way algorithms like PCA do.
-A colleague is working on developing some alternative measures of how well
-an embedding has performed, but that is still preliminary work and we don't
-have any published code for that yet -- ultimately UMAP remains a research
-project with additional features and utilities still being developed.
-
+> As a non-linear manifold learning technique that ultimately works with metric spaces at its heart rather than feature based data UMAP doesn't really have a notion of explained variance the way algorithms like PCA do. A colleague is working on developing some alternative measures of how well an embedding has performed, but that is still preliminary work and we don't have any published code for that yet -- ultimately UMAP remains a research project with additional features and utilities still being developed.
 
 ### write UMAP results to a file
 
 ```{r}
 write.csv(data_umap_sup$template, "data/umap_hr12.csv", row.names = FALSE)
 ```
-
 
 ## RG counts distribution
 
