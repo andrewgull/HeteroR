@@ -125,15 +125,7 @@ head(train_data)
 train_data %>% group_by(resistance) %>% count()
 ```
 
-
-### NZV predictors
-
-```{r}
-setdiff(names(df), names(train_data))
-```
-
-
-## PCA + Yeo-Johnson transformation recipe
+## PCA + ORQ-normalization
 
 From [here](https://www.tmwr.org/grid-search.html):
 
@@ -143,21 +135,20 @@ From [here](https://www.tmwr.org/grid-search.html):
 
 >Many of the predictors have skewed distributions. Since PCA is variance based, extreme values can have a detrimental effect on these calculations. To counter this, let’s add a recipe step estimating a Yeo-Johnson transformation for each predictor (Yeo and Johnson 2000). While originally intended as a transformation of the outcome, it can also be used to estimate transformations that encourage more symmetric distributions
 
+**NB:** As comparison in EDA notebook showed, OQ-normalization works better than Yeo-Johnson transformation.
+
+For PCA recipe I will use ORQ-normalization.
+
 ```{r}
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
-  step_nzv(all_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_YeoJohnson(all_numeric_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_orderNorm(all_numeric_predictors()) %>% 
+  step_normalize(all_predictors()) %>%
   step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
   step_normalize(all_numeric_predictors()) %>% 
   step_smote(resistance, over_ratio = 1, seed = 100)
-
-#  step_YeoJohnson(all_numeric_predictors()) %>% 
-#  step_normalize(all_numeric_predictors()) %>% 
-#  step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
-#  step_normalize(all_numeric_predictors())
 
 pca_recipe
 ```
@@ -165,23 +156,6 @@ pca_recipe
 ## UMAP and Ordered-Quantile normalization
 
 I use supervised UMAP
-
-```{r}
-# function for umap plot
-library(ggforce)
-
-plot_validation_results <- function(dat) {
-  dat %>%
-    select(-strain) %>% 
-    # Create the scatterplot matrix
-    ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
-    geom_point(alpha = 0.4, size = 1) +
-    geom_autodensity(alpha = .3) +
-    facet_matrix(vars(-resistance), layer.diag = 2) + 
-    scale_color_brewer(palette = "Set1") + 
-    scale_fill_brewer(palette = "Set1")
-}
-```
 
 What position of `step_smote()` is preferable??
 
@@ -192,19 +166,15 @@ umap_rec <- recipe(resistance ~., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10) 
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 14) 
 
 # to make a plot
 data_umap <- prep(umap_rec, retain = TRUE)
 
-data_umap$template %>% 
-  plot_validation_results() +
-  ggtitle("UMAP (supervised)")
 ```
 
-Seems OK
 
-### Update the recipe adding SMOTE step
+### Add SMOTE step
 
 ```{r}
 umap_rec <- umap_rec %>% 
@@ -214,11 +184,13 @@ umap_rec
 ```
 
 
-## LR recipe
+## No correlation recipe
+
+with manually set correlation threshold
 
 ```{r}
 # adjust the main recipe
-lr_recipe <- main_recipe %>%
+ncorr_recipe <- main_recipe %>%
   step_corr(threshold = 0.75)
 ```
 
@@ -237,37 +209,104 @@ cls_metrics <- metric_set(roc_auc, j_index)
 
 For creating a tuning grid the maximum entropy design is used `tune()`'s default.
 
-# Penalized LR with UMAP
+## Function to simplify things
+
+To make model creation less repetitive
+
+```{r}
+set_model <- function(mod, cores) {
+  if (mod == "lr") {
+    my_mod <- logistic_reg(
+        penalty = tune(), 
+        mixture = 1) %>% 
+      set_engine("glmnet")
+  } else if (mod == "mars") {
+    my_mod <- mars(
+      mode = "classification",
+      engine = "earth",
+      num_terms = tune(),
+      prod_degree = tune(),
+      prune_method = "backward") %>% 
+      translate()
+  } else if(mod == "svm") {
+    my_mod <- svm_linear(
+        cost = tune()) %>% # margin - for regression only
+      set_mode("classification") %>%
+      set_engine("kernlab")  # default
+  } else if(mod == "rf") {
+    my_mod <- rand_forest(
+      mtry = tune(), 
+      min_n = tune(), 
+      trees = 1000) %>% 
+      set_engine("ranger", num.threads = cores) %>% 
+      set_mode("classification")
+  } else if(mod == "bt") {
+    my_mod <- boost_tree(
+      trees = 50, 
+      mtry = tune(), 
+      min_n = tune(), 
+      tree_depth = tune(), 
+      learn_rate = tune(), 
+      loss_reduction = tune(), 
+      sample_size = tune(), 
+      stop_iter = tune()) %>% 
+      set_engine("xgboost", num.threads = cores) %>% 
+      set_mode("classification")
+  } else if(mod == "knn") {
+    my_mod <- nearest_neighbor(
+      neighbors = tune(),
+      weight_func = tune(),
+      dist_power = tune()) %>% #
+      set_engine("kknn") %>%
+      set_mode("classification")
+  }
+  return(my_mod)
+}
+
+set_wf <- function(mod, rec){
+  # mod: model type, one of: lr, knn, mars, svm, rf, bt
+  # rec: recipe object (one of: main, ncorr, pca, umap)
+  # rec must be in GlobalEnv
+  
+  wf <- workflow() %>% 
+    add_model(set_model(mod = mod)) %>% 
+    add_recipe(rec)
+  
+  return(wf)
+}
+```
+
+
+# Penalized LR
+
+## UMAP
 
 ```{r}
 set.seed(233)
 
-lr_mod <- 
-  logistic_reg(
-    penalty = tune(), 
-    mixture = 1) %>% 
-  set_engine("glmnet")
-
-# define the workflow
-lr_umap_workflow <- 
-  workflow() %>% 
-  add_model(lr_mod) %>% 
-  add_recipe(umap_rec)
-
-# create a tune grid
-# lr_reg_grid <- tibble(penalty = 10**seq(-4, 0, length.out = 30))
+lr_umap_workflow <- set_wf(mod = "lr", rec = umap_recipe)
 
 # train and tune the model
 lr_umap_res <- tune_grid(lr_umap_workflow,
               grid = 30,
               resamples = cv_folds,
-              control = control_grid(save_pred = TRUE),
+              control = control_grid(save_pred = TRUE, save_workflow = TRUE),
               metrics = cls_metrics)
 
+```
+
+```{r}
 autoplot(lr_umap_res)
 ```
 
-## Best ROC-AUC
+
+### ROC-AUC
+
+```{r}
+lr_umap_res %>%
+  select_best(metric = "roc_auc")
+```
+
 
 ```{r}
 lr_umap_best <- lr_umap_res %>%
@@ -282,8 +321,6 @@ lr_umap_auc <-
 autoplot(lr_umap_auc)
 ```
 
-
-# Penalized Logistic regression
 
 ## Space-filling grid: LR recipe
 
@@ -300,7 +337,7 @@ lr_mod <-
 lr_workflow <- 
   workflow() %>% 
   add_model(lr_mod) %>% 
-  add_recipe(lr_recipe)
+  add_recipe(ncorr_recipe)
 
 # create a tune grid
 # lr_reg_grid <- tibble(penalty = 10**seq(-4, 0, length.out = 30))
@@ -483,7 +520,7 @@ mars_mod <-
 mars_workflow <- 
   workflow() %>% 
   add_model(mars_mod) %>% 
-  add_recipe(lr_recipe) # recipe for LR here
+  add_recipe(ncorr_recipe) # recipe for LR here
 
 # train and tune the model
 mars_res <- tune_grid(mars_workflow,
@@ -575,7 +612,7 @@ svm_mod <-
 svm_workflow <- 
   workflow() %>% 
   add_model(svm_mod) %>% 
-  add_recipe(lr_recipe) # recipe for LR here
+  add_recipe(ncorr_recipe) # recipe for LR here
 
 # train and tune the model
 svm_res <- tune_grid(svm_workflow,
@@ -693,7 +730,7 @@ set_engine("kernlab", num.threads = 4L)  # default
 svm_poly_workflow <- 
   workflow() %>% 
   add_model(svm_poly_mod) %>% 
-  add_recipe(lr_recipe) # recipe for LR here
+  add_recipe(ncorr_recipe) # recipe for LR here
 
 # train and tune the model
 svm_poly_res <- tune_grid(svm_poly_workflow,
@@ -786,7 +823,7 @@ set_engine("kernlab")  # default
 svm_rbf_workflow <- 
   workflow() %>% 
   add_model(svm_rbf_mod) %>% 
-  add_recipe(lr_recipe) # recipe for LR here
+  add_recipe(ncorr_recipe) # recipe for LR here
 
 # train and tune the model
 svm_rbf_res <- tune_grid(svm_rbf_workflow,
@@ -842,7 +879,7 @@ knn_mod <- nearest_neighbor(
 knn_workflow <- 
   workflow() %>% 
   add_model(knn_mod) %>% 
-  add_recipe(lr_recipe) # recipe for LR here
+  add_recipe(ncorr_recipe) # recipe for LR here
 
 
 # train and tune the model
