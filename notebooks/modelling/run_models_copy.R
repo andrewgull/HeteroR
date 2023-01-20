@@ -75,8 +75,13 @@ main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
-ncorr_recipe <- main_recipe %>%
-  step_corr(threshold = 0.75)
+ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(threshold = 0.75) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
 
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
@@ -94,7 +99,8 @@ umap_recipe <- recipe(resistance ~., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 20) 
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 20) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) 
 
 #### FOLDS & METRICS ####
 cv_folds <- vfold_cv(df_train, 
@@ -194,9 +200,18 @@ if (opt$model == "rf" | opt$model == "bt"){
   param_set <- extract_parameter_set_dials(my_wf)
 }
 
-#### MODEL RESAMPLING BAYES GRID ####
-model_bres <-
-  my_wf %>% 
+#### MODEL TUNING ####
+if (opt$model == "lr"){
+  print("Space-filling grid search is chosen...")
+  model_res <- my_wf %>%
+          tune_grid(
+              grid = 30,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE, save_workflow = TRUE),
+              metrics = cls_metrics)
+} else {
+  print("Bayesian grid search is chosen...")
+  model_res <- my_wf %>% 
   tune_bayes(
     resamples = cv_folds,
     # To use non-default parameter ranges
@@ -211,7 +226,9 @@ model_bres <-
                             save_pred = TRUE, 
                             save_workflow = TRUE)
   )
+}
+
 
 #### SAVE MODEL ####
-saveRDS(object = model_bres, file = opt$output)
+saveRDS(object = model_res, file = opt$output)
 
