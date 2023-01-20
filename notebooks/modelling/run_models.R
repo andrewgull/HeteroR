@@ -1,46 +1,48 @@
 # run models and save them
 library(optparse)
 
-# CLI parsing
+#### CLI parsing ####
 option_list <- list(
   make_option(c("-m", "--model"),
               type = "character",
               default = NULL,
-              help = "A model type (one of the following; lr, mars, svm, rf, knn, bt)",
+              help = "A model type (should be one of the following: lr, mars, svm, rf, knn, bt)",
               metavar = "character"),
   make_option(c("-o", "--output"),
               type = "character",
               default = NULL,
-              help = "output file (.RData)",
+              help = "output file (.rds)",
               metavar = "character"),
   make_option(c("-t", "--threads"),
               type = "integer",
               default = 2,
               help = "number of threads for Random Forest and Boosted Trees",
-              metavar = "integer")
+              metavar = "integer"),
+  make_option(c("-r", "--recipe"),
+              type = "character",
+              default = NULL,
+              help = "recipe to use (should be one of the follwing: main, ncorr, pca, umap)",
+              metavar = "character")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
 opt <- parse_args(opt_parser)
 
-model_type <- opt$model
-output_file <- opt$output
-threads <- opt$threads
+#### LIBS ####
+suppressPackageStartupMessages(library(tidymodels)) # to keep quiet
+library(themis) # for SMOTE
+library(bestNormalize) # for ORQ-norm
+library(embed) # for UMAP
 
-# libs
-library(tidymodels)
-library(themis)
-library(probably)
-library(vip)
-library(skimr)
-library(stacks)
-library(bestNormalize) # for ord QQ norm
-library(embed)
+#### DATA ####
+path_data <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/features_strain.csv"
+path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr12.csv"
+data_strain <- readr::read_csv(path_data, 
+                              na = c("NA", "-Inf"),
+                              show_col_types = FALSE)
 
-# DATA
-data_strain <- readr::read_csv("/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/features_strain.csv", na = c("NA", "-Inf"))
-
-hr_testing <- readr::read_csv("/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr12.csv")
+hr_testing <- readr::read_csv(path_labels, 
+                              show_col_types = FALSE)
 
 data_strain <- data_strain %>% 
   left_join(hr_testing, by = "strain")
@@ -57,7 +59,7 @@ data_strain$N50 <- NULL
 data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 
-# SPLIT
+#### SPLIT ####
 set.seed(124)
 
 data_split <- initial_split(data_strain, prop = 0.8, strata = resistance)
@@ -65,7 +67,7 @@ data_split <- initial_split(data_strain, prop = 0.8, strata = resistance)
 df_train <- training(data_split)
 df_test <- testing(data_split)
 
-# RECIPES
+#### RECIPES ####
 main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -73,21 +75,42 @@ main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
+ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(threshold = 0.75) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
 
-non_corr_recipe <- main_recipe %>%
-  step_corr(threshold = 0.75)
+pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_orderNorm(all_numeric_predictors()) %>% 
+  step_normalize(all_predictors()) %>%
+  step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_smote(resistance, over_ratio = 1, seed = 100)
 
-# Stratified, repeated 10-fold cross-validation is used to resample the model:
-cv_folds <- vfold_cv(df_train, strata = "resistance", v = 10, repeats = 10) # is better than v=5
-# metrics for imbalanced classes
-cls_metrics <- metric_set(roc_auc, j_index)
+umap_recipe <- recipe(resistance ~., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_orderNorm(all_numeric_predictors()) %>% 
+  step_normalize(all_predictors()) %>% 
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 20) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) 
 
-###########################################################
-# evaluate models with resampling and Bayesian grid search
+#### FOLDS & METRICS ####
+cv_folds <- vfold_cv(df_train, 
+                     strata = "resistance", 
+                     v = 10, 
+                     repeats = 10) # is better than v=5
 
-set.seed(333)
-# set model type/engine
+cls_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
 
+#### FUN: MODEL SPECIFICATION ####
 set_model <- function(mod, cores) {
   if (mod == "lr") {
     my_mod <- logistic_reg(
@@ -130,46 +153,70 @@ set_model <- function(mod, cores) {
     my_mod <- nearest_neighbor(
       neighbors = tune(),
       weight_func = tune(),
-      dist_power = tune()) %>% #
+      dist_power = tune()) %>%
       set_engine("kknn") %>%
       set_mode("classification")
   }
   return(my_mod)
 }
 
-# define the model
-my_model <- set_model(mod = model_type, cores = threads)
-
-# make a workflow with no_corr recipe
-if (model_type == "rf" | model_type == "bt"){
-  my_workflow <- workflow() %>% 
-    add_model(my_model) %>% 
-    add_recipe(main_recipe)
+#### FUN: WORKFLOW
+set_wf <- function(mod, rec, cores){
+  # mod: model type, one of: lr, knn, mars, svm, rf, bt
+  # rec: recipe object (one of: main, ncorr, pca, umap)
+  # rec must be in GlobalEnv
   
-param_set <- extract_parameter_set_dials(my_workflow) %>%
-  finalize(x = df_train %>% select(-resistance))
+  if (rec == "main"){
+    rc <- main_recipe
+  } else if (rec == "ncorr"){
+    rc <- ncorr_recipe
+  } else if (rec == "pca") {
+    rc <- pca_recipe
+  } else if (rec == "umap") {
+    rc <- umap_recipe
+  } else {
+    print(" ERROR! Undefined recipe!")
+  }
 
-} else {
-  my_workflow <- workflow() %>% 
-    add_model(my_model) %>% 
-    add_recipe(non_corr_recipe)
+  wf <- workflow() %>% 
+    add_model(set_model(mod = mod, cores = cores)) %>% 
+    add_recipe(rc)
   
-  # extract settings for bayesian grid search
-  param_set <- extract_parameter_set_dials(my_workflow)
+  return(wf)
 }
 
+#### CREATE A WORKFLOW ####
+my_wf <- set_wf(mod = opt$model, 
+                rec = opt$recipe, 
+                cores = opt$threads)
 
+#### EXTRACT PARAMETERS ####
+if (opt$model == "rf" | opt$model == "bt"){
+  # extract settings for bayesian grid search (special case)
+  param_set <- extract_parameter_set_dials(my_wf) %>%
+    finalize(x = df_train %>% select(-resistance))
+} else {
+  # extract settings for bayesian grid search
+  param_set <- extract_parameter_set_dials(my_wf)
+}
 
-set.seed(12)
-
-# resample and evaluate
-model_bres <-
-  my_workflow %>% 
+#### MODEL TUNING ####
+if (opt$model == "lr"){
+  print("Space-filling grid search is chosen...")
+  model_res <- my_wf %>%
+          tune_grid(
+              grid = 30,
+              resamples = cv_folds,
+              control = control_grid(save_pred = TRUE, save_workflow = TRUE),
+              metrics = cls_metrics)
+} else {
+  print("Bayesian grid search is chosen...")
+  model_res <- my_wf %>% 
   tune_bayes(
     resamples = cv_folds,
     # To use non-default parameter ranges
     param_info = param_set,
-    # Generate five at semi-random to start
+    # Generate N at semi-random to start
     initial = 8,
     iter = 50,
     # How to measure performance?
@@ -179,6 +226,9 @@ model_bres <-
                             save_pred = TRUE, 
                             save_workflow = TRUE)
   )
+}
 
-# save
-save.image(output_file)
+
+#### SAVE MODEL ####
+saveRDS(object = model_res, file = opt$output)
+
