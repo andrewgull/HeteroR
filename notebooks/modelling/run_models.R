@@ -6,7 +6,7 @@ option_list <- list(
   make_option(c("-m", "--model"),
               type = "character",
               default = NULL,
-              help = "A model type (should be one of the following: lr, mars, svm, rf, knn, bt)",
+              help = "A model type (should be one of the following: 'lr', 'mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt')",
               metavar = "character"),
   make_option(c("-o", "--output"),
               type = "character",
@@ -21,12 +21,24 @@ option_list <- list(
   make_option(c("-r", "--recipe"),
               type = "character",
               default = NULL,
-              help = "recipe to use (should be one of the follwing: main, ncorr, pca, umap)",
+              help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'umap')",
+              metavar = "character"),
+  make_option(c("-s", "--search"),
+              type = "character",
+              default = "space",
+              help = "space-filling or bayesian grid search (should be one of the following: 'bayes' or 'space')",
               metavar = "character")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
 opt <- parse_args(opt_parser)
+
+# check validity of options
+# if (opt$search != "bayes" | opt$search != "space"){
+#   print("ERROR! Unknown type of grid search!")
+#   quit(status = 1)
+# } 
+
 
 #### LIBS ####
 suppressPackageStartupMessages(library(tidymodels)) # to keep quiet
@@ -85,12 +97,13 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
 
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
+  update_role(resistance, new_role = "outcome") %>% 
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
-  step_orderNorm(all_numeric_predictors()) %>% 
+  step_orderNorm(all_predictors()) %>% 
   step_normalize(all_predictors()) %>%
-  step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
-  step_normalize(all_numeric_predictors()) %>% 
+  step_pca(all_predictors(), num_comp = tune()) %>% 
+  step_normalize(all_predictors()) %>% 
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 umap_recipe <- recipe(resistance ~., data = df_train) %>%
@@ -99,7 +112,7 @@ umap_recipe <- recipe(resistance ~., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 20) %>%
+  step_umap(all_numeric_predictors(), num_comp = 20) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) 
 
 #### FOLDS & METRICS ####
@@ -110,8 +123,9 @@ cv_folds <- vfold_cv(df_train,
 
 cls_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
 
-#### FUN: MODEL SPECIFICATION ####
+#### FUNCTIONS ####
 set_model <- function(mod, cores) {
+  # create model specification
   if (mod == "lr") {
     my_mod <- logistic_reg(
         penalty = tune(), 
@@ -125,7 +139,7 @@ set_model <- function(mod, cores) {
       prod_degree = tune(),
       prune_method = "backward") %>% 
       translate()
-  } else if(mod == "svm") {
+  } else if(mod == "lsvm") {
     my_mod <- svm_linear(
         cost = tune()) %>% # margin - for regression only
       set_mode("classification") %>%
@@ -156,12 +170,21 @@ set_model <- function(mod, cores) {
       dist_power = tune()) %>%
       set_engine("kknn") %>%
       set_mode("classification")
+  } else if (mod == "psvm") {
+    my_mod <- svm_poly(
+      cost = tune(),
+      degree = tune(),
+      scale_factor = tune(),
+      margin = NULL ) %>% # regression only 
+      set_mode("classification") %>%
+      set_engine("kernlab", num.threads = cores)
   }
   return(my_mod)
 }
 
-#### FUN: WORKFLOW
+
 set_wf <- function(mod, rec, cores){
+  # create a workflow
   # mod: model type, one of: lr, knn, mars, svm, rf, bt
   # rec: recipe object (one of: main, ncorr, pca, umap)
   # rec must be in GlobalEnv
@@ -175,7 +198,8 @@ set_wf <- function(mod, rec, cores){
   } else if (rec == "umap") {
     rc <- umap_recipe
   } else {
-    print(" ERROR! Undefined recipe!")
+    print("ERROR! Undefined recipe!")
+    quit(status = 1)
   }
 
   wf <- workflow() %>% 
@@ -201,15 +225,16 @@ if (opt$model == "rf" | opt$model == "bt"){
 }
 
 #### MODEL TUNING ####
-if (opt$model == "lr"){
+if (opt$search == "space"){
   print("Space-filling grid search is chosen...")
   model_res <- my_wf %>%
           tune_grid(
               grid = 30,
               resamples = cv_folds,
-              control = control_grid(save_pred = TRUE, save_workflow = TRUE),
+              control = control_grid(save_pred = TRUE, 
+                                     save_workflow = TRUE),
               metrics = cls_metrics)
-} else {
+} else if (opt$search == "bayes"){
   print("Bayesian grid search is chosen...")
   model_res <- my_wf %>% 
   tune_bayes(
@@ -220,14 +245,12 @@ if (opt$model == "lr"){
     initial = 8,
     iter = 50,
     # How to measure performance?
-    metrics = metric_set(roc_auc),
+    metrics = metric_set(cls_metrics),
     control = control_bayes(no_improve = 30, 
                             verbose = FALSE, 
                             save_pred = TRUE, 
-                            save_workflow = TRUE)
-  )
+                            save_workflow = TRUE))
 }
-
 
 #### SAVE MODEL ####
 saveRDS(object = model_res, file = opt$output)
