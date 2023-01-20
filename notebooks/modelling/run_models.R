@@ -245,7 +245,7 @@ if (opt$search == "space"){
     initial = 8,
     iter = 50,
     # How to measure performance?
-    metrics = metric_set(cls_metrics),
+    metrics = metric_set(roc_auc),
     control = control_bayes(no_improve = 30, 
                             verbose = FALSE, 
                             save_pred = TRUE, 
