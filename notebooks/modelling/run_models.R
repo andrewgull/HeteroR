@@ -6,7 +6,7 @@ option_list <- list(
   make_option(c("-m", "--model"),
               type = "character",
               default = NULL,
-              help = "A model type (should be one of the following: 'lr', 'mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt')",
+              help = "A model type (should be one of the following: 'lr', 'mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt', 'nnet')",
               metavar = "character"),
   make_option(c("-o", "--output"),
               type = "character",
@@ -21,7 +21,7 @@ option_list <- list(
   make_option(c("-r", "--recipe"),
               type = "character",
               default = NULL,
-              help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'umap')",
+              help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'umap', 'ncorr-orq')",
               metavar = "character"),
   make_option(c("-s", "--search"),
               type = "character",
@@ -113,7 +113,16 @@ umap_recipe <- recipe(resistance ~., data = df_train) %>%
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
   step_umap(all_numeric_predictors(), num_comp = 20) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) 
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_orderNorm(all_predictors()) %>%
+  step_corr(threshold = 0.75) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
 
 #### FOLDS & METRICS ####
 cv_folds <- vfold_cv(df_train, 
@@ -178,6 +187,16 @@ set_model <- function(mod, cores) {
       margin = NULL ) %>% # regression only 
       set_mode("classification") %>%
       set_engine("kernlab", num.threads = cores)
+  } else if (mod == "nnet"){
+    my_mod <-
+      mlp(hidden_units = tune(), 
+          penalty = NULL, 
+          epochs = tune(),
+          dropout = tune(),
+          activation = tune(),
+          learn_rate = NULL) %>%
+      set_mode("classification") %>%
+      set_engine("keras", num.threads = cores)
   }
   return(my_mod)
 }
@@ -185,7 +204,7 @@ set_model <- function(mod, cores) {
 
 set_wf <- function(mod, rec, cores){
   # create a workflow
-  # mod: model type, one of: lr, knn, mars, svm, rf, bt
+  # mod: model type, one of: lr, knn, mars, svm, rf, bt, nnet
   # rec: recipe object (one of: main, ncorr, pca, umap)
   # rec must be in GlobalEnv
   
@@ -197,6 +216,8 @@ set_wf <- function(mod, rec, cores){
     rc <- pca_recipe
   } else if (rec == "umap") {
     rc <- umap_recipe
+  } else if (rec == "ncorr-orq") {
+    rc <- ncorq_recipe
   } else {
     print("ERROR! Undefined recipe!")
     quit(status = 1)
