@@ -288,6 +288,13 @@ set_model <- function(mod, cores) {
       dist_power = tune()) %>%
       set_engine("kknn") %>%
       set_mode("classification")
+  } else if (mod == "nnet"){
+    my_mod <-
+      mlp(hidden_units = tune(), 
+          penalty = tune(), 
+          epochs = tune()) %>%
+      set_mode("classification") %>%
+      set_engine("nnet", num.threads = cores)
   }
   return(my_mod)
 }
@@ -402,7 +409,7 @@ lr_ncorr_res %>%
 #### ROC of the best model
 
 ```{r}
-lr_ncorr_auc <- make_roc(lr_ncorr_res, "LR (no corr.)")
+lr_ncorr_auc <- make_roc(lr_ncorr_res, "LR (no corr)")
 
 autoplot(lr_ncorr_auc)
 ```
@@ -576,7 +583,7 @@ mars_pca_res %>%
 Load
 
 ```{r}
-svm_ncorr_res <- readRDS(paste0(models_path, "svm_ncorr.rds"))
+svm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr.rds"))
 ```
 
 or compute
@@ -1021,6 +1028,29 @@ rf_res %>%
 make_roc(rf_res, "RF") %>% autoplot()
 ```
 
+## NCORR recipe + Bayesian optimization
+
+```{r}
+rf_ncorr_bres <- readRDS(paste0(models_path, "rfb_ncorr.rds"))
+
+rf_ncorr_bres %>% autoplot()
+```
+
+### Best models
+
+```{r}
+rf_ncorr_bres %>% show_best("roc_auc", n = 5)
+```
+
+### ROC 
+
+```{r}
+rf_ncorr_bres %>% 
+  make_roc("RF (no corr)") %>% 
+  autoplot()
+```
+
+
 # Boosted Trees (BT)
 
 Using Extreme Gradient Boosting
@@ -1115,6 +1145,7 @@ xgb_ncorr_bres %>%
   show_best(metric = "roc_auc", n = 5)
 ```
 
+
 ### ROC
 
 ```{r}
@@ -1152,12 +1183,59 @@ make_roc(xgb_pca_bres, "XGB (PCA)") %>% autoplot()
 > model fit. ! The Gaussian process model is being fit using 8 features
 > but only has 9
 
+# Neural network
+
+```{r}
+nnet_mod <- set_model("nnet", 10)
+
+nnet_wf <- set_wf("nnet", "ncorr", 10)
+```
+
+
+## NCORR recipe + space filling
+
+```{r}
+nnet_ncorr_res <- readRDS(paste0(models_path, "nn_ncorr.rds"))
+
+nnet_ncorr_res %>% autoplot()
+```
+
+## Best models
+
+```{r}
+nnet_ncorr_res %>% 
+  show_best("roc_auc", n = 5)
+```
+
+## ROC
+
+```{r}
+make_roc(nnet_ncorr_res, "MLP") %>% autoplot()
+```
+
+
+
+## NCORR + keras + space filling
+
+```{r}
+nnet_ncorr_kres <- readRDS(paste0(models_path, "nn_keras_ncorr.rds"))
+
+nnet_ncorr_kres %>% autoplot()
+```
+
+```{r}
+nnet_ncorr_kres %>% show_best("roc_auc", n = 5)
+```
+
+
+
 # ROC of all models
 
-```{r, fig.width=12, fig.height=10}
+```{r, fig.width=8, fig.height=6}
 # calculate rocs
-models_list <- list(knn_ncor_bres, lr_ncorr_res, lr_pca_res, mars_ncorr_res, mars_pca_res, rf_main_bres, xgb_main_bres, svm_ncorr_res, svm_poly_res)
-models_names <- c("KNN (no corr)", "LR (no corr)", "LR (PCA)", "MARS (no corr)", "MARS (PCA)", "RF (all)", "XGB (all)", "SVM linear (no corr)", "SVM polynomial (no corr)")
+models_list <- list(knn_ncor_bres, lr_ncorr_res, lr_pca_res, mars_ncorr_res, mars_pca_res, rf_main_bres, rf_ncorr_bres, xgb_main_bres, xgb_ncorr_bres, xgb_pca_bres, svm_ncorr_res, svm_poly_res, nnet_ncorr_res)
+
+models_names <- c("KNN (no corr)", "LR (no corr)", "LR (PCA)", "MARS (no corr)", "MARS (PCA)", "RF (all)", "RF (no corr)", "XGB (all)", "XGB (no corr)", "XGB (PCA)", "SVM lin (no corr)", "SVM poly (no corr)", "MLP (no corr)")
 
 
 roc_df <- map2_dfr(models_list, models_names, function(x, y) make_roc(x, y))
@@ -1167,7 +1245,8 @@ roc_plot <- roc_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_brewer(palette = "Set1")
+  scale_color_viridis_d(direction = -1, option = "H")+
+  theme_bw()
 
 roc_plot
 ```
@@ -1221,6 +1300,10 @@ set.seed(345)
 final_fit <- 
   last_wf %>% 
   last_fit(data_split)
+
+# emulates the process where, after determining the best model, 
+# the final fit on the entire training set is needed 
+# and is then evaluated on the test set.
 
 final_fit %>% 
   collect_metrics()
@@ -1409,12 +1492,12 @@ xgb_last_fit %>%
 
 # Models stacking
 
-Let's choose the best models
+For successful stacking, you need the same set of predictors in every candidate model.
 
 My choice: LR (no corr), LSVM (no corr), XGB (all), RF (all)
 
 ```{r}
-# c("KNN (no corr)", "LR (no corr)", "LR (PCA)", "MARS (no corr)", "MARS (PCA)", "RF (all)", "XGB (all)", "SVM linear (no corr)", "SVM polynomial (no corr)")
+# models_names
 
 map(models_list[c(2, 6, 7, 8, 9)], function(x) show_best(x, metric = "roc_auc", n = 1)) 
 ```
@@ -1433,75 +1516,57 @@ test_stack_1 <-
   add_candidates(models_list[[7]])
 
 # no corr set
-test_stack_2 <-
+ncorr_stack <-
   stacks() %>% 
-  add_candidates(models_list[[2]]) %>%
-  add_candidates(models_list[[8]]) %>% 
-  add_candidates(models_list[[9]])
+  add_candidates(models_list[[1]]) %>%
+  add_candidates(models_list[[2]]) %>% 
+  add_candidates(models_list[[7]]) %>% 
+  add_candidates(models_list[[9]]) %>% 
+  add_candidates(models_list[[11]]) %>% 
+  add_candidates(models_list[[12]])
   
 ```
 
-## Stack 1
+
+## NCORR stack
 
 ```{r}
-test_stack_model_1 <- 
-  test_stack_1 %>% 
-  blend_predictions(penalty = seq(0.01, 0.5, 0.05))
+ncorr_stack %>% 
+  blend_predictions(penalty = seq(0.01, 0.5, 0.02)) %>% 
+  autoplot()
+```
 
-autoplot(test_stack_model_1)
+Let's choose penalty = 0.07
+
+```{r}
+ncorr_stack_model <- 
+  ncorr_stack %>% 
+  blend_predictions(penalty = 0.07)
+
+autoplot(ncorr_stack_model)
 ```
 
 ```{r}
-autoplot(test_stack_model_1, type = "members")
+autoplot(ncorr_stack_model, type = "weights")
 ```
 
 ```{r}
-autoplot(test_stack_model_1, type = "weights")
-```
-
-```{r}
-test_stack_model_1 <- 
-  test_stack_model_1 %>% 
-  fit_members()
-```
-
-```{r}
-df_stack_test_1 <- 
-  df_test %>%
-  bind_cols(predict(test_stack_model_1, .))
-
-df_stack_test_1
-```
-
-```{r}
-test_stack_model_1
-```
-
-## Stack 2
-
-```{r}
-test_stack_model_2 <- 
-  test_stack_2 %>% 
-  blend_predictions(penalty = seq(0.01, 0.5, 0.05))
-
-autoplot(test_stack_model_2)
-```
-
-```{r}
-autoplot(test_stack_model_2, type = "members")
-```
-
-```{r}
-autoplot(test_stack_model_2, type = "weights")
-```
-
-```{r}
-test_stack_model_2 <- 
-  test_stack_model_2 %>% 
+ncorr_stack_model <- 
+  ncorr_stack_model %>% 
   fit_members()
 
-test_stack_model_2
+ncorr_stack_model
 ```
+
+```{r}
+data_pred <- df_test %>% 
+  bind_cols(predict(ncorr_stack_model, ., type = "prob"))
+
+yardstick::roc_auc(data_pred, truth = resistance, contains(".pred_HR"))
+```
+
+Remainder: the final fit's AUC = 0.8939628
+
 
 ```{r}
 # updated workspace
