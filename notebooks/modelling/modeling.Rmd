@@ -49,7 +49,7 @@ data_strain %>%
   count()
 ```
 
-Add n.beta.lac > 3 and >4
+Add n.beta.lac \> 3 and \>4
 
 ```{r}
 strains <- data_strain$strain
@@ -66,7 +66,6 @@ data_strain$N50 <- NULL
 data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 ```
-
 
 ```{r}
 skim(data_strain) %>% yank("factor")
@@ -101,7 +100,11 @@ df_test %>%
 
 ## Basic Recipe
 
->Some models (notably neural networks, KNN, and support vector machines) require predictors that have been centered and scaled, so some model workflows will require recipes with these preprocessing steps. For other models, a traditional response surface design model expansion (i.e., quadratic and two-way interactions) is a good idea.
+> Some models (notably neural networks, KNN, and support vector
+> machines) require predictors that have been centered and scaled, so
+> some model workflows will require recipes with these preprocessing
+> steps. For other models, a traditional response surface design model
+> expansion (i.e., quadratic and two-way interactions) is a good idea.
 
 ```{r}
 main_recipe <- recipe(resistance ~ ., data = df_train) %>%
@@ -132,13 +135,28 @@ train_data %>% group_by(resistance) %>% count()
 
 From [here](https://www.tmwr.org/grid-search.html):
 
->Because of the high degree of correlation between predictors, it makes sense to use PCA feature extraction to decorrelate the predictors. The following recipe contains steps to transform the predictors to increase symmetry, normalize them to be on the same scale, then conduct feature extraction. The number of PCA components to retain is also tuned, along with the model parameters.
+> Because of the high degree of correlation between predictors, it makes
+> sense to use PCA feature extraction to decorrelate the predictors. The
+> following recipe contains steps to transform the predictors to
+> increase symmetry, normalize them to be on the same scale, then
+> conduct feature extraction. The number of PCA components to retain is
+> also tuned, along with the model parameters.
 
->While the resulting PCA components are technically on the same scale, the lower-rank components tend to have a wider range than the higher-rank components. For this reason, we normalize again to coerce the predictors to have the same mean and variance.
+> While the resulting PCA components are technically on the same scale,
+> the lower-rank components tend to have a wider range than the
+> higher-rank components. For this reason, we normalize again to coerce
+> the predictors to have the same mean and variance.
 
->Many of the predictors have skewed distributions. Since PCA is variance based, extreme values can have a detrimental effect on these calculations. To counter this, let’s add a recipe step estimating a Yeo-Johnson transformation for each predictor (Yeo and Johnson 2000). While originally intended as a transformation of the outcome, it can also be used to estimate transformations that encourage more symmetric distributions
+> Many of the predictors have skewed distributions. Since PCA is
+> variance based, extreme values can have a detrimental effect on these
+> calculations. To counter this, let's add a recipe step estimating a
+> Yeo-Johnson transformation for each predictor (Yeo and Johnson 2000).
+> While originally intended as a transformation of the outcome, it can
+> also be used to estimate transformations that encourage more symmetric
+> distributions
 
-**NB:** As comparison in EDA notebook showed, OQ-normalization works better than Yeo-Johnson transformation.
+**NB:** As comparison in EDA notebook showed, OQ-normalization works
+better than Yeo-Johnson transformation.
 
 For PCA recipe I will use ORQ-normalization.
 
@@ -176,7 +194,6 @@ umap_recipe <- recipe(resistance ~., data = df_train) %>%
 
 ```
 
-
 ### Add SMOTE step
 
 ```{r}
@@ -185,7 +202,6 @@ umap_recipe <- umap_recipe %>%
 
 umap_recipe
 ```
-
 
 ## No correlation recipe
 
@@ -203,7 +219,9 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
 
 ## Folds and metrics
 
->If a model is poorly calibrated, the ROC curve value might not show diminished performance. However, the J index would be lower for models with pathological distributions for the class probabilities.
+> If a model is poorly calibrated, the ROC curve value might not show
+> diminished performance. However, the J index would be lower for models
+> with pathological distributions for the class probabilities.
 
 ```{r}
 # Stratified, repeated 10-fold cross-validation is used to resample the model:
@@ -214,7 +232,8 @@ cls_metrics <- metric_set(roc_auc, j_index)
 
 ## Grid
 
-For creating a tuning grid the maximum entropy design is used `tune()`'s default.
+For creating a tuning grid the maximum entropy design is used `tune()`'s
+default.
 
 ## Functions to simplify things
 
@@ -318,18 +337,19 @@ make_roc <- function(mod_res, title){
 
 ```
 
-
 # Penalized LR
 
 ## UMAP
 
-If you want to use UMAP instead of real features, then you should not use supervised UMAP.
+If you want to use UMAP instead of real features, then you should not
+use supervised UMAP.
 
 Also, (supervised) UMAP recipe dumps core for whatever reason
 
 ## NCORR recipe
 
-For LR I used space filling grid, cause Bayesian would cause errors during resampling and the advantage it gives is marginal.
+For LR I used space filling grid, cause Bayesian would cause errors
+during resampling and the advantage it gives is marginal.
 
 You can load an `.rds` file if it exists.
 
@@ -419,14 +439,14 @@ lr_pca_res <- tune_grid(lr_pca_workflow,
 lr_pca_res$.notes[[99]]$note
 ```
 
-> "Error in glmnet::glmnet(x = maybe_matrix(x), y = y, alpha = ~1, family = \"binomial\"): x should be a matrix with 2 or more columns"
+> "Error in glmnet::glmnet(x = maybe_matrix(x), y = y, alpha = \~1,
+> family ="binomial"): x should be a matrix with 2 or more columns"
 
 ### Metrics autoplot
 
 ```{r}
 autoplot(lr_pca_res)
 ```
-
 
 ### Best models
 
@@ -542,14 +562,12 @@ mars_pca_res <- tune_grid(mars_pca_workflow,
 autoplot(mars_pca_res)
 ```
 
-
 ### Best models
 
 ```{r}
 mars_pca_res %>% 
   show_best("roc_auc", n = 5)
 ```
-
 
 # Linear support vector machines (lSVM)
 
@@ -560,7 +578,6 @@ Load
 ```{r}
 svm_ncorr_res <- readRDS(paste0(models_path, "svm_ncorr.rds"))
 ```
-
 
 or compute
 
@@ -598,7 +615,6 @@ svm_ncorr_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-
 ## PCA recipe
 
 ```{r}
@@ -617,7 +633,6 @@ svm_pca_res <- tune_grid(svm_pca_workflow,
 # roc_auc = 0.8513420
 # cost = 0.002377809
 ```
-
 
 ## Bayesian grid
 
@@ -648,7 +663,6 @@ svm_bres %>%
 # mean auc = 0.8893831	
 ```
 
-
 ## Metrics autoplot
 
 ```{r}
@@ -661,7 +675,6 @@ autoplot(svm_res)
 svm_res %>% 
   show_best(metric = "roc_auc")
 ```
-
 
 ### ROC of the best model
 
@@ -687,7 +700,6 @@ load
 ```{r}
 svm_poly_res <- readRDS(paste0(models_path, "psvm_ncorr.rds"))
 ```
-
 
 or compute anew
 
@@ -716,7 +728,6 @@ svm_poly_res <- tune_grid(svm_poly_workflow,
               metrics = cls_metrics)
 ```
 
-
 ### Metrics autoplot
 
 ```{r}
@@ -729,7 +740,6 @@ autoplot(svm_poly_res)
 svm_poly_res %>% show_best("roc_auc", n = 5)
 ```
 
-
 ## NCORR resipe + Bayesian-optimized grid
 
 load
@@ -737,7 +747,6 @@ load
 ```{r}
 smv_poly_bres <- readRDS(paste0(models_path, "psvmb_ncorr.rds"))
 ```
-
 
 or compute
 
@@ -769,7 +778,6 @@ svm_poly_bres <-
 
 ```
 
-
 ## Metrics autoplot
 
 ```{r}
@@ -797,7 +805,6 @@ svm_poly_auc <-
 
 autoplot(svm_poly_auc)
 ```
-
 
 # Radial basis function SVM
 
@@ -839,7 +846,6 @@ svm_rbf_res %>%
   show_best(metric = "roc_auc")
 ```
 
-
 ### ROC of the best model
 
 ```{r}
@@ -855,14 +861,14 @@ svm_rbf_auc <-
 autoplot(svm_rbf_auc)
 ```
 
-
 # K-nearest neighbors (KNN)
 
 ## NCORR recipe + Bayes
 
 **NB**: I get these errors while using Bayesian grid search
 
-> The Gaussian process model is being fit using 12 features but only has 9 data points to do so. This may cause errors or a poor model fit
+> The Gaussian process model is being fit using 12 features but only has
+> 9 data points to do so. This may cause errors or a poor model fit
 
 or
 
@@ -896,7 +902,6 @@ make_roc(knn_ncor_bres, title="KNN (bayes, no corr.") %>%
 ```
 
 ## NCORR + Space-filling
-
 
 ```{r, eval=F}
 knn_mod <- nearest_neighbor(
@@ -934,7 +939,6 @@ knn_ncorr_res %>%
   show_best(metric = "roc_auc")
 ```
 
-
 ### ROC of the best model
 
 ```{r}
@@ -968,7 +972,7 @@ make_roc(rf_main_bres, "RF (bayes") %>% autoplot()
 
 ## Main recipe + Space-filling
 
-Load 
+Load
 
 or compute
 
@@ -1011,13 +1015,11 @@ rf_res %>%
   show_best(metric = "roc_auc")
 ```
 
-
 ### ROC of the best model
 
 ```{r}
 make_roc(rf_res, "RF") %>% autoplot()
 ```
-
 
 # Boosted Trees (BT)
 
@@ -1025,44 +1027,12 @@ Using Extreme Gradient Boosting
 
 ## Space-filling grid
 
+Space filling grid proved to be less efficient in finding hyper
+parameters than Bayesian optimization
 
-```{r, eval=F}
-set.seed(732)
+## BT with the main recipe
 
-# number of cores available on Kaggle
-cores <- 4L 
-
-# model specification
-xgb_mod <- 
-  boost_tree(
-    trees = 50, 
-    mtry = tune(), 
-    min_n = tune(), 
-    tree_depth = tune(), 
-    learn_rate = tune(), 
-    loss_reduction = tune(), 
-    sample_size = tune(), 
-    stop_iter = tune()) %>% 
-  set_engine("xgboost", num.threads = cores) %>% 
-  set_mode("classification")
-
-# join model and processing recipe
-xgb_cv_wf <- workflow() %>% 
-  add_model(xgb_mod) %>% 
-  add_recipe(main_recipe)
-
-# tune models, this takes time
-xgb_res <- tune_grid(xgb_cv_wf,
-            grid = 25,
-            resamples = cv_folds,
-            control = control_grid(save_pred = TRUE),
-            metrics = cls_metrics)
-```
-
-
-## Bayesian tuning
-
-load
+Bayesian tuning
 
 ```{r}
 xgb_main_bres <- readRDS(paste0(models_path, "btb.rds"))
@@ -1118,7 +1088,6 @@ xgb_main_bres %>%
   show_best(metric = "roc_auc", n = 5)
 ```
 
-
 ### ROC of the best
 
 ```{r}
@@ -1130,6 +1099,58 @@ make_roc(xgb_main_bres, "XGB (bayes)") %>% autoplot()
 ```{r}
 xgb_main_bres %>% vip() 
 ```
+
+## BT with NCORR recipe
+
+```{r, fig.width=14, fig.height=8}
+xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr.rds"))
+
+xgb_ncorr_bres %>% autoplot()
+```
+
+### Best models
+
+```{r}
+xgb_ncorr_bres %>% 
+  show_best(metric = "roc_auc", n = 5)
+```
+
+### ROC
+
+```{r}
+make_roc(xgb_ncorr_bres, "XGB (no corr)") %>% autoplot()
+```
+
+## BT with PCA recipe
+
+```{r, fig.width=14, fig.height=8}
+xgb_pca_bres <- readRDS(paste0(models_path, "btb_pca.rds"))
+
+xgb_pca_bres %>% autoplot()
+```
+
+### Best models
+
+```{r}
+xgb_pca_bres %>% 
+  show_best(metric = "roc_auc", n = 5)
+```
+
+### ROC
+
+```{r}
+make_roc(xgb_pca_bres, "XGB (PCA)") %>% autoplot()
+```
+
+**NB**: the following warnings were raised during resampling process:
+
+> ! There are 8 tuning parameters and 8 grid points were requested. •
+> There are as many tuning parameters as there are initial points. This
+> is likely to cause numerical issues in the first few search
+> iterations. ! The Gaussian process model is being fit using 8 features
+> but only has 8 data points to do so. This may cause errors or a poor
+> model fit. ! The Gaussian process model is being fit using 8 features
+> but only has 9
 
 # ROC of all models
 
@@ -1153,19 +1174,22 @@ roc_plot
 
 XGB is the best, LR no corr is the second
 
-XGB here looks better than in previous version (it reaches sensitivity = 1 faster)
+XGB here looks better than in previous version (it reaches sensitivity =
+1 faster)
 
 ```{r}
 ggsave("plots/roc.png", roc_plot)
 ```
-
 
 # Final fit
 
 ## Model and workflow
 
 ```{r}
-best <- xgb_main_bres %>% 
+# model spec
+xgb_mod <- set_model("bt", 10)
+
+best <- xgb_ncorr_bres %>% 
   select_best("roc_auc")
 
 last_mod <-
@@ -1184,7 +1208,7 @@ last_mod <-
 # this was the XGB workflow
 xgb_wf <- workflow() %>% 
   add_model(xgb_mod) %>% 
-  add_recipe(main_recipe)
+  add_recipe(ncorr_recipe)
 
 # the last workflow
 last_wf <- 
@@ -1210,7 +1234,8 @@ final_fit %>%
   vip(num_features = 77, include_type = T) 
 ```
 
-Sequencing related features (coverage and read length) are here - among the most important
+Sequencing related features (coverage and read length) are here - among
+the most important
 
 ## Final model's parameters
 
@@ -1218,7 +1243,6 @@ Sequencing related features (coverage and read length) are here - among the most
 final_fit %>% 
   extract_fit_parsnip() 
 ```
-
 
 ## ROC
 
@@ -1247,7 +1271,23 @@ autoplot(cm, type = "heatmap")
 summary(cm)
 ```
 
-Previous both CM and performance looked a bit better. 
+Previous both CM and performance (on full set of predictors) looked a
+worse.
+
+T.ex.: 
+accuracy 0.8279570
+kap  0.4723404
+sens  0.6470588
+spec  0.8684211
+ppv  0.5238095
+npv  0.9166667
+mcc  0.4765046
+j_index  0.5154799
+bal_accuracy  0.7577399
+detection_prevalence  0.2258065
+
+The final fit from December run without full set of strains was like
+this:
 
 T.ex: PPV = 0.57, NPV = 0.92, acc = 0.816
 
@@ -1271,6 +1311,11 @@ max_j_index_threshold <- threshold_data %>%
   filter(.estimate == max(.estimate)) %>%
   pull(.threshold)
 
+# max_j_index_threshold may be a vector, use its last element
+if (length(max_j_index_threshold) > 1){
+  max_j_index_threshold <- max_j_index_threshold[length(max_j_index_threshold)]
+}
+
 # plot metrics v cut-offs
 sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, color = .metric, alpha = group)) +
   geom_line(size = 1) +
@@ -1282,23 +1327,22 @@ sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, co
   labs(
     x = "Probability",
     y = "Metric Estimate",
-    title = "Final model: Boosting Trees"
+    title = "Final model: Boosted Trees"
   )
 
 sens_spec_j_plot
 ```
 
-
 ```{r}
-ggsave("plots/prob_cutoff_BT_final.png", sens_spec_j_plot)
+ggsave("plots/prob_cutoff_BT_ncorr_final.png", sens_spec_j_plot)
 ```
-
 
 What performance will I get using this maximal j-index?
 
 ### Optimized confusion matrix
 
-Using suggested j-index value, I can optimize probability cut-off in order to have 100% sensitivity of the model
+Using suggested j-index value, I can optimize probability cut-off in
+order to have 100% sensitivity of the model
 
 (it will catch all HR cases, but there will be more false positives)
 
@@ -1326,37 +1370,6 @@ autoplot(cm_optimized, type = "heatmap")
 summary(cm_optimized)
 ```
 
-## Probability cutoff adjustment by 2nd maximum j-index
-
-j-index a bit lower but spec is higher
-
-```{r, fig.width=6}
-second_max_j_index_threshold <- threshold_data %>%
-  filter(.metric == "j_index") %>%
-  filter(.estimate != max(.estimate)) %>%
-  filter(.estimate == max(.estimate)) %>% 
-  pull(.threshold)
-
-pred_optimized_2 <- final_fit %>%
-  collect_predictions() %>% 
-  mutate(
-    .pred = make_two_class_pred(
-      estimate = .pred_HR, 
-      levels = levels(resistance), 
-      threshold = second_max_j_index_threshold
-    )
-  ) %>%
-  select(resistance, contains(".pred"))
-
-cm_optimized_2 <- pred_optimized %>% 
-  conf_mat(truth = resistance, estimate = .pred)
-
-autoplot(cm_optimized_2, type = "heatmap")
-```
-
-```{r}
-summary(cm_optimized_2)
-```
 
 ## Extract predictions
 
@@ -1392,12 +1405,7 @@ xgb_last_fit %>%
 ```
 
 
-
-```{r}
-ggsave("plots/confusion_matrix_BT.png", cm_heatmap)
-```
-
----
+------------------------------------------------------------------------
 
 # Models stacking
 
@@ -1451,13 +1459,11 @@ autoplot(test_stack_model_1, type = "members")
 autoplot(test_stack_model_1, type = "weights")
 ```
 
-
 ```{r}
 test_stack_model_1 <- 
   test_stack_model_1 %>% 
   fit_members()
 ```
-
 
 ```{r}
 df_stack_test_1 <- 
@@ -1466,7 +1472,6 @@ df_stack_test_1 <-
 
 df_stack_test_1
 ```
-
 
 ```{r}
 test_stack_model_1
@@ -1502,4 +1507,3 @@ test_stack_model_2
 # updated workspace
 save.image("data/all_models_local_update.RData")
 ```
-
