@@ -27,7 +27,17 @@ option_list <- list(
               type = "character",
               default = "space",
               help = "space-filling or bayesian grid search (should be one of the following: 'bayes' or 'space')",
-              metavar = "character")
+              metavar = "character"),
+  make_option(c("-p", "--points"),
+              type = "integer",
+              default = 8,
+              help = "number of intial random points in Bauesian tuning",
+              metavar = "integer"),
+  make_option(c("-i", "--iterations"),
+              type = "integer",
+              help = "number of iterations in Bayesian tuning",
+              default = 50,
+              metavar = "integer")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
