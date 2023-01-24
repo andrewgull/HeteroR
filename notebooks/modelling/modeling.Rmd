@@ -217,6 +217,20 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
+## No correlation + ORQ recipe
+
+```{r}
+ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_orderNorm(all_predictors()) %>%
+  step_corr(threshold = 0.75) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+```
+
+
 ## Folds and metrics
 
 > If a model is poorly calibrated, the ROC curve value might not show
@@ -409,10 +423,22 @@ lr_ncorr_res %>%
 #### ROC of the best model
 
 ```{r}
-lr_ncorr_auc <- make_roc(lr_ncorr_res, "LR (no corr)")
-
-autoplot(lr_ncorr_auc)
+make_roc(lr_ncorr_res, "LR (no corr)") %>% autoplot()
 ```
+
+## NCORQ recipe
+
+```{r}
+lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorr_orq.rds"))
+
+lr_ncorq_res %>% show_best("roc_auc", n = 5)
+```
+
+```{r}
+make_roc(lr_ncorq_res, "LR (orq)") %>% autoplot()
+```
+
+Very close
 
 ## PCA recipe
 
@@ -1152,6 +1178,29 @@ xgb_ncorr_bres %>%
 make_roc(xgb_ncorr_bres, "XGB (no corr)") %>% autoplot()
 ```
 
+## BT with NCORR + ORQ recipe
+
+```{r, fig.width=14, fig.height=8}
+xgb_ncorq_bres <- readRDS(paste0(models_path, "btb_ncorr_orq.rds"))
+
+xgb_ncorq_bres %>% autoplot()
+
+```
+
+### Best models
+
+```{r}
+xgb_ncorq_bres %>% 
+  show_best(metric = "roc_auc", n = 5)
+```
+
+Hm, looks slightly better then no corr without ORQ
+
+```{r}
+make_roc(xgb_ncorq_bres, "BT (no corr + ORQ") %>% autoplot()
+```
+
+
 ## BT with PCA recipe
 
 ```{r, fig.width=14, fig.height=8}
@@ -1192,10 +1241,12 @@ nnet_wf <- set_wf("nnet", "ncorr", 10)
 ```
 
 
-## NCORR recipe + space filling
+Applying ORQ-normalization improves MLP (nnet) performance
 
-```{r}
-nnet_ncorr_res <- readRDS(paste0(models_path, "nn_ncorr.rds"))
+## NCORQ recipe + space filling (nnet)
+
+```{r, fig.width=10}
+nnet_ncorr_res <- readRDS(paste0(models_path, "mlp_nnet_ncorr_orq.rds"))
 
 nnet_ncorr_res %>% autoplot()
 ```
@@ -1213,12 +1264,35 @@ nnet_ncorr_res %>%
 make_roc(nnet_ncorr_res, "MLP") %>% autoplot()
 ```
 
+## NCORQ + Bayes opt (nnet)
 
-
-## NCORR + keras + space filling
 
 ```{r}
-nnet_ncorr_kres <- readRDS(paste0(models_path, "nn_keras_ncorr.rds"))
+mlp_ncorq_bres <- readRDS(paste0(models_path, "mlpb_nnet_ncorr_orq.rds"))
+
+mlp_ncorq_bres %>% autoplot()
+```
+
+### Best ones
+
+```{r}
+mlp_ncorq_bres %>% 
+  show_best("roc_auc", n = 5)
+```
+
+
+### ROC
+
+```{r}
+make_roc(mlp_ncorq_bres, "MLP") %>% autoplot()
+```
+
+Not much differs from space filling
+
+## NCORR + space filling (keras)
+
+```{r}
+nnet_ncorr_kres <- readRDS(paste0(models_path, "mlp_keras_ncorr.rds"))
 
 nnet_ncorr_kres %>% autoplot()
 ```
@@ -1226,6 +1300,8 @@ nnet_ncorr_kres %>% autoplot()
 ```{r}
 nnet_ncorr_kres %>% show_best("roc_auc", n = 5)
 ```
+
+## NCORQ + Bayes (keras)
 
 
 
@@ -1255,6 +1331,25 @@ XGB is the best, LR no corr is the second
 
 XGB here looks better than in previous version (it reaches sensitivity =
 1 faster)
+
+# ROC of the best ones
+
+LR no corr, BT no corr, BT no corr ORQ, BT all, MLP (nnet no corr)
+
+```{r, fig.width=8, fig.height=6}
+roc_selected_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres, xgb_ncorq_bres, nnet_ncorr_res),
+                            c("LR no corr", "BT no corr", "BT no corr + ORQ", "MLP no corr + ORQ nnet"), 
+                            function(x, y) make_roc(x, y))
+
+roc_selected_df %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  scale_color_brewer(palette = "Set1")+
+  theme_bw()
+```
+So, BT + no corr + ORQ still looks better than BT with the old no corr version (without ORQ)
 
 ```{r}
 ggsave("plots/roc.png", roc_plot)
