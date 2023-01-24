@@ -1232,7 +1232,7 @@ make_roc(xgb_pca_bres, "XGB (PCA)") %>% autoplot()
 > model fit. ! The Gaussian process model is being fit using 8 features
 > but only has 9
 
-# Neural network
+# Multilayer perceptron
 
 ```{r}
 nnet_mod <- set_model("nnet", 10)
@@ -1303,6 +1303,20 @@ nnet_ncorr_kres %>% show_best("roc_auc", n = 5)
 
 ## NCORQ + Bayes (keras)
 
+```{r}
+mlp_ncorq_kbres <- readRDS(paste0("/Volumes/MyFolder$/andgu885/HeteroR/models/", "mlpb_keras_ncorr_orq.rds"))
+
+mlp_ncorq_kbres %>% autoplot()
+```
+
+```{r}
+mlp_ncorq_kbres %>% show_best("roc_auc", n = 5)
+```
+
+
+```{r}
+make_roc(mlp_ncorq_kbres, "MLP (no corr + orq)") %>% autoplot()
+```
 
 
 # ROC of all models
