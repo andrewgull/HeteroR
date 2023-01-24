@@ -278,8 +278,8 @@ if (opt$search == "space"){
     # To use non-default parameter ranges
     param_info = param_set,
     # Generate N at semi-random to start
-    initial = 8,
-    iter = 50,
+    initial = opt$points,
+    iter = opt$iterations,
     # How to measure performance?
     metrics = metric_set(roc_auc),
     control = control_bayes(no_improve = 30, 
