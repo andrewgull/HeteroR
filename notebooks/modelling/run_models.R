@@ -6,7 +6,7 @@ option_list <- list(
   make_option(c("-m", "--model"),
               type = "character",
               default = NULL,
-              help = "A model type (should be one of the following: 'lr', 'mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt', 'nnet')",
+              help = "A model type (should be one of the following: 'lr', 'mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt', 'keras', 'nnet' (both MLP but with different engines))",
               metavar = "character"),
   make_option(c("-o", "--output"),
               type = "character",
@@ -187,7 +187,7 @@ set_model <- function(mod, cores) {
       margin = NULL ) %>% # regression only 
       set_mode("classification") %>%
       set_engine("kernlab", num.threads = cores)
-  } else if (mod == "nnet"){
+  } else if (mod == "keras"){
     my_mod <-
       mlp(hidden_units = tune(), 
           penalty = NULL, 
@@ -197,6 +197,13 @@ set_model <- function(mod, cores) {
           learn_rate = NULL) %>%
       set_mode("classification") %>%
       set_engine("keras", num.threads = cores)
+  } else if (mod == "nnet") {
+    my_mod <-
+      mlp(hidden_units = tune(), 
+          penalty = tune(), 
+          epochs = tune()) %>%
+      set_mode("classification") %>%
+      set_engine("nnet", num.threads = cores)
   }
   return(my_mod)
 }
