@@ -31,7 +31,8 @@ option_list <- list(
   make_option(c("-p", "--points"),
               type = "integer",
               default = 8,
-              help = "number of intial random points in Bayesian tuning",
+              help = "number of intial random points in Bayesian tuning, a space-filling design will be used to populate a preliminary set of results. 
+              For good results, the number of initial values should be more than the number of parameters being optimized",
               metavar = "integer"),
   make_option(c("-i", "--iterations"),
               type = "integer",
