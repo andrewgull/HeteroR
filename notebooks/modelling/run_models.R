@@ -26,12 +26,12 @@ option_list <- list(
   make_option(c("-s", "--search"),
               type = "character",
               default = "space",
-              help = "space-filling or bayesian grid search (should be one of the following: 'bayes' or 'space')",
+              help = "space-filling or Bayesian grid search (should be one of the following: 'bayes' or 'space')",
               metavar = "character"),
   make_option(c("-p", "--points"),
               type = "integer",
               default = 8,
-              help = "number of intial random points in Bauesian tuning",
+              help = "number of intial random points in Bayesian tuning",
               metavar = "integer"),
   make_option(c("-i", "--iterations"),
               type = "integer",
@@ -264,7 +264,6 @@ if (opt$model == "rf" | opt$model == "bt"){
 
 #### MODEL TUNING ####
 if (opt$search == "space"){
-  print("Space-filling grid search is chosen...")
   model_res <- my_wf %>%
           tune_grid(
               grid = 30,
@@ -273,7 +272,6 @@ if (opt$search == "space"){
                                      save_workflow = TRUE),
               metrics = cls_metrics)
 } else if (opt$search == "bayes"){
-  print("Bayesian grid search is chosen...")
   model_res <- my_wf %>% 
   tune_bayes(
     resamples = cv_folds,
