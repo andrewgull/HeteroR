@@ -16,7 +16,7 @@ option_list <- list(
   make_option(c("-t", "--threads"),
               type = "integer",
               default = 2,
-              help = "number of threads for Random Forest and Boosted Trees",
+              help = "number of threads for resampling stage",
               metavar = "integer"),
   make_option(c("-r", "--recipe"),
               type = "character",
@@ -123,15 +123,19 @@ umap_recipe <- recipe(resistance ~., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), num_comp = 20) %>%
+  step_umap(all_numeric_predictors(), 
+            num_comp = 24, 
+            min_dist = 0.1, 
+            neighbors = 15, 
+            outcome = "resistance") %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_orderNorm(all_predictors()) %>%
   step_corr(threshold = 0.75) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
@@ -228,7 +232,7 @@ set_wf <- function(mod, rec, cores){
   
   if (rec == "main"){
     rc <- main_recipe
-  } else if (rec == "ncorr"){
+  } else if (rec == "ncorr") {
     rc <- ncorr_recipe
   } else if (rec == "pca") {
     rc <- pca_recipe
@@ -267,7 +271,7 @@ if (opt$model == "rf" | opt$model == "bt"){
 if (opt$search == "space"){
   model_res <- my_wf %>%
           tune_grid(
-              grid = 30,
+              grid = opt$points,
               resamples = cv_folds,
               control = control_grid(save_pred = TRUE, 
                                      save_workflow = TRUE),
@@ -288,6 +292,10 @@ if (opt$search == "space"){
                             save_pred = TRUE, 
                             save_workflow = TRUE))
 }
+
+# show performance
+perf <- model_res %>% show_best("roc_auc", n = 5)
+print(perf)
 
 #### SAVE MODEL ####
 saveRDS(object = model_res, file = opt$output)
