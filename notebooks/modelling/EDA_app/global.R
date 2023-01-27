@@ -100,3 +100,6 @@ plot_validation_results <- function(dat) {
     scale_color_brewer(palette = "Set1") + 
     scale_fill_brewer(palette = "Set1")
 }
+
+# read UMAP 12 data with falsely identified strains
+data_umap12_postEDA <- read_csv("data/data_umap12_postEDA.csv")

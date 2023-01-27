@@ -16,9 +16,9 @@ ui <- fluidPage(
                # Left side with widget's controls
                column(2, 
                       selectInput(inputId = "xcol",label = "X variable",
-                                  choices = num_vars, selected = "n.rep.total"),
+                                  choices = num_vars, selected = "read.max.len"),
                       selectInput(inputId = "ycol", label = "Y variable",
-                                  choices = num_vars, selected = "n.rep.chrom"),
+                                  choices = num_vars, selected = "coverage"),
                       radioButtons(inputId = "x.trans", label = "X-axis transformation", 
                                    choices = c("identity", "log", "sqrt"), selected = "identity", 
                                    choiceNames = c("none", "log", "sqrt")),
@@ -153,6 +153,11 @@ ui <- fluidPage(
                                   value = 0.1)),
                column(width = 10,
                       plotlyOutput("umap.3d", height = 1000)))
-    )
+    ),
+    tabPanel("UMAP 3D post EDA",
+             fluidRow(
+               column(width = 12,
+                      plotlyOutput("umap.3d.post", height = 1000))
+             ))
   )
 )

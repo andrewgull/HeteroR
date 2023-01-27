@@ -130,6 +130,32 @@ server <- function(input, output) {
     umap3d
   })
   
+  # UMAP 3D postEDA
+  output$umap.3d.post <- renderPlotly({
+    umap3d <- plot_ly(
+      data_umap12_postEDA,
+      x = ~UMAP1,
+      y = ~UMAP2,
+      z = ~UMAP3,
+      color = ~ data_umap12_postEDA$resistance,
+      colors = c('#cf280c', '#1b56f7'),
+      symbol = ~ data_umap12_postEDA$prediction,
+      symbols = c('circle', 'square', 'diamond')
+    )
+    
+    umap3d <- umap3d %>% 
+      add_markers(size = 2, text = ~ data_umap12_postEDA$strain)
+    
+    umap3d <- umap3d %>% 
+      layout(scene = list(
+        xaxis = list(title = 'UMAP1'),
+        yaxis = list(title = 'UMAP2'),
+        zaxis = list(title = 'UMAP3')
+      ))
+    
+    umap3d
+  })
+  
   # PCA multi-panel
   output$pca <- renderPlot({
     pca_rec <- data_rec %>%
