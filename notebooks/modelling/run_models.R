@@ -38,6 +38,11 @@ option_list <- list(
               type = "integer",
               help = "number of iterations in Bayesian tuning",
               default = 50,
+              metavar = "integer"),
+  make_option(c("-n", "--no_improve"),
+              type = "integer",
+              help = "number of iterations to stop after, if improvement",
+              default = 30,
               metavar = "integer")
 )
 
@@ -287,7 +292,7 @@ if (opt$search == "space"){
     iter = opt$iterations,
     # How to measure performance?
     metrics = metric_set(roc_auc),
-    control = control_bayes(no_improve = 30, 
+    control = control_bayes(no_improve = opt$no_improve, 
                             verbose = FALSE, 
                             save_pred = TRUE, 
                             save_workflow = TRUE))
