@@ -6,7 +6,7 @@ option_list <- list(
   make_option(c("-m", "--model"),
               type = "character",
               default = NULL,
-              help = "A model type (should be one of the following: 'lr', 'mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt', 'keras', 'nnet' (both MLP but with different engines))",
+              help = "A model type (should be one of the following: 'lr', 'mars', 'bag_mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt', 'nb', 'bag_mlp', 'mlp_keras', 'mlp_nnet')",
               metavar = "character"),
   make_option(c("-o", "--output"),
               type = "character",
@@ -61,6 +61,7 @@ suppressPackageStartupMessages(library(tidymodels)) # to keep quiet
 library(themis) # for SMOTE
 library(bestNormalize) # for ORQ-norm
 library(embed) # for UMAP
+
 
 #### DATA ####
 path_data <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/features_strain.csv"
@@ -131,8 +132,7 @@ umap_recipe <- recipe(resistance ~., data = df_train) %>%
   step_umap(all_numeric_predictors(), 
             num_comp = 24, 
             min_dist = 0.1, 
-            neighbors = 15, 
-            outcome = "resistance") %>%
+            neighbors = 15) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
@@ -148,7 +148,7 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
 cv_folds <- vfold_cv(df_train, 
                      strata = "resistance", 
                      v = 10, 
-                     repeats = 10) # is better than v=5
+                     repeats = 10) 
 
 cls_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
 
@@ -207,7 +207,7 @@ set_model <- function(mod, cores) {
       margin = NULL ) %>% # regression only 
       set_mode("classification") %>%
       set_engine("kernlab", num.threads = cores)
-  } else if (mod == "keras"){
+  } else if (mod == "mlp_keras"){
     my_mod <-
       mlp(hidden_units = tune(), 
           penalty = NULL, 
@@ -217,13 +217,38 @@ set_model <- function(mod, cores) {
           learn_rate = NULL) %>%
       set_mode("classification") %>%
       set_engine("keras", num.threads = cores)
-  } else if (mod == "nnet") {
+  } else if (mod == "mlp_nnet") {
     my_mod <-
       mlp(hidden_units = tune(), 
           penalty = tune(), 
           epochs = tune()) %>%
       set_mode("classification") %>%
       set_engine("nnet", num.threads = cores)
+  } else if (mod == "nb") {
+    library(discrim) # for NB with engine 'klaR'
+    my_mod <- naive_Bayes(
+      mode = "classification",
+      smoothness = tune(),
+      Laplace = tune(),
+      engine = "klaR"
+    )
+  } else if (mod == "bag_mars") {
+    library(baguette) # for bag_mars
+    my_mod <- bag_mars(
+      mode = "classification",
+      num_terms = tune(),
+      prod_degree = tune(),
+      prune_method = tune(),
+      engine = "earth"
+    )
+  } else if (mod == "bag_mlp") {
+    my_mod <- bag_mlp(
+      mode = "classification",
+      hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune(),
+      engine = "nnet"
+    )
   }
   return(my_mod)
 }
