@@ -62,6 +62,12 @@ library(themis) # for SMOTE
 library(bestNormalize) # for ORQ-norm
 library(embed) # for UMAP
 
+if (opt$model == "nb"){
+  library(discrim) # for NB with engine 'klaR'
+} else if (opt$model == "bag_mars" | opt$model == "bag_mlp"){
+  library(baguette) # for bagged models
+}
+
 
 #### DATA ####
 path_data <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/features_strain.csv"
@@ -225,7 +231,7 @@ set_model <- function(mod, cores) {
       set_mode("classification") %>%
       set_engine("nnet", num.threads = cores)
   } else if (mod == "nb") {
-    library(discrim) # for NB with engine 'klaR'
+
     my_mod <- naive_Bayes(
       mode = "classification",
       smoothness = tune(),
@@ -233,7 +239,7 @@ set_model <- function(mod, cores) {
       engine = "klaR"
     )
   } else if (mod == "bag_mars") {
-    library(baguette) # for bag_mars
+    
     my_mod <- bag_mars(
       mode = "classification",
       num_terms = tune(),
@@ -242,6 +248,7 @@ set_model <- function(mod, cores) {
       engine = "earth"
     )
   } else if (mod == "bag_mlp") {
+    library(baguette)
     my_mod <- bag_mlp(
       mode = "classification",
       hidden_units = tune(),
