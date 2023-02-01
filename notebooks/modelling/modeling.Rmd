@@ -19,6 +19,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = F)
+library(readr)
 library(tidymodels)
 library(themis)
 library(probably)
@@ -29,7 +30,7 @@ library(bestNormalize) # for ord QQ norm
 library(embed) # for UMAP
 
 # path for models
-models_path <- "~/Data/HeteroR/notebooks/models/"
+models_path <- "~/Data/HeteroR/notebooks/models/scheme123/"
 ```
 
 # Read and process data
@@ -37,10 +38,14 @@ models_path <- "~/Data/HeteroR/notebooks/models/"
 The data sets are the same as in EDA
 
 ```{r}
-data_strain <- readr::read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
 
-hr_testing <- readr::read_csv("data/heteroresistance_testing_gr12.csv")
+# TWO CLASSIFICATION SCHEMES IN FILES
+hr_testing12 <- read_csv("data/heteroresistance_testing_gr12.csv")
+hr_testing13 <- read_csv("data/heteroresistance_testing_gr13.csv")
+hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv")
 
+# USE HR 1+2+3
 data_strain <- data_strain %>% 
   left_join(hr_testing, by = "strain")
 
@@ -390,7 +395,7 @@ during resampling and the advantage it gives is marginal.
 You can load an `.rds` file if it exists.
 
 ```{r, fig.width=10}
-lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs200.rds"))
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr.rds"))
 
 autoplot(lr_ncorr_res)
 ```
@@ -555,13 +560,6 @@ lsvm_pca_res %>%
   show_best(metric = "roc_auc")
 ```
 
-### ROC
-
-```{r}
-make_roc(lsvm_pca_res, "") %>% 
-  autoplot()
-```
-
 # Polynomial SVM
 
 ## NCORR recipe + space-filling grid
@@ -659,7 +657,7 @@ knn_ncorr_res %>%
 ### ROC
 
 ```{r}
-make_roc(knn_ncor_res, "") %>% 
+make_roc(knn_ncorr_res, "") %>% 
   autoplot()
 ```
 
@@ -744,6 +742,12 @@ rf_ncorr_bres <- readRDS(paste0(models_path, "rfb_ncorr.rds"))
 
 rf_ncorr_bres %>% autoplot()
 ```
+
+```{r}
+rf_ncorr_bres %>% 
+  autoplot(type = "performance")
+```
+
 
 ### Best models
 
@@ -837,6 +841,36 @@ make_roc(xgb_ncorr_bres, "XGB (no corr)") %>%
 **NB:** This ROC looks much better than any other ROC so far
 
 
+## NCORR + Many iterations
+
+
+```{r, fig.width=14}
+xgb_ncorr_bres_long <- readRDS(paste0(models_path, "btb_ncorr_i100_rs30.rds"))
+
+xgb_ncorr_bres_long %>% 
+  autoplot()
+```
+
+### Best
+
+```{r}
+xgb_ncorr_bres_long %>% 
+  show_best(metric = "roc_auc", n = 5)
+```
+
+### ROC
+
+```{r}
+make_roc(xgb_ncorr_bres_long, "") %>% 
+  autoplot()
+```
+
+```{r}
+xgb_ncorr_bres_long %>% 
+  autoplot(type = "performance")
+```
+
+
 ## NCORR + ORQ recipe
 
 
@@ -924,7 +958,7 @@ xgb_pca_bres %>%
 make_roc(xgb_pca_bres, "XGB (PCA)") %>% autoplot()
 ```
 
-# Multilayer perceptron
+# Multilayer perceptron, engine 'nnet'
 
 ```{r}
 nnet_mod <- set_model("nnet", 10)
@@ -935,12 +969,10 @@ nnet_wf <- set_wf("nnet", "ncorr", 10)
 
 Applying ORQ-normalization improves MLP (nnet) performance
 
-## NCORR recipe + space-filling (nnet)
-
-200 random starting points
+## NCORR + space-filling 8 starting points (default) 
 
 ```{r, fig.width=12}
-nnet_ncorr_res <- readRDS(paste0(models_path, "mlpn_ncorr_rs200_it50.rds"))
+nnet_ncorr_res <- readRDS(paste0(models_path, "mlp_nnet_ncorr.rds"))
 
 nnet_ncorr_res %>% autoplot()
 ```
@@ -952,6 +984,37 @@ make_roc(nnet_ncorr_res, "") %>% autoplot()
 
 ```{r}
 nnet_ncorr_res %>% show_best("roc_auc")
+```
+
+## NCORR + Bayes 20 starting points
+
+```{r, fig.width=12}
+nnet_ncorr_bres <- readRDS(paste0(models_path, "mlpb_nnet_ncorr_i50_rs20.rds"))
+
+nnet_ncorr_bres %>% autoplot()
+```
+
+```{r}
+nnet_ncorr_bres %>% 
+  autoplot(type = "performance")
+```
+
+```{r}
+nnet_ncorr_bres %>% show_best("roc_auc", n = 5)
+```
+
+```{r}
+make_roc(nnet_ncorr_bres,) %>% 
+  autoplot()
+```
+
+```{r}
+cm <- nnet_ncorr_bres %>%
+  select_best("roc_auc") %>% 
+  collect_predictions() %>%
+  conf_mat(truth = resistance, estimate = .pred_class)
+
+autoplot(cm)
 ```
 
 
@@ -1031,27 +1094,57 @@ mlp_ncorq_kbres %>% show_best("roc_auc", n = 5)
 make_roc(mlp_ncorq_kbres, "MLP (no corr + orq)") %>% autoplot()
 ```
 
+## Bagged MLP
+
+
+```{r}
+library(baguette)
+
+bag_mlp_mod <- bag_mlp(
+      hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune()) %>% 
+      set_engine("nnet", num.threads = 8) %>% 
+      set_mode("classification") %>% 
+      translate()
+
+bag_mlp_mod
+```
+
+Error:
+
+! parsnip could not locate an implementation for `bag_mlp` classification model specifications using the `nnet`
+  engine.
+ℹ The parsnip extension package baguette implements support for this specification.
+ℹ Please install (if needed) and load to continue.
+
+Bagged Neural Network Model Specification (classification)
+
+Main Arguments:
+  hidden_units = tune()
+  penalty = tune()
+  epochs = tune()
+
+Engine-Specific Arguments:
+  num.threads = 8
+
+Computational engine: nnet 
 
 # ROC of all models
 
 ```{r, fig.width=8, fig.height=6}
 # calculate rocs
-models_list <- list(knn_ncor_bres, lr_ncorr_res, lr_pca_res, mars_ncorr_res, mars_pca_res, rf_main_bres, rf_ncorr_bres, xgb_main_bres, xgb_ncorr_bres, xgb_pca_bres, svm_ncorr_res, svm_poly_res, nnet_ncorr_res)
 
-models_names <- c("KNN (no corr)", "LR (no corr)", "LR (PCA)", "MARS (no corr)", "MARS (PCA)", "RF (all)", "RF (no corr)", "XGB (all)", "XGB (no corr)", "XGB (PCA)", "SVM lin (no corr)", "SVM poly (no corr)", "MLP (no corr)")
-
-
-roc_df <- map2_dfr(models_list, models_names, function(x, y) make_roc(x, y))
-
-roc_plot <- roc_df %>% 
+roc_df <- map2_dfr(list(lr_ncorr_res, rf_ncorr_bres, xgb_ncorr_bres, nnet_ncorr_res, lsvm_ncorr_res, psvm_ncorr_res, knn_ncorr_res, nb_ncorr, nnet_ncorr_bres, xgb_ncorr_bres_long),
+                            c("LR", "RF", "BT", "MLP", "linear SVM", "polynomial SVM", "KNN", "NB", "MLP b", "BT l"), 
+                            function(x, y) make_roc(x, y))
+roc_df %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_viridis_d(direction = -1, option = "H")+
-  theme_bw()
+  scale_color_viridis_d(direction = -1, option = "H")
 
-roc_plot
 ```
 
 XGB is the best, LR no corr is the second
@@ -1064,8 +1157,8 @@ XGB here looks better than in previous version (it reaches sensitivity =
 LR no corr, BT no corr, BT no corr ORQ, BT all, MLP (nnet no corr)
 
 ```{r, fig.width=8, fig.height=6}
-roc_selected_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres, nnet_ncorr_res),
-                            c("LR no corr", "BT no corr", "MLP no corr"), 
+roc_selected_df <- map2_dfr(list(lr_ncorr_res, nnet_ncorr_bres, xgb_ncorr_bres_long, rf_ncorr_bres),
+                            c("LR", "MLP b", "XGB", "RF"), 
                             function(x, y) make_roc(x, y))
 
 roc_selected_df %>% 
@@ -1073,10 +1166,10 @@ roc_selected_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_brewer(palette = "Set1")+
+  scale_color_brewer(palette = "Set1") +
   theme_bw()
 ```
-So, BT + no corr + ORQ still looks better than BT with the old no corr version (without ORQ)
+
 
 # Final fit
 
@@ -1129,13 +1222,95 @@ final_fit <-
 final_fit %>% 
   collect_metrics()
 ```
+**NB**: This is forbidden action!
+
+```{r}
+# model spec
+lr_mod <- set_model("lr", 8)
+
+best <- lr_ncorr_res %>% 
+  select_best("roc_auc")
+
+last_mod <-
+  logistic_reg(
+    penalty = best$penalty
+  ) %>% 
+  set_engine("glmnet", num.threads = 8) %>% 
+  set_mode("classification") 
+
+# this was the XGB workflow
+lr_wf <- workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(ncorr_recipe) # the recipe here should be the one that was used for this model
+
+# the last workflow
+last_wf <- 
+  lr_wf %>%  
+  update_model(last_mod)
+
+# the last fit
+set.seed(345)
+
+final_fit <- 
+  last_wf %>% 
+  last_fit(data_split)
+
+# emulates the process where, after determining the best model, 
+# the final fit on the entire training set is needed 
+# and is then evaluated on the test set.
+
+final_fit %>% 
+  collect_metrics()
+```
+
+```{r}
+# model spec
+mlp_mod <- set_model("nnet", 2)
+
+best <- nnet_ncorr_bres %>% 
+  select_best("roc_auc")
+
+last_mod <-
+  mlp(
+    hidden_units = best$hidden_units,
+    penalty = best$penalty,
+    epochs = best$epochs
+  )%>% 
+  set_engine("nnet", num.threads = 4) %>% 
+  set_mode("classification") 
+
+# this was the XGB workflow
+mlp_wf <- workflow() %>% 
+  add_model(mlp_mod) %>% 
+  add_recipe(ncorr_recipe) # the recipe here should be the one that was used for this model
+
+# the last workflow
+last_wf <- 
+  mlp_wf %>%  
+  update_model(last_mod)
+
+# the last fit
+set.seed(345)
+
+final_fit <- 
+  last_wf %>% 
+  last_fit(data_split)
+
+# emulates the process where, after determining the best model, 
+# the final fit on the entire training set is needed 
+# and is then evaluated on the test set.
+
+final_fit %>% 
+  collect_metrics()
+```
+
 
 ## Features importance
 
 ```{r}
 final_fit %>% 
   extract_fit_parsnip() %>% 
-  vip(num_features = 77, include_type = T) 
+  vip(num_features = 25, include_type = T) 
 ```
 
 Sequencing related features (coverage and read length) are here - among
@@ -1212,7 +1387,7 @@ sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, co
   labs(
     x = "Probability",
     y = "Metric Estimate",
-    title = "Final model: Boosted Trees"
+    title = "Final model: ?"
   )
 
 sens_spec_j_plot
@@ -1325,56 +1500,41 @@ dim(pred_df)
 
 For successful stacking, you need the same set of predictors in every candidate model.
 
-My choice: LR (no corr), LSVM (no corr), XGB (all), RF (all)
-
-```{r}
-# models_names
-
-map(models_list[c(2, 6, 7, 8, 9)], function(x) show_best(x, metric = "roc_auc", n = 1)) 
-```
+Models with NOCORR recipe were among the best
 
 Models must be trained using the same set of features!
 
-## Two types of stacks
+Each model in the same stack must have same resampling method!
+
+## Make a BRES stack
 
 ```{r}
 library(stacks)
 
-# full features set
-test_stack_1 <- 
-  stacks() %>% 
-  add_candidates(models_list[[6]]) %>%
-  add_candidates(models_list[[7]])
-
 # no corr set
-ncorr_stack <-
+ncorr_stack_bres <-
   stacks() %>% 
-  add_candidates(models_list[[1]]) %>%
-  add_candidates(models_list[[2]]) %>% 
-  add_candidates(models_list[[7]]) %>% 
-  add_candidates(models_list[[9]]) %>% 
-  add_candidates(models_list[[11]]) %>% 
-  add_candidates(models_list[[12]])
-  
+  add_candidates(rf_ncorr_bres) %>%
+  add_candidates(xgb_ncorr_bres_long) %>% 
+  add_candidates(nnet_ncorr_bres)
+
+as_tibble(ncorr_stack_bres)
 ```
 
-
-## NCORR stack
+Evaluating the stack
 
 ```{r}
-ncorr_stack %>% 
-  blend_predictions(penalty = seq(0.01, 0.5, 0.02)) %>% 
+ncorr_stack_bres %>% 
+  blend_predictions(penalty = seq(0.01, 0.4, 0.01)) %>% 
   autoplot()
 ```
 
-Let's choose penalty = 0.07
+Let's choose penalty
 
 ```{r}
 ncorr_stack_model <- 
-  ncorr_stack %>% 
-  blend_predictions(penalty = 0.07)
-
-autoplot(ncorr_stack_model)
+  ncorr_stack_bres %>% 
+  blend_predictions(penalty = 0.03)
 ```
 
 ```{r}
@@ -1391,12 +1551,21 @@ ncorr_stack_model
 
 ```{r}
 data_pred <- df_test %>% 
-  bind_cols(predict(ncorr_stack_model, ., type = "prob"))
+  bind_cols(predict(ncorr_stack_model, ., type = "class"))
 
-yardstick::roc_auc(data_pred, truth = resistance, contains(".pred_HR"))
+npv(data_pred, truth = resistance, .pred_class)
 ```
 
-Remainder: the final fit's AUC = 0.8939628
+```{r}
+roc_curve(data = data_pred, truth = resistance, .pred_HR_nnet_ncorr_bres_1_18) %>% 
+  autoplot()
+```
+
+
+```{r}
+yardstick::kap(data_pred, truth = resistance, .pred_HR)
+```
+
 
 
 ```{r}

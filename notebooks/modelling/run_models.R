@@ -61,6 +61,7 @@ suppressPackageStartupMessages(library(tidymodels)) # to keep quiet
 library(themis) # for SMOTE
 library(bestNormalize) # for ORQ-norm
 library(embed) # for UMAP
+#library(baguette)
 
 if (opt$model == "nb"){
   library(discrim) # for NB with engine 'klaR'
@@ -71,7 +72,7 @@ if (opt$model == "nb"){
 
 #### DATA ####
 path_data <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/features_strain.csv"
-path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr12.csv"
+path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr123.csv"
 data_strain <- readr::read_csv(path_data, 
                               na = c("NA", "-Inf"),
                               show_col_types = FALSE)
@@ -219,7 +220,7 @@ set_model <- function(mod, cores) {
           penalty = NULL, 
           epochs = tune(),
           dropout = tune(),
-          activation = tune(),
+          activation = "relu",
           learn_rate = NULL) %>%
       set_mode("classification") %>%
       set_engine("keras", num.threads = cores)
@@ -231,7 +232,6 @@ set_model <- function(mod, cores) {
       set_mode("classification") %>%
       set_engine("nnet", num.threads = cores)
   } else if (mod == "nb") {
-
     my_mod <- naive_Bayes(
       mode = "classification",
       smoothness = tune(),
@@ -239,7 +239,6 @@ set_model <- function(mod, cores) {
       engine = "klaR"
     )
   } else if (mod == "bag_mars") {
-    
     my_mod <- bag_mars(
       mode = "classification",
       num_terms = tune(),
@@ -248,22 +247,21 @@ set_model <- function(mod, cores) {
       engine = "earth"
     )
   } else if (mod == "bag_mlp") {
-    library(baguette)
     my_mod <- bag_mlp(
-      mode = "classification",
       hidden_units = tune(),
       penalty = tune(),
-      epochs = tune(),
-      engine = "nnet"
-    )
+      epochs = tune()) %>% 
+      set_engine("nnet", num.threads = cores) %>% 
+      set_mode("classification") %>% 
+      translate()
   }
   return(my_mod)
 }
 
 
-set_wf <- function(mod, rec, cores){
+set_rec <- function(rec, cores){
   # create a workflow
-  # mod: model type, one of: lr, knn, mars, svm, rf, bt, nnet
+  # mod: model type, one of: see the CLI flags specifications
   # rec: recipe object (one of: main, ncorr, pca, umap)
   # rec must be in GlobalEnv
   
@@ -282,17 +280,21 @@ set_wf <- function(mod, rec, cores){
     quit(status = 1)
   }
 
-  wf <- workflow() %>% 
-    add_model(set_model(mod = mod, cores = cores)) %>% 
-    add_recipe(rc)
+  # wf <- workflow() %>% 
+  #   add_model(set_model(mod = mod, cores = cores)) %>% 
+  #   add_recipe(rc)
   
-  return(wf)
+  return(rc)
 }
 
 #### CREATE A WORKFLOW ####
-my_wf <- set_wf(mod = opt$model, 
-                rec = opt$recipe, 
-                cores = opt$threads)
+my_wf <- workflow() %>% 
+  add_model(set_model(mod = opt$model, cores = opt$threads)) %>% 
+  add_recipe(set_rec(opt$recipe))
+
+# my_wf <- set_wf(mod = opt$model, 
+#                 rec = opt$recipe, 
+#                 cores = opt$threads)
 
 #### EXTRACT PARAMETERS ####
 if (opt$model == "rf" | opt$model == "bt"){
