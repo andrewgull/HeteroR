@@ -70,18 +70,63 @@ data <- read_csv("data/features.csv")
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
 
 # TWO SCHEMES IN TWO FILES
-hr_testing <- read_csv("data/heteroresistance_testing_gr12.csv")
+hr_testing12 <- read_csv("data/heteroresistance_testing_gr12.csv")
+hr_testing13 <- read_csv("data/heteroresistance_testing_gr13.csv")
 
+# THIS ONE YOU MAKE YOURSELF
+hr_testing <- left_join(hr_testing12, hr_testing13, by = "strain") %>% 
+  mutate(resistance = case_when(resistance.x == "HR" | resistance.y == "HR" ~ "HR",
+                              resistance.x == "R" | resistance.y == "R" ~ "R",
+                              is.na(resistance.x) & resistance.y == "HR" ~ "HR",
+                              resistance.x == "HR" & is.na(resistance.y) ~ "HR",
+                              resistance.x == "nonHR" & resistance.y == "nonHR" ~ "nonHR")) %>% 
+  select(strain, resistance)
+
+# WRITE IT
+write_csv(hr_testing, "data/heteroresistance_testing_gr123.csv")
+```
+
+
+Classes in `hr_testing12`
+
+```{r}
+hr_testing12 %>% 
+  group_by(resistance) %>% 
+  count()
+```
+
+Classes in `hr_testing13`
+
+```{r}
+hr_testing13 %>% 
+  group_by(resistance) %>% 
+  count()
+```
+
+NAs in HR12 and HR13
+
+```{r}
+left_join(hr_testing12, hr_testing13, by = "strain") %>% 
+  filter(is.na(resistance.x), is.na(resistance.y))
+```
+
+
+Classes in `hr_testing` (I+II+III)
+
+```{r}
 hr_testing %>% 
   group_by(resistance) %>% 
   count()
 ```
 
-Quite imbalanced target class
+We have very imbalanced target class with any classification scheme.
 
 Look at target class distribution in the data set you're working with (521 strains)
 
+## Choose the HR classification scheme
+
 ```{r}
+# consider different classification schemes
 data_strain <- data_strain %>% 
   left_join(hr_testing, by = "strain")
 
@@ -92,9 +137,13 @@ data_strain %>%
 
 For testing scheme 1+2, there are 81 HR, 377 nonHR, 13 R and 50 NAs
 
-For the scheme 2+3, there are 52 HR, 406 nonHR, 13 R and 50 NAs
+For the scheme 1+3, there are 52 HR, 406 nonHR, 13 R and 50 NAs
 
-I will start with the scheme 1+2, because it gives more HR strains
+For the scheme 1+2+3 there are 88 HR and 370 nonHR, 13 R and 50 NAs
+
+I will start with the scheme 1+2, because it is more clinically relevant.
+
+But the next scheme to test will be 1+2+3, because it has more HR (obviously)
 
 ## Some additional features and filtering
 
@@ -319,7 +368,7 @@ data_pca <- prep(pca_rec, retain = TRUE)
 
 data_pca$template %>% 
   plot_validation_results() + 
-  ggtitle("Principal Component Analysis (HR12)")
+  ggtitle("Principal Component Analysis (HR123)")
 ```
 
 #### 3D version
@@ -392,7 +441,7 @@ data_pca %>%
 ```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 # BiocManager::install("mixOmics")
 
-pls_rec <- data_rec %>%
+pls_rec <- orq_recipe %>%
   step_pls(all_numeric_predictors(), outcome = "resistance", num_comp = 8)
 
 data_pls <- prep(pls_rec, retain = TRUE)
@@ -405,7 +454,7 @@ data_pls$template %>%
 ### Top loadings
 
 ```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
-data_pls %>%
+data_pls$template %>%
   plot_top_loadings(component_number <= 4, n = 5, type = "pls") + 
   scale_fill_brewer(palette = "Paired") +
   ggtitle("Partial Least Squares")
@@ -440,7 +489,7 @@ pls3d
 ```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 ## ICA
 #install.packages("fastICA")
-ica_rec <- data_rec %>%
+ica_rec <- orq_recipe %>%
   step_ica(all_numeric_predictors(), num_comp = 8)
 
 data_ica <- prep(ica_rec, retain = TRUE)
@@ -484,7 +533,7 @@ ica3d
 ## UMAP
 library(embed)
 
-umap_rec <- orq_rec %>%
+umap_rec <- orq_recipe %>%
   step_umap(all_numeric_predictors(), num_comp = 8) 
 
 data_umap <- prep(umap_rec, retain = TRUE)
@@ -496,13 +545,13 @@ data_umap$template %>%
 
 ### Supervised
 
-Here I increase the minimal distance to see the local stucture better
+Here I increase the minimal distance to see the local structure better
 
 ```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=8}
 ## UMAP Supervised
 
 umap_rec_sup <- orq_recipe %>%
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 3, min_dist = 0.6, neighbors = 25)
+  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 8, min_dist = 0.6, neighbors = 25)
 
 data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 
@@ -510,10 +559,17 @@ data_umap_sup$template %>%
   ggplot(aes(UMAP1, UMAP2)) +
   geom_point(aes(color = resistance), alpha = 0.6) +
   scale_color_brewer(palette = "Set1") +
-  ggtitle("Supervised UMAP (HR12)")
+  ggtitle("Supervised UMAP (HR123)")
 ```
 
 Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
+
+```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
+data_umap_sup$template %>% 
+  plot_validation_results() +
+  ggtitle("UMAP (123)")
+```
+
 
 #### 3D version
 
@@ -578,7 +634,7 @@ The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes hims
 ### write UMAP results to a file
 
 ```{r}
-write.csv(data_umap_sup$template, "data/umap_hr12.csv", row.names = FALSE)
+write.csv(data_umap_sup$template, "data/umap_hr123.csv", row.names = FALSE)
 ```
 
 ## UMAP on separate HR groups
@@ -588,9 +644,9 @@ hr_testing_12 <- read_csv("data/heteroresistance_testing_gr12.csv")
 hr_testing_13 <- read_csv("data/heteroresistance_testing_gr13.csv")
 
 hr_groups <- left_join(hr_testing_12, hr_testing_13, by = "strain") %>% 
-  mutate(hr.group = case_when(resistance.x == "HR" & resistance.y == "HR" ~ "g1",
-                              resistance.x == "HR" & resistance.y == "nonHR" ~ "g2",
-                              resistance.x == "nonHR" & resistance.y == "HR" ~ "g3",
+  mutate(hr.group = case_when(resistance.x == "HR" & resistance.y == "HR" ~ "group_1",
+                              resistance.x == "HR" & resistance.y == "nonHR" ~ "group_2",
+                              resistance.x == "nonHR" & resistance.y == "HR" ~ "group_3",
                               resistance.x == "nonHR" & resistance.y == "nonHR" ~ "nonHR")) %>% 
   select(strain, hr.group)
 
@@ -608,7 +664,7 @@ umap_groups_recipe <- recipe(hr.group ~., data = data_groups) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), outcome = "hr.group", num_comp = 4, min_dist = 0.01, neighbors = 25)
+  step_umap(all_numeric_predictors(), outcome = "hr.group", num_comp = 8, min_dist = 0.6, neighbors = 25)
 
 data_umap_groups <- prep(umap_groups_recipe, retain = TRUE)
 
