@@ -31,6 +31,7 @@ library(embed) # for UMAP
 
 # path for models
 models_path <- "~/Data/HeteroR/notebooks/models/scheme123/"
+models_path_cv5 <- "~/Data/HeteroR/notebooks/models/scheme123/folds5/"
 ```
 
 # Read and process data
@@ -40,10 +41,17 @@ The data sets are the same as in EDA
 ```{r}
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
 
-# TWO CLASSIFICATION SCHEMES IN FILES
-hr_testing12 <- read_csv("data/heteroresistance_testing_gr12.csv")
-hr_testing13 <- read_csv("data/heteroresistance_testing_gr13.csv")
-hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv")
+# TWO SCHEMES
+hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
+  filter(!is.na(strain)) %>% 
+  rename("resistance" = Gr12 )
+
+hr_testing13 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr13)) %>% 
+  filter(!is.na(strain)) %>% 
+  rename("resistance" = Gr13 )
+
+# created during EDA
+hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv") 
 
 # USE HR 1+2+3
 data_strain <- data_strain %>% 
@@ -175,12 +183,13 @@ For PCA recipe I will use ORQ-normalization.
 ```{r}
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
+  update_role(resistance, new_role = "outcome") %>% 
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
-  step_orderNorm(all_numeric_predictors()) %>% 
+  step_orderNorm(all_predictors()) %>% 
   step_normalize(all_predictors()) %>%
-  step_pca(all_numeric_predictors(), num_comp = tune()) %>% 
-  step_normalize(all_numeric_predictors()) %>% 
+  step_pca(all_predictors(), num_comp = 20) %>% 
+  step_normalize(all_predictors()) %>% 
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 pca_recipe
@@ -395,12 +404,18 @@ during resampling and the advantage it gives is marginal.
 You can load an `.rds` file if it exists.
 
 ```{r, fig.width=10}
-lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr.rds"))
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_prop75_rep20.rds"))
 
 autoplot(lr_ncorr_res)
 ```
 
 ### Best models
+
+```{r}
+lr_ncorr_res %>% 
+  show_best("j_index", n = 5) 
+```
+
 
 ```{r}
 lr_ncorr_res %>% 
@@ -440,7 +455,7 @@ Space-filling grid as well
 load
 
 ```{r, fig.width = 10}
-lr_pca_res <- readRDS(paste0(models_path, "lr_pca.rds"))
+lr_pca_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_prop75_pca20.rds"))
 
 
 autoplot(lr_pca_res)
@@ -738,7 +753,7 @@ make_roc(rf_main_res, "") %>%
 ## NCORR recipe + Bayes
 
 ```{r}
-rf_ncorr_bres <- readRDS(paste0(models_path, "rfb_ncorr.rds"))
+rf_ncorr_bres <- readRDS(paste0(models_path_cv5, "rfb_ncorr_i50_rs20.rds"))
 
 rf_ncorr_bres %>% autoplot()
 ```
@@ -809,8 +824,8 @@ make_roc(xgb_main_bres, "") %>%
 ## NCORR recipe
 
 
-```{r, fig.width=14, fig.height=6}
-xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr.rds"))
+```{r, fig.width=14, fig.height=8}
+xgb_ncorr_bres <- readRDS(paste0(models_path_cv5, "btb_ncorr_i50_rs20.rds"))
 
 xgb_ncorr_bres %>% autoplot()
 ```
@@ -989,7 +1004,7 @@ nnet_ncorr_res %>% show_best("roc_auc")
 ## NCORR + Bayes 20 starting points
 
 ```{r, fig.width=12}
-nnet_ncorr_bres <- readRDS(paste0(models_path, "mlpb_nnet_ncorr_i50_rs20.rds"))
+nnet_ncorr_bres <- readRDS(paste0(models_path_cv5, "mlpb_nnet_ncorr_i50_rs20.rds"))
 
 nnet_ncorr_bres %>% autoplot()
 ```
@@ -1004,7 +1019,7 @@ nnet_ncorr_bres %>% show_best("roc_auc", n = 5)
 ```
 
 ```{r}
-make_roc(nnet_ncorr_bres,) %>% 
+make_roc(nnet_ncorr_bres, "") %>% 
   autoplot()
 ```
 
@@ -1157,7 +1172,7 @@ XGB here looks better than in previous version (it reaches sensitivity =
 LR no corr, BT no corr, BT no corr ORQ, BT all, MLP (nnet no corr)
 
 ```{r, fig.width=8, fig.height=6}
-roc_selected_df <- map2_dfr(list(lr_ncorr_res, nnet_ncorr_bres, xgb_ncorr_bres_long, rf_ncorr_bres),
+roc_selected_df <- map2_dfr(list(lr_ncorr_res, nnet_ncorr_bres, xgb_ncorr_bres, rf_ncorr_bres),
                             c("LR", "MLP b", "XGB", "RF"), 
                             function(x, y) make_roc(x, y))
 
@@ -1304,6 +1319,46 @@ final_fit %>%
   collect_metrics()
 ```
 
+
+
+```{r}
+# model spec
+lr_mod <- set_model("lr", 8)
+
+best <- lr_pca_res %>% 
+  select_best("roc_auc")
+
+last_mod <-
+  logistic_reg(
+    penalty = best$penalty
+  ) %>% 
+  set_engine("glmnet", num.threads = 8) %>% 
+  set_mode("classification") 
+
+# this was the XGB workflow
+lr_wf <- workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(pca_recipe) # the recipe here should be the one that was used for this model
+
+# the last workflow
+last_wf <- 
+  lr_wf %>%  
+  update_model(last_mod)
+
+# the last fit
+set.seed(345)
+
+final_fit <- 
+  last_wf %>% 
+  last_fit(data_split)
+
+# emulates the process where, after determining the best model, 
+# the final fit on the entire training set is needed 
+# and is then evaluated on the test set.
+
+final_fit %>% 
+  collect_metrics()
+```
 
 ## Features importance
 
