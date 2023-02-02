@@ -48,7 +48,22 @@ option_list <- list(
               type = "integer",
               help = "number of folds",
               default = 10,
-              metavar = "integer")
+              metavar = "integer"),
+  make_option(c("-a", "--proportion"),
+              type = "double",
+              help = "stratified split proportion",
+              default = 0.8,
+              metavar = "double"),
+  make_option(c("-e", "--repeats"),
+              type = "integer",
+              help = "number of resampling repeats",
+              default = 10,
+              metavar = "integer"),
+  make_option(c("-g", "--group"),
+              type = "character",
+              help = "which classification scheme to choose? (one of: 12, 13, 123)",
+              default = "12",
+              metavar = "character")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
@@ -77,7 +92,15 @@ if (opt$model == "nb"){
 
 #### DATA ####
 path_data <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/features_strain.csv"
-path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr123.csv"
+
+if (opt$group == "123") {
+  path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr123.csv"
+} else if (opt$group == "12") {
+  path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr12.csv"
+} else if (opt$group == "13") {
+  path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr13.csv"
+}
+
 data_strain <- readr::read_csv(path_data, 
                               na = c("NA", "-Inf"),
                               show_col_types = FALSE)
@@ -103,7 +126,7 @@ data_strain[is.na(data_strain)] <- 0
 #### SPLIT ####
 set.seed(124)
 
-data_split <- initial_split(data_strain, prop = 0.8, strata = resistance)
+data_split <- initial_split(data_strain, prop = opt$proportion, strata = resistance)
 
 df_train <- training(data_split)
 df_test <- testing(data_split)
@@ -115,7 +138,7 @@ main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
-
+0.9015558
 ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -131,7 +154,7 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_predictors()) %>% 
   step_normalize(all_predictors()) %>%
-  step_pca(all_predictors(), num_comp = tune()) %>% 
+  step_pca(all_predictors(), num_comp = 20) %>% 
   step_normalize(all_predictors()) %>% 
   step_smote(resistance, over_ratio = 1, seed = 100)
 
@@ -160,7 +183,7 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
 cv_folds <- vfold_cv(df_train, 
                      strata = "resistance", 
                      v = opt$folds, 
-                     repeats = 10) 
+                     repeats = opt$repeats) 
 
 cls_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
 
