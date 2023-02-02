@@ -43,6 +43,11 @@ option_list <- list(
               type = "integer",
               help = "number of iterations to stop after, if improvement",
               default = 30,
+              metavar = "integer"),
+  make_option(c("-f", "--folds"),
+              type = "integer",
+              help = "number of folds",
+              default = 10,
               metavar = "integer")
 )
 
@@ -154,7 +159,7 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
 #### FOLDS & METRICS ####
 cv_folds <- vfold_cv(df_train, 
                      strata = "resistance", 
-                     v = 10, 
+                     v = opt$folds, 
                      repeats = 10) 
 
 cls_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
