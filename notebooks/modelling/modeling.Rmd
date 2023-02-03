@@ -30,7 +30,7 @@ library(bestNormalize) # for ord QQ norm
 library(embed) # for UMAP
 
 # path for models
-models_path <- "~/Data/HeteroR/notebooks/models/scheme123/"
+models_path <- "~/Data/HeteroR/notebooks/models/scheme12/"
 models_path_cv5 <- "~/Data/HeteroR/notebooks/models/scheme123/folds5/"
 ```
 
@@ -55,7 +55,7 @@ hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv")
 
 # USE HR 1+2+3
 data_strain <- data_strain %>% 
-  left_join(hr_testing, by = "strain")
+  left_join(hr_testing12, by = "strain")
 
 data_strain %>% 
   group_by(resistance) %>% 
@@ -236,7 +236,7 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = 0.75) %>%
+  step_corr(threshold = 0.70) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
@@ -261,6 +261,10 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
 > If a model is poorly calibrated, the ROC curve value might not show
 > diminished performance. However, the J index would be lower for models
 > with pathological distributions for the class probabilities.
+
+> Youden's J statistic is defined as: sens + spec - 1
+
+> The value of the J-index ranges from [0, 1] and is 1 when there are no false positives and no false negatives.
 
 ```{r}
 # Stratified, repeated 10-fold cross-validation is used to resample the model:
@@ -404,17 +408,12 @@ during resampling and the advantage it gives is marginal.
 You can load an `.rds` file if it exists.
 
 ```{r, fig.width=10}
-lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_prop75_rep20.rds"))
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr.rds"))
 
 autoplot(lr_ncorr_res)
 ```
 
 ### Best models
-
-```{r}
-lr_ncorr_res %>% 
-  show_best("j_index", n = 5) 
-```
 
 
 ```{r}
@@ -428,6 +427,27 @@ lr_ncorr_res %>%
 make_roc(lr_ncorr_res, "LR (no corr)") %>% 
   autoplot()
 ```
+
+### Higher correlation threshold
+
+0.70
+
+```{r, fig.width=10}
+lr_ncorr07_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_corr07.rds"))
+
+autoplot(lr_ncorr07_res)
+```
+
+```{r}
+lr_ncorr07_res %>% 
+  show_best("roc_auc", n = 5)
+```
+
+```{r}
+make_roc(lr_ncorr07_res, "") %>% 
+  autoplot()
+```
+
 
 ## NCORQ recipe
 
@@ -795,7 +815,7 @@ The following models all use Bayesian tuning
 Bayesian tuning
 
 ```{r, fig.width=14, fig.height=8}
-xgb_main_bres <- readRDS(paste0(models_path, "btb.rds"))
+xgb_main_bres <- readRDS(paste0(models_path, "btb_main_rs20.rds"))
 
 autoplot(xgb_main_bres)
 ```
@@ -825,7 +845,7 @@ make_roc(xgb_main_bres, "") %>%
 
 
 ```{r, fig.width=14, fig.height=8}
-xgb_ncorr_bres <- readRDS(paste0(models_path_cv5, "btb_ncorr_i50_rs20.rds"))
+xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr.rds"))
 
 xgb_ncorr_bres %>% autoplot()
 ```
@@ -860,7 +880,7 @@ make_roc(xgb_ncorr_bres, "XGB (no corr)") %>%
 
 
 ```{r, fig.width=14}
-xgb_ncorr_bres_long <- readRDS(paste0(models_path, "btb_ncorr_i100_rs30.rds"))
+xgb_ncorr_bres_long <- readRDS(paste0(models_path, "btb_ncorr_rs20_k5.rds"))
 
 xgb_ncorr_bres_long %>% 
   autoplot()
@@ -880,7 +900,7 @@ make_roc(xgb_ncorr_bres_long, "") %>%
   autoplot()
 ```
 
-```{r}
+```{r, fig.width=14, fig.height=6}
 xgb_ncorr_bres_long %>% 
   autoplot(type = "performance")
 ```
@@ -1172,8 +1192,8 @@ XGB here looks better than in previous version (it reaches sensitivity =
 LR no corr, BT no corr, BT no corr ORQ, BT all, MLP (nnet no corr)
 
 ```{r, fig.width=8, fig.height=6}
-roc_selected_df <- map2_dfr(list(lr_ncorr_res, nnet_ncorr_bres, xgb_ncorr_bres, rf_ncorr_bres),
-                            c("LR", "MLP b", "XGB", "RF"), 
+roc_selected_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres, xgb_ncorr_bres_long, xgb_main_bres, nnet_ncorr_bres),
+                            c("LR", "XGB no corr", "XGB long", "XGB main", "MLP b"), 
                             function(x, y) make_roc(x, y))
 
 roc_selected_df %>% 
@@ -1197,7 +1217,7 @@ roc_selected_df %>%
 # model spec
 xgb_mod <- set_model("bt", 8)
 
-best <- xgb_ncorr_bres %>% 
+best <- xgb_ncorq_bres %>% 
   select_best("roc_auc")
 
 last_mod <-
@@ -1216,7 +1236,7 @@ last_mod <-
 # this was the XGB workflow
 xgb_wf <- workflow() %>% 
   add_model(xgb_mod) %>% 
-  add_recipe(ncorr_recipe) # the recipe here should be the one that was used for this model
+  add_recipe(ncorq_recipe) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
@@ -1243,7 +1263,7 @@ final_fit %>%
 # model spec
 lr_mod <- set_model("lr", 8)
 
-best <- lr_ncorr_res %>% 
+best <- lr_ncorr07_res %>% 
   select_best("roc_auc")
 
 last_mod <-

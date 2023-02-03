@@ -16,9 +16,9 @@ ui <- fluidPage(
                # Left side with widget's controls
                column(2, 
                       selectInput(inputId = "xcol",label = "X variable",
-                                  choices = num_vars, selected = "read.max.len"),
-                      selectInput(inputId = "ycol", label = "Y variable",
                                   choices = num_vars, selected = "coverage"),
+                      selectInput(inputId = "ycol", label = "Y variable",
+                                  choices = num_vars, selected = "read.max.len"),
                       radioButtons(inputId = "x.trans", label = "X-axis transformation", 
                                    choices = c("identity", "log", "sqrt"), selected = "identity", 
                                    choiceNames = c("none", "log", "sqrt")),

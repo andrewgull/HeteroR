@@ -244,7 +244,7 @@ All pre-processing will be done with `recipes`
 # without resistance
 cor_matrix <- data_strain %>% 
   select(-c(strain, resistance, n.beta.lac.3, n.beta.lac.4, chrom.status)) %>%
-  cor(use = "pairwise.complete.obs")
+  cor(use = "pairwise.complete.obs", method = "spearman")
 
 corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.6)
 ```
@@ -277,7 +277,7 @@ data_prep$template
 # without resistance
 cor_matrix_norm <- data_prep$template %>% 
   select(-c(strain, resistance)) %>%
-  cor(use = "pairwise.complete.obs")
+  cor(use = "pairwise.complete.obs", method = "spearman")
 
 corrplot::corrplot(cor_matrix_norm, type = "upper", tl.col = "black", tl.cex = 0.6)
 ```
