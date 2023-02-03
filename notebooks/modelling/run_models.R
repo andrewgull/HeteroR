@@ -63,7 +63,12 @@ option_list <- list(
               type = "character",
               help = "which classification scheme to choose? (one of: 12, 13, 123)",
               default = "12",
-              metavar = "character")
+              metavar = "character"),
+  make_option(c("-z", "--corr_threshold"),
+              type = "double",
+              help = "correlation threshold for NO CORR recipe (default 0.75)",
+              default = 0.75,
+              metavar = "0.75")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
@@ -144,7 +149,7 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = 0.75) %>%
+  step_corr(threshold = opt$corr_threshold) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
