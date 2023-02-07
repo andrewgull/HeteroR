@@ -364,6 +364,7 @@ rgi %>%
   select(Cut_Off, Best_Identities) %>% 
   ggplot(aes(Best_Identities)) +
     geom_histogram(bins = 100, aes(fill = Cut_Off), alpha = 0.8) +
+    facet_grid(rows=vars(Cut_Off)) +
     ggtitle("Distribution of identity percentages")
 ```
 
@@ -416,7 +417,7 @@ rgi %>%
 
 More filtering required!
 
-### Filtering by Resistance.Mechanism
+### Filtering by Resistance.Mechanism (try to not use)
 
 How many resistance mechanisms do we have?
 
@@ -445,6 +446,7 @@ What should stay:
 **OBS!** Leave those records that *contain* what should stay
 
 ```{r}
+#| eval: false
 stay <- c("antibiotic target replacement", "antibiotic target protection", "antibiotic inactivation")
 
 rgi <- rgi %>% 
@@ -464,7 +466,7 @@ rgi %>%
   filter(!is.na(SNPs_in_Best_Hit_ARO))
 ```
 
-No SNPs in the filtered RGI table.
+No SNPs in the filtered RGI table - if filtering by resistance mechanism is applied
 
 ### Number of RGs per strain: after the 2nd filtering
 
@@ -486,7 +488,7 @@ rgi %>%
   summary()
 ```
 
-It's OK!
+It's OK! (if filtering by Resistance mechanism is applied)
 
 In total, I have `r length(unique(rgi$record_id))` RGs in the filtered RGI
 
@@ -501,6 +503,19 @@ length(setdiff(rgi$record_id, features$record_id))
 ```
 
 `r length(setdiff(rgi_filt$record_id, features$record_id))` resistance genes after filtering don't have repeats around them.
+
+### Number of RGs per strain per Cut_Off type
+
+```{r}
+rgi %>% 
+  group_by(Cut_Off, strain) %>% 
+  count() %>% 
+  ggplot(aes(n))+ 
+    geom_histogram(fill = "steelblue", bins = 100)+
+    facet_grid(rows = vars(Cut_Off)) +
+    xlab("Number of RGs per strain")
+```
+
 
 ### Any NAs in features?
 
@@ -535,7 +550,9 @@ Use gene names as key since they are unique and make a full join with features.
 ```{r}
 features <- full_join(features, rgi, by = c("strain", "record_id"))
 
-features %>% filter(is.na(repeat_length)) %>% select(strain, record_id, ORF_ID, repeat_length)
+features %>% 
+  filter(is.na(repeat_length)) %>% 
+  select(strain, record_id, ORF_ID, repeat_length)
 ```
 
 Number of rows here should be equal to filtered RGI - Features (see above)
@@ -547,6 +564,7 @@ Number of rows in Features: `r nrow(features)`
 Like ARO, Cut_Off etc.
 
 ```{r}
+#| eval: false
 features <- features %>% 
   select(-c(ARO, Cut_Off, Pass_Bitscore, Best_Hit_Bitscore, Best_Hit_ARO, 
             Best_Identities, Model_ID, Model_type, SNPs_in_Best_Hit_ARO,
@@ -554,6 +572,18 @@ features <- features %>%
 
 head(features)
 ```
+
+Alternative (if I want to have info on sub-types of beta-lactamases and SNPs):
+
+```{r}
+#| eval: true
+
+features <- features %>% 
+  select(-c(Best_Hit_ARO, SNPs_in_Best_Hit_ARO, Other_SNPs))
+
+head(features)
+```
+
 
 **OBS!** Features still contain resistance genes without repeats and strains without repeats at all!
 
@@ -565,11 +595,13 @@ Since many genes were excluded from RGI results but their repeats, counts and AR
 
 How many rows don't have resistance mechanisms (i.e. have been filtered out during RGI filtering?): `r sum(is.na(features$Resistance.Mechanism))`
 
+Ando no record_id?
+
 Filtering
 
 ```{r}
 features <- features %>% 
-  filter(!is.na(Resistance.Mechanism))
+  filter(!is.na(Resistance.Mechanism), !is.na(record_id))
 
 dim(features)
 ```
@@ -587,6 +619,8 @@ One strain has been removed because it doesn't have any RGs or repeats
 I should add it back and assign NAs everywhere
 
 ```{r}
+#| eval: false
+
 strains_no_rg <- setdiff(strains, features$strain)
 
 na_col <- function(){
@@ -609,6 +643,8 @@ no_rg_df
 ```
 
 ```{r}
+#| eval: false
+
 features <- bind_rows(features, no_rg_df)
 ```
 
@@ -705,8 +741,8 @@ All NAs in `features` from now on should be 0s in the end.
 
 We should take into account relative coverage of plasmids (i.e. number of copies), which can be found in an assembly header, but not every plasmid has this measure, since it is calculated only by Unicycler but not SPAdes or FMP.
 
-```{r, eval=FALSE}
-# use fread from data.table
+```{r}
+#| eval: false
 assemblies_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
 assembly_files <- dir(path=assemblies_path, pattern="assembly.fasta$", recursive=T)
 
@@ -961,7 +997,7 @@ gff <- map_dfr(gff_files, ~ read_gff(.)) %>%
 ## Remove non-beta-lactamase AMR genes from GFF
 
 ```{r}
-# add is beta lac
+#| eval: false
 gff <- features %>% 
   mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   select(record_id, is.beta.lac) %>% 
@@ -973,7 +1009,20 @@ gff <- features %>%
 gff
 ```
 
-## Add 'on.plasmid', 'strand' and 'dit.to.oriC' to `features_filtered`
+Alternative (if filtering by Resistance mechanism is not applied):
+
+```{r}
+gff <- features %>% 
+  mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
+  select(record_id, is.beta.lac) %>% 
+  distinct() %>% 
+  right_join(gff, by = "record_id")
+
+gff
+```
+
+
+## Add 'on.plasmid', 'strand' and 'dist.to.oriC' to `features`
 
 ```{r}
 features <- features %>% 
@@ -1007,6 +1056,7 @@ gff <- features %>%
 All in three variants: on chromosome, on plasmids, both
 
 ```{r}
+#| eval: false
 min_dist_oriC <- gff %>% 
   group_by(strain, on.plasmid) %>% 
   summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
@@ -1040,6 +1090,23 @@ features_strain <- list(features_strain, min_dist_oriC, med_dist_oriC, n_genes_p
 
 head(features_strain)
 ```
+
+Alternative (if filtering by Resistance mechanism was not applied):
+
+```{r}
+#| eval: true
+
+min_dist_oriC_bl <- gff %>% 
+  filter(is.beta.lac) %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
+  spread(key = "on.plasmid", value = "min.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
+  rename("min.dist.oriC.chrom.bl" = no, "min.dist.oriC.plasmid.bl" = yes) %>% 
+  mutate(min.dist.oriC.bl = min.dist.oriC.chrom.bl + min.dist.oriC.plasmid.bl)
+
+load("/home/andrei/Data/HeteroR/notebooks/features_soft.RData")
+```
+
 
 ## Repeat count
 
@@ -1573,5 +1640,5 @@ write.csv(amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amr_types_
 # Save the workspace
 
 ```{r, eval=TRUE}
-save.image(f = "/home/andrei/Data/HeteroR/notebooks/features.RData")
+save.image(f = "/home/andrei/Data/HeteroR/notebooks/features_soft.RData")
 ```
