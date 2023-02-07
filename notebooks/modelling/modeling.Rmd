@@ -1217,7 +1217,7 @@ roc_selected_df %>%
 # model spec
 xgb_mod <- set_model("bt", 8)
 
-best <- xgb_ncorq_bres %>% 
+best <- xgb_ncorr_bres %>% 
   select_best("roc_auc")
 
 last_mod <-
@@ -1236,7 +1236,7 @@ last_mod <-
 # this was the XGB workflow
 xgb_wf <- workflow() %>% 
   add_model(xgb_mod) %>% 
-  add_recipe(ncorq_recipe) # the recipe here should be the one that was used for this model
+  add_recipe(ncorr_recipe) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
