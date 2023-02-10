@@ -446,7 +446,7 @@ What should stay:
 **OBS!** Leave those records that *contain* what should stay
 
 ```{r}
-#| eval: false
+#| eval: true
 stay <- c("antibiotic target replacement", "antibiotic target protection", "antibiotic inactivation")
 
 rgi <- rgi %>% 
@@ -502,7 +502,7 @@ Filtered RGI - Features:
 length(setdiff(rgi$record_id, features$record_id))
 ```
 
-`r length(setdiff(rgi_filt$record_id, features$record_id))` resistance genes after filtering don't have repeats around them.
+`r length(setdiff(rgi$record_id, features$record_id))` resistance genes after filtering don't have repeats around them.
 
 ### Number of RGs per strain per Cut_Off type
 
@@ -511,7 +511,7 @@ rgi %>%
   group_by(Cut_Off, strain) %>% 
   count() %>% 
   ggplot(aes(n))+ 
-    geom_histogram(fill = "steelblue", bins = 100)+
+    geom_histogram(fill = "steelblue")+
     facet_grid(rows = vars(Cut_Off)) +
     xlab("Number of RGs per strain")
 ```
@@ -561,28 +561,20 @@ Number of rows in Features: `r nrow(features)`
 
 ### Remove RGI columns that we don't need for prediction
 
-Like ARO, Cut_Off etc.
+Like ARO, Cut_Off, Model_ID etc.
+
+Leave Best_Hit_ARO because it contains information on types of beta-lactamases.
 
 ```{r}
-#| eval: false
+#| eval: true
 features <- features %>% 
-  select(-c(ARO, Cut_Off, Pass_Bitscore, Best_Hit_Bitscore, Best_Hit_ARO, 
+  select(-c(ARO, Cut_Off, Pass_Bitscore, Best_Hit_Bitscore,
             Best_Identities, Model_ID, Model_type, SNPs_in_Best_Hit_ARO,
             Other_SNPs, ID, Percentage.Length.of.Reference.Sequence))
 
 head(features)
 ```
 
-Alternative (if I want to have info on sub-types of beta-lactamases and SNPs):
-
-```{r}
-#| eval: true
-
-features <- features %>% 
-  select(-c(Best_Hit_ARO, SNPs_in_Best_Hit_ARO, Other_SNPs))
-
-head(features)
-```
 
 
 **OBS!** Features still contain resistance genes without repeats and strains without repeats at all!
@@ -595,7 +587,7 @@ Since many genes were excluded from RGI results but their repeats, counts and AR
 
 How many rows don't have resistance mechanisms (i.e. have been filtered out during RGI filtering?): `r sum(is.na(features$Resistance.Mechanism))`
 
-Ando no record_id?
+And no record_id?
 
 Filtering
 
@@ -970,26 +962,31 @@ It's the only working way to read gff files in R
 # a function to read GFF files using STANDARD read.delim
 read_gff <- function(gff_filename) {
   # read and process
-  df <- as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
-  select(V1, V3, V4, V5, V7, V9) %>% 
-  filter(V3 == "gene")
+  df <-
+    as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
+    select(V1, V3, V4, V5, V7, V9) %>%
+    filter(V3 == "gene")
   return(df)
-  }
+}
 
 # get gff full paths using strain names vector
 gff_files <- map_chr(strains, ~ str_c("/home/andrei/Data/HeteroR/results/annotations/", ., "/prokka/", ., "_genomic.gff"))
 
 # read gff files right in a tibble
 # it works quite long time
-gff <- map_dfr(gff_files, ~ read_gff(.)) %>% 
-  separate(col=V9, sep = ";locus_tag=", into=c("V10", "V11")) %>%
-  select(-V10) %>% 
-  set_names(c("seq.region", "type", "start", "stop", "strand", "record_id")) %>% 
-  filter(record_id %in% unique(features$record_id)) %>% 
-  mutate(located.on.plasmid = str_detect(seq.region, "1", negate = T),
-         on.plasmid = if_else(located.on.plasmid, "yes", "no"),
-         pos.strand = if_else(strand == "+", "yes", "no")) %>% 
-  rename("dist.to.oriC" = start) %>% 
+gff <- map_dfr(gff_files, ~ read_gff(.)) %>%
+  separate(col = V9,
+           sep = "locus_tag=",
+           into = c("V10", "V11")) %>%
+  select(-V10) %>%
+  set_names(c("seq.region", "type", "start", "stop", "strand", "record_id")) %>%
+  filter(record_id %in% unique(features$record_id)) %>%
+  mutate(
+    located.on.plasmid = str_detect(seq.region, "1", negate = T),
+    on.plasmid = if_else(located.on.plasmid, "yes", "no"),
+    pos.strand = if_else(strand == "+", "yes", "no")
+  ) %>%
+  rename("dist.to.oriC" = start) %>%
   select(record_id, dist.to.oriC, pos.strand, on.plasmid)
 
 ```
@@ -997,7 +994,7 @@ gff <- map_dfr(gff_files, ~ read_gff(.)) %>%
 ## Remove non-beta-lactamase AMR genes from GFF
 
 ```{r}
-#| eval: false
+#| eval: true
 gff <- features %>% 
   mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   select(record_id, is.beta.lac) %>% 
@@ -1012,6 +1009,7 @@ gff
 Alternative (if filtering by Resistance mechanism is not applied):
 
 ```{r}
+#| eval: false
 gff <- features %>% 
   mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   select(record_id, is.beta.lac) %>% 
@@ -1056,7 +1054,7 @@ gff <- features %>%
 All in three variants: on chromosome, on plasmids, both
 
 ```{r}
-#| eval: false
+#| eval: true
 min_dist_oriC <- gff %>% 
   group_by(strain, on.plasmid) %>% 
   summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
@@ -1089,22 +1087,6 @@ features_strain <- list(features_strain, min_dist_oriC, med_dist_oriC, n_genes_p
   relocate(n.beta.lac.plasmid, n.beta.lac.chrom, .before = min.dist.oriC.chrom)
 
 head(features_strain)
-```
-
-Alternative (if filtering by Resistance mechanism was not applied):
-
-```{r}
-#| eval: true
-
-min_dist_oriC_bl <- gff %>% 
-  filter(is.beta.lac) %>% 
-  group_by(strain, on.plasmid) %>% 
-  summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
-  spread(key = "on.plasmid", value = "min.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
-  rename("min.dist.oriC.chrom.bl" = no, "min.dist.oriC.plasmid.bl" = yes) %>% 
-  mutate(min.dist.oriC.bl = min.dist.oriC.chrom.bl + min.dist.oriC.plasmid.bl)
-
-load("/home/andrei/Data/HeteroR/notebooks/features_soft.RData")
 ```
 
 
@@ -1622,6 +1604,31 @@ features_strain <- left_join(features_strain, amr_types_strain, by = "strain")
 head(features_strain)
 ```
 
+## TEM and SHV types
+
+These beta-lactamases are targets for tazobactam which inhibits their activity.
+It makes sense to add types of TEM and SHV as separate features to `features_strain`
+
+```{r}
+features %>% 
+  filter(str_detect(Best_Hit_ARO, "TEM-1")) %>% 
+  distinct(strain, record_id) %>% 
+  group_by(strain) %>% 
+  count() %>% 
+  arrange(-n)
+```
+
+
+```{r}
+sum(features_strain$SHV.beta.lactamase, na.rm = T)
+```
+
+Just two SHV beta-lacs...
+
+and the most of TEMs, are TEM-1
+
+So, there is no information in this.
+
 ## Write AMP tables required for EDA to files
 
 Resistance testing will be added later in the EDA section
@@ -1640,5 +1647,5 @@ write.csv(amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amr_types_
 # Save the workspace
 
 ```{r, eval=TRUE}
-save.image(f = "/home/andrei/Data/HeteroR/notebooks/features_soft.RData")
+save.image(f = "/home/andrei/Data/HeteroR/notebooks/features.RData")
 ```
