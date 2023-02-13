@@ -135,7 +135,7 @@ Look at target class distribution in the data set you're working with (521 strai
 ```{r}
 # consider different classification schemes
 data_strain <- data_strain %>% 
-  left_join(hr_testing, by = "strain")
+  left_join(hr_testing12, by = "strain")
 
 data_strain %>% 
   group_by(resistance) %>% 
@@ -240,10 +240,17 @@ All pre-processing will be done with `recipes`
 
 ## Correlation plot
 
-```{r, fig.width=12, fig.height=12, warning=FALSE}
+```{r, fig.width=12, fig.height=10, warning=FALSE}
 # without resistance
-cor_matrix <- data_strain %>% 
-  select(-c(strain, resistance, n.beta.lac.3, n.beta.lac.4, chrom.status)) %>%
+cor_matrix <- data_strain %>%
+  select(-c(
+    strain,
+    resistance,
+    n.beta.lac.3,
+    n.beta.lac.4,
+    chrom.status,
+    contains(c("APH", "ANT", "PH", "CAT", "AAC", "SAT", "DHA", "qnr"), ignore.case = FALSE)
+  )) %>%
   cor(use = "pairwise.complete.obs", method = "spearman")
 
 corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.6)
@@ -367,7 +374,7 @@ data_pca <- prep(pca_rec, retain = TRUE)
 
 data_pca$template %>% 
   plot_validation_results() + 
-  ggtitle("Principal Component Analysis (HR123)")
+  ggtitle("Principal Component Analysis (HR12)")
 ```
 
 #### 3D version
@@ -435,53 +442,6 @@ data_pca %>%
   ggtitle("Principal Component Analysis")
 ```
 
-## PLS - Partial Least Squares
-
-```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
-# BiocManager::install("mixOmics")
-
-pls_rec <- orq_recipe %>%
-  step_pls(all_numeric_predictors(), outcome = "resistance", num_comp = 8)
-
-data_pls <- prep(pls_rec, retain = TRUE)
-
-data_pls$template %>% 
-  plot_validation_results() + 
-  ggtitle("Partial Least Squares")
-```
-
-### Top loadings
-
-```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
-data_pls$template %>%
-  plot_top_loadings(component_number <= 4, n = 5, type = "pls") + 
-  scale_fill_brewer(palette = "Paired") +
-  ggtitle("Partial Least Squares")
-```
-
-### 3D version
-
-```{r}
-#library(plotly)
-
-pls3d <- plot_ly(data_pls$template, 
-                 x = ~PLS1, 
-                 y = ~PLS2, 
-                 z = ~PLS3, 
-                 color = ~data_pls$template$resistance, 
-                 colors = c('#cf280c', '#1b56f7')) 
-
-pls3d <- pls3d %>% 
-  add_markers(size = 2,
-              text = ~data_pls$template$strain)
-
-pls3d <- pls3d %>% 
-  layout(scene = list(xaxis = list(title = 'PLS1'),
-                      yaxis = list(title = 'PLS2'),
-                      zaxis = list(title = 'PLS3'))) 
-
-pls3d
-```
 
 ## ICA - Independent Component Analysis
 
@@ -495,7 +455,7 @@ data_ica <- prep(ica_rec, retain = TRUE)
 
 data_ica$template %>% 
   plot_validation_results() + 
-  ggtitle("Independent Component Analysis")
+  ggtitle("Independent Component Analysis (HR12)")
 ```
 
 #### 3D version
@@ -526,49 +486,25 @@ ica3d
 
 > while high values will push UMAP towards representing the big-picture structure while losing fine detail.
 
-### Unsupervised
 
-```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
-## UMAP
-library(embed)
-
-umap_rec <- orq_recipe %>%
-  step_umap(all_numeric_predictors(), num_comp = 8, min_dist = 0.05, neighbors = 15) # the bigger the distance the more low level details you see in the clusters
-
-data_umap <- prep(umap_rec, retain = TRUE)
-
-data_umap$template %>% 
-  plot_validation_results() +
-  ggtitle("UMAP")
-```
-
-
-#### Write UMAP results to a file
-
-If you want to use UMAP for prediction you shouldn't use the supervised version of UMAP
-
-```{r, eval=F}
-# change the recipe: add more components
-# as many as the number of non-correlated predictors in NCORR recipe
-
-umap_rec <- orq_recipe %>%
-  step_umap(all_numeric_predictors(), num_comp = 20, min_dist = 0.05, neighbors = 15) # it breaks
-
-data_umap <- prep(umap_rec, retain = TRUE)
-
-
-write.csv(data_umap$template, "data/umap_hr123.csv", row.names = FALSE)
-```
-
-### Supervised
+It is a supervised variant of UMAP
 
 Here I increase the minimal distance to see the local structure better
 
+### Two components
+
 ```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=8}
 ## UMAP Supervised
+library(embed)
 
 umap_rec_sup <- orq_recipe %>%
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 10, min_dist = 0.1, neighbors = 25)
+  step_umap(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    num_comp = 10,
+    min_dist = 0.01,
+    neighbors = 25
+  )
 
 data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 
@@ -576,19 +512,21 @@ data_umap_sup$template %>%
   ggplot(aes(UMAP01, UMAP02)) +
   geom_point(aes(color = resistance), alpha = 0.6) +
   scale_color_brewer(palette = "Set1") +
-  ggtitle("Supervised UMAP (HR123)")
+  ggtitle("Supervised UMAP (HR12)")
 ```
+
+### More components
 
 Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
 
 ```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 data_umap_sup$template %>% 
   plot_validation_results() +
-  ggtitle("UMAP supervised (HR I+II+III)")
+  ggtitle("UMAP supervised (HR12)")
 ```
 
 
-#### 3D version
+### 3D version
 
 ```{r, fig.width=10}
 library(plotly)
@@ -624,6 +562,8 @@ umap3d
 They come from modelling of course (the last fit + extract predictions)
 
 ```{r, fig.width=10, fig.height = 8}
+#| eval: false
+
 # to add falsely and correctly identified by the final fit
 # go to modelling -> extract predictions, that table is there
 
@@ -682,10 +622,9 @@ data_umap_groups$template %>%
     select(-strain) %>% 
     ggplot(aes(x = .panel_x, y = .panel_y, color = hr.group, fill = hr.group)) +
     geom_point(alpha = 0.4, size = 2, aes(shape = hr.group)) +
-    #geom_autodensity(alpha = .3) +
     facet_matrix(vars(-hr.group), layer.diag = 2) + 
     scale_color_brewer(palette = "Set1", direction = 1) + 
-    #scale_fill_brewer(palette = "Set1", direction = 1) +
+    scale_shape_manual(values = c(21, 24, 22, 20)) +
     theme_bw() +
     ggtitle("Supervised UMAP (HR groups)")
 ```
@@ -1189,28 +1128,6 @@ data_strain %>%
   guides(fill = "none")
 ```
 
-Without outliers (bad assemblies)
-
-```{r}
-data_strain %>% filter(n.plasmids < 50) %>%
-  ggplot(aes(resistance, n.plasmids)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(
-    aes(fill = resistance),
-    alpha = 0.2,
-    notch = F,
-    varwidth = T
-  ) +
-  geom_jitter(alpha = 0.2,
-              width = 0.15,
-              height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
-  ggtitle("") +
-  ylab("n") +
-  xlab("") +
-  guides(fill = "none")
-```
-
 ### Bar plot - filtered version
 
 ```{r}
@@ -1221,6 +1138,20 @@ data_strain %>% filter(n.plasmids < 50) %>%
   xlab("n plasmids") +
   ylab("n strains")
 ```
+
+### Plasmids vs Coverage
+
+```{r, fig.width=10}
+data_strain %>%
+  ggplot(aes(coverage, n.plasmids)) +
+  geom_point(aes(color = resistance), alpha = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
 
 ## Median total repeat length
 
