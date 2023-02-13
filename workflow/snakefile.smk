@@ -268,7 +268,6 @@ rule trna_annotation:
     input:
         "results/assemblies_joined/{strain}/assembly.fasta"
     output:
-        # TODO: use multiext function
         general = "results/annotations/{strain}/trna/trna_gen.txt",
         struct = "results/annotations/{strain}/trna/trna_struct.txt",
         iso = "results/annotations/{strain}/trna/trna_iso.txt",
@@ -436,23 +435,6 @@ rule dr_summary:
     message: "making summary table with repeat coordinates for all strains"
     script: "scripts/make_repeat_summary_table.py"
 
-# get features table
-# read input from expand to get data on EVERY strain
-rule features:
-    input: 
-        repeats = expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
-        beds = expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"]),
-        rgs = expand("results/resistance_genes/{strain}/rgi_table.txt", strain=config["strains"]),
-        summaries = expand("/home/andrei/Data/HeteroR/results/assemblies_joined/{strain}/summary.tsv", strain=config["strains"]),
-        gffs = expand("/home/andrei/Data/HeteroR/results/assemblies_joined/{strain}/summary.tsv", strain=config["strains"])
-        tests = "resources/heteroresistance_testing_ptz.csv"
-    output: 
-        "results/tables/features.tsv"
-    log: "results/logs/features.log"
-    message: "making features tables for all strains"
-    conda: "envs/rscripts.yaml"
-    shell:
-        "Rscript -r {input.repeats} -b {input.beds} -g {input.rgs} -t {input.tests} -a {input.summaries} -o {output}"
 
 # join outputs together
 rule final:
@@ -462,6 +444,8 @@ rule final:
         qc_ill_trim="results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv",
         qc_nan_raw="results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
+        assembly="results/assemblies/{strain}",
+        assembly_joined="results/assemblies_joined/{strain}/assembly.fasta",
         summary="results/assemblies_joined/{strain}/summary.tsv",
         gff_nomism="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
