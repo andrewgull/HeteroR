@@ -37,8 +37,7 @@ data_rec <- recipe(resistance ~., data = features_strain) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
-  step_orderNorm(all_numeric_predictors()) %>% 
-  step_normalize(all_predictors()) 
+  step_orderNorm(all_numeric_predictors()) 
 
 data_prep <- prep(data_rec, retain = TRUE)
 
