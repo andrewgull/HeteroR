@@ -225,6 +225,22 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
+## No corr + Spline basis expansion
+
+to incorporate non-linearity into the class boundary
+
+```{r}
+ns_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_ns(all_predictors(), deg_free = tune()) %>% 
+  step_corr(threshold = tune("corr_tune")) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+```
+
+
 # Folds and metrics
 
 > If a model is poorly calibrated, the ROC curve value might not show
@@ -540,6 +556,28 @@ lr_pca_res %>%
 ```
 
 Much better gain curve so far
+
+## NS recipe
+
+```{r}
+lr_ns <- logistic_reg(penalty = tune(),
+                      mixture = 1) %>%
+  set_engine("glmnet")
+
+ns_wf <- workflow() %>% 
+  add_model(lr_ns) %>% 
+  add_recipe(ns_recipe)
+  
+ns_res <- ns_wf %>%
+  tune_grid(
+    grid = 20,
+    resamples = cv_folds,
+    control = control_grid(save_pred = TRUE,
+                           save_workflow = TRUE),
+    metrics = cls_metrics
+  )
+```
+
 
 ## Recursive Feature Elimination
 
