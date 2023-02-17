@@ -576,6 +576,13 @@ ns_res <- ns_wf %>%
                            save_workflow = TRUE),
     metrics = cls_metrics
   )
+
+ns_res_wl <- ns_wf %>%
+  tune_race_win_loss(
+    resamples = cv_folds,
+    grid = 20,
+    control = control_race(verbose_elim = TRUE, save_pred = TRUE, burn_in = 10)
+  )
 ```
 
 
