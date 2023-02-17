@@ -27,7 +27,8 @@ library(vip)
 library(skimr)
 library(stacks)
 library(bestNormalize) # for ord QQ norm
-library(embed) # for UMAP
+#library(embed) # for UMAP
+library(finetune)
 
 # path for models
 models_path <- "~/Data/HeteroR/notebooks/models/scheme12/"
@@ -92,7 +93,6 @@ Number of not tested strains in the list I got from Karin
 hr_testing %>% filter(is.na(resistance))
 ```
 
-
 # Data split
 
 Stratified split
@@ -134,21 +134,13 @@ main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
   
-main_recipe
+main_recipe %>% prep() %>% juice()
 ```
 
-### Bake and check
+Target class:
 
 ```{r}
-train_data <- main_recipe %>% 
-  prep(training = df_train) %>% 
-  bake(new_data = NULL) # df_train will be processed
-
-head(train_data)
-```
-
-```{r}
-train_data %>% group_by(resistance) %>% count()
+main_recipe %>% prep() %>% juice() %>% group_by(resistance) %>% count()
 ```
 
 ## PCA + ORQ-normalization
@@ -178,57 +170,35 @@ From [here](https://www.tmwr.org/grid-search.html):
 **NB:** As comparison in EDA notebook showed, OQ-normalization works
 better than Yeo-Johnson transformation.
 
-For PCA recipe I will use ORQ-normalization.
+For PCA
+
+Does ORQ-normalization `step_orderNorm()` really help?
+
+If you look at EDA, you'll see that ORQ gives better distributions and
+less PCs to explain the same amount of variance, than regular
+`step_normalize()`. (Same is true for this recipe below)
 
 ```{r}
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
   update_role(resistance, new_role = "outcome") %>% 
   step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_orderNorm(all_predictors()) %>% 
-  step_normalize(all_predictors()) %>%
-  step_pca(all_predictors(), num_comp = 20) %>% 
-  step_normalize(all_predictors()) %>% 
-  step_smote(resistance, over_ratio = 1, seed = 100)
-
-pca_recipe
-```
-
-## UMAP and Ordered-Quantile normalization
-
-I use supervised UMAP
-
-What position of `step_smote()` is preferable??
-
-```{r, fig.width=12, fig.height=12}
-umap_recipe <- recipe(resistance ~., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
+  #step_normalize(all_numeric_predictors()) %>%
   step_orderNorm(all_numeric_predictors()) %>% 
-  step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), outcome = "resistance", num_comp = 14) 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_pca(all_predictors(), threshold = .9)
+  
 
-# to make a plot
-# data_umap <- prep(umap_rec, retain = TRUE)
-
-```
-
-### Add SMOTE step
-
-```{r}
-umap_recipe <- umap_recipe %>% 
-  step_smote(resistance, over_ratio = 1, seed = 100)
-
-umap_recipe
+pca_recipe %>% prep() %>% juice()
 ```
 
 ## No correlation recipe
 
-with manually set correlation threshold
+with tuned correlation threshold
 
-*NB* Dummies are created after normalization and transformation! (This recipe performed better thn others)
+*NB* Dummies are created after normalization and transformation! (This
+recipe performed better than others)
 
 ```{r}
 ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
@@ -236,25 +206,24 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = 0.70) %>%
+  step_corr(threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
-## No correlation + ORQ recipe
+## No correlation + ORQ-norm recipe
 
-Dummies are created after normalization and transformation - same as in NCORR (before it was different: dummies before order norm!)
+Dummies are created after normalization and transformation - same as in
+NCORR (before it was different: dummies before order norm!)
 
 ```{r}
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
-  step_normalize(all_numeric_predictors()) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = 0.75) %>%
+  step_corr(threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
-
 
 # Folds and metrics
 
@@ -264,7 +233,8 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
 
 > Youden's J statistic is defined as: sens + spec - 1
 
-> The value of the J-index ranges from [0, 1] and is 1 when there are no false positives and no false negatives.
+> The value of the J-index ranges from [0, 1] and is 1 when there are no
+> false positives and no false negatives.
 
 ```{r}
 # Stratified, repeated 10-fold cross-validation is used to resample the model:
@@ -277,10 +247,12 @@ cls_metrics <- metric_set(roc_auc, j_index)
 
 There are two ways to une hyper-parameters:
 
-- the maximum entropy design (space-filling grid) which used in `tune()`
+-   the maximum entropy design (space-filling grid) which used in
+    `tune()`
 
-- Bayesian optimization of hyper-parameters which is used by `tune_bayes()`. 
-Performs better than space-filling grid for models that are sensitive to hyper-parameters (like boosted trees)
+-   Bayesian optimization of hyper-parameters which is used by
+    `tune_bayes()`. Performs better than space-filling grid for models
+    that are sensitive to hyper-parameters (like boosted trees)
 
 # Functions to simplify things
 
@@ -391,6 +363,57 @@ make_roc <- function(mod_res, title){
 # Also, there is a function 'run_models.R' to run resampling from terminal
 ```
 
+# Tune race - TEST
+
+```{r}
+library(finetune)
+
+test_model <- logistic_reg(penalty = tune(),
+                           mixture = 1) %>%
+  set_engine("glmnet")
+
+test_wf <- workflow() %>%
+  add_model(test_model) %>%
+  add_recipe(ncorr_recipe)
+
+grid_wl <- test_wf %>%
+  tune_race_win_loss(
+    resamples = cv_folds,
+    grid = 20,
+    control = control_race(verbose_elim = TRUE, save_pred = TRUE, burn_in = 50)
+  )
+
+show_best(grid_wl, metric = "roc_auc")
+```
+
+```{r}
+plot_race(grid_wl)
+```
+
+```{r}
+make_roc(grid_wl, "") %>% autoplot()
+```
+
+```{r}
+bres_test <- test_wf %>% 
+  tune_bayes(
+    resamples = cv_folds,
+    param_info = extract_parameter_set_dials(test_wf),
+    initial = grid_wl,
+    iter = 30,
+    metrics = metric_set(roc_auc),
+    control = control_bayes(no_improve = 10, 
+                            verbose = FALSE, 
+                            save_pred = TRUE, 
+                            save_workflow = TRUE))
+
+bres_test %>% show_best("roc_auc")
+```
+
+```{r}
+make_roc(bres_test, "") %>% autoplot()
+```
+
 # Penalized LR
 
 ## UMAP
@@ -408,54 +431,54 @@ during resampling and the advantage it gives is marginal.
 You can load an `.rds` file if it exists.
 
 ```{r, fig.width=10}
-lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr.rds"))
+# correlation threshold was tuned as well
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_corr_tune.rds"))
 
 autoplot(lr_ncorr_res)
 ```
 
-### Best models
+### ROC of resamples
 
+```{r}
+lr_ncorr_res %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+### Gain curve
+
+```{r}
+lr_ncorr_res %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+
+### Best models
 
 ```{r}
 lr_ncorr_res %>% 
   show_best("roc_auc", n = 5) 
 ```
 
-#### ROC of the best model
+#### Best ROC
 
 ```{r}
 make_roc(lr_ncorr_res, "LR (no corr)") %>% 
   autoplot()
 ```
 
-### Higher correlation threshold
-
-0.70
-
-```{r, fig.width=10}
-lr_ncorr07_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_corr07.rds"))
-
-autoplot(lr_ncorr07_res)
-```
-
-```{r}
-lr_ncorr07_res %>% 
-  show_best("roc_auc", n = 5)
-```
-
-```{r}
-make_roc(lr_ncorr07_res, "") %>% 
-  autoplot()
-```
-
-
 ## NCORQ recipe
 
 New ncorq with dummies after ORQ doesn't make any changes
 
 ```{r}
-#lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorr_orqED.rds"))
-lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorr_orq.rds"))
+# tuned corr theshold
+lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorq_rs20_corr_tune.rds"))
 
 lr_ncorq_res %>% 
   show_best("roc_auc", n = 5)
@@ -466,31 +489,31 @@ make_roc(lr_ncorq_res, "LR (orq)") %>%
   autoplot()
 ```
 
-Very close
+Very close, but not better than regular 'no corr' recipe
+
+### Gain curve
+
+```{r}
+lr_ncorq_res %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+The gain curve looks better than the one with regular 'no corr' recipe
 
 ## PCA recipe
 
-Space-filling grid as well
+Space-filling grid as well, 0.9 variance is set to be kept during PCA
 
-load
 
 ```{r, fig.width = 10}
-lr_pca_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_prop75_pca20.rds"))
+lr_pca_res <- readRDS(paste0(models_path, "lr_pca_rs20.rds"))
 
 
 autoplot(lr_pca_res)
 ```
-
-
-**NB**: these problems appear:
-
-```{r, eval=F}
-lr_pca_res$.notes[[99]]$note
-```
-
-> "Error in glmnet::glmnet(x = maybe_matrix(x), y = y, alpha = \~1,
-> family ="binomial"): x should be a matrix with 2 or more columns"
-
 
 ### Best models
 
@@ -499,13 +522,43 @@ lr_pca_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-Doesn't look good
-
 ### ROC
 
 ```{r}
 make_roc(lr_pca_res, "LR (PCA)") %>% 
   autoplot()
+```
+
+### Gain curve
+
+```{r}
+lr_pca_res %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+Much better gain curve so far
+
+## Recursive Feature Elimination
+
+Doesn't work
+
+```{r}
+# devtools::install_github("stevenpawley/recipeselectors")
+library(recipeselectors)
+
+rfe_model <- rand_forest(mode = "classification") %>% 
+  set_engine("ranger", num.threads = 8)
+
+rfe_rec <- recipe(resistance ~., data = df_train) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_select_vip(all_numeric_predictors(), outcomme = "resistance", model = rfe_model, threshold = .9) 
+
+rfe_rec %>% 
+  prep() %>% 
+  juice()
 ```
 
 # Multivariate adaptive regression splines (MARS)
@@ -519,7 +572,6 @@ autoplot(mars_ncorr_res)
 ```
 
 ### Best models
-
 
 ```{r}
 mars_ncorr_res %>% 
@@ -560,9 +612,9 @@ mars_pca_res %>%
 ## NCORR recipe
 
 ```{r}
-lsvm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr.rds"))
+lsvm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr_rs20_corr_tune_wl.rds"))
 
-autoplot(lsvm_ncorr_res)
+plot_race(lsvm_ncorr_res)
 ```
 
 ### Best models
@@ -578,7 +630,6 @@ lsvm_ncorr_res %>%
 make_roc(lsvm_ncorr_res, "") %>% 
   autoplot()
 ```
-
 
 ## PCA recipe
 
@@ -600,9 +651,9 @@ lsvm_pca_res %>%
 ## NCORR recipe + space-filling grid
 
 ```{r, fig.width=10}
-psvm_ncorr_res <- readRDS(paste0(models_path, "psvm_ncorr.rds"))
+psvm_ncorr_res <- readRDS(paste0(models_path, "psvm_ncorr_rs20_corr_tune_wl.rds"))
 
-autoplot(psvm_ncorr_res)
+plot_race(psvm_ncorr_res)
 ```
 
 ### Best models
@@ -619,9 +670,7 @@ make_roc(psvm_ncorr_res, "") %>%
   autoplot()
 ```
 
-
 ## NCORR resipe + Bayesian
-
 
 ```{r, fig.width = 12, fig.height=5}
 psvm_ncorr_bres <- readRDS(paste0(models_path, "psvmb_ncorr.rds"))
@@ -708,11 +757,9 @@ nb_ncorr %>% autoplot()
 make_roc(nb_ncorr, "") %>% autoplot()
 ```
 
-
 ```{r}
 nb_ncorr %>% show_best("roc_auc", n = 5)
 ```
-
 
 # Random Forest (RF)
 
@@ -745,7 +792,6 @@ make_roc(rf_main_bres, "") %>%
 rf_main_bres %>% 
   autoplot(type = "performance")
 ```
-
 
 ## Main recipe + Space-filling
 
@@ -783,7 +829,6 @@ rf_ncorr_bres %>%
   autoplot(type = "performance")
 ```
 
-
 ### Best models
 
 ```{r}
@@ -791,7 +836,7 @@ rf_ncorr_bres %>%
   show_best("roc_auc", n = 5)
 ```
 
-### ROC 
+### ROC
 
 ```{r}
 rf_ncorr_bres %>% 
@@ -799,16 +844,16 @@ rf_ncorr_bres %>%
   autoplot()
 ```
 
-
 # Boosted Trees (BT)
 
 Using Extreme Gradient Boosting
 
 ## Space-filling grid
 
-Space filling grid proved to be less efficient in finding hyper-parameters than Bayesian optimization
+Space filling grid proved to be less efficient in finding
+hyper-parameters than Bayesian optimization
 
-The following models all use Bayesian tuning 
+The following models all use Bayesian tuning
 
 ## Main recipe
 
@@ -840,12 +885,11 @@ make_roc(xgb_main_bres, "") %>%
   autoplot()
 ```
 
-
 ## NCORR recipe
 
-
 ```{r, fig.width=14, fig.height=8}
-xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr.rds"))
+xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_corr_tune.rds"))
+#xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs50_corr_tune.rds"))
 
 xgb_ncorr_bres %>% autoplot()
 ```
@@ -857,6 +901,26 @@ xgb_ncorr_bres %>%
   autoplot(type = "performance")
 ```
 
+### ROC of resamples
+
+```{r}
+xgb_ncorr_bres %>% 
+  collect_predictions() %>% 
+  group_by(id) %>% 
+  roc_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+## Gain curve
+
+```{r}
+xgb_ncorr_bres %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
 
 ### Best models
 
@@ -864,7 +928,6 @@ xgb_ncorr_bres %>%
 xgb_ncorr_bres %>% 
   show_best(metric = "roc_auc", n = 5)
 ```
-
 
 ### ROC
 
@@ -875,9 +938,38 @@ make_roc(xgb_ncorr_bres, "XGB (no corr)") %>%
 
 **NB:** This ROC looks much better than any other ROC so far
 
+### Heatmap of the best iteration
+
+```{r}
+xgb_ncorr_bres %>% 
+  collect_predictions() %>% 
+  filter(.iter == 21) %>% 
+  mutate(.pred_HRf = factor(if_else(.pred_HR > 0.5, "HR", "nonHR"))) %>% 
+  conf_mat(truth = resistance, estimate = .pred_HRf) %>% 
+  autoplot(type = "heatmap")
+```
+
+
+## NCORR + win-loss grid search
+
+```{r}
+xgb_ncorr_wl <- readRDS(paste0(models_path, "bt_ncorr_rs50_corr_tune_wl.rds"))
+
+plot_race(xgb_ncorr_wl)
+```
+
+```{r}
+xgb_ncorr_wl %>% 
+  show_best(metric = "roc_auc", n = 5)
+```
+
+```{r}
+make_roc(xgb_ncorr_wl, "XGB (no corr)") %>% 
+  autoplot()
+```
+
 
 ## NCORR + Many iterations
-
 
 ```{r, fig.width=14}
 xgb_ncorr_bres_long <- readRDS(paste0(models_path, "btb_ncorr_rs20_k5.rds"))
@@ -905,9 +997,7 @@ xgb_ncorr_bres_long %>%
   autoplot(type = "performance")
 ```
 
-
 ## NCORR + ORQ recipe
-
 
 ```{r, fig.width=14, fig.height=8}
 
@@ -923,7 +1013,9 @@ Performance per iteration
 xgb_ncorq_bres %>% autoplot(type = "performance")
 ```
 
-I also tried 100 iterations with 8 starting points, it was not better than 50 iterations and 8 starting points, but the performance plot looks peculiar:
+I also tried 100 iterations with 8 starting points, it was not better
+than 50 iterations and 8 starting points, but the performance plot looks
+peculiar:
 
 ```{r, fig.width=10}
 xgb_ncorq_bres_it100 <- readRDS(paste0(models_path, "btb_ncorr_orqED_rs30_it100.rds"))
@@ -951,7 +1043,6 @@ xgb_ncorq_bres_rs30_it50 %>% autoplot()
 xgb_ncorq_bres_rs30_it50 %>% autoplot(type = "performance")
 ```
 
-
 ```{r}
 xgb_ncorq_bres_rs30_it50 %>% show_best("roc_auc", n = 5)
 ```
@@ -971,13 +1062,12 @@ Hm, looks slightly better then no corr without ORQ
 make_roc(xgb_ncorq_bres, "BT (no corr + ORQ") %>% autoplot()
 ```
 
-
 ## BT with PCA recipe
 
 ```{r, fig.width=14, fig.height=8}
-xgb_pca_bres <- readRDS(paste0(models_path, "btb_pca.rds"))
+xgb_pca_bres <- readRDS(paste0(models_path, "btb_pca_rs50_wl.rds"))
 
-xgb_pca_bres %>% autoplot()
+xgb_pca_bres %>% plot_race()
 ```
 
 ### Best models
@@ -1001,82 +1091,53 @@ nnet_mod <- set_model("nnet", 10)
 nnet_wf <- set_wf("nnet", "ncorr", 10)
 ```
 
-
 Applying ORQ-normalization improves MLP (nnet) performance
 
-## NCORR + space-filling 8 starting points (default) 
+## NCORR recipe
 
 ```{r, fig.width=12}
-nnet_ncorr_res <- readRDS(paste0(models_path, "mlp_nnet_ncorr.rds"))
+nnet_ncorr <- readRDS(paste0(models_path, "mlp_ncorr_rs20_corr_tune_wl.rds"))
 
-nnet_ncorr_res %>% autoplot()
-```
-
-
-```{r}
-make_roc(nnet_ncorr_res, "") %>% autoplot()
+nnet_ncorr %>% plot_race()
 ```
 
 ```{r}
-nnet_ncorr_res %>% show_best("roc_auc")
-```
-
-## NCORR + Bayes 20 starting points
-
-```{r, fig.width=12}
-nnet_ncorr_bres <- readRDS(paste0(models_path_cv5, "mlpb_nnet_ncorr_i50_rs20.rds"))
-
-nnet_ncorr_bres %>% autoplot()
-```
-
-```{r}
-nnet_ncorr_bres %>% 
+nnet_ncor %>% 
   autoplot(type = "performance")
 ```
 
 ```{r}
-nnet_ncorr_bres %>% show_best("roc_auc", n = 5)
+nnet_ncorr %>% show_best("roc_auc", n = 5)
 ```
 
 ```{r}
-make_roc(nnet_ncorr_bres, "") %>% 
+make_roc(nnet_ncorr, "") %>% 
   autoplot()
 ```
 
-```{r}
-cm <- nnet_ncorr_bres %>%
-  select_best("roc_auc") %>% 
-  collect_predictions() %>%
-  conf_mat(truth = resistance, estimate = .pred_class)
+## NCORQ recipe
 
-autoplot(cm)
-```
-
-
-## NCORQ recipe + space filling (nnet)
 
 ```{r, fig.width=10}
-nnet_ncorr_res <- readRDS(paste0(models_path, "mlp_nnet_ncorr_orq.rds"))
+nnet_ncorq <- readRDS(paste0(models_path, "mlp_ncorq_rs20_corr_tune_wl.rds"))
 
-nnet_ncorr_res %>% autoplot()
+nnet_ncorq %>% plot_race()
 ```
 
 ## Best models
 
 ```{r}
-nnet_ncorr_res %>% 
+nnet_ncorq %>% 
   show_best("roc_auc", n = 5)
 ```
 
 ## ROC
 
 ```{r}
-make_roc(nnet_ncorr_res, "MLP") %>% autoplot()
+make_roc(nnet_ncorq, "MLP") %>% autoplot()
 ```
 
-
 ## NCORQ + Bayes opt (nnet)
-
 
 ```{r}
 mlp_ncorq_bres <- readRDS(paste0(models_path, "mlpb_nnet_ncorr_orq.rds"))
@@ -1090,7 +1151,6 @@ mlp_ncorq_bres %>% autoplot()
 mlp_ncorq_bres %>% 
   show_best("roc_auc", n = 5)
 ```
-
 
 ### ROC
 
@@ -1124,13 +1184,11 @@ mlp_ncorq_kbres %>% autoplot()
 mlp_ncorq_kbres %>% show_best("roc_auc", n = 5)
 ```
 
-
 ```{r}
 make_roc(mlp_ncorq_kbres, "MLP (no corr + orq)") %>% autoplot()
 ```
 
 ## Bagged MLP
-
 
 ```{r}
 library(baguette)
@@ -1148,24 +1206,44 @@ bag_mlp_mod
 
 Error:
 
-! parsnip could not locate an implementation for `bag_mlp` classification model specifications using the `nnet`
-  engine.
-ℹ The parsnip extension package baguette implements support for this specification.
-ℹ Please install (if needed) and load to continue.
+! parsnip could not locate an implementation for `bag_mlp`
+classification model specifications using the `nnet` engine. ℹ The
+parsnip extension package baguette implements support for this
+specification. ℹ Please install (if needed) and load to continue.
 
 Bagged Neural Network Model Specification (classification)
 
-Main Arguments:
-  hidden_units = tune()
-  penalty = tune()
-  epochs = tune()
+Main Arguments: hidden_units = tune() penalty = tune() epochs = tune()
 
-Engine-Specific Arguments:
-  num.threads = 8
+Engine-Specific Arguments: num.threads = 8
 
-Computational engine: nnet 
+Computational engine: nnet
 
-# ROC of all models
+# Model comparison
+
+## Posterior probability distribution
+
+```{r}
+library(tidyposterior)
+
+mod_comparison <- inner_join(
+  lr_ncorr_res %>% 
+    collect_metrics(summarize = FALSE) %>% 
+    filter(.metric == "roc_auc") %>% 
+    select(id, LR_norm = .estimate),
+  lr_ncorq_res %>% 
+    collect_metrics(summarize =FALSE) %>% 
+    filter(.metric == "roc_auc") %>% 
+    select(id, LR_orq = .estimate)
+)
+
+mod_posterior <- perf_mod(mod_comparison)
+
+autoplot(mod_posterior)
+```
+
+
+## ROC of all models
 
 ```{r, fig.width=8, fig.height=6}
 # calculate rocs
@@ -1187,13 +1265,13 @@ XGB is the best, LR no corr is the second
 XGB here looks better than in previous version (it reaches sensitivity =
 1 faster)
 
-# ROC of the best ones
+## ROC of the best ones
 
 LR no corr, BT no corr, BT no corr ORQ, BT all, MLP (nnet no corr)
 
 ```{r, fig.width=8, fig.height=6}
-roc_selected_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres, xgb_ncorr_bres_long, xgb_main_bres, nnet_ncorr_bres),
-                            c("LR", "XGB no corr", "XGB long", "XGB main", "MLP b"), 
+roc_selected_df <- map2_dfr(list(lr_pca_res, lr_ncorq_res, lr_ncorr_res, xgb_ncorr_bres, nnet_ncorq),
+                            c("LR (PCA)", "LR (ORQ)", "LR (Norm)", "XGB (no corr)", "MLP (ORQ)"), 
                             function(x, y) make_roc(x, y))
 
 roc_selected_df %>% 
@@ -1205,15 +1283,28 @@ roc_selected_df %>%
   theme_bw()
 ```
 
-
 # Final fit
 
-> emulates the process where, after determining the best model, the final fit on the entire training set is needed and is then evaluated on the test set.
-
+> emulates the process where, after determining the best model, the
+> final fit on the entire training set is needed and is then evaluated
+> on the test set.
 
 ## Model and workflow
 
 ```{r}
+# tuned recipe
+best_corr <- xgb_ncorr_bres %>% 
+  select_best("roc_auc") %>% 
+  pull(corr_tune)
+
+ncorr_recipe_tuned <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(threshold = best_corr) %>% # tuned threshold
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
 # model spec
 xgb_mod <- set_model("bt", 8)
 
@@ -1236,7 +1327,7 @@ last_mod <-
 # this was the XGB workflow
 xgb_wf <- workflow() %>% 
   add_model(xgb_mod) %>% 
-  add_recipe(ncorr_recipe) # the recipe here should be the one that was used for this model
+  add_recipe(ncorr_recipe_tuned) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
@@ -1257,13 +1348,22 @@ final_fit <-
 final_fit %>% 
   collect_metrics()
 ```
+
 **NB**: This is forbidden action!
 
 ```{r}
+ncorr_recipe_tuned <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(threshold = 0.406) %>% # tuned threshold
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
 # model spec
 lr_mod <- set_model("lr", 8)
 
-best <- lr_ncorr07_res %>% 
+best <- lr_ncorr_res %>% 
   select_best("roc_auc")
 
 last_mod <-
@@ -1276,7 +1376,7 @@ last_mod <-
 # this was the XGB workflow
 lr_wf <- workflow() %>% 
   add_model(lr_mod) %>% 
-  add_recipe(ncorr_recipe) # the recipe here should be the one that was used for this model
+  add_recipe(ncorr_recipe_tuned) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
@@ -1339,8 +1439,6 @@ final_fit %>%
   collect_metrics()
 ```
 
-
-
 ```{r}
 # model spec
 lr_mod <- set_model("lr", 8)
@@ -1385,7 +1483,7 @@ final_fit %>%
 ```{r}
 final_fit %>% 
   extract_fit_parsnip() %>% 
-  vip(num_features = 25, include_type = T) 
+  vip(num_features = 40, include_type = T) 
 ```
 
 Sequencing related features (coverage and read length) are here - among
@@ -1424,7 +1522,6 @@ autoplot(cm, type = "heatmap")
 ```{r}
 summary(cm)
 ```
-
 
 ## Probability cutoff adjustment by maximum j-index
 
@@ -1501,7 +1598,6 @@ autoplot(cm_optimized, type = "heatmap")
 summary(cm_optimized)
 ```
 
-
 ## Extract predictions
 
 With probability threshold = 0.5
@@ -1568,12 +1664,12 @@ pred_df <- bind_rows(tp_df, tn_df, fp_df, fn_df)
 dim(pred_df)
 ```
 
-
 ------------------------------------------------------------------------
 
 # Models stacking
 
-For successful stacking, you need the same set of predictors in every candidate model.
+For successful stacking, you need the same set of predictors in every
+candidate model.
 
 Models with NOCORR recipe were among the best
 
@@ -1636,12 +1732,9 @@ roc_curve(data = data_pred, truth = resistance, .pred_HR_nnet_ncorr_bres_1_18) %
   autoplot()
 ```
 
-
 ```{r}
 yardstick::kap(data_pred, truth = resistance, .pred_HR)
 ```
-
-
 
 ```{r}
 # updated workspace
