@@ -28,14 +28,14 @@ option_list <- list(
     c("-r", "--recipe"),
     type = "character",
     default = NULL,
-    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'umap', 'ncorr-orq')",
+    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'umap', 'ncorq')",
     metavar = "character"
   ),
   make_option(
     c("-g", "--grid_search"),
     type = "character",
     default = "space",
-    help = "space-filling, Bayesian, racing or racing + Bayesian grid search (should be one of the following: 'bayes', 'space', 'race', 'race_bayes')",
+    help = "space-filling, Bayesian, racing or racing + Bayesian grid search (should be one of the following: 'bayes', 'space', 'race', 'after_bayes')",
     metavar = "space"
   ),
   make_option(
@@ -101,6 +101,13 @@ option_list <- list(
     help = "Number of initial resamples to use in racing grid search",
     default = 10,
     metavar = "10"
+  ),
+  make_option(
+    c("-d", "--rds"),
+    type = "character",
+    help = "RDS file with resamples object",
+    default = NULL,
+    metavar = "file.rds"
   )
 )
 
@@ -405,6 +412,7 @@ if (opt$grid_search == "space"){
 } else if (opt$grid_search == "race") {
   model_res <- my_wf %>%
     tune_race_win_loss(
+      param_info = param_set,
       resamples = cv_folds,
       grid = opt$points,
       control = control_race(
@@ -414,18 +422,8 @@ if (opt$grid_search == "space"){
         burn_in = 10
       )
     )
-} else if (opt$grid_search == "race_bayes") {
-  race_grid <- my_wf %>%
-    tune_race_win_loss(
-      resamples = cv_folds,
-      grid = opt$points,
-      control = control_race(
-        verbose_elim = T,
-        save_pred = T,
-        save_workflow = F,
-        burn_in = 10
-      )
-    )
+} else if (opt$grid_search == "after_bayes") {
+  resamp_obj <- readRDS(opt$rds)
   
   model_res <- my_wf %>%
     tune_bayes(
@@ -433,7 +431,7 @@ if (opt$grid_search == "space"){
       # To use non-default parameter ranges
       param_info = param_set,
       # Generate N at semi-random to start
-      initial = race_grid,
+      initial = resamp_obj,
       iter = opt$iterations,
       # How to measure performance?
       metrics = metric_set(roc_auc),
