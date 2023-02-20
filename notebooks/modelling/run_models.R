@@ -385,6 +385,7 @@ if (opt$model == "rf" | opt$model == "bt"){
 if (opt$grid_search == "space"){
   model_res <- my_wf %>%
     tune_grid(
+      param_info = param_set,
       grid = opt$points,
       resamples = cv_folds,
       control = control_grid(save_pred = TRUE,
