@@ -883,7 +883,7 @@ make_roc(lsvm_pca_res, "") %>%
   autoplot() + ggtitle("linSVM (PCA)")
 ```
 
-## Comparison
+## Comparison of the preprocessors
 
 ```{r}
 
@@ -912,11 +912,11 @@ PCA is significantly worse than the rest.
 
 ORQ is no different form standard normalization.
 
-# Polynomial SVM
+# Polynomial support vector machines (pSVM)
 
 ## NCORR recipe
 
-```{r, fig.width=10}
+```{r, fig.width=10, fig.height=6}
 psvm_ncorr_res <- readRDS(paste0(models_path, "psvm_ncorr_rs20_corr_tune.rds"))
 
 autoplot(psvm_ncorr_res)
@@ -945,58 +945,214 @@ make_roc(psvm_ncorr_res, "") %>%
   autoplot() + ggtitle("polySVM")
 ```
 
-# K-nearest neighbors (KNN)
+## NCORQ recipe
 
-## NCORR recipe + Bayes
+```{r, fig.width=10, fig.height=6}
+psvm_ncorq_res <- readRDS(paste0(models_path, "psvm_ncorq_rs20_corr_tune.rds"))
 
-**NB**: I get these warnings while using Bayesian grid search
+autoplot(psvm_ncorq_res)
+```
+### Gain curve
 
-> Gaussian process model: did not converge in 10 iterations
-
-Work with the following model with caution
-
-```{r, fig.width = 12, fig.height=6}
-knn_ncorr_bres <- readRDS(paste0(models_path, "knnb_ncorr.rds"))
-
-knn_ncorr_bres %>% 
+```{r}
+psvm_ncorq_res %>% 
+  collect_predictions() %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
   autoplot()
 ```
 
 ### Best models
 
 ```{r}
-knn_ncorr_bres %>% 
-  show_best("roc_auc", n = 5)
+psvm_ncorq_res %>% 
+  show_best("roc_auc")
 ```
 
-### ROC
+### Best ROC
 
 ```{r}
-make_roc(knn_ncorr_bres, "") %>% 
+make_roc(psvm_ncorq_res, "") %>% 
+  autoplot() + ggtitle("polySVM")
+```
+
+## PCA recipe
+
+```{r, fig.width=10, fig.height=6}
+psvm_pca_res <- readRDS(paste0(models_path, "psvm_pca_rs20_corr_tune.rds"))
+
+autoplot(psvm_pca_res)
+```
+
+### Gain curve
+
+```{r}
+psvm_pca_res %>% 
+  collect_predictions() %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
   autoplot()
 ```
 
-## NCORR + Space-filling
+### Best models
 
 ```{r}
-knn_ncorr_res <- readRDS(paste0(models_path, "knn_ncorr.rds"))
+psvm_pca_res %>% 
+  show_best("roc_auc")
+```
 
-autoplot(knn_ncorr_res)
+### Best ROC
+
+```{r}
+make_roc(psvm_pca_res, "") %>% 
+  autoplot() + ggtitle("polySVM")
+```
+
+## Comparison of the preprocessing steps
+
+```{r}
+psvm_comp <-
+  map2(list(psvm_ncorr_res, psvm_ncorq_res, psvm_pca_res),
+       c("norm", "orq", "pca"),
+       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
+  reduce(inner_join, by = c("id", "id2")) %>% 
+  rename("norm" = .y.x, "pca" = .y.y, "orq" = .y) %>% 
+  unite(id, id, id2)
+
+psvm_posterior <- perf_mod(psvm_comp, iter = 4000, seed = 100, refresh = 0, chains = 5, cores = 2)
+
+autoplot(psvm_posterior)
+```
+
+```{r}
+psvm_preproc_diff <- contrast_models(psvm_posterior, seed = 100) 
+
+summary(psvm_preproc_diff)
+```
+
+It seems, the difference is not significant even between norm and orq just because it's too small
+
+# K-nearest neighbors (KNN)
+
+## NCORR recipe 
+
+```{r, fig.width = 12, fig.height=6}
+knn_ncorr_res <- readRDS(paste0(models_path, "knn_ncorr_rs20_corr_tune.rds"))
+
+knn_ncorr_res %>% 
+  autoplot()
 ```
 
 ### Best models
 
 ```{r}
 knn_ncorr_res %>% 
-  show_best(metric = "roc_auc")
+  show_best("roc_auc", n = 5)
 ```
 
-### ROC
+### Gain curve
+
+```{r}
+knn_ncorr_res %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+### Best ROC
 
 ```{r}
 make_roc(knn_ncorr_res, "") %>% 
   autoplot()
 ```
+
+## NCORQ recipe
+
+```{r, fig.width = 12, fig.height=6}
+knn_ncorq_res <- readRDS(paste0(models_path, "knn_ncorq_rs20_corr_tune.rds"))
+
+knn_ncorq_res %>% 
+  autoplot()
+```
+### Best models
+
+```{r}
+knn_ncorq_res %>% 
+  show_best("roc_auc", n = 5)
+```
+
+### Gain curve
+
+```{r}
+knn_ncorq_res %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+### Best ROC
+
+```{r}
+make_roc(knn_ncorq_res, "") %>% 
+  autoplot()
+```
+
+## PCA recipe
+
+
+```{r, fig.width = 12, fig.height=6}
+knn_pca_res <- readRDS(paste0(models_path, "knn_pca_rs20_corr_tune.rds"))
+
+knn_pca_res %>% 
+  autoplot()
+```
+### Best models
+
+```{r}
+knn_pca_res %>% 
+  show_best("roc_auc", n = 5)
+```
+
+### Gain curve
+
+```{r}
+knn_pca_res %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
+### Best ROC
+
+```{r}
+make_roc(knn_pca_res, "") %>% 
+  autoplot()
+```
+
+## Comparison of the preprocessors
+
+```{r}
+knn_comp <-
+  map2(list(knn_ncorr_res, knn_pca_res, knn_ncorq_res),
+       c("norm", "pca", "orq"),
+       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
+  reduce(inner_join, by = c("id", "id2")) %>% 
+  rename("norm" = .y.x, "pca" = .y.y, "orq" = .y) %>% 
+  unite(id, id, id2)
+
+knn_posterior <- perf_mod(knn_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
+
+autoplot(knn_posterior)
+```
+
+```{r}
+knn_preproc_diff <- contrast_models(knn_posterior, seed = 100) 
+
+summary(knn_preproc_diff)
+```
+
+ORQ recipe worked clearly better
 
 # Naive Bayes
 
@@ -1016,67 +1172,53 @@ nb_ncorr %>% show_best("roc_auc", n = 5)
 
 # Random Forest (RF)
 
-## Main recipe + Bayes
+## Main recipe
 
 ```{r}
-rf_main_bres <- readRDS(paste0(models_path, "rfb_main.rds"))
+rf_main_res <- readRDS(paste0(models_path, "rf_main_rs20.rds"))
 
-rf_main_bres %>% 
+rf_main_res %>% 
+  autoplot()
+```
+
+### Gain curve
+
+```{r}
+rf_main_res %>% 
+  collect_predictions() %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
   autoplot()
 ```
 
 ### Best models
 
 ```{r}
-rf_main_bres %>% 
+rf_main_res %>% 
   show_best("roc_auc", n = 5)
 ```
 
 ### Best ROC
 
 ```{r}
-make_roc(rf_main_bres, "") %>% 
-  autoplot()
-```
-
-### Iterations
-
-```{r}
-rf_main_bres %>% 
-  autoplot(type = "performance")
-```
-
-## Main recipe + Space-filling
-
-```{r}
-rf_main_res <- readRDS(paste0(models_path, "rf_main.rds"))
-
-autoplot(rf_res)
-```
-
-### Best models
-
-```{r}
-# automatic choice of the best model
-rf_main_res %>% 
-  show_best(metric = "roc_auc")
-```
-
-### ROC
-
-```{r}
 make_roc(rf_main_res, "") %>% 
-  autoplot()
+  autoplot() + ggtitle("RF (all predictors)")
 ```
 
-## NCORR recipe + space filling
-
-corr tuned
+## NCORR recipe
 
 ```{r}
 rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_rs20_corr_tune.rds"))
 
 rf_ncorr_res %>% autoplot()
+```
+
+### Gain curve
+
+```{r}
+rf_ncorr_res %>% 
+  collect_predictions() %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
 ```
 
 ### Best models
@@ -1093,48 +1235,18 @@ make_roc(rf_ncorr_res, "") %>%
   autoplot() + ggtitle("RF (no corr)")
 ```
 
-
-## NCORR recipe + Bayes
-
-```{r}
-rf_ncorr_bres <- readRDS(paste0(models_path_cv5, "rfb_ncorr_i50_rs20.rds"))
-
-rf_ncorr_bres %>% autoplot()
-```
-
-```{r}
-rf_ncorr_bres %>% 
-  autoplot(type = "performance")
-```
-
-### Best models
-
-```{r}
-rf_ncorr_bres %>% 
-  show_best("roc_auc", n = 5)
-```
-
-### ROC
-
-```{r}
-rf_ncorr_bres %>% 
-  make_roc("") %>% 
-  autoplot()
-```
-
-
-## Comparison
+## Comparison of preprocessors
 
 ```{r}
 rf_comp <-
-  map2(list(rf_ncorr_res, rf_main_bres),
-       c("no corr", "main"),
+  map2(list(rf_ncorr_res, rf_main_res),
+       c("no_corr", "main"),
        ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
   reduce(inner_join, by = c("id", "id2")) %>% 
-  rename("no corr" = .y.x, "main" = .y.y) %>% 
+  rename("no_corr" = .y.x, "main" = .y.y) %>% 
   unite(id, id, id2)
 
-rf_posterior <- perf_mod(rf_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
+rf_posterior <- perf_mod(rf_comp, iter = 10000, seed = 100, refresh = 0, chains = 5, cores = 6)
 
 autoplot(rf_posterior)
 ```
@@ -1145,23 +1257,14 @@ rf_preproc_diff <- contrast_models(rf_posterior, seed = 100)
 summary(rf_preproc_diff)
 ```
 
-Insignificant difference
+Difference is significant but very small
 
 
 # Boosted Trees (BT)
 
-Using Extreme Gradient Boosting
-
-## Space-filling grid
-
-Space filling grid proved to be less efficient in finding
-hyper-parameters than Bayesian optimization
-
-The following models all use Bayesian tuning
+BT are sensitive to hyper-parameters that's why, firstly, I will use Bayesian grid search. 
 
 ## Main recipe
-
-Bayesian tuning
 
 ```{r, fig.width=14, fig.height=8}
 xgb_main_bres <- readRDS(paste0(models_path, "btb_main_rs20.rds"))
@@ -1182,18 +1285,26 @@ xgb_main_bres %>%
   show_best(metric = "roc_auc", n = 5)
 ```
 
+### Gain curve
+
+```{r}
+xgb_main_bres %>% 
+  collect_predictions() %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
+  autoplot()
+```
+
 ### ROC
 
 ```{r}
 make_roc(xgb_main_bres, "") %>% 
-  autoplot()
+  autoplot() + ggtitle("XGB (all predictors)")
 ```
 
 ## NCORR recipe
 
 ```{r, fig.width=14, fig.height=8}
 xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_corr_tune.rds"))
-#xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs50_corr_tune.rds"))
 
 xgb_ncorr_bres %>% autoplot()
 ```
@@ -1205,17 +1316,7 @@ xgb_ncorr_bres %>%
   autoplot(type = "performance")
 ```
 
-### ROC of resamples
-
-```{r}
-xgb_ncorr_bres %>% 
-  collect_predictions() %>% 
-  group_by(id) %>% 
-  roc_curve(truth = resistance, estimate = .pred_HR) %>% 
-  autoplot()
-```
-
-## Gain curve
+### Gain curve
 
 ```{r}
 xgb_ncorr_bres %>% 
@@ -1224,7 +1325,6 @@ xgb_ncorr_bres %>%
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
   autoplot()
 ```
-
 
 ### Best models
 
@@ -1242,18 +1342,6 @@ make_roc(xgb_ncorr_bres, "XGB (no corr)") %>%
 
 **NB:** This ROC looks much better than any other ROC so far
 
-### Heatmap of the best iteration
-
-```{r}
-xgb_ncorr_bres %>% 
-  collect_predictions() %>% 
-  filter(.iter == 21) %>% 
-  mutate(.pred_HRf = factor(if_else(.pred_HR > 0.5, "HR", "nonHR"))) %>% 
-  conf_mat(truth = resistance, estimate = .pred_HRf) %>% 
-  autoplot(type = "heatmap")
-```
-
-
 ## NCORR + win-loss grid search
 
 ```{r}
@@ -1264,11 +1352,11 @@ plot_race(xgb_ncorr_wl)
 
 ```{r}
 xgb_ncorr_wl %>% 
-  show_best(metric = "roc_auc", n = 5)
+  show_best(metric = "roc_auc")
 ```
 
 ```{r}
-make_roc(xgb_ncorr_wl, "XGB (no corr)") %>% 
+make_roc(xgb_ncorr_wl, "XGB (no corr wl)") %>% 
   autoplot()
 ```
 
@@ -1276,9 +1364,19 @@ make_roc(xgb_ncorr_wl, "XGB (no corr)") %>%
 ## NCORR + Many iterations
 
 ```{r, fig.width=14}
-xgb_ncorr_bres_long <- readRDS(paste0(models_path, "btb_ncorr_rs20_k5.rds"))
+xgb_ncorr_bres_long <- readRDS(paste0(models_path, "btb_ncorr_rs100_it300_n50.rds"))
 
 xgb_ncorr_bres_long %>% 
+  autoplot()
+```
+
+### Gain curve
+
+```{r}
+xgb_ncorr_bres_long %>% 
+  collect_predictions() %>% 
+  #group_by(id) %>% 
+  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
   autoplot()
 ```
 
@@ -1289,89 +1387,21 @@ xgb_ncorr_bres_long %>%
   show_best(metric = "roc_auc", n = 5)
 ```
 
-### ROC
+### Best ROC
 
 ```{r}
 make_roc(xgb_ncorr_bres_long, "") %>% 
   autoplot()
 ```
 
-```{r, fig.width=14, fig.height=6}
-xgb_ncorr_bres_long %>% 
-  autoplot(type = "performance")
-```
 
-## NCORR + ORQ recipe
+
+## PCA recipe
 
 ```{r, fig.width=14, fig.height=8}
+xgb_pca_bres <- readRDS(paste0(models_path, "btb_pca_rs50.rds"))
 
-xgb_ncorq_bres <- readRDS(paste0(models_path, "btb_ncorr_orqED_rs8_it50.rds"))  # new ncorq recipe with dummies after order norm
-
-xgb_ncorq_bres %>% autoplot()
-
-```
-
-Performance per iteration
-
-```{r}
-xgb_ncorq_bres %>% autoplot(type = "performance")
-```
-
-I also tried 100 iterations with 8 starting points, it was not better
-than 50 iterations and 8 starting points, but the performance plot looks
-peculiar:
-
-```{r, fig.width=10}
-xgb_ncorq_bres_it100 <- readRDS(paste0(models_path, "btb_ncorr_orqED_rs30_it100.rds"))
-
-xgb_ncorq_bres_it100 %>% 
-  autoplot(type = "performance")
-```
-
-Not closer to 0.9 then the default approach
-
-```{r}
-xgb_ncorq_bres_it100 %>% 
-  show_best("roc_auc", n = 2)
-```
-
-Testing more starting points and new ncorq recipe version
-
-```{r, fig.width=14, fig.height=8}
-xgb_ncorq_bres_rs30_it50 <- readRDS(paste0(models_path, "btb_ncorr_orqED_rs30_it50.rds"))
-
-xgb_ncorq_bres_rs30_it50 %>% autoplot()
-```
-
-```{r}
-xgb_ncorq_bres_rs30_it50 %>% autoplot(type = "performance")
-```
-
-```{r}
-xgb_ncorq_bres_rs30_it50 %>% show_best("roc_auc", n = 5)
-```
-
-Same as with default number of starting points
-
-### Best models
-
-```{r}
-xgb_ncorq_bres %>% 
-  show_best(metric = "roc_auc", n = 5)
-```
-
-Hm, looks slightly better then no corr without ORQ
-
-```{r}
-make_roc(xgb_ncorq_bres, "BT (no corr + ORQ") %>% autoplot()
-```
-
-## BT with PCA recipe
-
-```{r, fig.width=14, fig.height=8}
-xgb_pca_bres <- readRDS(paste0(models_path, "btb_pca_rs50_wl.rds"))
-
-xgb_pca_bres %>% plot_race()
+xgb_pca_bres %>% autoplot()
 ```
 
 ### Best models
@@ -1387,64 +1417,127 @@ xgb_pca_bres %>%
 make_roc(xgb_pca_bres, "XGB (PCA)") %>% autoplot()
 ```
 
-# Multilayer perceptron, engine 'nnet'
+## Comparison of the preprocessors
 
 ```{r}
-nnet_mod <- set_model("nnet", 10)
+xgb_comp <-
+  map2(list(xgb_main_bres, xgb_ncorr_bres, xgb_ncorr_bres_long, xgb_ncorr_wl, xgb_pca_bres),
+       c("main", "ncorr", "ncorr_long", "ncorr_wl", "pca"),
+       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
+  reduce(inner_join, by = c("id", "id2")) %>% 
+  rename("main" = .y.x, "ncorr" = .y.y, "ncorr_long" = .y.x.x, "ncorr_wl" = .y.y.y, "pca" = .y) %>% 
+  unite(id, id, id2)
 
-nnet_wf <- set_wf("nnet", "ncorr", 10)
+xgb_posterior <- perf_mod(xgb_comp, iter = 4000, seed = 100, refresh = 0, chains = 5, cores = 4)
+
+autoplot(xgb_posterior)
 ```
+
+```{r}
+xgb_preproc_diff <- contrast_models(xgb_posterior, seed = 100) 
+
+summary(xgb_preproc_diff)
+```
+
+Only PCA recipe gives significantly worse performance
+
+# Multilayer perceptron (MLP NNET)
 
 Applying ORQ-normalization improves MLP (nnet) performance
 
 ## NCORR recipe
 
-```{r, fig.width=12}
-nnet_ncorr <- readRDS(paste0(models_path, "mlp_ncorr_rs20_corr_tune_wl.rds"))
+```{r, fig.width=10, fig.height=4}
+nnet_ncorr <- readRDS(paste0(models_path, "mlp_ncorr_rs20_corr_tune.rds"))
 
-nnet_ncorr %>% plot_race()
+nnet_ncorr %>% autoplot()
 ```
 
-```{r}
-nnet_ncor %>% 
-  autoplot(type = "performance")
-```
+### Best models
 
 ```{r}
-nnet_ncorr %>% show_best("roc_auc", n = 5)
+nnet_ncorr %>% show_best("roc_auc")
 ```
+
+### Best ROC
 
 ```{r}
 make_roc(nnet_ncorr, "") %>% 
-  autoplot()
+  autoplot() + ggtitle("MLP (no corr)")
 ```
 
 ## NCORQ recipe
 
+```{r, fig.width=10, fig.height=4}
+nnet_ncorq <- readRDS(paste0(models_path, "mlp_ncorq_rs20_corr_tune.rds"))
 
-```{r, fig.width=10}
-nnet_ncorq <- readRDS(paste0(models_path, "mlp_ncorq_rs20_corr_tune_wl.rds"))
-
-nnet_ncorq %>% plot_race()
+nnet_ncorq %>% autoplot()
 ```
 
-## Best models
+### Best models
 
 ```{r}
 nnet_ncorq %>% 
-  show_best("roc_auc", n = 5)
+  show_best("roc_auc")
 ```
 
-## ROC
+### Best ROC
 
 ```{r}
-make_roc(nnet_ncorq, "MLP") %>% autoplot()
+make_roc(nnet_ncorq, "") %>% 
+  autoplot() + ggtitle("MLP (ORQ)")
 ```
 
-## NCORQ + Bayes opt (nnet)
+## PCA recipe
+
+```{r, fig.width=10, fig.height=4}
+nnet_pca <- readRDS(paste0(models_path, "mlp_pca_rs20_corr_tune.rds"))
+
+nnet_pca %>% autoplot()
+```
+
+### Best models
 
 ```{r}
-mlp_ncorq_bres <- readRDS(paste0(models_path, "mlpb_nnet_ncorr_orq.rds"))
+nnet_pca %>% show_best("roc_auc")
+```
+
+### Best ROC
+
+```{r}
+nnet_pca %>% 
+  make_roc("") %>% 
+  autoplot() + ggtitle("MLP (PCA)")
+```
+
+## Comparison of the preprocessors
+
+```{r}
+mlp_comp <-
+  map2(list(nnet_ncorr, nnet_ncorq, nnet_pca),
+       c("norm", "orq", "pca"),
+       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
+  reduce(inner_join, by = c("id", "id2")) %>% 
+  rename("norm" = .y.x, "orq" = .y.y, "pca" = .y) %>% 
+  unite(id, id, id2)
+
+mlp_posterior <- perf_mod(mlp_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
+
+autoplot(mlp_posterior)
+```
+
+```{r}
+mlp_preproc_diff <- contrast_models(mlp_posterior, seed = 100) 
+
+summary(mlp_preproc_diff)
+```
+
+Both PCA and NCORQ recipes work better than standard normalization
+
+## NCORQ + Bayesian grid search
+
+```{r}
+mlp_ncorq_bres <- readRDS(paste0(models_path, "mlpb_ncorq_rs20_corr_tune.rds"))
 
 mlp_ncorq_bres %>% autoplot()
 ```
@@ -1453,46 +1546,17 @@ mlp_ncorq_bres %>% autoplot()
 
 ```{r}
 mlp_ncorq_bres %>% 
-  show_best("roc_auc", n = 5)
+  show_best("roc_auc")
 ```
 
-### ROC
+### Best ROC
 
 ```{r}
-make_roc(mlp_ncorq_bres, "MLP") %>% autoplot()
+make_roc(mlp_ncorq_bres, "") %>% 
+  autoplot() + ggtitle("MLP (ORQ) Bayesian")
 ```
 
-Not much differs from space filling
-
-## NCORR + space filling (keras)
-
-```{r}
-nnet_ncorr_kres <- readRDS(paste0(models_path, "mlp_keras_ncorr.rds"))
-
-nnet_ncorr_kres %>% autoplot()
-```
-
-```{r}
-nnet_ncorr_kres %>% show_best("roc_auc", n = 5)
-```
-
-## NCORQ + Bayes (keras)
-
-```{r}
-mlp_ncorq_kbres <- readRDS(paste0(models_path, "mlpb_keras_ncorr_orq.rds"))
-
-mlp_ncorq_kbres %>% autoplot()
-```
-
-```{r}
-mlp_ncorq_kbres %>% show_best("roc_auc", n = 5)
-```
-
-```{r}
-make_roc(mlp_ncorq_kbres, "MLP (no corr + orq)") %>% autoplot()
-```
-
-## Bagged MLP
+# Bagged MLP
 
 ```{r}
 library(baguette)
