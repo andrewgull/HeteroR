@@ -35,7 +35,7 @@ option_list <- list(
     c("-g", "--grid_search"),
     type = "character",
     default = "space",
-    help = "space-filling, Bayesian, racing or racing + Bayesian grid search (should be one of the following: 'bayes', 'space', 'race', 'after_bayes')",
+    help = "space-filling, Bayesian, racing or racing + Bayesian grid search (should be one of the following: 'bayes', 'space', 'race', 'race+bayes')",
     metavar = "space"
   ),
   make_option(
@@ -348,7 +348,7 @@ set_rec <- function(rec, cores){
     rc <- pca_recipe
   } else if (rec == "umap") {
     rc <- umap_recipe
-  } else if (rec == "ncorr-orq") {
+  } else if (rec == "ncorq") {
     rc <- ncorq_recipe
   } else {
     print("ERROR! Undefined recipe!")
@@ -423,8 +423,9 @@ if (opt$grid_search == "space"){
         burn_in = 10
       )
     )
-} else if (opt$grid_search == "after_bayes") {
-  resamp_obj <- readRDS(opt$rds)
+} else if (opt$grid_search == "race+bayes") {
+  # explore many points and optimize the winning ones
+  resamp_obj <- readRDS(opt$rds) # resamples to start optimize
   
   model_res <- my_wf %>%
     tune_bayes(
