@@ -28,7 +28,7 @@ option_list <- list(
     c("-r", "--recipe"),
     type = "character",
     default = NULL,
-    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'umap', 'ncorq')",
+    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq')",
     metavar = "character"
   ),
   make_option(
@@ -123,11 +123,10 @@ opt <- parse_args(opt_parser)
 
 #### LIBS ####
 suppressPackageStartupMessages(library(tidymodels)) # to keep quiet
-library(finetune)
+library(finetune) # for racing grid search
 library(themis) # for SMOTE
 library(bestNormalize) # for ORQ-norm
 library(embed) # for UMAP
-#library(baguette)
 
 if (opt$model == "nb"){
   library(discrim) # for NB with engine 'klaR'
@@ -205,18 +204,6 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_pca(all_predictors(), threshold = .9)
-
-umap_recipe <- recipe(resistance ~., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_orderNorm(all_numeric_predictors()) %>% 
-  step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), 
-            num_comp = 24, 
-            min_dist = 0.1, 
-            neighbors = 15) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)
 
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
@@ -335,41 +322,29 @@ set_model <- function(mod, cores) {
 
 
 set_rec <- function(rec, cores){
-  # create a workflow
-  # mod: model type, one of: see the CLI flags specifications
-  # rec: recipe object (one of: main, ncorr, pca, umap)
-  # rec must be in GlobalEnv
   
+  # choose a recipe
   if (rec == "main"){
     rc <- main_recipe
   } else if (rec == "ncorr") {
     rc <- ncorr_recipe
   } else if (rec == "pca") {
     rc <- pca_recipe
-  } else if (rec == "umap") {
-    rc <- umap_recipe
   } else if (rec == "ncorq") {
     rc <- ncorq_recipe
   } else {
     print("ERROR! Undefined recipe!")
     quit(status = 1)
   }
-
-  # wf <- workflow() %>% 
-  #   add_model(set_model(mod = mod, cores = cores)) %>% 
-  #   add_recipe(rc)
-  
   return(rc)
 }
 
 #### CREATE A WORKFLOW ####
+# using chosen model specification 
+# and chosen recipe
 my_wf <- workflow() %>% 
   add_model(set_model(mod = opt$model, cores = opt$threads)) %>% 
   add_recipe(set_rec(opt$recipe))
-
-# my_wf <- set_wf(mod = opt$model, 
-#                 rec = opt$recipe, 
-#                 cores = opt$threads)
 
 #### EXTRACT PARAMETERS ####
 if (opt$model == "rf" | opt$model == "bt"){
@@ -398,10 +373,8 @@ if (opt$grid_search == "space"){
       resamples = cv_folds,
       # To use non-default parameter ranges
       param_info = param_set,
-      # Generate N at semi-random to start
       initial = opt$points,
       iter = opt$iterations,
-      # How to measure performance?
       metrics = metric_set(roc_auc),
       control = control_bayes(
         no_improve = opt$no_improve,
@@ -425,7 +398,7 @@ if (opt$grid_search == "space"){
     )
 } else if (opt$grid_search == "race+bayes") {
   # explore many points and optimize the winning ones
-  resamp_obj <- readRDS(opt$rds) # resamples to start optimize
+  resamp_obj <- readRDS(opt$rds) # resamples to optimize
   
   model_res <- my_wf %>%
     tune_bayes(
@@ -450,6 +423,6 @@ if (opt$grid_search == "space"){
 perf <- model_res %>% show_best("roc_auc", n = 5)
 print(perf)
 
-#### SAVE MODEL ####
+#### SAVE MODEL RESAMPLES ####
 saveRDS(object = model_res, file = opt$output)
 
