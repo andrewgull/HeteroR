@@ -1,92 +1,121 @@
 ---
-title: "Predicting the unstable HR from genomic data"
-author: "A.G."
+title: "Predicting the unstable heteroresistance from genomic data"
+author: "Andrei Guliaev"
 format: 
   revealjs:
     logo: figs/UU_logo_color.png
+    css: figs/logo.css
     theme: default
     slide-number: true
-    show-slide-number: print
+    show-slide-number: all
 editor: source
 ---
 
+## Definition
 
-# Definition
+::: {.r-fit-text}
 
-```{r}
-library(readr)
-library(dplyr)
-library(knitr)
-data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
+>Heteroresistance (HR) is the presence of a heterogeneous population of bacteria with one subpopulation or several subpopulations that exhibit increased levels of antibiotic resistance compared with the main population
 
-# TWO SCHEMES IN TWO FILES
-hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
-  filter(!is.na(strain)) %>% 
-  rename("resistance" = Gr12 )
+-   8-fold above resistance level of main population
 
-data_strain <- data_strain %>% 
-  left_join(hr_testing12, by = "strain")
+-   1.E-07 frequency of resistant population
 
-data_strain <- data_strain %>% 
-  mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
-  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
-  filter(resistance != "R") %>% 
-  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
-         chrom.status = factor(chrom.status))
+![](figs/resistance.png){.absolute bottom="250" right="50" width="284" height="200"} 
 
-hr_testing12 %>% 
-  group_by(resistance) %>% 
-  count() %>% 
-  kable()
-```
+![](figs/levels_of_resistance.png){.absolute bottom="20" left="10" width="356" height="260"}
 
+![](figs/frequence_of_resistance.png){.absolute bottom="20" right="400" width="218" height="260"}
 
-## Heteroresistance (HR)
+::: 
 
-- a kind of antibiotic resistance
-- amplification of resistance genes
+## Types of HR
 
-::: {.incremental}
+::: {.r-fit-text}
 
-- not SNP
-- not InDel
+-   **monoclonal**: HR present in pure clones
+
+-   **polyclonal**: mixed infections or rare resistant mutants
+
+![](figs/polyclonal_hr.png){.absolute bottom="50" left="100" width="750" height="300"}
 
 :::
 
-## Completeness of the genomes
+## Types of HR
 
-```{r}
-library(ggplot2)
-data_strain %>% 
-  group_by(resistance, chrom.status) %>% 
-  count() %>% 
-  ggplot(aes(chrom.status, n)) +
-  geom_col(position = "dodge") + 
-  facet_grid(cols = vars(resistance))
-```
+::: {.r-fit-text}
 
+-   **stable**: if resistance of the subpopulation does not decrease or revert to susceptibility following growth in the absence of antibiotics
 
-::: {.incremental}
+-   **unstable**: if the resistance of the subpopulation decreases or reverts to susceptibility following growth in the absence of antibiotics
 
-- Eat spaghetti
-- Drink wine
+![](figs/unstable_HR.png){.absolute bottom="20" left="250" width="492" height="400"}
 
 :::
 
-## Non incremental
+## Mechanisms of ustable HR
 
-::: {.nonincremental}
+::: {.r-fit-text}
 
-- Eat spaghetti
-- Drink wine
+- The most common (in G- bacteria): spontaneous amplifications of regions containing resistance genes (RG)
+
+- Amplifications can quickly disappear without presence of AB unlike pint mutations or indels
+
+![](figs/gene_amplification_scheme.png){.absolute bottom="10" left="250" width="540" height="400"}
 
 :::
 
-# Multiple columns
+## Mechanisms of ustable HR
 
-:::: {.columns}
+Amplifications are caused by:
 
+::: {.r-fit-text}
+
+-   Homologous recombination if duplicated region is surrounded by extensive (>100 bp) direct sequence repeats
+
+-   Transposable elements (transposition + homologous recombination)
+
+- Very short repeats (~10 bp)
+
+![](figs/amplification_mechanisms.png){.absolute bottom="0" left="250" width="554" height="366"}
+
+:::
+
+## Goal
+
+Our aim is to demonstrate that machine learning can predict unstable HR from genomic data
+
+![](figs/analysis_scheme.png){.absolute bottom="0" left="150" width="741" height="390"}
+
+## Methods
+
+::: columns
+::: {.column width="20%"}
+![](figs/petri_dish_experimentation_biology_education_petri_dish_icon_143934.png){.absolute width="80" left="50"}
+![](figs/sequencing-icon.png){.absolute width="80" left="60" bottom="400"}
+![](figs/snakemake_logo.png){.absolute width="80" left="60" bottom="300"}
+
+![](figs/laptop.png){.absolute width="80" left="60" bottom="200"}
+
+![](figs/robot.png){.absolute width="80" left="60" bottom="100"}
+:::
+
+::: {.column width="80%"}
+500 *E.coli* strains tested for HR to Piperacillin-Tazobactam
+
+WGS using both Nanopore and Illumina
+
+A computational pipeline for assembling genomes, annotating RG, direct repeats and insertion sequences
+
+Creating predictors
+
+Supervised machine learning
+:::
+:::
+
+## Predictors (a.k.a. Features)
+
+::: columns
 ::: {.column width="40%"}
 contents...
 :::
@@ -94,5 +123,4 @@ contents...
 ::: {.column width="60%"}
 contents...
 :::
-
-::::
+:::
