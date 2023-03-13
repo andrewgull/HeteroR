@@ -14,3 +14,7 @@ LaTeX: pdfLaTeX
 
 QuitChildProcessesOnExit: Yes
 DisableExecuteRprofile: Yes
+
+PythonType: conda
+PythonVersion: 3.10.9
+PythonPath: ~/mambaforge/bin/python3.10
