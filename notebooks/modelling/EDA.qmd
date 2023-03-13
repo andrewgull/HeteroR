@@ -58,6 +58,7 @@ Copy the most up to date version of features tables to `data/`
 
 ```{bash}
 #| eval: FALSE
+# should work but might need fixing because of changed absolute path
 rsync ~/Data/HeteroR/results/tables/features.csv ./data
 rsync ~/Data/HeteroR/results/tables/features_strain.csv ./data
 ```
@@ -93,7 +94,6 @@ write_csv(hr_testing13, "data/heteroresistance_testing_gr13.csv")
 
 ```
 
-
 Classes in `hr_testing12`
 
 ```{r}
@@ -116,7 +116,6 @@ NAs in HR12 and HR13
 left_join(hr_testing12, hr_testing13, by = "strain") %>% 
   filter(is.na(resistance.x), is.na(resistance.y))
 ```
-
 
 Classes in `hr_testing` (I+II+III)
 
@@ -324,9 +323,12 @@ If the original distribution is very skewed then normalization doesn't help much
 ```{r}
 library(ggforce)
 
-plot_validation_results <- function(dat) {
+plot_validation_results <- function(dat, components) {
+  # dat - data table
+  # components - vector of components names to plot
   dat %>%
-    select(-strain) %>% 
+    select(-strain) %>%
+    select(all_of(c(components, "resistance"))) %>% 
     # Create the scatterplot matrix
     ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
     geom_point(alpha = 0.4, size = 1) +
@@ -366,14 +368,14 @@ plots <- comp_plots("coverage", data_strain, data_prep_yj)
 
 based on recipe with ORQ normalization
 
-```{r, fig.width=12, fig.height=12}
+```{r}
 pca_rec <- orq_recipe %>%
   step_pca(all_numeric_predictors(), threshold = 0.9)
 
 data_pca <- prep(pca_rec, retain = TRUE)
 
 data_pca$template %>% 
-  plot_validation_results() + 
+  plot_validation_results(c("PC01", "PC02", "PC03")) + 
   ggtitle("Principal Component Analysis (HR12)")
 ```
 
@@ -442,7 +444,6 @@ data_pca %>%
   ggtitle("Principal Component Analysis")
 ```
 
-
 ## ICA - Independent Component Analysis
 
 ```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
@@ -486,7 +487,6 @@ ica3d
 
 > while high values will push UMAP towards representing the big-picture structure while losing fine detail.
 
-
 It is a supervised variant of UMAP
 
 Here I increase the minimal distance to see the local structure better
@@ -521,10 +521,9 @@ Supervised UMAP look really promising. HR clusters are more compact and some of 
 
 ```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
 data_umap_sup$template %>% 
-  plot_validation_results() +
+  plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP supervised (HR12)")
 ```
-
 
 ### 3D version
 
@@ -581,13 +580,11 @@ umap2_postEDA %>%
 #write.csv(umap2_postEDA, "EDA_app/data/data_umap12_postEDA.csv", row.names = F)
 ```
 
-
 ### On 'captured variance'
 
 The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes himself:
 
 > As a non-linear manifold learning technique that ultimately works with metric spaces at its heart rather than feature based data UMAP doesn't really have a notion of explained variance the way algorithms like PCA do. A colleague is working on developing some alternative measures of how well an embedding has performed, but that is still preliminary work and we don't have any published code for that yet -- ultimately UMAP remains a research project with additional features and utilities still being developed.
-
 
 ## UMAP on separate HR groups
 
@@ -1151,7 +1148,6 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
-
 
 ## Median total repeat length
 
