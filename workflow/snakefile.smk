@@ -435,6 +435,14 @@ rule dr_summary:
     message: "making summary table with repeat coordinates for all strains"
     script: "scripts/make_repeat_summary_table.py"
 
+rule isescan:
+    input: "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
+    output: directory("results/isescan/{strain}")
+    threads: 18
+    message: "executing ISEScan on {wildcards.strain}"
+    conda: "envs/isescan.yaml"
+    log: "logs/{strain}_isescan.log"
+    shell: "isescan.py --seqfile {input} --output {output} --nthread {threads} &> {log}"
 
 # join outputs together
 rule final:
@@ -451,7 +459,8 @@ rule final:
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
         rep_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
-        rep_sum="results/tables/repeats_summary.csv"
+        rep_sum="results/tables/repeats_summary.csv",
+        isescan="results/isescan/{strain}"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
 
