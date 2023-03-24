@@ -1906,7 +1906,7 @@ the most important
 
 Lloyd Shapley (Nobel Prize 2012)
 
-```{r}
+```{r, fig.height=4}
 library(fastshap)
 
 # final fit model
@@ -1939,7 +1939,7 @@ feat <- prep(main_recipe, df_train) %>%
 
 autoplot(shap, 
          type = "dependence", 
-         feature = "sulfonamide.resistant.sul", 
+         feature = "max.rep.len", 
          X = feat,
          smooth = TRUE, 
          color_by = "resistance")
