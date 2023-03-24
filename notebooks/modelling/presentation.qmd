@@ -200,6 +200,7 @@ data_strain %>%
 ## Correlatied features
 
 ```{r}
+#| label: figure
 # without resistance
 cor_matrix <- data_strain %>%
   select(-c(
@@ -212,7 +213,7 @@ cor_matrix <- data_strain %>%
   )) %>%
   cor(use = "pairwise.complete.obs", method = "spearman")
 
-corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.6 )
+corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.3 )
 ```
 
 
