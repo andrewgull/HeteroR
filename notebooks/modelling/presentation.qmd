@@ -197,9 +197,124 @@ data_strain %>%
   xlab("")
 ```
 
-## Correlatied features
+## HR v S
+
+### Beta-lactamase genes
 
 ```{r}
+ggplot(data_strain, aes(n.beta.lac)) +
+  geom_bar(aes(fill = resistance), position = "fill") +
+  scale_fill_brewer(palette="Set1") +
+  xlab("N") +
+  ylab("proportion") +
+  theme(legend.title = element_blank()) +
+  scale_x_continuous(breaks = c(1,2,3,4,5,6))
+```
+
+## If N beta-lactamases > 3
+
+```{r}
+ggplot(data_strain, aes(n.beta.lac.4)) +
+  geom_bar(aes(fill = resistance), position = "fill") +
+  scale_fill_brewer(palette="Set1") +
+  xlab("N > 3") +
+  ylab("proportion of strains") +
+  scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
+  theme(legend.title=element_blank())
+```
+
+## Beta-lactamases on plasmids
+
+```{r}
+ggplot(data_strain, aes(n.beta.lac.plasmid)) +
+  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  xlab("n beta-lactamases on plasmids") +
+  ylab("n strains")
+```
+
+## ampC beta-lac
+
+```{r}
+bl_type_count <- data_strain %>% 
+  select(resistance, n.beta.lac, ampC.bl) %>% 
+  mutate(non.ampC = n.beta.lac - ampC.bl) %>% 
+  select(-n.beta.lac)
+
+bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>% 
+  group_by(resistance, gene) %>% 
+  summarize(sum=sum(n))
+
+
+ggplot(bl_type_count_tidy, aes(gene, sum))+
+  geom_col(aes(fill=resistance), position = "fill", alpha = 1) + 
+  # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("") +
+  ylab("proportion")+
+  scale_x_discrete(labels = c("ampC", "non-ampC"))
+  
+```
+
+## TEM beta-lac
+
+```{r}
+ggplot(data_strain, aes(TEM.beta.lactamase)) +
+  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("TEM beta-lactamase") +
+  ylab("proportion")
+```
+
+## Heatmap
+
+```{r}
+library(plotly)
+
+data <- readr::read_csv("data/features.csv", show_col_types = FALSE) %>% 
+  select(-c(repeat_length, total_repeat_length, AR_length, spans_center, n.repeats.gene, n_repeats_gene_min100, n_repeats_gene_min500)) %>% 
+  distinct()
+
+amr_types <- unique(data$AMR.Gene.Family)
+
+# get unique gene rows with AMR.Gene.Family
+bl_amr_gene_types <- data %>% select(strain, record_id, AMR.Gene.Family) %>% distinct()
+
+# make a DF of each AMR type counts in each gene
+bl_blr_gene_presence <- as_tibble(
+  as.data.frame(
+    map(amr_types, function(x) ifelse(grepl(x, bl_amr_gene_types$AMR.Gene.Family, fixed = T), 1, 0)),
+    col.names = amr_types))
+
+# add strain and summarize counts
+bl_blr_gene_presence$strain <- bl_amr_gene_types$strain
+bl_blr_gene_presence <- relocate(bl_blr_gene_presence, strain, .before = "ampC.type.beta.lactamase")
+# here sum is applied to all variables
+bl_amr_types_strain <- bl_blr_gene_presence %>% group_by(strain) %>% summarise_each(~sum(.))
+# we need shorter names
+#names(bl_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL", "TEM", "SAT", "ANT3", "MPH", "APH3.2", "CTX.M", "CAT", "AAC3", "OXA", "AAC6", "ANT2", "FTT", "SHV", "TR.RPP", "APH4", "QNR")
+
+# make tidy for ggplot
+bl_amr_types_strain_td <- gather(bl_amr_types_strain, key = "AMR.type", value = "N", 2:22)
+
+# plotly heatmap
+vals <- scales::rescale(c(0:6))
+o <- order(vals, decreasing = FALSE)
+cols <- scales::col_numeric("Blues", domain = NULL)(vals)
+colz <- setNames(data.frame(vals[o], cols[o]), NULL)
+fig <- plot_ly(z = bl_amr_types_strain_td$N, 
+               x = bl_amr_types_strain_td$strain, 
+               y = bl_amr_types_strain_td$AMR.type, 
+               type = "heatmap", 
+               colorscale = colz)
+fig
+```
+
+
+## Correlatied features
+
+```{r, out.height='200%'}
 #| label: figure
 # without resistance
 cor_matrix <- data_strain %>%
@@ -213,7 +328,7 @@ cor_matrix <- data_strain %>%
   )) %>%
   cor(use = "pairwise.complete.obs", method = "spearman")
 
-corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.3 )
+corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.5 )
 ```
 
 

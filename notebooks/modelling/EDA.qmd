@@ -725,6 +725,14 @@ ggplot(data_strain, aes(n.beta.lac)) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6))
 ```
 
+There is a strain without a single beta-lactamase
+
+```{r}
+data_strain %>% filter(n.beta.lac == 0)
+```
+
+Low coverage, incomplete assembly, susceptible, no repeats.
+
 #### Proportion
 
 ```{r}
@@ -799,7 +807,18 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   ylab("n strains")
 ```
 
-Starting from 4 bl genes (on plasmids), it seems to be a very good predictor
+As a proportion
+
+```{r}
+ggplot(data_strain, aes(n.beta.lac.plasmid)) +
+  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  xlab("n beta-lactamases on plasmids") +
+  ylab("n strains")
+```
+
+Starting from 4 bl genes (on plasmids), it seems to be a very good predictor.
 
 #### Number of beta-lact on chrom
 
