@@ -15,7 +15,7 @@ def make_bed(collection, score):
     """
     :param collection: pd DataFrame of ranges for a bed_normal file
     :param score: score column value for bed_normal file
-    :return: bed_normal formatted pd DataFrame
+    :return: a list of bed-formatted DataFrames, one for each type of span
     """
     # make bed_normal for normal coordinates
     bed_normal = pd.DataFrame()
@@ -50,7 +50,7 @@ def make_bed(collection, score):
     return bed_normal, bed_5, bed_3
 
 
-def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
+def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len, assembler_fmp, chr_name):
     """
     makes bed files for genomic ranges with resistance genes
     it takes into account the length of dna record and range
@@ -58,6 +58,8 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
     :param rgi_dataframe: pandas DataFrame, pd DataFrame of RGI results
     :param dna_len: integer, length of a current record (chromosome or plasmid)
     :param span_len: integer, length of up- and downstream region flanking a resistance gene
+    :param assembler_fmp: bool, True if FMP (Polypolish) was used for assembly, False if Unicycler was used
+    :param chr_name: string, name of a chromosome or plasmid
     :return: a list of bed formatted pandas DataFrame, message with number of found genes
     """
     genes = [feature for feature in gff_record.features if feature.type == "gene"]  # here we have IDs and positions
@@ -98,7 +100,12 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
         # then don't care about ranges crossing oriC
         # range coordinate will always be less than span length
         for gene in resistance_genes_coords:
-            chrom_name = item_id.split("_")[-1]  # goes to the first column of a bed file
+            chrom_name = chr_name  # plain contig name
+            # but if Unicycler was used, chrom_name should be different (integer) 
+            if not assembler_fmp:
+                # Unicycler was used
+                chrom_name = item_id.split("_")[-1]  # goes to the first column of a bed file;
+                # this must correspond contig names in the assembly file
             start = int(gene.location.start)
             end = int(gene.location.end)
             span_start = start - span_len - 1
@@ -134,6 +141,12 @@ def make_bed_file_for_rg(gff_record, rgi_dataframe, dna_len, span_len):
     return bed_dataframes_list, msg_len + msg_count
 
 
+def get_contig_name(gff_rec_obj, assembly_obj):
+    assembly_names_lengths = [(rec.id, len(rec)) for rec in assembly_obj]
+    dict_ass_lengths_names = dict((length, name) for name, length in assembly_names_lengths)
+    contig_name = dict_ass_lengths_names[len(gff_rec_obj)]
+    return contig_name
+
 # cd /home/andrei/Data/HeteroR/test_dir/GRF
 # VARIABLES TEST NON CIRCULAR CHROMOSOME
 # in_rgi = "DA62886_rgi_table.txt"
@@ -158,20 +171,25 @@ min_plasmid_size = int(snakemake.params[1])
 
 # write things to log
 with open(snakemake.log[0], "w") as log:
+    # check what assembler was used
+    # if Uni change chrom names in bed file
+    # if FMP don't change them
+    first_record = next(SeqIO.parse(in_assembly, 'fasta'))
+    if "contig" in first_record.id and "polypolish" in first_record.id:
+        is_polypolish = True
+    else:
+        is_polypolish = False
     # rgi results - resistance information
     rgi = pd.read_csv(in_rgi, sep="\t")
     # rgi["Cut_Off"].unique()
     # some genes are 'Loose', leave 'Strict' and 'Perfect' only
     rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
-
-    # parse GFF annotation file
-    # to retrieve chromosomal genes' coordinates and strand
     with open(in_gff) as f:
         gff = [rec for rec in GFF.parse(f) if len(rec.seq) >= min_plasmid_size]
     # gff_ids = [rec.id.split("_")[-1] for rec in gff]
     # read joined assembly file as dict
     # assembly = SeqIO.to_dict(SeqIO.parse(in_assembly, "fasta"))
-    # filter it because not all of the records present in GFF
+    # filter it because not all the records present in GFF
     # but you can not filter by ID because IDs coming from SPAdes (if it finished successfully) are different from
     # IDs coming from Unicycler
     # filter assembly using lengths
@@ -194,7 +212,8 @@ with open(snakemake.log[0], "w") as log:
         record_id = assembly_filtered[i].id
 
         ranges_bed_list, bed_message = make_bed_file_for_rg(gff_record=gff[i], rgi_dataframe=rgi_notLoose,
-                                                            dna_len=record_len, span_len=range_len)
+                                                            dna_len=record_len, span_len=range_len, 
+                                                            assembler_fmp=is_polypolish, chr_name=record_id)
         # turn 5-end crossing ranges' starts to zeros and 3-end crossing ranges to chromosome length
         for x in range(len(ranges_bed_list)):
             ranges_bed_list[x]["range_start"] = np.where(ranges_bed_list[x]["range_start"] < 0,
