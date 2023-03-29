@@ -293,6 +293,28 @@ rule join_annotations:
     script:
         "scripts/join_two_fastas.py"
 
+# Map short reads onto the joined assemblies to get coverage
+rule genome_coverage:
+    input:
+        assembly="results/assemblies_joined/{strain}/assembly.fasta",
+        fastq1="results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
+        fastq2="results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz"
+    output:
+        bam=temp("results/genome_coverage/{strain}/assembly.bam"),
+        depth="results/genome_coverage/{strain}/depth.txt"
+    threads: 18
+    message: "mapping reads onto {wildcards.strain} joined assembly"
+    log: bwa_index="results/logs/{strain}_genome_coverage_bwa_index.log",
+         bwa_mem="results/logs/{strain}_genome_coverage_bwa_mem.log",
+         samtools_sort="results/logs/{strain}_genome_coverage_samtools_sort.log",
+         samtools_index="results/logs/{strain}_genome_coverage_samtools_index.log",
+         samtools_depth="results/logs/{strain}_genome_coverage_samtools_depth.log"
+    conda: "envs/hybrid_assembly.yaml"
+    shell: "bwa index {input.assembly} &> {log.bwa_index} && bwa mem -t {threads} {input.assembly} {input.fastq1} "
+           "{input.fastq2} 2> {log.bwa_mem} | samtools sort -@ {threads} -o {output.bam} &> {log.samtools_sort} && "
+           "samtools index {output.bam} &> {log.samtools_index} && "
+           "samtools depth -a {output.bam} 2> {log.samtools_depth} > {output.depth}"
+
 # Find resistance genes
 # it ignores tRNAs
 # to get RGI data base, run: rgi load --card_json ./card_database/card.json --local
@@ -456,6 +478,7 @@ rule final:
         assembly_joined="results/assemblies_joined/{strain}/assembly.fasta",
         summary="results/assemblies_joined/{strain}/summary.tsv",
         gff_nomism="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
+        direct_repeats="results/direct_repeats/{strain}/regions/regions_joined_final.fasta",
         rg_gbk="results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk",
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
         rep_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
