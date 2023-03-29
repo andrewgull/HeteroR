@@ -4,7 +4,7 @@
 *.RData
 results/**
 resources/**
-.idea/
+.idea/**
 shiny_apps/
 workflow/scripts/__pycache__/
 notebooks/modelling/tables/metrics_before_BL_types.csv
