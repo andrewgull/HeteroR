@@ -61,6 +61,7 @@ Copy the most up to date version of features tables to `data/`
 # should work but might need fixing because of changed absolute path
 rsync ~/Data/HeteroR/results/tables/features.csv ./data
 rsync ~/Data/HeteroR/results/tables/features_strain.csv ./data
+rsync ~/Data/HeteroR/results/tables/amr_types_strain.csv ./data
 ```
 
 Read features and classification labels
@@ -69,6 +70,13 @@ Read features and classification labels
 data <- read_csv("data/features.csv")
 
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
+
+# TMP SOLUTION to add plasmid copy number
+pl_copy_number <- read_delim("data/plasmid_copy_number.csv", show_col_types = FALSE, delim = " ")
+data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
+  rename(plasmid.copy.number = tot_plasmids) %>% 
+  relocate(plasmid.copy.number, .after = n.plasmids)
+  
 
 # TWO SCHEMES IN TWO FILES
 hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
@@ -88,9 +96,9 @@ hr_testing <- left_join(hr_testing12, hr_testing13, by = "strain") %>%
   select(strain, resistance)
 
 # WRITE IT
-write_csv(hr_testing, "data/heteroresistance_testing_gr123.csv")
-write_csv(hr_testing12, "data/heteroresistance_testing_gr12.csv")
-write_csv(hr_testing13, "data/heteroresistance_testing_gr13.csv")
+#write_csv(hr_testing, "data/heteroresistance_testing_gr123.csv")
+#write_csv(hr_testing12, "data/heteroresistance_testing_gr12.csv")
+#write_csv(hr_testing13, "data/heteroresistance_testing_gr13.csv")
 
 ```
 
@@ -156,10 +164,10 @@ On the fully tested data set I will start from classification 1+2+3, because it 
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
+  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
-  filter(resistance != "R") %>% 
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
+  filter(resistance != "R", strain != "DA63310") %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
          chrom.status = factor(chrom.status))
   
@@ -203,12 +211,6 @@ I will remove it.
 data_strain$N50 <- NULL
 ```
 
-There is also a weird `NA.` column, I will remove it as well.
-
-```{r}
-data_strain$NA. <- NULL
-```
-
 ### n.plasmids outliers
 
 I have fixed this filtering by plasmid length in `features.qmd`
@@ -245,7 +247,6 @@ cor_matrix <- data_strain %>%
   select(-c(
     strain,
     resistance,
-    n.beta.lac.3,
     n.beta.lac.4,
     chrom.status,
     contains(c("APH", "ANT", "PH", "CAT", "AAC", "SAT", "DHA", "qnr"), ignore.case = FALSE)
@@ -311,7 +312,7 @@ comp_plots <- function(col_name, orig_data, prep_data){
   return(list(p_orig, p_norm))
 }
 
-plots <- comp_plots("coverage", data_strain, data_prep)
+plots <- comp_plots("plasmid.copy.number", data_strain, data_prep)
 ```
 
 ```{r, fig.width = 10, fig.height=5}
@@ -1023,36 +1024,33 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
 highlight BLs somehow!
 
 ```{r, fig.width=20, fig.height=6}
-# This section is repeated in feature_engineering.Rmd
+# I read in amr type counts form the table made in features.qmd
 
-# get unique AMR types
-amr_types <- unique(data$AMR.Gene.Family)
-
-# get unique gene rows with AMR.Gene.Family
-bl_amr_gene_types <- data %>% select(strain, record_id, AMR.Gene.Family) %>% distinct()
-
-# make a DF of each AMR type counts in each gene
-bl_blr_gene_presence <- as_tibble(
-  as.data.frame(
-    map(amr_types, function(x) ifelse(grepl(x, bl_amr_gene_types$AMR.Gene.Family, fixed = T), 1, 0)),
-    col.names = amr_types))
-
-# add strain and summarize counts
-bl_blr_gene_presence$strain <- bl_amr_gene_types$strain
-bl_blr_gene_presence <- relocate(bl_blr_gene_presence, strain, .before = "ampC.type.beta.lactamase")
-# here sum is applied to all variables
-bl_amr_types_strain <- bl_blr_gene_presence %>% group_by(strain) %>% summarise_each(~sum(.))
-# we need shorter names
-#names(bl_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL", "TEM", "SAT", "ANT3", "MPH", "APH3.2", "CTX.M", "CAT", "AAC3", "OXA", "AAC6", "ANT2", "FTT", "SHV", "TR.RPP", "APH4", "QNR")
+amr_types_strain <- read_csv("data/amr_types_strain.csv", show_col_types = FALSE)
 
 # make tidy for ggplot
-bl_amr_types_strain_td <- gather(bl_amr_types_strain, key = "AMR.type", value = "N", 2:22)
+amr_types_strain_td <- gather(amr_types_strain, key = "AMR.type", value = "N", 2:ncol(amr_types_strain))
+
+# amr_gene_types <- features %>%
+#   select(strain, record_id, AMR.Gene.Family) %>% 
+#   distinct() %>% 
+#   filter(!is.na(AMR.Gene.Family)) %>% 
+#   mutate(AMR.Gene.Family = sub("\\'+)$", "')", AMR.Gene.Family))
+# 
+# amr_gene_types_count <-
+#   amr_gene_types %>% group_by(strain, AMR.Gene.Family) %>% count()
 
 # make a plot
-ggplot(bl_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.2, hjust=1, size = 3))+
-  xlab("")+
-  scale_fill_gradient2(high="blue")
+ggplot(amr_types_strain_td, aes(strain, AMR.type)) + 
+  geom_tile(aes(fill = N)) +
+  theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 0.2,
+    hjust = 1,
+    size = 3
+  )) +
+  xlab("") +
+  scale_fill_gradient2(high = "blue")
 ```
 
 *ampC* is present in every strain
@@ -1062,13 +1060,13 @@ ggplot(bl_amr_types_strain_td, aes(strain, AMR.type))+geom_tile(aes(fill=N))+
 ```{r, eval=F, fig.width=12}
 library(plotly)
 
-vals <- scales::rescale(c(0:6))
+vals <- scales::rescale(c(0:max(amr_types_strain_td$N)))
 o <- order(vals, decreasing = FALSE)
 cols <- scales::col_numeric("Blues", domain = NULL)(vals)
 colz <- setNames(data.frame(vals[o], cols[o]), NULL)
-fig <- plot_ly(z = bl_amr_types_strain_td$N, 
-               x = bl_amr_types_strain_td$strain, 
-               y = bl_amr_types_strain_td$AMR.type, 
+fig <- plot_ly(z = amr_types_strain_td$N, 
+               x = amr_types_strain_td$strain, 
+               y = amr_types_strain_td$AMR.type, 
                type = "heatmap", 
                colorscale = colz)
 fig
@@ -1118,6 +1116,17 @@ data_strain %>%
   guides(fill = "none")
 ```
 
+## Read length vs Coverage
+
+```{r}
+data_strain %>% 
+  ggplot(aes(read.max.len, coverage)) +
+  geom_point(aes(color = resistance), alpha=0.6) +
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("") +
+  guides(fill = "none")
+```
+
 ## Number of plasmids
 
 Per strain, doesn't depend on beta-lactamase presence or absence
@@ -1157,29 +1166,102 @@ data_strain %>% filter(n.plasmids < 50) %>%
 
 ### Plasmids vs Coverage
 
-```{r, fig.width=10}
+```{r}
 data_strain %>%
   ggplot(aes(coverage, n.plasmids)) +
   geom_point(aes(color = resistance), alpha = 0.5) +
   scale_color_brewer(palette = "Set1") +
   ggtitle("") +
   ylab("n") +
+  xlab("coverage") +
+  guides(fill = "none")
+```
+
+## Plasmid copy number
+
+```{r}
+data_strain %>%
+  ggplot(aes(resistance, plasmid.copy.number)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
   xlab("") +
   guides(fill = "none")
 ```
+
+### Copy number vs Coverage
+
+```{r}
+data_strain %>%
+  ggplot(aes(coverage, plasmid.copy.number)) +
+  geom_point(aes(color = resistance), alpha = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("plasmid copy number") +
+  xlab("coverage") +
+  guides(fill = "none")
+```
+
+## Copy number vs number of plasmids
+
+```{r}
+data_strain %>%
+  ggplot(aes(n.plasmids, plasmid.copy.number)) +
+  geom_point(aes(color = resistance), alpha = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("cn") +
+  xlab("n") +
+  guides(fill = "none")
+```
+
+## Copy number and completeness
+
+```{r}
+data_strain %>%
+  ggplot(aes(chrom.status, plasmid.copy.number)) +
+  geom_violin(aes(fill = chrom.status), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = chrom.status),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
 
 ## Median total repeat length
 
 ```{r}
 med_rep_len <- data_strain %>% 
   select(resistance, med.tot.rep.len.chrom, med.tot.rep.len.plasmid, med.tot.rep.len) %>% 
-  gather("location", "med.len", 2:4)
+  gather("location", "med.len", 2:4) 
 
 facet_names <- c("med.tot.rep.len.chrom" = "chromosome",
                  "med.tot.rep.len.plasmid" = "plasmids",
                  "med.tot.rep.len" = "total")
 
-ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
+med_rep_len %>% 
+  filter(med.len > 0) %>% 
+  ggplot(aes(resistance, med.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1194,7 +1276,9 @@ ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
 ### Average total
 
 ```{r}
-ggplot(data_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.tot.rep.len)) +
+data_strain %>% 
+  filter(med.tot.rep.len > 0) %>% 
+  ggplot(aes(resistance, med.tot.rep.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1208,7 +1292,9 @@ ggplot(data_strain %>% filter(med.tot.rep.len > 0), aes(resistance, med.tot.rep.
 ### Average on chromosome
 
 ```{r}
-ggplot(data_strain %>% filter(med.tot.rep.len.chrom > 0), aes(resistance, med.tot.rep.len.chrom)) +
+data_strain %>% 
+  filter(med.tot.rep.len.chrom > 0) %>% 
+  ggplot(aes(resistance, med.tot.rep.len.chrom)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1222,7 +1308,9 @@ ggplot(data_strain %>% filter(med.tot.rep.len.chrom > 0), aes(resistance, med.to
 ### Average on plasmids
 
 ```{r}
-ggplot(data_strain %>% filter(med.tot.rep.len.plasmid > 0), aes(resistance, med.tot.rep.len.plasmid)) +
+data_strain %>% 
+  filter(med.tot.rep.len.plasmid > 0) %>% 
+  ggplot(aes(resistance, med.tot.rep.len.plasmid)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1246,12 +1334,26 @@ facet_names <- c("med.rep.len.chrom" = "chromosome",
                  "med.rep.len.plasmid" = "plasmids",
                  "med.rep.len" = "total")
 
-ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
+med_rep_len %>% 
+  filter(med.len > 1) %>%
+  ggplot(aes(resistance, med.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T,
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    alpha = 0.2,
+    width = 0.05,
+    height = 0.1,
+    size = 0.8
+  ) +
   scale_fill_brewer(palette = "Set1") +
-  coord_trans(y = "sqrt") +
+  coord_trans(y = "log") +
+  #scale_y_continuous(trans = "pseudo_log") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   ylab("median repeat length") +
   xlab("") +
@@ -1259,7 +1361,9 @@ ggplot(med_rep_len %>% filter(med.len > 0), aes(resistance, med.len)) +
 ```
 
 ```{r}
-ggplot(med_rep_len %>% filter(location == "med.rep.len.plasmid"), aes(resistance, med.len)) +
+med_rep_len %>% 
+  filter(location == "med.rep.len.plasmid") %>% 
+  ggplot(aes(resistance, med.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1318,7 +1422,7 @@ rep_count$n.rep <- if_else(rep_count$n.rep == 0, 1, rep_count$n.rep)
 
 facet_names <- c("n.rep.chrom" = "chromosome",
                  "n.rep.plasmid" = "plasmids",
-                 "n.rep.total" = "both")
+                 "n.rep.total" = "total")
 
 ggplot(rep_count, aes(resistance, n.rep)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
@@ -1353,9 +1457,11 @@ ar_len <- data_strain %>%
 
 facet_names <- c("med.AR.len.chrom" = "chromosome",
                  "med.AR.len.plasmid" = "plasmids",
-                 "med.AR.len" = "both")
+                 "med.AR.len" = "total")
 
-ggplot(ar_len %>% filter(ar.len > 0), aes(resistance, ar.len)) +
+ar_len %>% 
+  filter(ar.len > 0) %>% 
+  ggplot(aes(resistance, ar.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1421,7 +1527,7 @@ min_ori %>%
 
 ```{r, fig.width=6, fig.height=4}
 ggplot(data_strain, aes(n.beta.lac.plus))+
-  geom_bar(aes(fill=resistance), position="dodge", alpha=0.8)+
+  geom_bar(aes(fill=resistance), position="fill", alpha=0.8)+
   scale_fill_brewer(palette="Set1")+
   xlab("number of genes")+
   ylab("number of strains")+

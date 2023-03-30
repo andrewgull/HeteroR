@@ -146,13 +146,19 @@ Creating a model that can distinguish HR and nonHR strains (supervised ML)
 ## Genome completeness
 
 ```{r}
-library(tidymodels)
+library(tidyverse)
 
 ### READ DATA
-data_strain <- readr::read_csv("data/features_strain.csv", na = c("NA", "-Inf"), show_col_types = F)
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"), show_col_types = F)
+
+### TMP SOLUTION
+# rsync ~/Data/HeteroR/results/tables/plasmid_copy_number.csv ./data
+pl_copy_number <- read_delim("data/plasmid_copy_number.csv", show_col_types = FALSE, delim = " ")
+data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
+  rename(plasmid.copy.number = tot_plasmids)
 
 ## READ TESTING
-hr_testing12 <- readr::read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12), show_col_types = F) %>% 
+hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12), show_col_types = F) %>% 
   filter(!is.na(strain)) %>% 
   rename("resistance" = Gr12 )
 
@@ -160,53 +166,94 @@ data_strain <- data_strain %>%
   left_join(hr_testing12, by = "strain")
 
 data_strain <- data_strain %>% 
-  mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
+  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
          chrom.status = factor(chrom.status))
 
 data_strain$N50 <- NULL
-data_strain$NA. <- NULL
+#data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 
 data_strain <-
   data_strain %>% rename(SLF = sulfonamide.resistant.sul, 
                          TMP.DFR = trimethoprim.resistant.dihydrofolate.reductase.dfr,
-                         MPH = macrolide.phosphotransferase..MPH.,
-                         CTX.M.bl = CTX.M.beta.lactamase,
-                         ampC.bl = ampC.type.beta.lactamase,
-                         CAT = chloramphenicol.acetyltransferase..CAT.,
-                         OXA.bl = OXA.beta.lactamase,
-                         AAC.6 = AAC.6...Ib.cr,
-                         SAT = streptothricin.acetyltransferase..SAT.,
-                         SHV.bl = SHV.beta.lactamase,
+                         MPH = macrolide.phosphotransferase.MPH,
+                         CTX.M = CTX.M.beta.lactamase,
+                         ampC = ampC.type.beta.lactamase,
+                         CAT = chloramphenicol.acetyltransferase.CAT,
+                         OXA = OXA.beta.lactamase,
+                         AAC.6 = AAC6.Ib.cr,
+                         SAT = streptothricin.acetyltransferase.SAT,
+                         SHV = SHV.beta.lactamase,
                          TTC.rpp = tetracycline.resistant.ribosomal.protection.protein,
                          FTT = fosfomycin.thiol.transferase,
-                         QNR = quinolone.resistance.protein..qnr.,
-                         DHA.bl = DHA.beta.lactamase)
+                         QNR = quinolone.resistance.protein.qnr,
+                         DHA = DHA.beta.lactamase,
+                         TEM = TEM.beta.lactamase)
 
 ## PLOT
 data_strain %>% 
   group_by(resistance, chrom.status) %>% 
   count() %>% 
   ggplot(aes(chrom.status, n)) +
-  geom_col(position = "dodge") + 
+  geom_col(position = "dodge", aes(fill=resistance), alpha=0.8) + 
+  scale_fill_brewer(palette = "Set1") +
   facet_grid(cols = vars(resistance)) +
-  xlab("")
+  ylab("N strains") +
+  xlab("") +
+  guides(fill = "none")
 ```
 
-## HR v S
+## Coverage
 
-### Beta-lactamase genes
+```{r}
+data_strain %>% 
+    ggplot(aes(resistance, coverage)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+Sequencing coverage may influence prediction!
+
+## Read length vs Coverage
+
+```{r}
+data_strain %>% 
+  ggplot(aes(read.max.len, coverage)) +
+  geom_point(aes(color = resistance), alpha=0.6) +
+  scale_color_brewer(palette = "Set1") +
+  #scale_x_continuous(trans = "log10")+
+  #geom_abline(intercept = 50, slope = 20) +
+  ggtitle("") +
+  guides(fill = "none") +
+  xlab("maximum read length, bp") +
+  ylab("coverage, x")
+```
+
+## Beta-lactamase gene count
 
 ```{r}
 ggplot(data_strain, aes(n.beta.lac)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
   xlab("N") +
-  ylab("proportion") +
+  ylab("Proportion of strains") +
   theme(legend.title = element_blank()) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6))
 ```
@@ -214,12 +261,13 @@ ggplot(data_strain, aes(n.beta.lac)) +
 ## If N beta-lactamases > 3
 
 ```{r}
-ggplot(data_strain, aes(n.beta.lac.4)) +
+data_strain %>% 
+  ggplot(aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
   xlab("N > 3") +
   ylab("proportion of strains") +
-  scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
+  #scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes")) +
   theme(legend.title=element_blank())
 ```
 
@@ -230,25 +278,26 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
-  xlab("n beta-lactamases on plasmids") +
-  ylab("n strains")
+  xlab("N") +
+  ylab("Proportion of strains")
 ```
 
 ## ampC beta-lac
 
+This plot doesn't make much sense to me...
+
 ```{r}
 bl_type_count <- data_strain %>% 
-  select(resistance, n.beta.lac, ampC.bl) %>% 
-  mutate(non.ampC = n.beta.lac - ampC.bl) %>% 
-  select(-n.beta.lac)
-
-bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>% 
+  select(resistance, n.beta.lac, ampC) %>% 
+  mutate(non.ampC = n.beta.lac - ampC) %>% 
+  select(-n.beta.lac) %>% 
+  gather(key = "gene", value = "n", 2:3) %>% 
   group_by(resistance, gene) %>% 
   summarize(sum=sum(n))
 
 
-ggplot(bl_type_count_tidy, aes(gene, sum))+
-  geom_col(aes(fill=resistance), position = "fill", alpha = 1) + 
+ggplot(bl_type_count, aes(gene, sum))+
+  geom_col(aes(fill=resistance), position = "dodge", alpha = 1) + 
   # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("") +
@@ -257,58 +306,86 @@ ggplot(bl_type_count_tidy, aes(gene, sum))+
   
 ```
 
-## TEM beta-lac
+## TEM beta-lactamase
 
 ```{r}
-ggplot(data_strain, aes(TEM.beta.lactamase)) +
+ggplot(data_strain, aes(TEM)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("TEM beta-lactamase") +
+  xlab("N") +
   ylab("proportion")
 ```
 
-## Heatmap
+## RG counts heatmap
 
-```{r}
+```{r, fig.width=8, fig.height=4}
+amr_types_strain <- read_csv("data/amr_types_strain.csv", show_col_types = FALSE)
+
+amr_types_strain_td <- gather(amr_types_strain, key = "AMR.type", value = "N", 2:ncol(amr_types_strain))
+
 library(plotly)
 
-data <- readr::read_csv("data/features.csv", show_col_types = FALSE) %>% 
-  select(-c(repeat_length, total_repeat_length, AR_length, spans_center, n.repeats.gene, n_repeats_gene_min100, n_repeats_gene_min500)) %>% 
-  distinct()
-
-amr_types <- unique(data$AMR.Gene.Family)
-
-# get unique gene rows with AMR.Gene.Family
-bl_amr_gene_types <- data %>% select(strain, record_id, AMR.Gene.Family) %>% distinct()
-
-# make a DF of each AMR type counts in each gene
-bl_blr_gene_presence <- as_tibble(
-  as.data.frame(
-    map(amr_types, function(x) ifelse(grepl(x, bl_amr_gene_types$AMR.Gene.Family, fixed = T), 1, 0)),
-    col.names = amr_types))
-
-# add strain and summarize counts
-bl_blr_gene_presence$strain <- bl_amr_gene_types$strain
-bl_blr_gene_presence <- relocate(bl_blr_gene_presence, strain, .before = "ampC.type.beta.lactamase")
-# here sum is applied to all variables
-bl_amr_types_strain <- bl_blr_gene_presence %>% group_by(strain) %>% summarise_each(~sum(.))
-# we need shorter names
-#names(bl_amr_types_strain) <- c("strain", "ampC", "DFR", "APH6", "APH3.1", "SUL", "TEM", "SAT", "ANT3", "MPH", "APH3.2", "CTX.M", "CAT", "AAC3", "OXA", "AAC6", "ANT2", "FTT", "SHV", "TR.RPP", "APH4", "QNR")
-
-# make tidy for ggplot
-bl_amr_types_strain_td <- gather(bl_amr_types_strain, key = "AMR.type", value = "N", 2:22)
-
-# plotly heatmap
-vals <- scales::rescale(c(0:6))
+vals <- scales::rescale(c(0:max(amr_types_strain_td$N)))
 o <- order(vals, decreasing = FALSE)
 cols <- scales::col_numeric("Blues", domain = NULL)(vals)
 colz <- setNames(data.frame(vals[o], cols[o]), NULL)
-fig <- plot_ly(z = bl_amr_types_strain_td$N, 
-               x = bl_amr_types_strain_td$strain, 
-               y = bl_amr_types_strain_td$AMR.type, 
+fig <- plot_ly(z = amr_types_strain_td$N, 
+               x = amr_types_strain_td$strain, 
+               y = amr_types_strain_td$AMR.type, 
                type = "heatmap", 
                colorscale = colz)
 fig
+```
+
+## Plasmid count
+
+not copy number!
+
+```{r}
+data_strain %>%
+  ggplot(aes(resistance, n.plasmids)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+## Plasmid copy number
+
+Inferred from relative coverage
+
+```{r}
+data_strain %>%
+  #filter(plasmid.copy.number > 0) %>% 
+  ggplot(aes(resistance, plasmid.copy.number)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  #scale_y_continuous(trans = "sqrt") +
+  ggtitle("") +
+  ylab("cn") +
+  xlab("") +
+  guides(fill = "none")
+
 ```
 
 
@@ -321,7 +398,7 @@ cor_matrix <- data_strain %>%
   select(-c(
     strain,
     resistance,
-    n.beta.lac.3,
+    #n.beta.lac.3,
     n.beta.lac.4,
     chrom.status,
     contains(c("APH", "ANT", "PH", "CAT", "AAC", "SAT", "DHA", "QNR"), ignore.case = FALSE)

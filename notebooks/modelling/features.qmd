@@ -173,7 +173,7 @@ length(unique(repeat_df$strain))
 
 strains
 
-More than 100 strains don't have repeats?
+21 strains don't have repeats?
 
 ```{r}
 setdiff(strains, unique(repeat_df$strain))
@@ -203,7 +203,7 @@ no_repeats_df <- tibble(record_id = rep(NA, length(strains_no_repeats)),
                         strain = strains_no_repeats,
                         AR_length = rep(NA, length(strains_no_repeats)))
 
-head(no_repeats_df)
+no_repeats_df
 ```
 
 ```{r}
@@ -217,7 +217,7 @@ length(unique(repeat_df$strain))
 ```{r, message=FALSE}
 bed_df <- map_dfr(strains, function(x){
     path <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
-    df <- read_delim(path, col_names = FALSE) %>% mutate(strain = x)
+    df <- read_delim(path, col_names = FALSE, col_types = "cddcdd") %>% mutate(strain = x)
     return(df)
   }) %>% 
   mutate(gene_center = round((X3 - X2 + 1)/2)) %>% 
@@ -516,7 +516,6 @@ rgi %>%
     xlab("Number of RGs per strain")
 ```
 
-
 ### Any NAs in features?
 
 ```{r}
@@ -524,14 +523,6 @@ features %>%
   map(is.na) %>% 
   map_int(sum)
 ```
-
-What is this?
-
-```{r}
-features %>% filter(is.na(spans_center))
-```
-
-???
 
 ### Any NAs in filtered RGI?
 
@@ -574,8 +565,6 @@ features <- features %>%
 
 head(features)
 ```
-
-
 
 **OBS!** Features still contain resistance genes without repeats and strains without repeats at all!
 
@@ -633,6 +622,12 @@ no_rg_df <- tibble(strain = strains_no_rg,
 
 no_rg_df
 ```
+
+This strain also doesn't have ampC beta-lactamase, which cannot be.
+
+Should I remove it whatsoever? 
+
+Also, it has been tested as nonHR
 
 ```{r}
 #| eval: false
@@ -905,6 +900,8 @@ n.beta.lac <- features %>%
 features_strain <- left_join(features_strain, n.beta.lac, by = "strain")
 ```
 
+**N.B.** strain DA63310 doesn't have any beta-lactamases!
+
 ## Location on plasmid, distance to oriC and plus strand
 
 1)  `features` contains gene names, so I can find if it's located on a plasmid.
@@ -1019,7 +1016,6 @@ gff <- features %>%
 gff
 ```
 
-
 ## Add 'on.plasmid', 'strand' and 'dist.to.oriC' to `features`
 
 ```{r}
@@ -1088,7 +1084,6 @@ features_strain <- list(features_strain, min_dist_oriC, med_dist_oriC, n_genes_p
 
 head(features_strain)
 ```
-
 
 ## Repeat count
 
@@ -1203,36 +1198,37 @@ head(features_strain)
 
 ### Add repeat count, min length 500 bp
 
-I leave only per gene statistic
-
 ```{r}
-
-#############################
-## PER GENE
-#############################
-
-repeat_counts_gene_500 <- features %>% 
+# n reads longer than 500
+repeat_counts_strain_500 <- features %>% 
   filter(is.beta.lac, 
          repeat_length >= 500) %>% 
-  group_by(record_id) %>% 
-  summarise("n_repeats_gene_min500" = n())
+  group_by(strain, on.plasmid) %>% 
+  summarise("n.rep.500" = n()) %>% 
+  spread(key = "on.plasmid", value = "n.rep.500", fill = 0) %>% 
+  rename(n.rep.500.chrom = no,  n.rep.500.plasmid = yes) %>% 
+  mutate(n.rep.500.total = n.rep.500.chrom + n.rep.500.plasmid) %>% 
+  select(strain, n.rep.500.chrom, n.rep.500.plasmid, n.rep.500.total)
 
-# join 
-features <- left_join(features, repeat_counts_gene_500, by = "record_id")
+# n repeats longer than 500 and spanning center
+repeat_counts_strain_500_center <- features %>% 
+  filter(is.beta.lac, 
+         spans_center == "yes", 
+         repeat_length >= 500) %>%
+  group_by(strain, on.plasmid) %>% 
+  summarise("n.rep.500.cen" = n()) %>% 
+  spread(key = "on.plasmid", value = "n.rep.500.cen", fill = 0) %>% 
+  rename(n.rep.500.cen.chrom = no , n.rep.500.cen.plasmid = yes ) %>% 
+  mutate(n.rep.500.cen.tot = n.rep.500.cen.chrom + n.rep.500.cen.plasmid)%>%
+  select(strain, n.rep.500.cen.chrom, n.rep.500.cen.plasmid, n.rep.500.cen.tot)
 
-# not all beta-lac genes/strains have repeats longer than 500
-# they are NA
-# turn these NAs to 0s
-features$n_repeats_gene_min500 <- ifelse(is.na(features$n_repeats_gene_min500), 0, features$n_repeats_gene_min500)
 
-# locate
-features <- features %>% relocate(n_repeats_gene_min500, .before="ORF_ID")
 
-##################
-## SHOW FEATURES 
-##################
+# join both with features_strain
+features_strain <- list(features_strain, repeat_counts_strain_500, repeat_counts_strain_500_center) %>% 
+  purrr::reduce(left_join, by = "strain")
 
-head(features)
+features_strain
 ```
 
 ## Repeat length
@@ -1475,7 +1471,7 @@ features %>%
   filter(n.ampC == 0)
 ```
 
-In real life, every E.coli has at least I ampC gene on chromosome - the table above should be empty.
+In real life, every E.coli has at least I ampC gene on chromosome - the table above should be empty, unless `AMR.Gene.Family` is `NA`! (DA63310)
 
 ### Filter features with ampC genes only
 
@@ -1567,13 +1563,30 @@ head(features_strain)
 **OBS** Not every gene here is a beta-lactamase!
 
 ```{r}
-# get unique AMR types
-amr_types <- unique(features$AMR.Gene.Family)
+# get clean and unique AMR types
+# NA comes from DA63310, and should be removed
+
+sub_names <- function(names_vec){
+  sub_vec <- names_vec %>% 
+  sub(pattern = "(", replacement="", fixed = T) %>% 
+  sub(pattern = ")", replacement="", fixed = T) %>% 
+  sub(pattern = "'", replacement="", fixed = T) %>% 
+  sub(pattern = "'", replacement="", fixed = T)
+  return(sub_vec)
+}
+
+amr_types <- unique(features$AMR.Gene.Family)[!is.na(unique(features$AMR.Gene.Family))] %>% 
+  sub_names() %>% 
+  unique()
 
 # get unique gene rows with AMR.Gene.Family
+# Remove NA from DA63310
+# do name cleaning as above
 amr_gene_types <- features %>%
-  select(strain, record_id, AMR.Gene.Family) %>% 
-  distinct()
+  mutate(AMR.Gene.Family = sub_names(features$AMR.Gene.Family)) %>% 
+  select(strain, record_id, AMR.Gene.Family) %>%
+  distinct() %>%
+  filter(!is.na(AMR.Gene.Family)) 
 
 # make a DF of each AMR type counts in each gene
 amr_gene_presence <- as_tibble(
@@ -1596,6 +1609,7 @@ amr_types_strain <- amr_gene_presence %>%
 # this table will be written to a file for EDA + shiny
 ```
 
+
 ## Add AMR-type counts to features_bl_strain
 
 ```{r}
@@ -1606,8 +1620,7 @@ head(features_strain)
 
 ## TEM and SHV types
 
-These beta-lactamases are targets for tazobactam which inhibits their activity.
-It makes sense to add types of TEM and SHV as separate features to `features_strain`
+These beta-lactamases are targets for tazobactam which inhibits their activity. It makes sense to add types of TEM and SHV as separate features to `features_strain`
 
 ```{r}
 features %>% 
@@ -1617,7 +1630,6 @@ features %>%
   count() %>% 
   arrange(-n)
 ```
-
 
 ```{r}
 sum(features_strain$SHV.beta.lactamase, na.rm = T)
