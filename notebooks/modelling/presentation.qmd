@@ -388,6 +388,13 @@ data_strain %>%
 
 ```
 
+## Repeat count
+
+longer than 100
+
+longer than 500
+
+overall
 
 ## Correlatied features
 
