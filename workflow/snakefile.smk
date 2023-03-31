@@ -463,7 +463,7 @@ rule isescan:
     threads: 18
     message: "executing ISEScan on {wildcards.strain}"
     conda: "envs/isescan.yaml"
-    log: "logs/{strain}_isescan.log"
+    log: "results/logs/{strain}_isescan.log"
     shell: "isescan.py --seqfile {input} --output {output} --nthread {threads} &> {log}"
 
 # join outputs together
