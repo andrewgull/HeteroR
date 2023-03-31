@@ -13,75 +13,65 @@ editor: source
 
 ## Definition
 
-::: {.r-fit-text}
-
->Heteroresistance (HR) is the presence of a heterogeneous population of bacteria with one subpopulation or several subpopulations that exhibit increased levels of antibiotic resistance compared with the main population
+::: r-fit-text
+> Heteroresistance (HR) is the presence of a heterogeneous population of bacteria with one subpopulation or several subpopulations that exhibit increased levels of antibiotic resistance compared with the main population
 
 -   8-fold above resistance level of main population
 
 -   1.E-07 frequency of resistant population
 
-![](figs/resistance.png){.absolute bottom="250" right="50" width="284" height="200"} 
+![](figs/resistance.png){.absolute bottom="250" right="50" width="284" height="200"}
 
 ![](figs/levels_of_resistance.png){.absolute bottom="20" left="10" width="356" height="260"}
 
 ![](figs/frequence_of_resistance.png){.absolute bottom="20" right="400" width="218" height="260"}
-
-::: 
+:::
 
 ## Types of HR
 
-::: {.r-fit-text}
-
+::: r-fit-text
 -   **monoclonal**: HR present in pure clones
 
 -   **polyclonal**: mixed infections or rare resistant mutants
 
 ![](figs/polyclonal_hr.png){.absolute bottom="50" left="100" width="750" height="300"}
-
 :::
 
 ## Types of HR
 
-::: {.r-fit-text}
-
+::: r-fit-text
 -   **stable**: if resistance of the subpopulation does not decrease or revert to susceptibility following growth in the absence of antibiotics
 
 -   **unstable**: if the resistance of the subpopulation decreases or reverts to susceptibility following growth in the absence of antibiotics
 
 ![](figs/unstable_HR.png){.absolute bottom="20" left="250" width="492" height="400"}
-
 :::
 
 ## Mechanisms of ustable HR
 
-::: {.r-fit-text}
+::: r-fit-text
+-   The most common (in G- bacteria): spontaneous amplifications of regions containing resistance genes (RG)
 
-- The most common (in G- bacteria): spontaneous amplifications of regions containing resistance genes (RG)
-
-- Amplifications can quickly disappear without presence of AB unlike pint mutations or indels
+-   Amplifications can quickly disappear without presence of AB unlike pint mutations or indels
 
 ![](figs/gene_amplification_scheme.png){.absolute bottom="10" left="250" width="540" height="400"}
-
 :::
 
 ## Mechanisms of ustable HR
 
 Amplifications are caused by:
 
-::: {.r-fit-text}
+::: r-fit-text
+-   Homologous recombination if duplicated region is surrounded by extensive (\>100 bp) direct sequence repeats (DR)
 
-- Homologous recombination if duplicated region is surrounded by extensive (>100 bp) direct sequence repeats (DR)
+-   Insertion sequences (IS)
 
-- Insertion sequences (IS)
-
-- Very short DR (~10 bp)
+-   Very short DR (\~10 bp)
 
 ![](figs/amplification_mechanisms.png){.absolute bottom="0" left="250" width="554" height="366"}
-
 :::
 
-##
+## 
 
 Our aim is to demonstrate that machine learning can predict unstable HR from genomic data
 
@@ -91,9 +81,7 @@ Our aim is to demonstrate that machine learning can predict unstable HR from gen
 
 ::: columns
 ::: {.column width="20%"}
-![](figs/petri_dish_experimentation_biology_education_petri_dish_icon_143934.png){.absolute width="80" left="50"}
-![](figs/sequencing-icon.png){.absolute width="75" left="64" bottom="410"}
-![](figs/snakemake_logo.png){.absolute width="80" left="60" bottom="310"}
+![](figs/petri_dish_experimentation_biology_education_petri_dish_icon_143934.png){.absolute width="80" left="50"} ![](figs/sequencing-icon.png){.absolute width="75" left="64" bottom="410"} ![](figs/snakemake_logo.png){.absolute width="80" left="60" bottom="310"}
 
 ![](figs/laptop.png){.absolute width="80" left="60" bottom="210"}
 
@@ -115,32 +103,29 @@ Creating a model that can distinguish HR and nonHR strains (supervised ML)
 
 ## Predictors (a.k.a. Features) {.smaller}
 
-::: {.incremental}
-
-- RG count (especially beta-lactamases)
-- RG types
-- mean length of DR
-- maximum length of DR
-- mean number of IS
-- mean length of IS
-- location on plasmids or chromosomes
-- distance to *ori*C
-- length of amplifiable region (AR)
-- plasmids count
-- *coverage*
-- *the longest Nanopore read length*
+::: incremental
+-   RG count (especially beta-lactamases)
+-   RG types
+-   mean length of DR
+-   maximum length of DR
+-   mean number of IS
+-   mean length of IS
+-   location on plasmids or chromosomes
+-   distance to *ori*C
+-   length of amplifiable region (AR)
+-   plasmids count
+-   *coverage*
+-   *the longest Nanopore read length*
 :::
 
 ## HR testing
 
-::: {.incremental}
+::: incremental
+-   HR (groups I + II): 81 strains
 
-- HR (groups I + II): 81 strains
+-   nonHR: 393 strains
 
-- nonHR: 393 strains
-
-- pure resistance: 13 strains
-
+-   pure resistance: 13 strains
 :::
 
 ## Genome completeness
@@ -169,7 +154,7 @@ data_strain <- data_strain %>%
   #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
-  filter(resistance != "R") %>% 
+  filter(resistance != "R", strain != "DA63310") %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
          chrom.status = factor(chrom.status))
 
@@ -194,131 +179,113 @@ data_strain <-
                          DHA = DHA.beta.lactamase,
                          TEM = TEM.beta.lactamase)
 
-## PLOT
+## RGI DATSET
+
+# the following map_dfr is supposed to be ran only once
+# rgi <- map_dfr(data_strain$strain, function(x){
+#         read_delim(file = paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = c("n/a", ""), 
+#                    name_repair = "universal",
+#                    col_select = -c(Predicted_Protein, CARD_Protein_Sequence, Contig, Start, Stop, Orientation, Predicted_DNA, Note, Nudged),
+#                    show_col_types = FALSE) %>% 
+#           mutate(strain = x)}) %>% 
+#   filter(Cut_Off != "Loose") %>% 
+#   mutate(record_id = map_chr(ORF_ID, function(x) strsplit(x, " ")[[1]][1])) %>% 
+#   relocate(strain, record_id, .before=ORF_ID)
+
+#write_csv(rgi, "data/rgi_all.csv")
+
+rgi <- read_csv("data/rgi_all.csv", show_col_types = F)
+
+stay <- c("antibiotic target replacement", "antibiotic target protection", "antibiotic inactivation")
+
+rgi_filt <- rgi %>% 
+  filter(Resistance.Mechanism %in% stay,
+         Percentage.Length.of.Reference.Sequence >= 90,
+         Best_Identities >= 90)
+
+
+## SOME FUNCTIONS
+basic_boxplot <- function(df, variable) {
+  ggplot(df, aes_string("resistance", variable)) +
+    geom_violin(aes(fill = resistance), alpha = 0.7) +
+    geom_boxplot(
+      aes(fill = resistance),
+      alpha = 0.2,
+      notch = F,
+      varwidth = T
+    ) +
+    geom_jitter(alpha = 0.2,
+                width = 0.15,
+                height = 0.1) +
+    scale_fill_brewer(palette = "Set1") +
+    xlab("") +
+    guides(fill = "none")
+}
+
+
+## Completeness PLOT
 data_strain %>% 
   group_by(resistance, chrom.status) %>% 
   count() %>% 
-  ggplot(aes(chrom.status, n)) +
-  geom_col(position = "dodge", aes(fill=resistance), alpha=0.8) + 
-  scale_fill_brewer(palette = "Set1") +
-  facet_grid(cols = vars(resistance)) +
-  ylab("N strains") +
-  xlab("") +
-  guides(fill = "none")
-```
-
-## Coverage
-
-```{r}
-data_strain %>% 
-    ggplot(aes(resistance, coverage)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(
-    aes(fill = resistance),
-    alpha = 0.2,
-    notch = F,
-    varwidth = T
-  ) +
-  geom_jitter(alpha = 0.2,
-              width = 0.15,
-              height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
-  ggtitle("") +
-  ylab("n") +
-  xlab("") +
-  guides(fill = "none")
-```
-
-Sequencing coverage may influence prediction!
-
-## Read length vs Coverage
-
-```{r}
-data_strain %>% 
-  ggplot(aes(read.max.len, coverage)) +
-  geom_point(aes(color = resistance), alpha=0.6) +
-  scale_color_brewer(palette = "Set1") +
-  #scale_x_continuous(trans = "log10")+
-  #geom_abline(intercept = 50, slope = 20) +
-  ggtitle("") +
-  guides(fill = "none") +
-  xlab("maximum read length, bp") +
-  ylab("coverage, x")
-```
-
-## Beta-lactamase gene count
-
-```{r}
-ggplot(data_strain, aes(n.beta.lac)) +
-  geom_bar(aes(fill = resistance), position = "fill") +
-  scale_fill_brewer(palette="Set1") +
-  xlab("N") +
-  ylab("Proportion of strains") +
-  theme(legend.title = element_blank()) +
-  scale_x_continuous(breaks = c(1,2,3,4,5,6))
-```
-
-## If N beta-lactamases > 3
-
-```{r}
-data_strain %>% 
-  ggplot(aes(n.beta.lac.4)) +
-  geom_bar(aes(fill = resistance), position = "fill") +
-  scale_fill_brewer(palette="Set1") +
-  xlab("N > 3") +
+  ggplot(aes(resistance, n)) +
+  geom_col(position = "fill", aes(fill=chrom.status), alpha=0.99) + 
+  scale_fill_brewer(palette = "Set2") +
+  #facet_grid(cols = vars(resistance)) +
   ylab("proportion of strains") +
-  #scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes")) +
-  theme(legend.title=element_blank())
-```
-
-## Beta-lactamases on plasmids
-
-```{r}
-ggplot(data_strain, aes(n.beta.lac.plasmid)) +
-  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
-  scale_fill_brewer(palette = "Set1", name = "") +
-  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
-  xlab("N") +
-  ylab("Proportion of strains")
-```
-
-## ampC beta-lac
-
-This plot doesn't make much sense to me...
-
-```{r}
-bl_type_count <- data_strain %>% 
-  select(resistance, n.beta.lac, ampC) %>% 
-  mutate(non.ampC = n.beta.lac - ampC) %>% 
-  select(-n.beta.lac) %>% 
-  gather(key = "gene", value = "n", 2:3) %>% 
-  group_by(resistance, gene) %>% 
-  summarize(sum=sum(n))
-
-
-ggplot(bl_type_count, aes(gene, sum))+
-  geom_col(aes(fill=resistance), position = "dodge", alpha = 1) + 
-  # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
-  scale_fill_brewer(palette = "Set1", name = "") +
   xlab("") +
-  ylab("proportion")+
-  scale_x_discrete(labels = c("ampC", "non-ampC"))
-  
+  theme(legend.title=element_blank())
+  #guides(fill = "none")
 ```
 
-## TEM beta-lactamase
+## Nanopore sequencing
 
 ```{r}
-ggplot(data_strain, aes(TEM)) +
-  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
-  scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("N") +
-  ylab("proportion")
+library(patchwork)
+
+coverage_plot <- data_strain %>%
+  basic_boxplot("coverage") +
+  ggtitle("coverage") +
+  ylab("x")
+
+read_len_plot <- data_strain %>%
+ basic_boxplot("read.max.len") +
+  ggtitle("max read length") +
+  ylab("bp")
+
+(coverage_plot | read_len_plot)
 ```
 
-## RG counts heatmap
+Sequencing coverage may influence prediction?
 
-```{r, fig.width=8, fig.height=4}
+## How many RG were found? (1)
+
+Filtering: - identity \> 0.9 - length \> 0.9 - "antibiotic target replacement" - "antibiotic target protection" - "antibiotic inactivation"
+
+```{r}
+rg_hist <- rgi %>%
+  group_by(strain) %>%
+  count() %>%
+  ggplot(aes(n)) +
+  geom_histogram(fill = "steelblue", bins = 30) +
+  xlab("n RG per strain") +
+  ylab("n strains") +
+  ggtitle("before")
+
+rg_hist_filt <- rgi_filt %>%
+  group_by(strain) %>%
+  count() %>%
+  ggplot(aes(n)) +
+  geom_histogram(fill = "steelblue", bins = 30) +
+  xlab("n RG per strain") +
+  ylab("n strains") +
+  ggtitle("after")
+
+(rg_hist | rg_hist_filt)
+```
+
+## How many RGs were found? (2)
+
+```{r}
 amr_types_strain <- read_csv("data/amr_types_strain.csv", show_col_types = FALSE)
 
 amr_types_strain_td <- gather(amr_types_strain, key = "AMR.type", value = "N", 2:ncol(amr_types_strain))
@@ -337,29 +304,85 @@ fig <- plot_ly(z = amr_types_strain_td$N,
 fig
 ```
 
+## Beta-lactamase gene count
+
+```{r}
+ggplot(data_strain, aes(n.beta.lac)) +
+  geom_bar(aes(fill = resistance), position = "fill") +
+  scale_fill_brewer(palette="Set1") +
+  xlab("n") +
+  ylab("proportion of strains") +
+  theme(legend.title = element_blank()) +
+  scale_x_continuous(breaks = c(1,2,3,4,5,6))
+```
+
+The more BL genes a strain has, the more likely it turns HR
+
+## If N beta-lactamases \> 3
+
+```{r}
+data_strain %>% 
+  ggplot(aes(n.beta.lac.4)) +
+  geom_bar(aes(fill = resistance), position = "fill") +
+  scale_fill_brewer(palette="Set1") +
+  xlab("n > 3") +
+  ylab("proportion of strains") +
+  #scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes")) +
+  theme(legend.title=element_blank())
+```
+
+In other words: more than 3 BL genes is a very good predictor of HR
+
+## Beta-lactamases on plasmids
+
+```{r}
+ggplot(data_strain, aes(n.beta.lac.plasmid)) +
+  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  xlab("n") +
+  ylab("proportion of strains")
+```
+
+Same picture if look at BL genes on plasmids
+
+## ampC beta-lactamases
+
+```{r}
+data_strain %>%
+  ggplot(aes(ampC)) +
+  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("n") +
+  ylab("proportion of strains")
+
+```
+
+ampC beta-lactamases *decrease* the chance of turning HR
+
+## TEM beta-lactamase
+
+```{r}
+ggplot(data_strain, aes(TEM)) +
+  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  xlab("N") +
+  ylab("proportion")
+```
+
+TEM beta-lactamases *increase* chance of turning HR
+
 ## Plasmid count
 
 not copy number!
 
 ```{r}
 data_strain %>%
-  ggplot(aes(resistance, n.plasmids)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(
-    aes(fill = resistance),
-    alpha = 0.2,
-    notch = F,
-    varwidth = T
-  ) +
-  geom_jitter(alpha = 0.2,
-              width = 0.15,
-              height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
-  ggtitle("") +
-  ylab("n") +
-  xlab("") +
-  guides(fill = "none")
+  basic_boxplot("n.plasmids") +
+  ylab("n")
 ```
+
+HR strains tend to carry more types of plasmids than nonHR
 
 ## Plasmid copy number
 
@@ -367,34 +390,86 @@ Inferred from relative coverage
 
 ```{r}
 data_strain %>%
-  #filter(plasmid.copy.number > 0) %>% 
-  ggplot(aes(resistance, plasmid.copy.number)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(
-    aes(fill = resistance),
-    alpha = 0.2,
-    notch = F,
-    varwidth = T
-  ) +
-  geom_jitter(alpha = 0.2,
-              width = 0.15,
-              height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
-  #scale_y_continuous(trans = "sqrt") +
+  basic_boxplot("plasmid.copy.number") +
   ggtitle("") +
-  ylab("cn") +
-  xlab("") +
-  guides(fill = "none")
-
+  ylab("cn")
 ```
+
+HR strains tend to have more plasmid copies than nonHR
 
 ## Repeat count
 
-longer than 100
+```{r}
+rep_plot <- data_strain %>%
+  basic_boxplot("n.rep.total") +
+  ggtitle("all repeats") +
+  ylab("n")
 
-longer than 500
+rep100_plot <- data_strain %>%
+  basic_boxplot("n.rep.100.total") +
+  ggtitle("longer than 100 bp") +
+  ylab("n")
 
-overall
+rep500_plot <- data_strain %>%
+  basic_boxplot("n.rep.500.total") +
+  ggtitle("longer than 500 bp") +
+  ylab("n")
+
+(rep_plot | rep100_plot | rep500_plot)
+```
+
+HR strains tend to have more repeats
+
+## Repeat length
+
+```{r}
+med_rep_plot <- data_strain %>%
+  filter(med.tot.rep.len > 0) %>%
+  basic_boxplot("med.tot.rep.len") +
+  coord_trans(y = "sqrt") +
+  ylab("bp") +
+  ggtitle("median length")
+
+max_rep_plot <- data_strain %>%
+  filter(max.rep.len > 0) %>%
+  basic_boxplot("max.rep.len") +
+  coord_trans(y = "sqrt") +
+  ylab("bp") +
+  ggtitle("max length")
+
+(med_rep_plot | max_rep_plot)
+```
+
+HR strains tend to have longer repeats
+
+## Amplifiable region length
+
+```{r}
+ar_med <- data_strain %>%
+  basic_boxplot("med.AR.len") +
+  ggtitle("all amplifiable regions") +
+  ylab("bp")
+
+ar_med_cen <- data_strain %>%
+  basic_boxplot("med.AR.len.cen") +
+  ggtitle("spanning gene centre") +
+  ylab("bp")
+
+(ar_med | ar_med_cen)
+```
+
+HR strains tend to have shorter distances between repeats (AR length)
+
+## Distance to *oriC*
+
+```{r}
+data_strain %>% 
+  basic_boxplot("min.dist.oriC") +
+  ggtitle("") +
+  ylab("bp")
+```
+
+HR strains tend to have their RG closer to *oriC*
 
 ## Correlatied features
 
@@ -415,5 +490,156 @@ cor_matrix <- data_strain %>%
 corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.5 )
 ```
 
+A lot of predictors are correlated; this redundancy should be removed later!
 
+## Principal Component Analysis {.smaller}
+
+:::  {style="font-size: 1.0em"}
+
+ - PCA removes correlated predictors
+ 
+ - shows structure in data
+ 
+ - retains maximal variance
+ 
+
+```{r}
+library(tidymodels)
+library(bestNormalize)
+library(ggforce)
+
+plot_validation_results <- function(dat, components) {
+  # dat - data table
+  # components - vector of components names to plot
+  dat %>%
+    select(-strain) %>%
+    select(all_of(c(components, "resistance"))) %>% 
+    # Create the scatterplot matrix
+    ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
+    geom_point(alpha = 0.4, size = 1) +
+    geom_autodensity(alpha = .3) +
+    facet_matrix(vars(-resistance), layer.diag = 2) + 
+    scale_color_brewer(palette = "Set1") + 
+    scale_fill_brewer(palette = "Set1")
+}
+
+orq_recipe <- recipe(resistance ~., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_orderNorm(all_numeric_predictors()) %>% 
+  step_dummy(all_nominal_predictors())
+
+pca_recipe <- orq_recipe %>% 
+  step_pca(all_numeric_predictors(), threshold = 0.8)
+
+data_pca <- prep(pca_recipe, retain = TRUE)
+
+# data_pca$template %>% 
+#   plot_validation_results(c("PC01", "PC02", "PC03"))
+
+pca3d <- plot_ly(
+  data_pca$template,
+  x = ~ PC01,
+  y = ~ PC02,
+  z = ~ PC03,
+  color = ~ data_pca$template$resistance,
+  colors = c('#cf280c', '#1b56f7')
+) %>%
+  add_markers(size = 2,
+              text = ~ data_pca$template$strain) %>%
+  layout(scene = list(
+    xaxis = list(title = 'PC1'),
+    yaxis = list(title = 'PC2'),
+    zaxis = list(title = 'PC3')
+  )) 
+
+pca3d
+```
+
+:::
+
+
+## Variation explained by PCA
+
+```{r}
+sdev <- data_pca$steps[[4]]$res$sdev
+percent_variation <- sdev^2 / sum(sdev^2)
+
+var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
+                     var_explained = percent_variation,
+                     stringsAsFactors = FALSE)
+
+var_df <- var_df %>% 
+  mutate(var_cum_sum = cumsum(var_explained))
+
+var_df[1:10,] %>%
+  mutate(PC = forcats::fct_inorder(PC)) %>%
+  ggplot(aes(x = PC, y = var_explained)) + 
+  geom_col(aes(fill = var_cum_sum)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position="bottom") +
+  scale_fill_continuous(type = "viridis") +
+  xlab("") +
+  ylab("variance")+
+  labs(fill="cumulative variance")
+```
+
+## UMAP {.smaller}
+
+Uniform Manifold Approximation and Projection
+
+::: r-fit-text
+
+-   non-linear "version" of PCA
+
+-   better than tSNE
+
+-   translates high dimensional data into lower dimensions - data exploration!
+
+-   published in 2018 by McInnes et al.
+:::
+
+![](https://homepage.univie.ac.at/maximilian.noichl/full/mammoth/mammoth_render2.png){.absolute width="300" height="300" left="50" bottom="0"}
+
+![](figs/arrow.png){.absolute bottom="150" width="100" left="450"}
+
+![](https://homepage.univie.ac.at/maximilian.noichl/full/mammoth/anim_min_dist_param.gif){.absolute width="250" height="250" right="100" bottom="10"}
+
+## UMAP on HR data
+
+89D to 4D
+
+```{r}
+library(embed)
+
+umap_rec_sup <- orq_recipe %>%
+  step_umap(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    num_comp = 4,
+    min_dist = 0.45,
+    neighbors = 15
+  )
+
+data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
+
+# umap3d <-
+#   plot_ly(
+#     data_umap_sup$template,
+#     x = ~ UMAP01,
+#     y = ~ UMAP02,
+#     z = ~ UMAP03,
+#     color = ~ data_umap_sup$template$resistance,
+#     colors = c('#cf280c', '#1b56f7')) %>%
+#   add_markers(size = 2, text = ~ data_umap_sup$template$strain) %>%
+#   layout(scene = list(
+#     xaxis = list(title = 'x'),
+#     yaxis = list(title = 'y'),
+#     zaxis = list(title = 'z')
+# ))
+# 
+# umap3d
+
+data_umap_sup$template %>% 
+  plot_validation_results(c("UMAP1", "UMAP2", "UMAP3", "UMAP4"))
+```
 
