@@ -157,17 +157,17 @@ data_strain <- data_strain %>%
   left_join(hr_testing, by = "strain")
 
 data_strain <- data_strain %>%
-  mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>%
+  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>%
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
   relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>%
-  filter(resistance != "R") %>%
+  filter(resistance != "R", strain != "DA63310") %>%
   mutate(
     resistance = factor(resistance, levels = c("HR", "nonHR")),
     chrom.status = factor(chrom.status)
   )
 
 data_strain$N50 <- NULL
-data_strain$NA. <- NULL
+#data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 
 #### SPLIT ####
