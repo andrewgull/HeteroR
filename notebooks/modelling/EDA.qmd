@@ -1247,7 +1247,6 @@ data_strain %>%
   guides(fill = "none")
 ```
 
-
 ## Median total repeat length
 
 ```{r}
