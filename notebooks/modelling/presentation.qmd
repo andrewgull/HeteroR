@@ -257,9 +257,26 @@ read_len_plot <- data_strain %>%
 
 Sequencing coverage may influence prediction?
 
-## How many RG were found? (1)
+## How many RG were found? (1) {.smaller}
 
-Filtering: - identity \> 0.9 - length \> 0.9 - "antibiotic target replacement" - "antibiotic target protection" - "antibiotic inactivation"
+::: columns
+::: {.column width="50%" style="font-size: 1.0em"}
+
+- identity \> 0.9 
+
+- length \> 0.9 
+
+:::
+
+::: {.column width="50%" style="font-size: 1.0em"}
+- "antibiotic target replacement" 
+
+- "antibiotic target protection" 
+
+- "antibiotic inactivation"
+
+:::
+:::
 
 ```{r}
 rg_hist <- rgi %>%
@@ -282,6 +299,7 @@ rg_hist_filt <- rgi_filt %>%
 
 (rg_hist | rg_hist_filt)
 ```
+
 
 ## How many RGs were found? (2)
 
