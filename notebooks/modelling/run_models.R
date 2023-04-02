@@ -156,10 +156,15 @@ hr_testing <- readr::read_csv(path_labels,
 data_strain <- data_strain %>%
   left_join(hr_testing, by = "strain")
 
+# temp plasmid copy number
+pl_copy_number <- readr::read_delim("data/plasmid_copy_number.csv", show_col_types = FALSE, delim = " ")
+data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
+  rename(plasmid.copy.number = tot_plasmids)
+
 data_strain <- data_strain %>%
   #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>%
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
-  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>%
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>%
   filter(resistance != "R", strain != "DA63310") %>%
   mutate(
     resistance = factor(resistance, levels = c("HR", "nonHR")),
