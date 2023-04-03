@@ -54,30 +54,35 @@ hr_testing13 <- read_csv("data/heteroresistance_testing.csv", col_select = c(str
 # created during EDA
 hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv") 
 
-# USE HR 1+2+3
+# USE HR 1+2
 data_strain <- data_strain %>% 
   left_join(hr_testing12, by = "strain")
+
+# add TMP plasmid copy number
+pl_copy_number <- read_delim("data/plasmid_copy_number.csv", show_col_types = FALSE, delim = " ")
+data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
+  rename(plasmid.copy.number = tot_plasmids)
 
 data_strain %>% 
   group_by(resistance) %>% 
   count()
 ```
 
-Add n.beta.lac \> 3 and \>4
+Add n.beta.lac \>4
 
 ```{r}
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
+  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  relocate(n.beta.lac.3, n.beta.lac.4, .before = "n.plasmids") %>% 
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
          chrom.status = factor(chrom.status))
 
 data_strain$N50 <- NULL
-data_strain$NA. <- NULL
+#data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 ```
 
@@ -377,6 +382,23 @@ make_roc <- function(mod_res, title){
 }
 
 # Also, there is a function 'run_models.R' to run resampling from terminal
+
+
+library(tidyposterior)
+# Bayesian ANOVA
+
+# function to get a name of the best preprocessor from your resample
+best_preprocessor <- function(res_obj) {
+  res_obj %>% select_best("roc_auc") %>% pull(.config)
+}
+
+# function to make a df with AUCs from the best preproc
+best_aucs <- function(res_obj, model_name){
+  res_obj %>%
+    collect_metrics(summarize = FALSE) %>%
+    filter(.metric == "roc_auc", .config == best_preprocessor(res_obj)) %>%
+    select(id, id2, {{model_name}} := .estimate)
+}
 ```
 
 # Tune race - TEST
@@ -449,6 +471,15 @@ You can load an `.rds` file if it exists.
 ```{r, fig.width=10}
 # correlation threshold was tuned as well
 lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_corr_tune.rds"))
+
+autoplot(lr_ncorr_res)
+```
+
+### New data
+
+```{r, fig.width=10}
+# correlation threshold was tuned as well
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_new.rds"))
 
 autoplot(lr_ncorr_res)
 ```
@@ -623,22 +654,6 @@ rfe_rec %>%
 ### Generate distributions
 
 ```{r}
-library(tidyposterior)
-# Bayesian ANOVA
-
-# function to get a name of the best preprocessor from your resample
-best_preprocessor <- function(res_obj) {
-  res_obj %>% select_best("roc_auc") %>% pull(.config)
-}
-
-# function to make a df with AUCs from the best preproc
-best_aucs <- function(res_obj, model_name){
-  res_obj %>%
-    collect_metrics(summarize = FALSE) %>%
-    filter(.metric == "roc_auc", .config == best_preprocessor(res_obj)) %>%
-    select(id, id2, {{model_name}} := .estimate)
-}
-
 lr_comp <-
   map2(list(lr_ncorr_res, lr_ncorq_res, lr_pca_res),
        c("norm", "orq", "pca"),
@@ -1212,6 +1227,15 @@ rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_rs20_corr_tune.rds"))
 rf_ncorr_res %>% autoplot()
 ```
 
+### New data
+
+```{r}
+# the corr is tuned
+rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_rs20_new.rds"))
+
+rf_ncorr_res %>% autoplot()
+```
+
 ### Gain curve
 
 ```{r}
@@ -1266,11 +1290,20 @@ BT are sensitive to hyper-parameters that's why, firstly, I will use Bayesian gr
 
 ## Main recipe
 
-```{r, fig.width=14, fig.height=8}
+```{r, fig.width=10, fig.height=5}
 xgb_main_bres <- readRDS(paste0(models_path, "btb_main_rs20.rds"))
 
 autoplot(xgb_main_bres)
 ```
+
+### New data
+
+```{r}
+xgb_main_bres <- readRDS(paste0(models_path, "btb_main_rs20_new.rds"))
+
+autoplot(xgb_main_bres)
+```
+
 
 ### Iterations
 
@@ -1287,7 +1320,7 @@ xgb_main_bres %>%
 
 ### Gain curve
 
-```{r}
+```{r, fig.width=6}
 xgb_main_bres %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1305,6 +1338,14 @@ make_roc(xgb_main_bres, "") %>%
 
 ```{r, fig.width=14, fig.height=8}
 xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_corr_tune.rds"))
+
+xgb_ncorr_bres %>% autoplot()
+```
+
+### NCORR new data
+
+```{r}
+xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_new.rds"))
 
 xgb_ncorr_bres %>% autoplot()
 ```
@@ -1451,6 +1492,16 @@ nnet_ncorr <- readRDS(paste0(models_path, "mlp_ncorr_rs20_corr_tune.rds"))
 
 nnet_ncorr %>% autoplot()
 ```
+
+### New data
+
+```{r}
+# corr tuned; bayes search
+nnet_ncorr <- readRDS(paste0(models_path, "mlp_ncorr_rs20_new.rds"))
+
+nnet_ncorr %>% autoplot()
+```
+
 
 ### Best models
 
@@ -1617,15 +1668,20 @@ The best from each group:
 ```{r, fig.width=8, fig.height=6}
 # calculate rocs
 
-roc_df <- map2_dfr(list(lr_ncorr_res, mars_pca_res, lsvm_ncorr_res, psvm_pca_res, knn_ncorq_res, rf_main_res, xgb_main_bres, mlp_ncorq_bres),
-                            c("LR", "MARS", "linSVM", "polySVM", "KNN", "RF", "XGB", "MLP"), 
+# roc_df <- map2_dfr(list(lr_ncorr_res, mars_pca_res, lsvm_ncorr_res, psvm_pca_res, knn_ncorq_res, rf_main_res, xgb_main_bres, mlp_ncorq_bres),
+#                             c("LR", "MARS", "linSVM", "polySVM", "KNN", "RF", "XGB", "MLP"), 
+#                             function(x, y) make_roc(x, y))
+
+roc_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres),
+                            c("LR",  "XGB ncorr"), 
                             function(x, y) make_roc(x, y))
+
 roc_df %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_viridis_d(direction = -1, option = "H")
+  scale_color_viridis_d(direction = 1, option = "H")
 
 ```
 
@@ -1637,13 +1693,19 @@ XGB's ROC looks better than others
 Collect AUCs of the best model (with the best mean AUC) from each resamples object
 
 ```{r}
-mod_comparison <- map2(list(lr_ncorr_res, mars_pca_res, lsvm_ncorr_res, psvm_pca_res, knn_ncorq_res, rf_main_res, xgb_main_bres, mlp_ncorq_bres),
-       c("LR", "MARS", "linSVM", "polySVM", "KNN", "RF", "XGB", "MLP"),
+# mod_comparison <- map2(list(lr_ncorr_res, mars_pca_res, lsvm_ncorr_res, psvm_pca_res, knn_ncorq_res, rf_main_res, xgb_main_bres, mlp_ncorq_bres),
+#        c("LR", "MARS", "linSVM", "polySVM", "KNN", "RF", "XGB", "MLP"),
+#        ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
+#   reduce(inner_join, by = c("id", "id2")) %>% 
+#   rename("LR" = .y.x, "MARS" = .y.y, "linSVM" = .y.x.x, "polySVM" = .y.y.y, "KNN" = .y.x.x.x, "RF" = .y.y.y.y, "XGB" = .y.x.x.x.x, "MLP" = .y.y.y.y.y) %>% 
+#   unite(id, id, id2)
+
+mod_comparison <- map2(list(lr_ncorr_res, xgb_main_bres, xgb_ncorr_bres, nnet_ncorr),
+       c("LR", "XGB all", "XGB ncorr", "MLP ncorr"),
        ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
   reduce(inner_join, by = c("id", "id2")) %>% 
-  rename("LR" = .y.x, "MARS" = .y.y, "linSVM" = .y.x.x, "polySVM" = .y.y.y, "KNN" = .y.x.x.x, "RF" = .y.y.y.y, "XGB" = .y.x.x.x.x, "MLP" = .y.y.y.y.y) %>% 
+  set_names(c("id", "id2", "LR", "XGB.all", "XGB.ncorr", "MLP.ncorr")) %>% 
   unite(id, id, id2)
-
 
 mod_posterior <- perf_mod(mod_comparison, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 8)
 
@@ -1721,9 +1783,10 @@ xgb_mod <- boost_tree(
   set_mode("classification")
 
 # main or ncorr?
-best <- xgb_main_bres %>% 
+best <- xgb_ncorr_bres %>% 
   select_best("roc_auc")
 
+# use hyper parameters of the best model
 last_mod <-
   boost_tree(
     mtry = best$mtry,
@@ -1740,7 +1803,7 @@ last_mod <-
 # this was the XGB workflow
 xgb_wf <- workflow() %>% 
   add_model(xgb_mod) %>% 
-  add_recipe(main_recipe) # the recipe here should be the one that was used for this model
+  add_recipe(ncorr_recipe_tuned) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
@@ -1765,12 +1828,17 @@ final_fit %>%
 **NB**: This is forbidden action!
 
 ```{r}
+# tuned recipe
+best_corr <- lr_ncorr_res %>% 
+  select_best("roc_auc") %>% 
+  pull(corr_tune)
+
 ncorr_recipe_tuned <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = 0.406) %>% # tuned threshold
+  step_corr(threshold = best_corr) %>% # tuned threshold
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 # model spec
@@ -1786,7 +1854,7 @@ last_mod <-
   set_engine("glmnet", num.threads = 8) %>% 
   set_mode("classification") 
 
-# this was the XGB workflow
+# workflow
 lr_wf <- workflow() %>% 
   add_model(lr_mod) %>% 
   add_recipe(ncorr_recipe_tuned) # the recipe here should be the one that was used for this model
@@ -1896,7 +1964,7 @@ final_fit %>%
 ```{r}
 final_fit %>% 
   extract_fit_parsnip() %>% 
-  vip(num_features = 40, include_type = T) 
+  vip(num_features = 50, include_type = T) 
 ```
 
 Sequencing related features (coverage and read length) are here - among
@@ -1906,7 +1974,7 @@ the most important
 
 Lloyd Shapley (Nobel Prize 2012)
 
-```{r, fig.height=4}
+```{r, fig.height=8}
 library(fastshap)
 
 # final fit model
@@ -1939,7 +2007,7 @@ feat <- prep(main_recipe, df_train) %>%
 
 autoplot(shap, 
          type = "dependence", 
-         feature = "max.rep.len", 
+         feature = "min.AR.len.cen", 
          X = feat,
          smooth = TRUE, 
          color_by = "resistance")
@@ -1947,7 +2015,7 @@ autoplot(shap,
 
 ### Contributions in each strain
 
-```{r}
+```{r, fig.height=10}
 library(patchwork)
 p1 <- autoplot(shap, type = "contribution", row_num = 1) +
   ggtitle("DA62886")
@@ -1967,16 +2035,11 @@ force_plot(object = shap[1,],
            link = "logit")
 ```
 
-```{python}
-
-```
-
-
 ## Final model's parameters
 
 ```{r, eval=F}
 final_fit %>% 
-  extract_fit_parsnip() 
+  extract_fit_parsnip() %>% tidy() 
 ```
 
 ## ROC
@@ -1992,7 +2055,7 @@ final_fit %>%
 
 Probability cut-off = 0.5
 
-```{r, fig.width=6}
+```{r}
 cm <- final_fit %>%
   collect_predictions() %>%
   conf_mat(truth = resistance, estimate = .pred_class)
