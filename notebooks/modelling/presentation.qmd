@@ -13,7 +13,7 @@ editor: source
 
 ## Definition
 
-::: r-fit-text
+::: {.r-fit-text}
 > Heteroresistance (HR) is the presence of a heterogeneous population of bacteria with one subpopulation or several subpopulations that exhibit increased levels of antibiotic resistance compared with the main population
 
 -   8-fold above resistance level of main population
@@ -29,7 +29,7 @@ editor: source
 
 ## Types of HR
 
-::: r-fit-text
+::: {.r-fit-text}
 -   **monoclonal**: HR present in pure clones
 
 -   **polyclonal**: mixed infections or rare resistant mutants
@@ -39,7 +39,7 @@ editor: source
 
 ## Types of HR
 
-::: r-fit-text
+::: {.r-fit-text}
 -   **stable**: if resistance of the subpopulation does not decrease or revert to susceptibility following growth in the absence of antibiotics
 
 -   **unstable**: if the resistance of the subpopulation decreases or reverts to susceptibility following growth in the absence of antibiotics
@@ -49,7 +49,7 @@ editor: source
 
 ## Mechanisms of ustable HR
 
-::: r-fit-text
+::: {.r-fit-text}
 -   The most common (in G- bacteria): spontaneous amplifications of regions containing resistance genes (RG)
 
 -   Amplifications can quickly disappear without presence of AB unlike pint mutations or indels
@@ -61,7 +61,7 @@ editor: source
 
 Amplifications are caused by:
 
-::: r-fit-text
+::: {.r-fit-text}
 -   Homologous recombination if duplicated region is surrounded by extensive (\>100 bp) direct sequence repeats (DR)
 
 -   Insertion sequences (IS)
@@ -74,6 +74,8 @@ Amplifications are caused by:
 ## 
 
 Our aim is to demonstrate that machine learning can predict unstable HR from genomic data
+
+(more on Pip/Tazo and mechanisms)
 
 ![](figs/analysis_scheme.png){.absolute bottom="0" left="150" width="741" height="390"}
 
@@ -89,7 +91,7 @@ Our aim is to demonstrate that machine learning can predict unstable HR from gen
 :::
 
 ::: {.column width="80%"}
-500 *E.coli* strains tested for HR to Piperacillin-Tazobactam
+500 *E.coli* strains tested for HR to **Piperacillin-Tazobactam**
 
 WGS using both Nanopore and Illumina
 
@@ -510,16 +512,23 @@ corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.5 )
 
 A lot of predictors are correlated; this redundancy should be removed later!
 
-## Principal Component Analysis {.smaller}
+## PCA {.smaller}
+
+Principal Component Analysis
 
 :::  {style="font-size: 1.0em"}
 
- - PCA removes correlated predictors
+ - combines existing predictors into new uncorrelated ones
  
  - shows structure in data
  
- - retains maximal variance
+ - retains maximum information
+
+![](https://builtin.com/sites/www.builtin.com/files/inline-images/national/Principal%2520Component%2520Analysis%2520second%2520principal.gif)
  
+:::
+ 
+## PCA on our data
 
 ```{r}
 library(tidymodels)
@@ -555,27 +564,27 @@ data_pca <- prep(pca_recipe, retain = TRUE)
 # data_pca$template %>% 
 #   plot_validation_results(c("PC01", "PC02", "PC03"))
 
-pca3d <- plot_ly(
-  data_pca$template,
-  x = ~ PC01,
-  y = ~ PC02,
-  z = ~ PC03,
-  color = ~ data_pca$template$resistance,
-  colors = c('#cf280c', '#1b56f7')
-) %>%
-  add_markers(size = 2,
-              text = ~ data_pca$template$strain) %>%
-  layout(scene = list(
-    xaxis = list(title = 'PC1'),
-    yaxis = list(title = 'PC2'),
-    zaxis = list(title = 'PC3')
-  )) 
+# pca3d <- plot_ly(
+#   data_pca$template,
+#   x = ~ PC01,
+#   y = ~ PC02,
+#   z = ~ PC03,
+#   color = ~ data_pca$template$resistance,
+#   colors = c('#cf280c', '#1b56f7')
+# ) %>%
+#   add_markers(size = 2,
+#               text = ~ data_pca$template$strain) %>%
+#   layout(scene = list(
+#     xaxis = list(title = 'PC1'),
+#     yaxis = list(title = 'PC2'),
+#     zaxis = list(title = 'PC3')
+#   )) 
+# 
+# pca3d
 
-pca3d
+data_pca$template %>% 
+  plot_validation_results(c("PC01", "PC02", "PC03", "PC04", "PC05", "PC06"))
 ```
-
-:::
-
 
 ## Variation explained by PCA
 
@@ -597,7 +606,7 @@ var_df[1:10,] %>%
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5), legend.position="bottom") +
   scale_fill_continuous(type = "viridis") +
   xlab("") +
-  ylab("variance")+
+  ylab("variance") +
   labs(fill="cumulative variance")
 ```
 
@@ -605,7 +614,7 @@ var_df[1:10,] %>%
 
 Uniform Manifold Approximation and Projection
 
-::: r-fit-text
+::: {.r-fit-text}
 
 -   non-linear "version" of PCA
 
@@ -660,4 +669,160 @@ data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 data_umap_sup$template %>% 
   plot_validation_results(c("UMAP1", "UMAP2", "UMAP3", "UMAP4"))
 ```
+
+## Overfitting and underfitting
+
+![](figs/overfitting.png) 
+
+Underfitting: model is too simple and doesn't describe data well enough
+
+Overfitting: model is "memorizing" the data set and will fail on unseen data
+
+Balanced: model generalizes well, i.e. classifies unseen data successfully
+
+## Cross-validation
+
+![](https://www.tmwr.org/premade/resampling.svg)
+
+## Imbalanced data
+
+81 HR vs. 393 nonHR
+
+A model predicting only nonHR will have 81/393 = 80% accuracy
+
+Solution: 
+
+SMOTE - Synthetic Minority Oversampling Technique
+
+SMOTE creates artificial data points along the vectors connecting the real data points in high dimensional feature space
+
+SMOTE increases false positives and decreases false negatives 
+
+![](https://raw.githubusercontent.com/rikunert/SMOTE_visualisation/master/SMOTE_R_visualisation_3.png)
+
+## Preprocessing
+
+::: {.r-fit-text}
+- removing correlated features
+- regularization (L1, L2)
+- PCA instead of original predictors (loss of model interpretation)
+- data transformation (to get more symmetrical distributions)
+ - centering
+ - scaling
+ - Box-Cox transformation
+ - Yeo-Johnson transformation (YJ)
+ - ordered quantile normalization (ORQ)
+:::
+
+## Models tested {.smaller}
+
+::: {.r-fit-text}
+- Regularized logistic regression (LR)
+- Multivariate adaptive regression splines (MARS)
+- Linear support vector machines (lSVM)
+- Polynomial support vector machines (pSVM)
+- K-nearest neighbors (KNN)
+- Random forest (RF)
+- Multilayer perceptron/feed-forward neural network (MLP)
+- eXtreme Gradient Boosted Trees (XGB)
+- Stack of models
+
+each with all predictors, non-correlated predictors and PCs as predictors
+::: 
+
+## Model performance
+
+::: incremental
+- ROC (how well a model tells the classes apart)
+- gain curve (how well a model finds HR strains)
+- mean AUC (over 100 resamples)
+- difference of mean AUCs (Bayesian ANOVA)
+:::
+
+## Model performance
+
+```{r}
+make_roc <- function(mod_res, title){
+  
+  mod_best <- mod_res %>%
+    select_best(metric = "roc_auc")
+  
+  mod_auc <- mod_res %>% 
+    collect_predictions(parameters = mod_best) %>% 
+    roc_curve(resistance, .pred_HR) %>% 
+    mutate(model = title)
+  
+  return(mod_auc)
+}
+
+# Also, there is a function 'run_models.R' to run resampling from terminal
+
+
+library(tidyposterior)
+# Bayesian ANOVA
+
+# function to get a name of the best preprocessor from your resample
+best_preprocessor <- function(res_obj) {
+  res_obj %>% select_best("roc_auc") %>% pull(.config)
+}
+
+# function to make a df with AUCs from the best preproc
+best_aucs <- function(res_obj, model_name){
+  res_obj %>%
+    collect_metrics(summarize = FALSE) %>%
+    filter(.metric == "roc_auc", .config == best_preprocessor(res_obj)) %>%
+    select(id, id2, {{model_name}} := .estimate)
+}
+
+models_path <- "~/Data/HeteroR/results/models/scheme12/"
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_corr_tune.rds"))
+
+xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_new.rds"))
+
+roc_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres),
+                            c("LR", "XGB"), 
+                            function(x, y) make_roc(x, y))
+
+roc_df %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  scale_color_viridis_d(direction = 1, option = "H")
+```
+
+
+## Model performance
+
+![ANOVA of the best]()
+
+Simple LR is the best (after data set update), XGB is the second
+
+## Predictors importance
+
+![Features importance]()
+
+## Test set (the unseen data)
+
+ROC, AUC, CM; prob threshold
+
+## Conclusions
+
+- 1
+- 2
+- 3
+- ...
+
+## Improvements
+
+- More data!
+- Better data (better coverage, better assemblies, better gene detection, better repeat count)
+- More biologically relevant predictors
+
+## Warnings
+
+- Source of data (hospitals in Uppsala)
+- HR definition (groups 1, 2, 3, 5, 4...) HR-index?
+- Data set size
+
 
