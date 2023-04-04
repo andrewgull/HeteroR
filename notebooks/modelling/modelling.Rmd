@@ -1342,7 +1342,7 @@ xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_corr_tune.rds"))
 xgb_ncorr_bres %>% autoplot()
 ```
 
-### NCORR new data
+### New data
 
 ```{r}
 xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_new.rds"))
@@ -1526,6 +1526,17 @@ nnet_ncorq <- readRDS(paste0(models_path, "mlp_ncorq_rs20_corr_tune.rds"))
 nnet_ncorq %>% autoplot()
 ```
 
+### New data
+
+```{r}
+# corr tune
+nnet_ncorq <- readRDS(paste0(models_path, "mlp_ncorq_rs20_new.rds"))
+
+nnet_ncorq %>% autoplot()
+
+```
+
+
 ### Best models
 
 ```{r}
@@ -1665,15 +1676,15 @@ The best from each group:
 
 - NB: none
 
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=4, fig.height=4}
 # calculate rocs
 
 # roc_df <- map2_dfr(list(lr_ncorr_res, mars_pca_res, lsvm_ncorr_res, psvm_pca_res, knn_ncorq_res, rf_main_res, xgb_main_bres, mlp_ncorq_bres),
 #                             c("LR", "MARS", "linSVM", "polySVM", "KNN", "RF", "XGB", "MLP"), 
 #                             function(x, y) make_roc(x, y))
 
-roc_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres),
-                            c("LR",  "XGB ncorr"), 
+roc_df <- map2_dfr(list(lr_ncorr_res, xgb_ncorr_bres, rf_ncorr_res, nnet_ncorq),
+                            c("LR ncorr",  "XGB ncorr", "RF ncorr", "MLP ncorq"), 
                             function(x, y) make_roc(x, y))
 
 roc_df %>% 
@@ -1681,7 +1692,8 @@ roc_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_viridis_d(direction = 1, option = "H")
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1")
 
 ```
 
@@ -1700,11 +1712,11 @@ Collect AUCs of the best model (with the best mean AUC) from each resamples obje
 #   rename("LR" = .y.x, "MARS" = .y.y, "linSVM" = .y.x.x, "polySVM" = .y.y.y, "KNN" = .y.x.x.x, "RF" = .y.y.y.y, "XGB" = .y.x.x.x.x, "MLP" = .y.y.y.y.y) %>% 
 #   unite(id, id, id2)
 
-mod_comparison <- map2(list(lr_ncorr_res, xgb_main_bres, xgb_ncorr_bres, nnet_ncorr),
-       c("LR", "XGB all", "XGB ncorr", "MLP ncorr"),
+mod_comparison <- map2(list(lr_ncorr_res, xgb_ncorr_bres, rf_ncorr_res, nnet_ncorq),
+       c("LR ncorr",  "XGB ncorr", "RF ncorr", "MLP ncorq"),
        ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
   reduce(inner_join, by = c("id", "id2")) %>% 
-  set_names(c("id", "id2", "LR", "XGB.all", "XGB.ncorr", "MLP.ncorr")) %>% 
+  set_names(c("id", "id2", "LR", "XGB", "RF", "MLP")) %>% 
   unite(id, id, id2)
 
 mod_posterior <- perf_mod(mod_comparison, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 8)
@@ -1880,10 +1892,24 @@ final_fit %>%
 ```
 
 ```{r}
+# tuned recipe
+best_corr <- nnet_ncorq %>% 
+  select_best("roc_auc") %>% 
+  pull(corr_tune)
+
+# recipe with tuned corr
+ncorq_recipe_tuned <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(threshold = best_corr) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
 # model spec
 mlp_mod <- set_model("nnet", 2)
 
-best <- nnet_ncorr_bres %>% 
+best <- nnet_ncorq %>% 
   select_best("roc_auc")
 
 last_mod <-
@@ -1898,7 +1924,7 @@ last_mod <-
 # this was the XGB workflow
 mlp_wf <- workflow() %>% 
   add_model(mlp_mod) %>% 
-  add_recipe(ncorr_recipe) # the recipe here should be the one that was used for this model
+  add_recipe(ncorq_recipe_tuned) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
