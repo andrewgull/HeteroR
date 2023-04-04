@@ -984,7 +984,7 @@ gff <- map_dfr(gff_files, ~ read_gff(.)) %>%
   set_names(c("seq.region", "type", "start", "stop", "strand", "record_id")) %>%
   filter(record_id %in% unique(features$record_id)) %>%
   mutate(
-    located.on.plasmid = str_detect(seq.region, "1", negate = T),
+    located.on.plasmid = str_detect(seq.region, "_1$", negate = T),
     on.plasmid = if_else(located.on.plasmid, "yes", "no"),
     pos.strand = if_else(strand == "+", "yes", "no")
   ) %>%
