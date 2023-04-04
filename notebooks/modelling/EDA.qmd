@@ -492,12 +492,39 @@ It is a supervised variant of UMAP
 
 Here I increase the minimal distance to see the local structure better
 
-### Two components
+### Unsupervised
 
-```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=8}
+```{r, message=FALSE, warning=FALSE, fig.width=4, fig.height=4}
 ## UMAP Supervised
 library(embed)
 
+umap_rec <- orq_recipe %>%
+  step_umap(
+    all_numeric_predictors(),
+    #outcome = "resistance",
+    num_comp = 10,
+    min_dist = 0.01,
+    neighbors = 25
+  )
+
+data_umap <- prep(umap_rec, retain = TRUE)
+
+# data_umap_sup$template %>% 
+#   ggplot(aes(UMAP01, UMAP02)) +
+#   geom_point(aes(color = resistance), alpha = 0.6) +
+#   scale_color_brewer(palette = "Set1") +
+#   ggtitle("Supervised UMAP (HR12)")
+
+data_umap$template %>% 
+  plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
+  ggtitle("UMAP unsupervised")
+```
+
+### Supervised
+
+Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
+
+```{r, message=FALSE, warning=FALSE}
 umap_rec_sup <- orq_recipe %>%
   step_umap(
     all_numeric_predictors(),
@@ -510,20 +537,8 @@ umap_rec_sup <- orq_recipe %>%
 data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
 
 data_umap_sup$template %>% 
-  ggplot(aes(UMAP01, UMAP02)) +
-  geom_point(aes(color = resistance), alpha = 0.6) +
-  scale_color_brewer(palette = "Set1") +
-  ggtitle("Supervised UMAP (HR12)")
-```
-
-### More components
-
-Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
-
-```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
-data_umap_sup$template %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
-  ggtitle("UMAP supervised (HR12)")
+  ggtitle("UMAP supervised")
 ```
 
 ### 3D version
