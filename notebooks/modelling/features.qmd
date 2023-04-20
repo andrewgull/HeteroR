@@ -1645,6 +1645,146 @@ and the most of TEMs, are TEM-1
 
 So, there is no information in this.
 
+## IS elements
+
+```{r, message=FLASE}
+strains <- dir("/mnt/data/andrei/Data/HeteroR/results/isescan")
+
+# function to read ISEscan results
+read_isescan_csv <- function(x) {
+  path <-
+    paste0(
+      "/mnt/data/andrei/Data/HeteroR/results/isescan/",
+      x,
+      "/regions/regions_joined_final.fasta.csv"
+    )
+  return(read_csv(path, show_col_types = FALSE)  %>% add_column(strain = x, .before = 1))
+}
+
+#isescan_df <- map_dfr(strains[-which(strains == "DA63616")], ~ read_isescan_csv(.))
+isescan_df <- map_dfr(strains, ~ read_isescan_csv(.))
+isescan_df
+```
+
+### How many families found?
+
+```{r}
+length(unique(isescan_df$family))
+```
+
+### How many genes per strain have IS elements?
+
+```{r}
+isescan_df %>% 
+  select(strain, seqID) %>%
+  distinct() %>%
+  group_by(strain) %>%
+  count() %>%
+  arrange(-n)
+```
+
+```{r}
+isescan_df %>% 
+  select(strain, seqID) %>%
+  distinct() %>%
+  group_by(strain) %>%
+  count() %>%
+  arrange(-n) %>% 
+  ggplot(aes(n)) +
+  geom_histogram() +
+  xlab("n genes with IS")
+```
+
+
+### How many families per strain?
+
+```{r}
+isescan_df %>% 
+  select(strain, family) %>%
+  distinct() %>%
+  group_by(strain) %>%
+  count() %>%
+  arrange(-n)
+```
+
+```{r}
+isescan_df %>% 
+  select(strain, family) %>%
+  distinct() %>%
+  group_by(strain) %>%
+  count() %>%
+  arrange(-n) %>% 
+  ggplot(aes(n)) +
+  geom_histogram() +
+  xlab("IS families")
+```
+
+### IS length distribution
+
+```{r}
+isescan_df %>% 
+  ggplot(aes(isLen)) +
+  geom_histogram() +
+  geom_rug()
+```
+
+```{r}
+isescan_df %>% filter(isLen > 10000)
+```
+
+### Copy number within each family
+
+```{r}
+isescan_df %>% group_by(family) %>% count() %>% 
+  ggplot(aes(family, n)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+```
+
+### Families and lengths
+
+```{r}
+isescan_df %>% 
+  ggplot(aes(family, isLen)) +
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+```
+
+### ncopy4is ??
+
+```{r}
+isescan_df %>% 
+  ggplot(aes(ncopy4is)) +
+  geom_histogram()
+```
+
+### ncopy4is per family
+
+```{r}
+isescan_df %>% 
+  ggplot(aes(family, ncopy4is)) +
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+```
+
+```{r}
+isescan_df %>% 
+  ggplot(aes(isLen, ncopy4is)) +
+  geom_point()
+```
+
+`isLen` and `ncopy4is` are not related
+
+### Suggestions
+
+We can use as features:
+
+- avg/max IS length (per strain) - which will also be a proxy for activity of IS
+
+- same but broke down per family
+
+- distance between the two insertions
+
 ## Write AMP tables required for EDA to files
 
 Resistance testing will be added later in the EDA section
