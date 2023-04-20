@@ -1652,7 +1652,83 @@ Engine-Specific Arguments: num.threads = 8
 
 Computational engine: nnet
 
-# Model comparison
+# Models stacking
+
+For successful stacking, you need the same set of predictors in every
+candidate model.
+
+Models with NOCORR recipe were among the best
+
+Models must be trained using the same set of features!
+
+Each model in the same stack must have same resampling method!
+
+## Make a BRES stack
+
+```{r}
+library(stacks)
+
+# no corr set
+ncorr_stack_bres <-
+  stacks() %>% 
+  add_candidates(rf_ncorr_bres) %>%
+  add_candidates(xgb_ncorr_bres_long) %>% 
+  add_candidates(nnet_ncorr_bres)
+
+as_tibble(ncorr_stack_bres)
+```
+
+Evaluating the stack
+
+```{r}
+ncorr_stack_bres %>% 
+  blend_predictions(penalty = seq(0.01, 0.4, 0.01)) %>% 
+  autoplot()
+```
+
+Let's choose penalty
+
+```{r}
+ncorr_stack_model <- 
+  ncorr_stack_bres %>% 
+  blend_predictions(penalty = 0.03)
+```
+
+```{r}
+autoplot(ncorr_stack_model, type = "weights")
+```
+
+```{r}
+ncorr_stack_model <- 
+  ncorr_stack_model %>% 
+  fit_members()
+
+ncorr_stack_model
+```
+
+```{r}
+data_pred <- df_test %>% 
+  bind_cols(predict(ncorr_stack_model, ., type = "class"))
+
+npv(data_pred, truth = resistance, .pred_class)
+```
+
+```{r}
+roc_curve(data = data_pred, truth = resistance, .pred_HR_nnet_ncorr_bres_1_18) %>% 
+  autoplot()
+```
+
+```{r}
+yardstick::kap(data_pred, truth = resistance, .pred_HR)
+```
+
+```{r}
+# updated workspace
+save.image("data/all_models_local_update.RData")
+```
+
+
+# Comparison of models
 
 ## ROC of the best models
 
@@ -1985,82 +2061,6 @@ final_fit %>%
   collect_metrics()
 ```
 
-## Features importance
-
-```{r}
-final_fit %>% 
-  extract_fit_parsnip() %>% 
-  vip(num_features = 50, include_type = T) 
-```
-
-Sequencing related features (coverage and read length) are here - among
-the most important
-
-## Shapley Additive Explanations
-
-Lloyd Shapley (Nobel Prize 2012)
-
-```{r, fig.height=8}
-library(fastshap)
-
-# final fit model
-final_xgb_mod <- 
-  last_wf %>%
-  fit(df_train) %>% 
-  pull_workflow_fit()
-
-final_xgb_mod <- final_fit %>% 
-  extract_fit_parsnip()
-
-# Apply the preprocessing steps with prep and juice to the training data
-X <- prep(main_recipe, df_train) %>% 
-  juice() %>% 
-  select(-c(resistance, strain)) %>% # remove character columns
-  as.matrix()
-
-# Compute shapley values 
-
-shap <- fastshap::explain(final_xgb_mod$fit, X = X, exact = TRUE)
-
-autoplot(shap)
-```
-
-### Dependence plot
-
-```{r}
-feat <- prep(main_recipe, df_train) %>% 
-  juice()
-
-autoplot(shap, 
-         type = "dependence", 
-         feature = "min.AR.len.cen", 
-         X = feat,
-         smooth = TRUE, 
-         color_by = "resistance")
-```
-
-### Contributions in each strain
-
-```{r, fig.height=10}
-library(patchwork)
-p1 <- autoplot(shap, type = "contribution", row_num = 1) +
-  ggtitle("DA62886")
-
-p2 <- autoplot(shap, type = "contribution", row_num = 10) +
-  ggtitle("DA63030")
-
-p1+p2
-```
-
-### Force plot
-
-```{r}
-force_plot(object = shap[1,], 
-           feature_values = X[1,], 
-           display = "html", 
-           link = "logit")
-```
-
 ## Final model's parameters
 
 ```{r, eval=F}
@@ -2170,145 +2170,159 @@ autoplot(cm_optimized, type = "heatmap")
 summary(cm_optimized)
 ```
 
-## Extract predictions
 
-With probability threshold = 0.5
+# Post-modelling analysis
 
-### Collect False Positives
-
-Should be 8 of them
+## Features importance
 
 ```{r}
-test_row_numbers <- data_strain %>% 
-  select(strain, resistance) %>% 
-  mutate(.row = row_number())
-
-fp_df <- final_fit %>%
-  collect_predictions() %>% 
-  select(.row, .pred_class, resistance) %>% 
-  left_join(test_row_numbers, by = ".row") %>% 
-  filter(.pred_class == "HR", resistance.x == "nonHR") %>% 
-  select(strain) %>% 
-  mutate(prediction = "FP")
-  
-fp_df
+final_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 50, include_type = T) 
 ```
 
-### Collect False Negatives
+Sequencing related features (coverage and read length) are here - among
+the most important
 
-Should be 6 of them
+## Shapley Additive Explanations
 
-```{r}
-fn_df <- final_fit %>%
-  collect_predictions() %>% 
-  select(.row, .pred_class, resistance) %>% 
-  left_join(test_row_numbers, by = ".row") %>% 
-  filter(.pred_class == "nonHR", resistance.x == "HR") %>% 
-  select(strain)%>% 
-  mutate(prediction = "FN")
+Lloyd Shapley (Nobel Prize 2012)
 
-fn_df
+```{r, fig.height=8}
+library(fastshap)
+
+# final fit model
+final_xgb_mod <- 
+  last_wf %>%
+  fit(df_train) %>% 
+  pull_workflow_fit()
+
+final_xgb_mod <- final_fit %>% 
+  extract_fit_parsnip()
+
+# Apply the preprocessing steps with prep and juice to the training data
+X <- prep(main_recipe, df_train) %>% 
+  juice() %>% 
+  select(-c(resistance, strain)) %>% # remove character columns
+  as.matrix()
+
+# Compute shapley values 
+
+shap <- fastshap::explain(final_xgb_mod$fit, X = X, exact = TRUE)
+
+autoplot(shap)
 ```
 
+### Dependence plot
+
 ```{r}
-tp_df <- final_fit %>%
-  collect_predictions() %>% 
-  select(.row, .pred_class, resistance) %>% 
-  left_join(test_row_numbers, by = ".row") %>% 
-  filter(.pred_class == "HR", resistance.x == "HR") %>% 
-  select(strain)%>% 
-  mutate(prediction = "COR")
+feat <- prep(main_recipe, df_train) %>% 
+  juice()
 
-dim(tp_df)
-
-tn_df <- final_fit %>%
-  collect_predictions() %>% 
-  select(.row, .pred_class, resistance) %>% 
-  left_join(test_row_numbers, by = ".row") %>% 
-  filter(.pred_class == "nonHR", resistance.x == "nonHR") %>% 
-  select(strain)%>% 
-  mutate(prediction = "COR")
-
-dim(tn_df)
-
-pred_df <- bind_rows(tp_df, tn_df, fp_df, fn_df)
-
-dim(pred_df)
+autoplot(shap, 
+         type = "dependence", 
+         feature = "min.AR.len.cen", 
+         X = feat,
+         smooth = TRUE, 
+         color_by = "resistance")
 ```
 
-------------------------------------------------------------------------
+### Contributions in each strain
 
-# Models stacking
+```{r, fig.height=10}
+library(patchwork)
+p1 <- autoplot(shap, type = "contribution", row_num = 1) +
+  ggtitle("DA62886")
 
-For successful stacking, you need the same set of predictors in every
-candidate model.
+p2 <- autoplot(shap, type = "contribution", row_num = 10) +
+  ggtitle("DA63030")
 
-Models with NOCORR recipe were among the best
-
-Models must be trained using the same set of features!
-
-Each model in the same stack must have same resampling method!
-
-## Make a BRES stack
-
-```{r}
-library(stacks)
-
-# no corr set
-ncorr_stack_bres <-
-  stacks() %>% 
-  add_candidates(rf_ncorr_bres) %>%
-  add_candidates(xgb_ncorr_bres_long) %>% 
-  add_candidates(nnet_ncorr_bres)
-
-as_tibble(ncorr_stack_bres)
+p1+p2
 ```
 
-Evaluating the stack
+### Force plot
 
 ```{r}
-ncorr_stack_bres %>% 
-  blend_predictions(penalty = seq(0.01, 0.4, 0.01)) %>% 
-  autoplot()
+force_plot(object = shap[1,], 
+           feature_values = X[1,], 
+           display = "html", 
+           link = "logit")
 ```
 
-Let's choose penalty
+
+## Extracting predictions
+
+Using the final model fit and adjusted probability cut-off
+
+That final recipe:
 
 ```{r}
-ncorr_stack_model <- 
-  ncorr_stack_bres %>% 
-  blend_predictions(penalty = 0.03)
+final_recipe <- last_wf %>% fit(df_train) %>% extract_recipe()
+
+final_recipe
+```
+
+The final model fit
+
+```{r}
+lr_fit <- last_wf %>% fit(df_train) %>% extract_fit_parsnip()
+```
+
+
+```{r}
+data_strain_proc <- final_recipe %>%
+  bake(new_data = data_strain) %>% 
+  select(-c(strain, resistance))
+
+data_strain_proc
 ```
 
 ```{r}
-autoplot(ncorr_stack_model, type = "weights")
+# I tested this code on df_test and it gives the same confusion matrix as the code above in section 'Final fit' and 'Confusion matrix with prob=0.5'
+# So it's the right way to apply predict() to the entire data set to identify false predictions
+
+prediction_all_data <- predict(lr_fit, new_data=data_strain_proc, type="prob") %>% 
+  select(.pred_HR) %>% 
+  mutate(.pred_class = if_else(.pred_HR >= max_j_index_threshold, "HR", "nonHR"),
+         .true_class = data_strain$resistance,
+         strain = data_strain$strain) %>% 
+  rename(.prob_HR = .pred_HR) 
+
+prediction_all_data
+```
+
+### AMR types and false predictions
+
+```{r}
+# this is for Dan
+amr_types_strain <- read_csv("data/amr_types_strain.csv")
+
+prediction_all_data %>%  
+  left_join(amr_types_strain, by="strain") %>% 
+  write.csv(file="data/amr_types_prediction_prob.csv", row.names = F)
 ```
 
 ```{r}
-ncorr_stack_model <- 
-  ncorr_stack_model %>% 
-  fit_members()
+# amr_type_pred <- read_csv("data/amr_types_prediction_prob.csv")
 
-ncorr_stack_model
+amr_type_pred %>% 
+  filter(.pred_class != .true_class) %>% 
+  pivot_longer(cols = colnames(amr_type_pred)[5:25],
+               names_to = "AMR.gene",
+               values_to = "n") %>% 
+  ggplot(aes(strain, AMR.gene, fill=n)) +
+  geom_tile() +
+  scale_fill_gradient(low="white", high="blue") 
 ```
 
 ```{r}
-data_pred <- df_test %>% 
-  bind_cols(predict(ncorr_stack_model, ., type = "class"))
-
-npv(data_pred, truth = resistance, .pred_class)
+amr_type_pred %>% 
+  filter(.pred_class == .true_class) %>% 
+  pivot_longer(cols = colnames(amr_type_pred)[5:25],
+               names_to = "AMR.gene",
+               values_to = "n") %>% 
+  ggplot(aes(strain, AMR.gene, fill=n)) +
+  geom_tile() +
+  scale_fill_gradient(low="white", high="blue") 
 ```
 
-```{r}
-roc_curve(data = data_pred, truth = resistance, .pred_HR_nnet_ncorr_bres_1_18) %>% 
-  autoplot()
-```
-
-```{r}
-yardstick::kap(data_pred, truth = resistance, .pred_HR)
-```
-
-```{r}
-# updated workspace
-save.image("data/all_models_local_update.RData")
-```
