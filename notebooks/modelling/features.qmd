@@ -769,9 +769,7 @@ read_depth <- function(strain_name, max_gen_size=4500000) {
                 "/depth.txt")
   
   df <- read.delim(path) %>%
-    rename_with( ~ "chr", 1) %>%
-    rename_with( ~ "position", 2) %>%
-    rename_with( ~ "n", 3) %>%
+    set_names(c("chr", "position", "n")) %>% 
     mutate(n = as.numeric(n), chr = as.factor(chr)) %>%
     group_by(chr) %>%
     summarize(avg_depth = mean(n), size = length(position)) %>%
@@ -779,7 +777,7 @@ read_depth <- function(strain_name, max_gen_size=4500000) {
     add_column(strain = strain_name, .before = 1) %>% arrange(desc(size)) %>%
     mutate(plasmids = round(avg_depth / avg_depth[1], 0))
   
-  
+  return(df)
   if (df[1, "size"] < max_gen_size) {
     warning(paste0(
       "Size of the biggest fragment of the strain ",
@@ -799,7 +797,8 @@ list_UC <- map(UC_strains, ~ read_depth(.))
 # rbind the first elements: data frames
 df_UC <- map_dfr(list_UC, function(x) x[[1]])
 # get the names of the strains with the size of the biggest fragment is smaller than max_gen_size
-short_UC <-unique(map_chr(list_UC, function(x) x[[2]]))
+short_UC <- unique(map_chr(list_UC, function(x) x[[2]]))
+short_UC <- short_UC[!is.na(short_UC)]
 
 df_UC_all <- df_UC %>% 
   filter(!strain %in% short_UC)
@@ -809,7 +808,10 @@ df_UC_short_raw <- df_UC %>%
   select(-plasmids) %>% 
   dplyr::rename(Strain = strain , Length = size)
 
-df_UC <- df_UC_all%>% select(strain,plasmids) %>% group_by(strain) %>% summarize(tot_plasmids = sum(plasmids)-1 )
+df_UC <- df_UC_all %>% 
+  select(strain,plasmids) %>% 
+  group_by(strain) %>% 
+  summarize(tot_plasmids = sum(plasmids)-1 )
 ```
 
 #### FMP read depth + plasmid count
@@ -839,10 +841,8 @@ df_FMP <-df_FMP_all %>% select(strain,plasmids) %>% group_by(strain) %>% summari
 read_depth_short <- function(x) {
    path <- paste0("/mnt/data/andrei/Data/HeteroR/results/genome_coverage/", x, "/depth.txt")
    
-   df <- read.delim(path)  %>% 
-     rename_with(~"chr", 1) %>% 
-     rename_with(~"position", 2) %>% 
-     rename_with(~"n", 3)%>% 
+   df <- read.delim(path) %>% 
+     set_names(c("chr", "position", "n")) %>% 
      mutate(n = as.numeric(n), chr = as.factor(chr)) %>% 
      group_by(chr) %>% 
      summarize(avg_depth = mean(n), size = length(position))%>%
@@ -853,7 +853,7 @@ read_depth_short <- function(x) {
    return(df)
  }
  
-df_UC_short_raw <- map_dfr(short_UC[!is.na(short_UC)], ~ read_depth_short(.))
+df_UC_short_raw <- map_dfr(short_UC, ~ read_depth_short(.))
 df_UC_short_raw
 ```
 
@@ -936,15 +936,17 @@ so I just do a cutoff. if n of fragments smaller than 19 -\> do all_combinations
 sequential_building - just adds fragments in decreasing order until the sum arrives to 4 500 000 and merges the fragments up to that point into a chromosome. the average depth is taken into account - the biggest fragment is used as coverage reference and only fragments with a comparable coverage are used.
 
 ```{r}
-sequential_building <- function(x,df){rel_pl_count<- df %>% filter(Strain ==  x) %>% mutate(plasmids = round(avg_depth / avg_depth[1], 0))   
-rel_pl_count_1 <- rel_pl_count %>% filter(plasmids == 1)
-get.labels <- function(lengths.vec, max.sum.len) {
-  marks <- c()
-  cumsum.len <- cumsum(lengths.vec)
-  cumsum.len <- head(c(0, cumsum.len), n = -1)
-  marks <- ifelse(cumsum.len < max.sum.len, "chromosome", "plasmid")
-  return(marks)
-}
+sequential_building <- function(x, df) {
+  rel_pl_count <-
+    df %>% filter(Strain ==  x) %>% mutate(plasmids = round(avg_depth / avg_depth[1], 0))
+  rel_pl_count_1 <- rel_pl_count %>% filter(plasmids == 1)
+  get.labels <- function(lengths.vec, max.sum.len) {
+    marks <- c()
+    cumsum.len <- cumsum(lengths.vec)
+    cumsum.len <- head(c(0, cumsum.len), n = -1)
+    marks <- ifelse(cumsum.len < max.sum.len, "chromosome", "plasmid")
+    return(marks)
+  }
 
 labels.total <- c()
 labels.total <-
@@ -1027,13 +1029,19 @@ return(df)
 }}
 
 df_UC_short_no_scaffold_all <- map_dfr(UC_short_no_scaffold, ~ get_cov_uc_header(.))
- df_UC_short_no_scaffold_all
+
+df_UC_short_no_scaffold_all
 
 
 ```
 
 ```{r}
- df_UC_short_no_scaffold <- df_UC_short_no_scaffold_all%>% select(Strain,plasmids) %>% dplyr::rename(strain = Strain) %>% group_by(strain) %>% summarize(tot_plasmids = sum(plasmids)-1 )
+df_UC_short_no_scaffold <-
+  df_UC_short_no_scaffold_all %>% 
+  select(Strain, plasmids) %>% 
+  dplyr::rename(strain = Strain) %>% 
+  group_by(strain) %>% 
+  summarize(tot_plasmids = sum(plasmids) - 1)
 ```
 
 #### UC_short_scaffold
@@ -1042,35 +1050,54 @@ If a scaffold is present data are taken from the depth files. if the number of f
 
 ```{r}
 short_UC_scaffold_plasmids_count <- function(x) {
+  headers <-
+    df_UC_short_raw %>% filter(Strain == x)  %>% filter(Length > 1000)
+  print(paste0(x, " with ", headers %>% nrow(), " fragments"))
   
-  headers <- df_UC_short_raw %>% filter(Strain == x)  %>% filter(Length >1000)
-print(paste0(x, " with ",headers %>% nrow()," fragments"))
-
-if (nrow(headers) >18){
-  sequential_building(x,df_UC_short_raw)
-}else {
-  seq_lengths_chr <- all_combinations((headers  %>% filter(Strain == x) %>% select(Length))$Length)[find_closest_number(lapply(all_combinations((headers  %>% filter(Strain == x) %>% select(Length))$Length),sum), UC_size_median)]
-#return(unlist(seq_lengths_chr))
-  
-
-
-chromosome_fragments <-  headers %>%  filter(Length %in% unlist(seq_lengths_chr)) %>% mutate(depth_times_length = avg_depth*Length, Status = "plasmid" )
-other_fragments <-  headers %>%  mutate( Status = "plasmid" ) %>%  filter(!Length %in% unlist(seq_lengths_chr)) %>% select(Strain, avg_depth, Length, Status)
-
-
-# to build the chromosome sum lengths, and average depths normalizing by lengths
-df <-  other_fragments %>% add_row(Strain =x,  Status = "completed_by_hand", Length = sum(chromosome_fragments$Length), avg_depth= (sum(chromosome_fragments$depth_times_length)/ sum(chromosome_fragments$Length)))   %>% 
-     mutate(plasmids = round(avg_depth / avg_depth[1], 0))  
-return(df)
-}}
+  if (nrow(headers) > 18) {
+    sequential_building(x, df_UC_short_raw)
+  } else {
+    seq_lengths_chr <-
+      all_combinations((headers  %>% filter(Strain == x) %>% select(Length))$Length)[find_closest_number(lapply(all_combinations((headers  %>% filter(Strain == x) %>% select(Length))$Length
+      ), sum), UC_size_median)]
+    #return(unlist(seq_lengths_chr))
+    
+    
+    
+    chromosome_fragments <-
+      headers %>%  filter(Length %in% unlist(seq_lengths_chr)) %>% mutate(depth_times_length = avg_depth *
+                                                                            Length, Status = "plasmid")
+    other_fragments <-
+      headers %>%  mutate(Status = "plasmid") %>%  filter(!Length %in% unlist(seq_lengths_chr)) %>% select(Strain, avg_depth, Length, Status)
+    
+    
+    # to build the chromosome sum lengths, and average depths normalizing by lengths
+    df <-
+      other_fragments %>% add_row(
+        Strain = x,
+        Status = "completed_by_hand",
+        Length = sum(chromosome_fragments$Length),
+        avg_depth = (
+          sum(chromosome_fragments$depth_times_length) / sum(chromosome_fragments$Length)
+        )
+      )   %>%
+      mutate(plasmids = round(avg_depth / avg_depth[1], 0))
+    return(df)
+  }
+}
 
 #short_UC_scaffold_plasmids_count(UC_short_scaffold[1])
- df_UC_short_scaffold_all <- map_dfr(UC_short_scaffold, ~ short_UC_scaffold_plasmids_count(.))
- df_UC_short_scaffold_all
+df_UC_short_scaffold_all <-
+  map_dfr(UC_short_scaffold, ~ short_UC_scaffold_plasmids_count(.))
+df_UC_short_scaffold_all
 ```
 
 ```{r}
- df_UC_short_scaffold <- df_UC_short_scaffold_all%>% select(Strain,plasmids) %>% dplyr::rename(strain = Strain) %>% group_by(strain) %>% summarize(tot_plasmids = sum(plasmids)-1 )
+df_UC_short_scaffold <- df_UC_short_scaffold_all %>% 
+  select(Strain,plasmids) %>% 
+  dplyr::rename(strain = Strain) %>% 
+  group_by(strain) %>% 
+  summarize(tot_plasmids = sum(plasmids) -1)
 ```
 
 #### Short FMP
@@ -1085,64 +1112,127 @@ FMP_size_median <- df_FMP_all %>% group_by(strain)  %>%
 ```
 
 ```{r}
-build_short_FMP <- function(x){
-
-# selecting cols of interest 
-  df1 <- df_FMP_short_raw  %>% filter(Strain == x) %>% select(Strain,avg_depth,Length) %>% arrange(desc(Length)) %>% dplyr::rename(length_ass = Length)
-  df2 <- assemblies %>% filter(Strain == x) %>% select(Length,Status) %>% arrange(desc(Length)) %>% dplyr::rename(length_cov = Length)  %>%  filter(length_cov > 1000)
-
-
-    total_df <- cbind(df1, df2) %>% 
-    mutate(diff = abs(length_ass - length_cov),
-           max_length = pmax(length_ass, length_cov),
-           percent_diff = 100 * diff / max_length,
-           next_max_length = lead(max_length),
-           prev_max_length = lag(max_length),
-           max_diff_next = ifelse(is.na(next_max_length), NA, 100 * abs(max_length - next_max_length) / next_max_length),
-           max_diff_prev = ifelse(is.na(prev_max_length), NA, 100 * abs(max_length - prev_max_length) / prev_max_length),
-           is_lower_than_next = ifelse(is.na(next_max_length), NA, diff < (max_diff_next / 100) * max_length),
-           is_lower_than_prev = ifelse(is.na(prev_max_length), NA, diff < (max_diff_prev / 100) * max_length))%>% mutate(is_lower_than_neighbours = if_else(is.na(is_lower_than_next) | is.na(is_lower_than_prev), TRUE, is_lower_than_next & is_lower_than_prev)) %>% select( -percent_diff,-next_max_length,-prev_max_length, -max_diff_next, -max_diff_prev, -is_lower_than_next,-is_lower_than_prev) 
-    
-    if(!all(total_df$is_lower_than_neighbours)) {
-     warning(paste0("Union by size of the strain ", x, " is not unique\n\n"))
-    }
-
+build_short_FMP <- function(x) {
+  # selecting cols of interest
+  df1 <-
+    df_FMP_short_raw  %>% filter(Strain == x) %>% select(Strain, avg_depth, Length) %>% arrange(desc(Length)) %>% dplyr::rename(length_ass = Length)
+  df2 <-
+    assemblies %>% filter(Strain == x) %>% select(Length, Status) %>% arrange(desc(Length)) %>% dplyr::rename(length_cov = Length)  %>%  filter(length_cov > 1000)
   
-  df_out <- total_df%>% mutate(depth_norm = round(avg_depth / avg_depth[1], 0)) %>% filter(depth_norm ==1, Status =="incomplete")
   
-# return all possible combinations of the segments 
-
-seq_lengths_chr <- all_combinations((df_out  %>% filter(Strain == x) %>% select(max_length))$max_length)[find_closest_number(lapply(all_combinations((df_out  %>% filter(Strain == x) %>% select(max_length))$max_length),sum), FMP_size_median)]
-#return(unlist(seq_lengths_chr))
-
-chromosome_fragments <-  total_df %>%  filter(max_length %in% unlist(seq_lengths_chr)) %>% mutate(depth_times_length = avg_depth*max_length)
-other_fragments <-  total_df %>%  filter(!max_length %in% unlist(seq_lengths_chr)) %>% select(Strain, avg_depth, max_length, Status)
-
-# to build the chromosome sum lengths, and average depths normalizing by lengths
-df <-  other_fragments %>% add_row(Strain =x,  Status = "completed_by_hand", max_length = sum(chromosome_fragments$max_length), avg_depth= (sum(chromosome_fragments$depth_times_length)/ sum(chromosome_fragments$max_length)))   %>% 
-     mutate(plasmids = round(avg_depth / avg_depth[1], 0))  
-
-return(df)
+  total_df <- cbind(df1, df2) %>%
+    mutate(
+      diff = abs(length_ass - length_cov),
+      max_length = pmax(length_ass, length_cov),
+      percent_diff = 100 * diff / max_length,
+      next_max_length = lead(max_length),
+      prev_max_length = lag(max_length),
+      max_diff_next = ifelse(
+        is.na(next_max_length),
+        NA,
+        100 * abs(max_length - next_max_length) / next_max_length
+      ),
+      max_diff_prev = ifelse(
+        is.na(prev_max_length),
+        NA,
+        100 * abs(max_length - prev_max_length) / prev_max_length
+      ),
+      is_lower_than_next = ifelse(
+        is.na(next_max_length),
+        NA,
+        diff < (max_diff_next / 100) * max_length
+      ),
+      is_lower_than_prev = ifelse(
+        is.na(prev_max_length),
+        NA,
+        diff < (max_diff_prev / 100) * max_length
+      )
+    ) %>% mutate(
+      is_lower_than_neighbours = if_else(
+        is.na(is_lower_than_next) |
+          is.na(is_lower_than_prev),
+        TRUE,
+        is_lower_than_next &
+          is_lower_than_prev
+      )
+    ) %>% select(
+      -percent_diff,
+      -next_max_length,
+      -prev_max_length,
+      -max_diff_next,
+      -max_diff_prev,
+      -is_lower_than_next,
+      -is_lower_than_prev
+    )
+  
+  if (!all(total_df$is_lower_than_neighbours)) {
+    warning(paste0("Union by size of the strain ", x, " is not unique\n\n"))
+  }
+  
+  
+  df_out <-
+    total_df %>% mutate(depth_norm = round(avg_depth / avg_depth[1], 0)) %>% filter(depth_norm ==
+                                                                                      1, Status == "incomplete")
+  
+  # return all possible combinations of the segments
+  
+  seq_lengths_chr <-
+    all_combinations((df_out  %>% filter(Strain == x) %>% select(max_length))$max_length)[find_closest_number(lapply(all_combinations((df_out  %>% filter(Strain == x) %>% select(max_length))$max_length
+    ), sum), FMP_size_median)]
+  #return(unlist(seq_lengths_chr))
+  
+  chromosome_fragments <-
+    total_df %>%  filter(max_length %in% unlist(seq_lengths_chr)) %>% mutate(depth_times_length = avg_depth *
+                                                                               max_length)
+  other_fragments <-
+    total_df %>%  filter(!max_length %in% unlist(seq_lengths_chr)) %>% select(Strain, avg_depth, max_length, Status)
+  
+  # to build the chromosome sum lengths, and average depths normalizing by lengths
+  df <-
+    other_fragments %>% add_row(
+      Strain = x,
+      Status = "completed_by_hand",
+      max_length = sum(chromosome_fragments$max_length),
+      avg_depth = (
+        sum(chromosome_fragments$depth_times_length) / sum(chromosome_fragments$max_length)
+      )
+    )   %>%
+    mutate(plasmids = round(avg_depth / avg_depth[1], 0))
+  
+  return(df)
 }
- 
 
-df_FMP_short_all<- map_dfr(short_FMP, ~ build_short_FMP(.))
+
+df_FMP_short_all <- map_dfr(short_FMP, ~ build_short_FMP(.))
 
 ```
 
 ```{r}
-df_FMP_short <- df_FMP_short_all%>% select(Strain,plasmids) %>% dplyr::rename(strain = Strain) %>% group_by(strain) %>% summarize(tot_plasmids = sum(plasmids)-1 )
+df_FMP_short <- df_FMP_short_all %>%
+  select(Strain,plasmids) %>% 
+  dplyr::rename(strain = Strain) %>% 
+  group_by(strain) %>% 
+  summarize(tot_plasmids = sum(plasmids) - 1)
 ```
 
-Merge all Plasmid counts
+### Merge all Plasmid counts
 
 ```{r}
-Plasmid_count_all <- rbind(df_UC,
-df_UC_short_no_scaffold,
-df_UC_short_scaffold,
-df_FMP,
-df_FMP_short)
+plasmid_copy_number <- rbind(df_UC,
+                             df_UC_short_no_scaffold,
+                             df_UC_short_scaffold,
+                             df_FMP,
+                             df_FMP_short) %>% 
+  rename(n.c.plasmids = tot_plasmids)
 ```
+
+### Add to features strain
+
+```{r}
+features_strain <- features_strain %>% 
+  left_join(plasmid_copy_number, by="strain")
+```
+
 
 ## Number of beta-lactamases
 
@@ -1904,6 +1994,77 @@ and the most of TEMs, are TEM-1
 So, there is no information in this.
 
 ## IS elements
+
+not all strains got the ISscan treatment,
+
+```{r}
+is_strains <- dir("/mnt/data/andrei/Data/HeteroR/results/isescan")
+```
+
+```{r message=FALSE}
+read_isescan_csv <- function(strain_name) {
+  path <-
+    paste0(
+      "/mnt/data/andrei/Data/HeteroR/results/isescan/",
+      x,
+      "/regions/regions_joined_final.fasta.csv"
+    )
+  
+  df <- read_csv(path) %>% 
+    add_column(strain = strain_name, .before = 1)
+  
+  return(df)
+}
+
+isescan_df <- map_dfr(is_strains, ~ read_isescan_csv(.))
+
+isescan_df$seqID <- str_remove_all(isescan_df$seqID, "_gene")
+
+isescan_df
+```
+
+### per strain features
+
+```{r}
+#families per strain
+is_types <- isescan_df  %>%
+  dplyr::count(family,strain, name = "count") %>%
+  group_by(strain) %>%
+  summarise(unique_count = n()) %>%  dplyr::rename(n_IS_families = unique_count)
+
+#total amount of IS per strain
+is_all <- isescan_df  %>%
+  group_by(strain) %>%
+  summarise(count = n()) %>%  dplyr::rename(tot_n_IS = count)
+
+# per strain max length 
+max_len <- isescan_df   %>% filter(family != "new" ) %>% 
+  group_by(strain)%>%
+  summarise(max_islen = max(isLen)) 
+
+#families Pivot 
+families_pivot <- isescan_df %>%
+  group_by(strain, family) %>%
+  summarise(n = n()) %>%
+  pivot_wider(names_from = family, values_from = n, values_fill = 0)
+
+# add to feature_strain 
+features_strain %>% left_join(is_types, by = "strain") %>% merge(max_len, by = "strain") %>% merge(families_pivot , by = "strain")
+```
+
+Are there any genes that have the same insertion sequence family on both sides?
+
+```{r}
+features %>% select(strain,record_id,gene.length,gene_center) %>%  distinct %>% left_join((isescan_df %>% dplyr::rename(record_id=seqID)),by= c("record_id","strain") ) %>%  mutate(isCenter = (isBegin + isEnd)/2,is_gene_distance = abs(isCenter-gene_center), is_inside_gene = ifelse(is_gene_distance < (gene.length/2),TRUE,FALSE)) %>% filter(is_inside_gene)%>%
+  group_by(strain, record_id,family) %>%
+  filter(any(gene_center < lag(isCenter) & family == lag(family)) & 
+           any(gene_center > lead(isCenter) & family == lead(family))) %>%
+  distinct(strain,record_id, family) 
+```
+
+nope
+
+---
 
 ```{r, message=FLASE}
 strains <- dir("/mnt/data/andrei/Data/HeteroR/results/isescan")
