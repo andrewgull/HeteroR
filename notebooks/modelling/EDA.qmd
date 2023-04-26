@@ -77,7 +77,6 @@ data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>%
   rename(plasmid.copy.number = tot_plasmids) %>% 
   relocate(plasmid.copy.number, .after = n.plasmids)
   
-
 # TWO SCHEMES IN TWO FILES
 hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
   filter(!is.na(strain)) %>% 
@@ -408,7 +407,7 @@ pca3d
 
 ```{r}
 # find the step number corresponding to PCA, here it's 5
-sdev <- data_pca$steps[[5]]$res$sdev
+sdev <- data_pca$steps[[4]]$res$sdev
 percent_variation <- sdev^2 / sum(sdev^2)
 
 var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
@@ -447,7 +446,7 @@ data_pca %>%
 
 ## ICA - Independent Component Analysis
 
-```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=12}
+```{r, message=FALSE, warning=FALSE}
 ## ICA
 #install.packages("fastICA")
 ica_rec <- orq_recipe %>%
@@ -456,7 +455,7 @@ ica_rec <- orq_recipe %>%
 data_ica <- prep(ica_rec, retain = TRUE)
 
 data_ica$template %>% 
-  plot_validation_results() + 
+  plot_validation_results(c("IC1", "IC2", "IC3")) + 
   ggtitle("Independent Component Analysis (HR12)")
 ```
 
@@ -494,7 +493,7 @@ Here I increase the minimal distance to see the local structure better
 
 ### Unsupervised
 
-```{r, message=FALSE, warning=FALSE, fig.width=4, fig.height=4}
+```{r, message=FALSE, warning=FALSE}
 ## UMAP Supervised
 library(embed)
 
@@ -627,7 +626,11 @@ umap_groups_recipe <- recipe(hr.group ~., data = data_groups) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), outcome = "hr.group", num_comp = 6, min_dist = 0.02, neighbors = 25)
+  step_umap(all_numeric_predictors(), 
+            #outcome = "hr.group", 
+            num_comp = 6, 
+            min_dist = 0.02, 
+            neighbors = 25)
 
 data_umap_groups <- prep(umap_groups_recipe, retain = TRUE)
 
@@ -639,7 +642,7 @@ data_umap_groups$template %>%
     scale_color_brewer(palette = "Set1", direction = 1) + 
     scale_shape_manual(values = c(21, 24, 22, 20)) +
     theme_bw() +
-    ggtitle("Supervised UMAP (HR groups)")
+    ggtitle("(un)Supervised UMAP (HR groups)")
 ```
 
 #### 3D version
@@ -770,19 +773,6 @@ ggplot(data_strain, aes(n.beta.lac)) +
 2.  There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
 
 #### Proportion bar-plot
-
-```{r}
-ggplot(data_strain, aes(n.beta.lac.3)) +
-  geom_bar(aes(fill = resistance), position = "fill") +
-  scale_fill_brewer(palette = "Set1") +
-  xlab("N beta-lact > 3") +
-  ylab("proportion of strains") +
-  scale_x_discrete(breaks = c(0,1))+
-  theme(legend.title = element_blank())
-  
-```
-
-When the number of BL genes is less or equal 3, most likely the strains is non-HR
 
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
@@ -1607,3 +1597,52 @@ ggplot(data_strain %>% filter(med.AR.len.ampC > 0), aes(resistance, med.AR.len.a
   guides(fill="none")
 
 ```
+
+
+## IS sequences
+
+### IS family count
+
+```{r}
+colnames <- data_strain %>% 
+  select(strain, resistance, new, contains("IS", ignore.case = FALSE)) %>% names()
+
+data_strain %>% 
+  select(strain, resistance, new, contains("IS", ignore.case = FALSE)) %>% 
+  pivot_longer(cols = colnames[3:23], names_to = "is.family", values_to = "n") %>% 
+  ggplot(aes(is.family, n)) +
+  geom_col(aes(fill=resistance), position = "fill") +
+  scale_fill_brewer(palette = "Set1", name = "") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+  xlab("") +
+  ylab("proportion")
+```
+
+### IS max length
+
+```{r}
+data_strain %>% 
+  ggplot(aes(resistance, max.is.len)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y="sqrt") +
+  ylab("max IS length") +
+  guides(fill="none")
+```
+
+### Total family number
+
+```{r}
+data_strain %>% 
+  ggplot(aes(resistance, n.is.fam)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1") +
+  #coord_trans(y="sqrt") +
+  ylab("IS families") +
+  guides(fill="none")
+```
+
