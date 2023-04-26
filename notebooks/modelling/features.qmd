@@ -179,10 +179,9 @@ strains
 setdiff(strains, unique(repeat_df$strain))
 ```
 
-
- **Outdated block**
- ---
-I checked some of these strain, their `repeats.csv` tables are empty
+| **Outdated block**                                                 |
+|--------------------------------------------------------------------|
+| checked some of these strain, their `repeats.csv` tables are empty |
 
 I checked `grf_perfect.log` files - this file is empty in DA62900, but have info on repeats in DA62906.
 
@@ -215,7 +214,7 @@ repeat_df <- bind_rows(repeat_df, no_repeats_df)
 length(unique(repeat_df$strain))
 ```
 
----
+------------------------------------------------------------------------
 
 ### Read BED files to determine center spanning repeat pairs
 
@@ -1204,7 +1203,6 @@ build_short_FMP <- function(x) {
 
 
 df_FMP_short_all <- map_dfr(short_FMP, ~ build_short_FMP(.))
-
 ```
 
 ```{r}
@@ -1233,6 +1231,117 @@ features_strain <- features_strain %>%
   left_join(plasmid_copy_number, by="strain")
 ```
 
+## Adjusting gene counts by plasmid copy number
+
+this code like the one used to count plasmids from short FMP strains merges columns ordered by lengths.
+
+```{r}
+
+# a function to read GFF files using STANDARD read.delim
+read_gff <- function(gff_filename) {
+  # read and process
+  df <-
+    as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
+    select(V1, V3, V4, V5, V7, V9) %>%
+    filter(V3 == "gene")
+  return(df)
+}
+
+df_UC_FMP_all <-
+  rbind(
+    df_UC_all,
+    df_FMP_all,
+    df_UC_short_raw %>% dplyr::rename(strain = Strain, size = Length) %>% arrange(desc(size)) %>%
+      mutate(plasmids = round(avg_depth / avg_depth[1], 0)),
+    df_FMP_short_raw %>% dplyr::rename(strain = Strain, size = Length) %>% arrange(desc(size)) %>%
+      mutate(plasmids = round(avg_depth / avg_depth[1], 0))
+  )
+
+count_genes <- function(x) {
+  path = paste0(
+    "/mnt/data/andrei/Data/HeteroR/results/annotations/",
+    x,
+    "/prokka/",
+    x,
+    "_genomic.gff"
+  )
+  
+  strain_rgi <-
+    rgi %>% filter(strain == x) %>% select(record_id) %>% unlist %>% unname
+  
+  df1 <-
+    readLines(path) %>%
+    as_tibble() %>%   filter(str_detect(value, "^##sequence")) %>%
+    separate(value,
+             sep = " ",
+             into = c("x", "chr", "xx", "length_h")) %>% mutate(length_h = as.numeric(length_h)) %>% filter(length_h > 1000) %>%   separate(chr, sep = "_", into = c("xx", "chr")) %>% select(chr, length_h) %>% arrange(desc(length_h))
+  
+  
+  
+  df2 <-
+    df_UC_FMP_all %>% filter(strain == x) %>%  select(strain, plasmids, size) %>% dplyr::rename(n_gene_copies = plasmids, length_d = size) %>% arrange(desc(length_d))
+  
+  
+  total_df <- cbind(df1, df2) %>%
+    mutate(
+      diff = abs(length_h - length_d),
+      max_length = pmax(length_h, length_d),
+      percent_diff = 100 * diff / max_length,
+      next_max_length = lead(max_length),
+      prev_max_length = lag(max_length),
+      max_diff_next = ifelse(
+        is.na(next_max_length),
+        NA,
+        100 * abs(max_length - next_max_length) / next_max_length
+      ),
+      max_diff_prev = ifelse(
+        is.na(prev_max_length),
+        NA,
+        100 * abs(max_length - prev_max_length) / prev_max_length
+      ),
+      is_lower_than_next = ifelse(
+        is.na(next_max_length),
+        NA,
+        diff < (max_diff_next / 100) * max_length
+      ),
+      is_lower_than_prev = ifelse(
+        is.na(prev_max_length),
+        NA,
+        diff < (max_diff_prev / 100) * max_length
+      )
+    ) %>% mutate(
+      is_lower_than_neighbours = if_else(
+        is.na(is_lower_than_next) |
+          is.na(is_lower_than_prev),
+        TRUE,
+        is_lower_than_next &
+          is_lower_than_prev
+      )
+    ) %>% select(chr, strain, n_gene_copies)
+  
+  if (!all(total_df$is_lower_than_neighbours)) {
+    warning(paste0("Union by size of the strain ", x, " is not unique\n\n"))
+  }
+  
+  
+  read_gff(path) %>%
+    separate(col = V9,
+             sep = "locus_tag=",
+             into = c("V10", "V11")) %>% mutate(V10 = str_extract(V10, "(?<=gene=)[^;]+")) %>% separate(V1, c("V0", "V1"), sep = "_") %>%  select(V1, V10, V11) %>% dplyr::rename(chr = V1,
+                                                                                                                                                                                  gene = V10,
+                                                                                                                                                                                  record_id = V11) %>% filter(!is.na(gene)) %>% merge(total_df, by = "chr") %>% return()
+  
+}
+
+gene_counts_rgi <- map_dfr(strains, ~ count_genes(.))
+```
+
+adding gene counts to features
+
+```{r}
+features <-
+  gene_counts_rgi %>% select(record_id, strain, n_gene_copies) %>% right_join(features, by = c("strain", "record_id"))
+```
 
 ## Number of beta-lactamases
 
@@ -1824,7 +1933,7 @@ features %>%
   filter(n.ampC == 0)
 ```
 
-In real life, every E.coli has at least I ampC gene on chromosome - the table above should be empty, unless `AMR.Gene.Family` is `NA`! (DA63310)
+In real life, every E.coli has at least 1 ampC gene on chromosome - the table above should be empty, unless `AMR.Gene.Family` is `NA`! (DA63310)
 
 ### Filter features with ampC genes only
 
@@ -1837,6 +1946,45 @@ features_ampC <- features %>%
 ### Repeat counts
 
 On chromosome, on plasmid, both
+
+```{r}
+repeat_counts <- function(features_selected, ar) {
+  # features_selected: features filtered for the beta-lactamase of interest, tibble
+  # ar: beta-lactamase of interest, string
+  
+  ar_colnames <-
+    c(
+      "strain",
+      paste0("n.rep.chrom.", ar),
+      paste0("n.rep.plasmid.", ar),
+      paste0("nc.rep.plasmid.", ar),
+      paste0("nc.rep.total.", ar)
+    )
+  
+  features_ar <- features_selected %>%
+    filter(is.beta.lac) %>%
+    group_by(strain, on.plasmid) %>%
+    summarise(n.rep = n()) %>%
+    spread(key = "on.plasmid",
+           value = n.rep,
+           fill = 0) %>%
+    dplyr::rename(strain = strain,
+                  n.rep.chrom = no,
+                  n.rep.plasmid = yes) %>%
+    select(strain, n.rep.chrom, n.rep.plasmid) %>% merge(features_strain %>% select(strain, plasmid.copy.number))  %>%
+    mutate(
+      nc.rep.plasmid = n.rep.plasmid  * plasmid.copy.number,
+      nc.rep.total = n.rep.chrom + n.rep.plasmid
+    ) %>% select(-plasmid.copy.number) %>% setNames(nm = ar_colnames)
+  
+  return(features_ar)
+}
+
+repeat_counts_ampC <- repeat_counts(features_ampC, "ampC")
+features_strain <- left_join(features_strain, repeat_counts_ampC, by = "strain")
+
+head(features_strain)
+```
 
 ```{r}
 repeat_counts_ampC <- features_ampC %>% 
@@ -1995,8 +2143,6 @@ So, there is no information in this.
 
 ## IS elements
 
-not all strains got the ISscan treatment,
-
 ```{r}
 is_strains <- dir("/mnt/data/andrei/Data/HeteroR/results/isescan")
 ```
@@ -2006,7 +2152,7 @@ read_isescan_csv <- function(strain_name) {
   path <-
     paste0(
       "/mnt/data/andrei/Data/HeteroR/results/isescan/",
-      x,
+      strain_name,
       "/regions/regions_joined_final.fasta.csv"
     )
   
@@ -2028,19 +2174,22 @@ isescan_df
 ```{r}
 #families per strain
 is_types <- isescan_df  %>%
-  dplyr::count(family,strain, name = "count") %>%
+  dplyr::count(family, strain, name = "count") %>%
   group_by(strain) %>%
-  summarise(unique_count = n()) %>%  dplyr::rename(n_IS_families = unique_count)
+  summarise(unique_count = n()) %>% 
+  dplyr::rename(n.is.fam = unique_count)
 
 #total amount of IS per strain
 is_all <- isescan_df  %>%
   group_by(strain) %>%
-  summarise(count = n()) %>%  dplyr::rename(tot_n_IS = count)
+  summarise(count = n()) %>%
+  dplyr::rename(n.is.tot = count)
 
 # per strain max length 
-max_len <- isescan_df   %>% filter(family != "new" ) %>% 
+max_len <- isescan_df %>% 
+  filter(family != "new" ) %>% 
   group_by(strain)%>%
-  summarise(max_islen = max(isLen)) 
+  summarise(max.is.len = max(isLen)) 
 
 #families Pivot 
 families_pivot <- isescan_df %>%
@@ -2049,14 +2198,23 @@ families_pivot <- isescan_df %>%
   pivot_wider(names_from = family, values_from = n, values_fill = 0)
 
 # add to feature_strain 
-features_strain %>% left_join(is_types, by = "strain") %>% merge(max_len, by = "strain") %>% merge(families_pivot , by = "strain")
+features_strain <- 
+  list(features_strain, is_types, max_len, families_pivot, is_all) %>% 
+  reduce(left_join, by = "strain") %>% 
+  as_tibble() #??
 ```
 
 Are there any genes that have the same insertion sequence family on both sides?
 
 ```{r}
-features %>% select(strain,record_id,gene.length,gene_center) %>%  distinct %>% left_join((isescan_df %>% dplyr::rename(record_id=seqID)),by= c("record_id","strain") ) %>%  mutate(isCenter = (isBegin + isEnd)/2,is_gene_distance = abs(isCenter-gene_center), is_inside_gene = ifelse(is_gene_distance < (gene.length/2),TRUE,FALSE)) %>% filter(is_inside_gene)%>%
-  group_by(strain, record_id,family) %>%
+features %>% 
+  select(strain, record_id, gene.length, gene_center) %>% 
+  distinct %>% 
+  left_join((isescan_df %>% 
+               dplyr::rename(record_id=seqID)), by= c("record_id","strain")) %>%
+  mutate(isCenter = (isBegin + isEnd)/2, is_gene_distance = abs(isCenter - gene_center), is_inside_gene = ifelse(is_gene_distance < (gene.length/2), TRUE, FALSE)) %>% 
+  filter(is_inside_gene) %>%
+  group_by(strain, record_id, family) %>%
   filter(any(gene_center < lag(isCenter) & family == lag(family)) & 
            any(gene_center > lead(isCenter) & family == lead(family))) %>%
   distinct(strain,record_id, family) 
@@ -2064,26 +2222,7 @@ features %>% select(strain,record_id,gene.length,gene_center) %>%  distinct %>% 
 
 nope
 
----
-
-```{r, message=FLASE}
-strains <- dir("/mnt/data/andrei/Data/HeteroR/results/isescan")
-
-# function to read ISEscan results
-read_isescan_csv <- function(x) {
-  path <-
-    paste0(
-      "/mnt/data/andrei/Data/HeteroR/results/isescan/",
-      x,
-      "/regions/regions_joined_final.fasta.csv"
-    )
-  return(read_csv(path, show_col_types = FALSE)  %>% add_column(strain = x, .before = 1))
-}
-
-#isescan_df <- map_dfr(strains[-which(strains == "DA63616")], ~ read_isescan_csv(.))
-isescan_df <- map_dfr(strains, ~ read_isescan_csv(.))
-isescan_df
-```
+------------------------------------------------------------------------
 
 ### How many families found?
 
@@ -2113,7 +2252,6 @@ isescan_df %>%
   geom_histogram() +
   xlab("n genes with IS")
 ```
-
 
 ### How many families per strain?
 
@@ -2157,11 +2295,10 @@ Which strains have 'new'?
 isescan_df %>% filter(family == "new") %>% pull(strain) %>% unique()
 ```
 
-
 ### Copy number within each family
 
 ```{r}
-isescan_df %>% group_by(family) %>% count() %>% new
+isescan_df %>% group_by(family) %>% count() %>%
   ggplot(aes(family, n)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
@@ -2205,11 +2342,11 @@ isescan_df %>%
 
 We can use as features:
 
-- avg/max IS length (per strain) - which will also be a proxy for activity of IS
+-   avg/max IS length (per strain) - which will also be a proxy for activity of IS
 
-- same but broke down per family
+-   same but broke down per family
 
-- distance between the two insertions
+-   distance between the two insertions
 
 ## Write AMP tables required for EDA to files
 
