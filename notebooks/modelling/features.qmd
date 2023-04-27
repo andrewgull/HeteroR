@@ -1233,7 +1233,6 @@ features_strain
 this code like the one used to count plasmids from short FMP strains merges columns ordered by lengths.
 
 ```{r}
-
 # a function to read GFF files using STANDARD read.delim
 read_gff <- function(gff_filename) {
   # read and process
@@ -1337,7 +1336,9 @@ adding gene counts to features
 
 ```{r}
 features <-
-  gene_counts_rgi %>% select(record_id, strain, nc.plasmids) %>% right_join(features, by = c("strain", "record_id"))
+  gene_counts_rgi %>% 
+  select(record_id, strain, nc.plasmids) %>% 
+  right_join(features, by = c("strain", "record_id"), multiple = "all")
 ```
 
 ## Number of beta-lactamases
