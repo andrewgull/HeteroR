@@ -1222,8 +1222,13 @@ plasmid_copy_number <- rbind(df_UC,
 ### Add to features strain
 
 ```{r}
-features_strain <- features_strain %>% 
-  left_join(plasmid_copy_number, by="strain")
+features_strain <- features_strain
+  left_join(plasmid_copy_number, by="strain") %>% 
+    mutate(n.plasmids = ifelse(is.na(n.plasmids), 0, n.plasmids), # replace NAs w 0 
+           n.plasmids = ifelse(n.plasmids > plasmid.copy.number, plasmid.copy.number, n.plasmids)) # swap copy number and number
+
+# features_strain <- features_strain %>% 
+#   left_join(plasmid_copy_number, by="strain")
 
 features_strain
 ```
