@@ -198,7 +198,7 @@ strains_no_repeats <- setdiff(strains, unique(repeat_df$strain))
 
 no_repeats_df <- tibble(record_id = rep(NA, length(strains_no_repeats)),
                         start_1 = rep(NA, length(strains_no_repeats)),
-                        end_1 = rep(NA, length(strains_no_repeats)),
+                        end_gene.length1 = rep(NA, length(strains_no_repeats)),
                         start_2 = rep(NA, length(strains_no_repeats)),
                         end_2 = rep(NA, length(strains_no_repeats)),
                         length = rep(NA, length(strains_no_repeats)),
@@ -1338,7 +1338,8 @@ adding gene counts to features
 features <-
   gene_counts_rgi %>% 
   select(record_id, strain, nc.plasmids) %>% 
-  right_join(features, by = c("strain", "record_id"), multiple = "all")
+  right_join(features, by = c("strain", "record_id"), multiple = "all") %>% 
+  as_tibble()
 ```
 
 ## Number of beta-lactamases
@@ -1441,10 +1442,11 @@ gff <- map_dfr(gff_files, ~ read_gff(.)) %>%
   mutate(
     located.on.plasmid = str_detect(seq.region, "_1$", negate = T),
     on.plasmid = if_else(located.on.plasmid, "yes", "no"),
-    pos.strand = if_else(strand == "+", "yes", "no")
+    pos.strand = if_else(strand == "+", "yes", "no"),
+    gene.length = stop - start + 1 
   ) %>%
   rename("dist.to.oriC" = start) %>%
-  select(record_id, dist.to.oriC, pos.strand, on.plasmid)
+  select(record_id, dist.to.oriC, pos.strand, on.plasmid, gene.length)
 
 ```
 
@@ -1548,6 +1550,7 @@ head(features_strain)
 Counting the resistance genes, let's take into account plasmids copy-number
 
 ```{r}
+# ERROR here: some nc.plasmids = 0 
 gff_with_counts <- gene_counts_rgi %>% 
   select(record_id, strain, nc.plasmids) %>% 
   right_join(gff, by = c("record_id", "strain"))
@@ -1563,16 +1566,26 @@ n_genes_plus_strand <- gff_with_counts %>%
   spread(key = "on.plasmid", value = "n.beta.lac.plus", fill = 0) %>%
   dplyr::rename(n.beta.lac.plus.chrom = no ,
                 n.beta.lac.plus.plasmid = yes) %>%
+  group_by(strain) %>% 
+  summarise(n.beta.lac.plus.chrom = sum(n.beta.lac.plus.chrom),
+            n.beta.lac.plus.plasmid = sum(n.beta.lac.plus.plasmid),
+            nc.beta.lac.plus.plasmid = sum(nc.beta.lac.plus.plasmid)) %>% 
   mutate(
     n.beta.lac.plus = n.beta.lac.plus.chrom + n.beta.lac.plus.plasmid,
     nc.beta.lac.plus = n.beta.lac.plus.chrom + nc.beta.lac.plus.plasmid
-  )
+  ) 
 
 n_genes_plasmids <-
-  gff_with_counts %>% 
-  mutate(n_genes_on_plasmid = ifelse(on.plasmid == "yes", nc.plasmids, 0)) %>% 
-  group_by(strain) %>% 
-  summarise(n.beta.lac.plasmid = sum(n_genes_on_plasmid))
+  gff_with_counts %>%
+  mutate(
+    n_genes_on_plasmid = ifelse(on.plasmid == "yes", 1, 0),
+    nc_genes_on_plasmid = ifelse(on.plasmid == "yes", nc.plasmids, 0)
+  ) %>%
+  group_by(strain) %>%
+  summarise(
+    n.beta.lac.plasmid = sum(n_genes_on_plasmid),
+    nc.beta.lac.plasmid = sum(nc_genes_on_plasmid)
+  )
 
 features_strain <-
   list(
@@ -1631,7 +1644,7 @@ repeat_counts_gene <- features %>%
   group_by(record_id, on.plasmid) %>%
   summarise("n.repeats.gene" = n())
 
-# join only those counts that are in features_filtered
+# join only those counts that are in filtered features
 features <- left_join(features, repeat_counts_gene, by = c("record_id", "on.plasmid") )%>% 
   relocate(n.repeats.gene, .before="ORF_ID")
 
@@ -1733,6 +1746,52 @@ features_strain <- list(features_strain, repeat_counts_strain_500, repeat_counts
   purrr::reduce(left_join, by = "strain")
 
 features_strain
+```
+
+### Repeats inside the genes
+
+bed_df contains the gene center
+
+```{r}
+# get csv full paths using strain names vector
+repeats_centered_files <- map_chr(strains, ~ str_c("/mnt/data/andrei/Data/HeteroR/results/annotations/", ., "/repeats/", ., "_repeats_centered.csv"))
+
+# I have to create an empty tibble to give the same names of the csv files 
+empty_tibble <-  tibble(
+  record_id = NA,
+  gene_center = NA,
+  X = NA,
+  start_1 = NA,
+  end_1 = NA,
+  start_2 = NA,
+  end_2 = NA,
+  length = NA,
+  strain = NA,
+  spans_center = NA
+)
+names(empty_tibble) <- c("record_id", "gene_center","X", "start_1", "end_1", "start_2", "end_2", "length", "strain", "spans_center")
+
+# not all strains have the _repeats_centered.csv file.
+# create a new read function that skips those adding an empty tibble
+read_csv_file <- possibly(read_csv, otherwise = empty_tibble)
+
+repeats_centered <- map_dfr(repeats_centered_files, ~ read_csv_file(., show_col_types = FALSE)) %>% 
+  mutate(record_id = sub("_gene", "", record_id))
+
+repeats_centered <-
+  right_join(repeats_centered, gff_with_counts, by = c("record_id", "strain")) %>%
+  mutate(
+    start_1 = if_else(start_1 > (gene_center - (gene.length / 2)), start_1, NA),
+    end_1 = if_else(start_1 > (gene_center - (gene.length / 2)), end_1, NA),
+    start_2 = if_else(end_2 < (gene_center + (gene.length / 2)), start_2, NA),
+    end_2 = if_else(end_2 < (gene_center + (gene.length / 2)), end_2, NA)
+  ) %>% filter(!is.na(start_1) |
+                 !is.na(start_2)) %>% group_by(strain) %>% 
+  summarise("n" =sum(n())) %>%
+   dplyr::rename(strain = strain, rep.in = n)
+
+# add to features_strain 
+features_strain <- left_join(features_strain, repeats_centered, by =  "strain")
 ```
 
 ## Repeat length
@@ -2053,7 +2112,7 @@ med_ar_len_split <- function(features_selected, ar) {
   return(features_ar)
 }
 
-med_ar_len_split <- function(features_selected, ar){
+med_ar_len <- function(features_selected, ar){
   ar_colnames <- c("strain", paste0("med.AR.len.", ar))
   
   features_ar <- features_selected %>%
@@ -2068,7 +2127,7 @@ med_ar_len_split <- function(features_selected, ar){
 # apply them
 med_ar_len_split_ampC <- med_ar_len_split(features_ampC,"ampC")
 
-med_ar_len_ampC <- med_ar_len_split(features_ampC,"ampC")
+med_ar_len_ampC <- med_ar_len(features_ampC,"ampC")
 
 # add
 features_strain <-
@@ -2283,7 +2342,7 @@ one per family?
 lets check how many different sequences there are per family
 
 ```{r, eval=FALSE}
-merged_dna_set_tb  <-  tibble(
+merged_dna_set_tb <- tibble(
   width = width(merged_dna_set),
   sequence = as.character(merged_dna_set),
   name = names(merged_dna_set)
@@ -2373,7 +2432,7 @@ On chromosome, on plasmid, both
 ```{r}
 # using those universal functions
 med_ar_len_split_CTX <- med_ar_len_split(features_CTX, "CTX")
-med_ar_len_CTX <- med_ar_len_split(features_CTX, "CTX")
+med_ar_len_CTX <- med_ar_len(features_CTX, "CTX")
 
 # add
 features_strain <- list(features_strain, med_ar_len_split_CTX, med_ar_len_CTX) %>% 
@@ -2443,7 +2502,7 @@ On chromosome, on plasmid, both
 # universal functions
 med_ar_len_split_TEM <- med_ar_len_split(features_TEM,"TEM")
 
-med_ar_len_TEM <- med_ar_len_split(features_TEM,"TEM")
+med_ar_len_TEM <- med_ar_len(features_TEM,"TEM")
 
 # add
 features_strain <- list(features_strain, med_ar_len_split_TEM, med_ar_len_TEM) %>% 
@@ -2497,7 +2556,7 @@ features_SHV <- features %>%
 On chromosome, on plasmid, both
 
 ```{r}
-#a ll of the SHV resistance genes are on plasmids, can't use the function
+# all of the SHV resistance genes are on plasmids, can't use the function
 
 repeat_counts_SHV <- features_SHV %>%
   filter(is.beta.lac) %>%
@@ -2506,7 +2565,7 @@ repeat_counts_SHV <- features_SHV %>%
   spread(key = "on.plasmid", value = n.rep, fill = 0) %>%
   dplyr::rename(strain = strain, n.rep.plasmid.SHV = yes)
 
-features_strain <-left_join(features_strain, repeat_counts_SHV, by = "strain")
+features_strain <- left_join(features_strain, repeat_counts_SHV, by = "strain")
 
 head(features_strain)
 ```
@@ -2519,7 +2578,7 @@ On chromosome, on plasmid, both
 # universal functions
 med_ar_len_split_SHV <- med_ar_len_split(features_SHV, "SHV")
 
-med_ar_len_SHV <- med_ar_len_split(features_SHV, "SHV")
+med_ar_len_SHV <- med_ar_len(features_SHV, "SHV")
 
 # add
 features_strain <- list(features_strain, med_ar_len_split_SHV, med_ar_len_SHV) %>% 
@@ -2601,7 +2660,7 @@ max_len <- isescan_df %>%
   group_by(strain)%>%
   summarise(max.is.len = max(isLen)) 
 
-#families Pivot 
+# families wide 
 families_pivot <- isescan_df %>%
   group_by(strain, family) %>%
   summarise(n = n()) %>%
@@ -2610,31 +2669,38 @@ families_pivot <- isescan_df %>%
 # min distance gene IS 
 # just considering useful distances, no IS inside of the gene
 min_distance_is_gene <-
-  features %>% select(strain, record_id, gene.length, gene_center) %>%  distinct %>%  left_join((
-    isescan_df %>% dplyr::rename(record_id = seqID) %>% mutate(isCenter = (isBegin + isEnd) /
-                                                                 2)
+  features %>% select(strain, record_id, gene.length, gene_center) %>%  
+  distinct %>%  left_join((
+    isescan_df %>% dplyr::rename(record_id = seqID) %>% mutate(isCenter = (isBegin + isEnd) / 2)
   ),
-  by = c("record_id", "strain")) %>%  mutate(
+  by = c("record_id", "strain")) %>%
+  mutate(
     is_gene_distance = abs(isCenter - gene_center),
     is_inside_gene = ifelse(is_gene_distance < (gene.length / 2), TRUE, FALSE)
-  )  %>%  filter(!is_inside_gene) %>% group_by(strain) %>% summarise(min_distance_is_gene = min(is_gene_distance)) 
+  ) %>%  
+  filter(!is_inside_gene) %>% 
+  group_by(strain) %>% 
+  summarise(min_distance_is_gene = min(is_gene_distance)) 
 
-#number of genes with is INSIDE
-
+# number of genes with IS inside
 interrupted_genes <-
-  features %>% select(strain, record_id, gene.length, gene_center) %>%  distinct %>%  left_join((
-    isescan_df %>% dplyr::rename(record_id = seqID) %>% mutate(isCenter = (isBegin + isEnd) /
-                                                                 2)
-  ),
-  by = c("record_id", "strain")) %>%  mutate(
+  features %>% 
+  select(strain, record_id, gene.length, gene_center) %>% 
+  distinct %>%
+  left_join((
+    isescan_df %>% dplyr::rename(record_id = seqID) %>% mutate(isCenter = (isBegin + isEnd) / 2)
+  ), by = c("record_id", "strain")) %>%
+  mutate(
     is_gene_distance = abs(isCenter - gene_center),
     is_inside_gene = ifelse(is_gene_distance < (gene.length / 2), TRUE, FALSE)
-  ) %>% group_by(strain) %>%  summarise(n.interrupted.genes = sum(as.numeric(is_inside_gene)))
+  ) %>% 
+  group_by(strain) %>%
+  summarise(n.interrupted.genes = sum(as.numeric(is_inside_gene)))
 
 
 # add to feature_strain 
 features_strain <- 
-  list(features_strain, is_types, max_len, families_pivot, is_all) %>% 
+  list(features_strain, is_types, max_len, families_pivot, is_all, min_distance_is_gene, interrupted_genes) %>% 
   reduce(left_join, by = "strain") %>% 
   as_tibble() #??
 ```
