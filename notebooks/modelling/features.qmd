@@ -688,7 +688,8 @@ Info on plasmids is in tables `summary.tsv` in `results/assemblies_joined` and i
 
 Thousands of shorter fragments (less than 1000) should be filtered out
 
-```{r}
+```{r, eval=FALSE}
+# we've decided to turn this off
 plasmid_counts <- assemblies %>% 
   filter(Type == "Plasmid",
          Length >= 1000) %>% 
@@ -779,10 +780,19 @@ df_UC_short_raw <- df_UC %>%
   select(-plasmids) %>% 
   dplyr::rename(Strain = strain , Length = size)
 
-df_UC <- df_UC_all %>% 
-  select(strain,plasmids) %>% 
+# df_UC <- df_UC_all %>% 
+#   select(strain,plasmids) %>% 
+#   group_by(strain) %>% 
+#   summarize(tot_plasmids = sum(plasmids)-1 )
+
+df_UC <-
+  df_UC_all %>% 
+  select(strain, plasmids) %>% 
   group_by(strain) %>% 
-  summarize(tot_plasmids = sum(plasmids)-1 )
+  summarize(
+    plasmid.copy.number = sum(plasmids) - 1,
+    n.plasmids = sum(plasmids >= 0) - 1
+  )
 ```
 
 #### FMP read depth + plasmid count
@@ -803,10 +813,19 @@ df_FMP_short_raw <-
   filter(strain %in% short_FMP) %>% 
   dplyr::rename(Strain = strain, Length =  size)
 
-df_FMP <-df_FMP_all %>% 
-  select(strain,plasmids) %>% 
+# df_FMP <-df_FMP_all %>% 
+#   select(strain,plasmids) %>% 
+#   group_by(strain) %>% 
+#   summarize(tot_plasmids = sum(plasmids) - 1)
+
+df_FMP <-
+  df_FMP_all %>% 
+  select(strain, plasmids) %>% 
   group_by(strain) %>% 
-  summarize(tot_plasmids = sum(plasmids) - 1)
+  summarize(
+    plasmid.copy.number = sum(plasmids) - 1,
+    n.plasmids = sum(plasmids >= 1) - 1
+  )
 ```
 
 #### SHORT UC
@@ -1030,12 +1049,22 @@ df_UC_short_no_scaffold_all
 ```
 
 ```{r}
+# df_UC_short_no_scaffold <-
+#   df_UC_short_no_scaffold_all %>% 
+#   select(Strain, plasmids) %>% 
+#   dplyr::rename(strain = Strain) %>% 
+#   group_by(strain) %>% 
+#   summarize(tot_plasmids = sum(plasmids) - 1)
+
 df_UC_short_no_scaffold <-
   df_UC_short_no_scaffold_all %>% 
   select(Strain, plasmids) %>% 
   dplyr::rename(strain = Strain) %>% 
   group_by(strain) %>% 
-  summarize(tot_plasmids = sum(plasmids) - 1)
+  summarize(
+    plasmid.copy.number = sum(plasmids) - 1,
+    n.plasmids = sum(plasmids >= 1) - 1
+  )
 ```
 
 #### UC_short_scaffold
@@ -1085,11 +1114,21 @@ df_UC_short_scaffold_all
 ```
 
 ```{r}
-df_UC_short_scaffold <- df_UC_short_scaffold_all %>% 
-  select(Strain,plasmids) %>% 
+# df_UC_short_scaffold <- df_UC_short_scaffold_all %>% 
+#   select(Strain,plasmids) %>% 
+#   dplyr::rename(strain = Strain) %>% 
+#   group_by(strain) %>% 
+#   summarize(tot_plasmids = sum(plasmids) -1)
+
+df_UC_short_scaffold <-
+  df_UC_short_scaffold_all %>% 
+  select(Strain, plasmids) %>% 
   dplyr::rename(strain = Strain) %>% 
   group_by(strain) %>% 
-  summarize(tot_plasmids = sum(plasmids) -1)
+  summarize(
+    plasmid.copy.number = sum(plasmids) - 1 ,
+    n.plasmids = sum(plasmids >= 1) - 1
+  )
 ```
 
 #### Short FMP
@@ -1201,11 +1240,20 @@ df_FMP_short_all <- map_dfr(short_FMP, ~ build_short_FMP(.))
 ```
 
 ```{r}
-df_FMP_short <- df_FMP_short_all %>%
-  select(Strain,plasmids) %>% 
+# df_FMP_short <- df_FMP_short_all %>%
+#   select(Strain,plasmids) %>% 
+#   dplyr::rename(strain = Strain) %>% 
+#   group_by(strain) %>% 
+#   summarize(tot_plasmids = sum(plasmids) - 1)
+
+df_FMP_short <-
+  df_FMP_short_all %>% select(Strain, plasmids) %>% 
   dplyr::rename(strain = Strain) %>% 
   group_by(strain) %>% 
-  summarize(tot_plasmids = sum(plasmids) - 1)
+  summarize(
+    plasmid.copy.number = sum(plasmids) - 1 ,
+    n.plasmids = sum(plasmids >= 1) - 1
+  )
 ```
 
 ### Merge all Plasmid counts
@@ -1222,13 +1270,14 @@ plasmid_copy_number <- rbind(df_UC,
 ### Add to features strain
 
 ```{r}
-features_strain <- features_strain
-  left_join(plasmid_copy_number, by="strain") %>% 
-    mutate(n.plasmids = ifelse(is.na(n.plasmids), 0, n.plasmids), # replace NAs w 0 
-           n.plasmids = ifelse(n.plasmids > plasmid.copy.number, plasmid.copy.number, n.plasmids)) # swap copy number and number
+# this part of code is of no need now
+# features_strain <- features_strain
+#   left_join(plasmid_copy_number, by="strain") %>% 
+#     mutate(n.plasmids = ifelse(is.na(n.plasmids), 0, n.plasmids), # replace NAs w 0 
+#            n.plasmids = ifelse(n.plasmids > plasmid.copy.number, plasmid.copy.number, n.plasmids)) # swap copy number and number
 
-# features_strain <- features_strain %>% 
-#   left_join(plasmid_copy_number, by="strain")
+features_strain <- features_strain %>%
+  left_join(plasmid_copy_number, by="strain")
 
 features_strain
 ```
