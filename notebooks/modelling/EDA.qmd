@@ -71,8 +71,6 @@ data <- read_csv("data/features.csv")
 
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
 
-# TMP SOLUTION to add plasmid copy number
-pl_copy_number <- read_delim("data/plasmid_copy_number.csv", show_col_types = FALSE, delim = " ")
 data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
   rename(plasmid.copy.number = tot_plasmids) %>% 
   relocate(plasmid.copy.number, .after = n.plasmids)
@@ -100,6 +98,33 @@ hr_testing <- left_join(hr_testing12, hr_testing13, by = "strain") %>%
 #write_csv(hr_testing13, "data/heteroresistance_testing_gr13.csv")
 
 ```
+
+**NB**: Some strains are in HR labels data; some are on Argos, and some are assembled.
+
+```{r}
+# strains tested
+length(hr_testing$strain) # 500
+# strains available
+strains_on_argos <- dir("/mnt/data/andrei/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains/", pattern = "DA") # 540
+strains_assembled <- dir("/mnt/data/andrei/Data/HeteroR/resources/data_raw/", pattern="DA") # 526
+
+# strains on Argos and in tested
+length(intersect(strains_on_argos, hr_testing$strain))
+```
+
+Which strain that are tested, but are not on Argos yet?
+
+```{r}
+setdiff(hr_testing$strain, strains_on_argos) # 12 = 500 - 488
+```
+
+Which strains were tested, but are not assembled yet?
+
+```{r}
+setdiff(hr_testing$strain, strains_assembled)
+```
+
+The same 12 strains, which means the rest were sequenced and assembled.
 
 Classes in `hr_testing12`
 
@@ -240,7 +265,7 @@ All pre-processing will be done with `recipes`
 
 ## Correlation plot
 
-```{r, fig.width=12, fig.height=10, warning=FALSE}
+```{r, fig.width=14, fig.height=10, warning=FALSE}
 # without resistance
 cor_matrix <- data_strain %>%
   select(-c(
@@ -433,13 +458,13 @@ var_df %>%
 
 ### Top loadings
 
-```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
 # install.packages("devtools")
 # devtools::install_github("tidymodels/learntidymodels")
 library(learntidymodels)
 
 data_pca %>%
-  plot_top_loadings(component_number <= 4, n = 5) + 
+  plot_top_loadings(component_number <= 10, n = 5) + 
   scale_fill_brewer(palette = "Paired") +
   ggtitle("Principal Component Analysis")
 ```
@@ -462,7 +487,7 @@ data_ica$template %>%
 #### 3D version
 
 ```{r}
-#library(plotly)
+library(plotly)
 
 ica3d <- plot_ly(data_ica$template, 
                  x = ~IC1, 
@@ -603,6 +628,8 @@ The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes hims
 
 ## UMAP on separate HR groups
 
+Non-supervised
+
 ```{r}
 
 hr_groups <- left_join(hr_testing12, hr_testing13, by = "strain") %>% 
@@ -615,7 +642,7 @@ hr_groups <- left_join(hr_testing12, hr_testing13, by = "strain") %>%
 hr_groups
 ```
 
-```{r, warning=FALSE, fig.width=12, fig.height=12}
+```{r, warning=FALSE, fig.width=9, fig.height=9}
 data_groups <- data_strain %>% 
   select(-resistance) %>% 
   left_join(hr_groups, by = "strain")
@@ -808,7 +835,7 @@ These numbers must be equal.
 ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8)) +
   xlab("n beta-lactamases on plasmids") +
   ylab("n strains")
 ```
@@ -819,7 +846,7 @@ As a proportion
 ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8)) +
   xlab("n beta-lactamases on plasmids") +
   ylab("n strains")
 ```
