@@ -28,7 +28,7 @@ option_list <- list(
     c("-r", "--recipe"),
     type = "character",
     default = NULL,
-    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq')",
+    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq', 'pcayj')",
     metavar = "character"
   ),
   make_option(
@@ -156,13 +156,7 @@ hr_testing <- readr::read_csv(path_labels,
 data_strain <- data_strain %>%
   left_join(hr_testing, by = "strain")
 
-# temp plasmid copy number
-pl_copy_number <- readr::read_delim("data/plasmid_copy_number.csv", show_col_types = FALSE, delim = " ")
-data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
-  rename(plasmid.copy.number = tot_plasmids)
-
 data_strain <- data_strain %>%
-  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>%
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
   relocate(n.beta.lac.4, .before = "n.plasmids") %>%
   filter(resistance != "R", strain != "DA63310") %>%
@@ -172,7 +166,6 @@ data_strain <- data_strain %>%
   )
 
 data_strain$N50 <- NULL
-#data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 
 #### SPLIT ####
@@ -209,6 +202,17 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_pca(all_predictors(), threshold = .9)
+
+pcayj_recipe <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_pca(all_predictors(), num_comp = tune()) %>% 
+  step_normalize(all_numeric_predictors())
 
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
@@ -337,6 +341,8 @@ set_rec <- function(rec, cores){
     rc <- pca_recipe
   } else if (rec == "ncorq") {
     rc <- ncorq_recipe
+  } else if (rec == "pcayj") {
+    rc <- pcayj_recipe
   } else {
     print("ERROR! Undefined recipe!")
     quit(status = 1)

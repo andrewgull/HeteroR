@@ -28,10 +28,11 @@ library(skimr)
 library(stacks)
 library(bestNormalize) # for ord QQ norm
 #library(embed) # for UMAP
-library(finetune)
+library(finetune) # for win-loss tuning
 
 # path for models
 models_path <- "~/Data/HeteroR/results/models/scheme12/"
+models_path_old <- "~/Data/HeteroR/results/models/scheme12_old/"
 models_path_cv5 <- "~/Data/HeteroR/results/models/scheme123/folds5/"
 ```
 
@@ -40,7 +41,8 @@ models_path_cv5 <- "~/Data/HeteroR/results/models/scheme123/folds5/"
 The data sets are the same as in EDA
 
 ```{r}
-data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
+  filter(strain != "DA63310")
 
 # TWO SCHEMES
 hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
@@ -57,11 +59,6 @@ hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv")
 # USE HR 1+2
 data_strain <- data_strain %>% 
   left_join(hr_testing12, by = "strain")
-
-# add TMP plasmid copy number
-pl_copy_number <- read_delim("data/plasmid_copy_number.csv", show_col_types = FALSE, delim = " ")
-data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
-  rename(plasmid.copy.number = tot_plasmids)
 
 data_strain %>% 
   group_by(resistance) %>% 
@@ -197,6 +194,24 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
 
 pca_recipe %>% prep() %>% juice()
 ```
+
+## MLP PCA Yeo-Johnson recipe
+
+Borrowed from 'Tidy modeling with R': Chapter 13.2 'Evaluating the grid'
+
+```{r}
+pcayj_recipe <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_pca(all_predictors(), num_comp = tune()) %>% 
+  step_normalize(all_numeric_predictors())
+```
+
 
 ## No correlation recipe
 
@@ -401,57 +416,6 @@ best_aucs <- function(res_obj, model_name){
 }
 ```
 
-# Tune race - TEST
-
-```{r}
-library(finetune)
-
-test_model <- logistic_reg(penalty = tune(),
-                           mixture = 1) %>%
-  set_engine("glmnet")
-
-test_wf <- workflow() %>%
-  add_model(test_model) %>%
-  add_recipe(ncorr_recipe)
-
-grid_wl <- test_wf %>%
-  tune_race_win_loss(
-    resamples = cv_folds,
-    grid = 20,
-    control = control_race(verbose_elim = TRUE, save_pred = TRUE, burn_in = 50)
-  )
-
-show_best(grid_wl, metric = "roc_auc")
-```
-
-```{r}
-plot_race(grid_wl)
-```
-
-```{r}
-make_roc(grid_wl, "") %>% autoplot()
-```
-
-```{r}
-bres_test <- test_wf %>% 
-  tune_bayes(
-    resamples = cv_folds,
-    param_info = extract_parameter_set_dials(test_wf),
-    initial = grid_wl,
-    iter = 30,
-    metrics = metric_set(roc_auc),
-    control = control_bayes(no_improve = 10, 
-                            verbose = FALSE, 
-                            save_pred = TRUE, 
-                            save_workflow = TRUE))
-
-bres_test %>% show_best("roc_auc")
-```
-
-```{r}
-make_roc(bres_test, "") %>% autoplot()
-```
-
 # Penalized LR
 
 ## UMAP
@@ -477,9 +441,9 @@ autoplot(lr_ncorr_res)
 
 ### New data
 
-```{r, fig.width=10}
+```{r, fig.width=6}
 # correlation threshold was tuned as well
-lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_new.rds"))
+lr_ncorr_res <- readRDS(paste0(models_path_old, "lr_ncorr_rs20_new.rds"))
 
 autoplot(lr_ncorr_res)
 ```
@@ -518,6 +482,16 @@ lr_ncorr_res %>%
 make_roc(lr_ncorr_res, "") %>% 
   autoplot() + ggtitle("LR (norm)")
 ```
+
+Even newer data
+
+```{r}
+# correlation threshold was tuned as well
+lr_ncorr_res_new <- readRDS(paste0(models_path, "lr_ncorr_p20.rds"))
+
+show_best(lr_ncorr_res_new)
+```
+
 
 ## NCORQ recipe
 
@@ -1231,7 +1205,7 @@ rf_ncorr_res %>% autoplot()
 
 ```{r}
 # the corr is tuned
-rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_rs20_new.rds"))
+rf_ncorr_res <- readRDS(paste0(models_path_old, "rf_ncorr_rs20_new.rds"))
 
 rf_ncorr_res %>% autoplot()
 ```
@@ -1258,6 +1232,16 @@ rf_ncorr_res %>%
 make_roc(rf_ncorr_res, "") %>% 
   autoplot() + ggtitle("RF (no corr)")
 ```
+
+Newer data
+
+```{r}
+# correlation threshold was tuned as well
+rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_p20.rds"))
+
+show_best(rf_ncorr_res)
+```
+
 
 ## Comparison of preprocessors
 
