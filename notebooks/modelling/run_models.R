@@ -28,7 +28,7 @@ option_list <- list(
     c("-r", "--recipe"),
     type = "character",
     default = NULL,
-    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq', 'pcayj')",
+    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq', 'pcayj', 'ncoryj')",
     metavar = "character"
   ),
   make_option(
@@ -214,6 +214,16 @@ pcayj_recipe <-
   step_pca(all_predictors(), num_comp = tune()) %>% 
   step_normalize(all_numeric_predictors())
 
+yj_recipe <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(threshold = tune("corr_tune"))
+
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -343,6 +353,8 @@ set_rec <- function(rec, cores){
     rc <- ncorq_recipe
   } else if (rec == "pcayj") {
     rc <- pcayj_recipe
+  } else if (rec == "ncoryj") {
+    rc <- yj_recipe
   } else {
     print("ERROR! Undefined recipe!")
     quit(status = 1)
