@@ -791,7 +791,7 @@ df_UC <-
   group_by(strain) %>% 
   summarize(
     plasmid.copy.number = sum(plasmids) - 1,
-    n.plasmids = sum(plasmids >= 0) - 1
+    n.plasmids = sum(plasmids >= 1) - 1
   )
 ```
 
@@ -1264,7 +1264,7 @@ plasmid_copy_number <- rbind(df_UC,
                              df_UC_short_scaffold,
                              df_FMP,
                              df_FMP_short) %>% 
-  rename(n.c.plasmids = tot_plasmids)
+  rename(n.c.plasmids = plasmid.copy.number)
 ```
 
 ### Add to features strain
@@ -2331,7 +2331,7 @@ So, there is no information in this.
 select TEM strains
 
 ```{r}
-TEM_rgi <- rgi%>% 
+TEM_rgi <- rgi %>% 
   filter(str_detect(Best_Hit_ARO, "TEM")) 
 
 TEM_rgi
@@ -2629,8 +2629,14 @@ head(features_strain)
 On chromosome, on plasmid, both
 
 ```{r}
-# universal functions
-med_ar_len_split_SHV <- med_ar_len_split(features_SHV, "SHV")
+med_ar_len_split_SHV <- features_SHV %>% 
+  filter(is.beta.lac) %>% 
+  group_by(strain, on.plasmid) %>% 
+  summarize(med.AR.len = median(AR_length, na.rm = T)) %>% 
+  spread(key = "on.plasmid", value = "med.AR.len", fill = 0) %>% 
+  dplyr::rename(strain = strain, 
+         med.AR.len.plasmid.SHV =yes ) %>% 
+  select(strain, med.AR.len.plasmid.SHV)
 
 med_ar_len_SHV <- med_ar_len(features_SHV, "SHV")
 
