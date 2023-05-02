@@ -70,10 +70,6 @@ Read features and classification labels
 data <- read_csv("data/features.csv")
 
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
-
-data_strain <- data_strain %>% left_join(pl_copy_number, by="strain") %>% 
-  rename(plasmid.copy.number = tot_plasmids) %>% 
-  relocate(plasmid.copy.number, .after = n.plasmids)
   
 # TWO SCHEMES IN TWO FILES
 hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
@@ -336,7 +332,7 @@ comp_plots <- function(col_name, orig_data, prep_data){
   return(list(p_orig, p_norm))
 }
 
-plots <- comp_plots("plasmid.copy.number", data_strain, data_prep)
+plots <- comp_plots("n.c.plasmids", data_strain, data_prep)
 ```
 
 ```{r, fig.width = 10, fig.height=5}
@@ -445,6 +441,8 @@ var_df <- var_df %>%
 var_df
 ```
 
+28 PCs needed to explain 90% of variation
+
 Plot
 
 ```{r, fig.width=12, fig.height=6}
@@ -452,7 +450,7 @@ var_df %>%
   mutate(PC = forcats::fct_inorder(PC)) %>%
   ggplot(aes(x = PC, y = var_explained)) + 
   geom_col(aes(fill = var_cum_sum)) +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 5)) +
   scale_fill_continuous(type = "viridis")
 ```
 
@@ -518,8 +516,7 @@ Here I increase the minimal distance to see the local structure better
 
 ### Unsupervised
 
-```{r, message=FALSE, warning=FALSE}
-## UMAP Supervised
+```{r, message=FALSE, warning=FALSE, fig.width=8}
 library(embed)
 
 umap_rec <- orq_recipe %>%
@@ -548,7 +545,7 @@ data_umap$template %>%
 
 Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.width=8}
 umap_rec_sup <- orq_recipe %>%
   step_umap(
     all_numeric_predictors(),
@@ -664,7 +661,24 @@ data_umap_groups <- prep(umap_groups_recipe, retain = TRUE)
 data_umap_groups$template %>% 
     select(-strain) %>% 
     ggplot(aes(x = .panel_x, y = .panel_y, color = hr.group, fill = hr.group)) +
-    geom_point(alpha = 0.4, size = 2, aes(shape = hr.group)) +
+    geom_point(alpha = 0.4, size = 1, aes(shape = hr.group)) +
+    facet_matrix(vars(-hr.group), layer.diag = 2) + 
+    scale_color_brewer(palette = "Set1", direction = 1) + 
+    scale_shape_manual(values = c(21, 24, 22, 3)) +
+    theme_bw() +
+    ggtitle("(un)Supervised UMAP (HR groups)")
+```
+
+### Remove nonHR
+
+to better see clustering of HRs
+
+```{r, fig.width=10}
+data_umap_groups$template %>% 
+  filter(hr.group != "nonHR") %>% 
+    select(-c(strain, UMAP4, UMAP5, UMAP6)) %>% 
+    ggplot(aes(x = .panel_x, y = .panel_y, color = hr.group, fill = hr.group)) +
+    geom_point(alpha = 0.5, size = 2, aes(shape = hr.group)) +
     facet_matrix(vars(-hr.group), layer.diag = 2) + 
     scale_color_brewer(palette = "Set1", direction = 1) + 
     scale_shape_manual(values = c(21, 24, 22, 20)) +
@@ -672,7 +686,9 @@ data_umap_groups$template %>%
     ggtitle("(un)Supervised UMAP (HR groups)")
 ```
 
-#### 3D version
+groups 1,2 and 3 are very similar to each other
+
+### 3D version
 
 ```{r}
 library(plotly)
@@ -807,7 +823,7 @@ When number of BL genes is greater than 3, quite likely that the strain is HR or
 ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
-  xlab("N beta-lact > 4") +
+  xlab("N beta-lact > 3") +
   ylab("proportion of strains") +
   scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
   theme(legend.title=element_blank())
@@ -846,7 +862,7 @@ As a proportion
 ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8)) +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5,6)) +
   xlab("n beta-lactamases on plasmids") +
   ylab("n strains")
 ```
@@ -1049,6 +1065,58 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
   ylab("proportion")
 ```
 
+### Other TEM columns
+
+```{r}
+data_strain %>% select(contains("TEM", ignore.case=T)) %>% names()
+```
+
+### Repeat count without 0s 
+
+```{r}
+data_strain %>% 
+  filter(n.rep.plasmid.TEM > 0) %>% 
+  ggplot(aes(resistance, n.rep.plasmid.TEM)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y="sqrt") +
+  ylab("") +
+  guides(fill="none")
+```
+
+### Median AR length without 0s
+
+```{r}
+data_strain %>% 
+  filter(med.AR.len.chrom.TEM > 0) %>% 
+  ggplot(aes(resistance, med.AR.len.chrom.TEM)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y="sqrt") +
+  ylab("") +
+  guides(fill="none")
+```
+
+### Median repeat length on plasmids
+
+```{r}
+data_strain %>% 
+  filter(med.rep.len.plasmid.TEM > 0) %>% 
+  ggplot(aes(resistance, med.rep.len.plasmid.TEM)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1") +
+  coord_trans(y="sqrt") +
+  ylab("") +
+  guides(fill="none")
+```
+
+
 ## Beta-lactamases heatmap
 
 ### AMR types in each strain
@@ -1188,7 +1256,8 @@ data_strain %>%
 ### Bar plot - filtered version
 
 ```{r}
-data_strain %>% filter(n.plasmids < 50) %>% 
+data_strain %>% 
+  #filter(n.plasmids < 50) %>% 
   ggplot(aes(n.plasmids)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "")+
@@ -1213,7 +1282,7 @@ data_strain %>%
 
 ```{r}
 data_strain %>%
-  ggplot(aes(resistance, plasmid.copy.number)) +
+  ggplot(aes(resistance, n.c.plasmids)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
     aes(fill = resistance),
@@ -1228,14 +1297,15 @@ data_strain %>%
   ggtitle("") +
   ylab("n") +
   xlab("") +
-  guides(fill = "none")
+  guides(fill = "none") 
+  #coord_trans(y="sqrt")
 ```
 
 ### Copy number vs Coverage
 
 ```{r}
 data_strain %>%
-  ggplot(aes(coverage, plasmid.copy.number)) +
+  ggplot(aes(coverage, n.c.plasmids)) +
   geom_point(aes(color = resistance), alpha = 0.5) +
   scale_color_brewer(palette = "Set1") +
   ggtitle("") +
@@ -1248,7 +1318,7 @@ data_strain %>%
 
 ```{r}
 data_strain %>%
-  ggplot(aes(n.plasmids, plasmid.copy.number)) +
+  ggplot(aes(n.plasmids, n.c.plasmids)) +
   geom_point(aes(color = resistance), alpha = 0.5) +
   scale_color_brewer(palette = "Set1") +
   ggtitle("") +
@@ -1261,7 +1331,7 @@ data_strain %>%
 
 ```{r}
 data_strain %>%
-  ggplot(aes(chrom.status, plasmid.copy.number)) +
+  ggplot(aes(chrom.status, n.c.plasmids)) +
   geom_violin(aes(fill = chrom.status), alpha = 0.7) +
   geom_boxplot(
     aes(fill = chrom.status),
@@ -1558,7 +1628,7 @@ min_ori %>%
 
 ```{r, fig.width=6, fig.height=4}
 ggplot(data_strain, aes(n.beta.lac.plus))+
-  geom_bar(aes(fill=resistance), position="fill", alpha=0.8)+
+  geom_bar(aes(fill=resistance), position="fill")+
   scale_fill_brewer(palette="Set1")+
   xlab("number of genes")+
   ylab("number of strains")+
@@ -1672,4 +1742,7 @@ data_strain %>%
   ylab("IS families") +
   guides(fill="none")
 ```
+
+
+
 
