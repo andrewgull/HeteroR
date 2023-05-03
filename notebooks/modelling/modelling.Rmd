@@ -18,7 +18,7 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.width = 10, fig.height = 5, message = F, warning = F, cache = F)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, message = F, warning = F, cache = F)
 library(readr)
 library(tidymodels)
 library(themis)
@@ -312,92 +312,7 @@ There are two ways to une hyper-parameters:
 To make model creation less repetitive
 
 ```{r}
-
-## MAKE MODEL SPECIFICATION ##
-
-set_model <- function(mod, cores) {
-  if (mod == "lr") {
-    my_mod <- logistic_reg(
-        penalty = tune(), 
-        mixture = 1) %>% 
-      set_engine("glmnet")
-  } else if (mod == "mars") {
-    my_mod <- mars(
-      mode = "classification",
-      engine = "earth",
-      num_terms = tune(),
-      prod_degree = tune(),
-      prune_method = "backward") %>% 
-      translate()
-  } else if(mod == "svm") {
-    my_mod <- svm_linear(
-        cost = tune()) %>% # margin - for regression only
-      set_mode("classification") %>%
-      set_engine("kernlab")  # default
-  } else if(mod == "rf") {
-    my_mod <- rand_forest(
-      mtry = tune(), 
-      min_n = tune(), 
-      trees = 1000) %>% 
-      set_engine("ranger", num.threads = cores) %>% 
-      set_mode("classification")
-  } else if(mod == "bt") {
-    my_mod <- boost_tree(
-      trees = 50, 
-      mtry = tune(), 
-      min_n = tune(), 
-      tree_depth = tune(), 
-      learn_rate = tune(), 
-      loss_reduction = tune(), 
-      sample_size = tune(), 
-      stop_iter = tune()) %>% 
-      set_engine("xgboost", num.threads = cores) %>% 
-      set_mode("classification")
-  } else if(mod == "knn") {
-    my_mod <- nearest_neighbor(
-      neighbors = tune(),
-      weight_func = tune(),
-      dist_power = tune()) %>%
-      set_engine("kknn") %>%
-      set_mode("classification")
-  } else if (mod == "nnet"){
-    my_mod <-
-      mlp(hidden_units = tune(), 
-          penalty = tune(), 
-          epochs = tune()) %>%
-      set_mode("classification") %>%
-      set_engine("nnet", num.threads = cores)
-  }
-  return(my_mod)
-}
-
-## SET WORKFLOW ##
-
-set_wf <- function(mod, rec, cores){
-  # mod: model type, one of: lr, knn, mars, svm, rf, bt
-  # rec: recipe object (one of: main, ncorr, pca, umap)
-  # rec must be in GlobalEnv
-  
-  if (rec == "main"){
-    rc <- main_recipe
-  } else if (rec == "ncorr"){
-    rc <- ncorr_recipe
-  } else if (rec == "pca") {
-    rc <- pca_recipe
-  } else if (rec == "umap") {
-    rc <- umap_recipe
-  } else {
-    print("ERROR! Undefined recipe!")
-  }
-
-  wf <- workflow() %>% 
-    add_model(set_model(mod = mod, cores = cores)) %>% 
-    add_recipe(rc)
-  
-  return(wf)
-}
-
-## MK ROC OBJECT ##
+## MAKE ROC OBJECT ##
 # for autoplot()
 
 make_roc <- function(mod_res, title){
@@ -413,12 +328,9 @@ make_roc <- function(mod_res, title){
   return(mod_auc)
 }
 
-# Also, there is a function 'run_models.R' to run resampling from terminal
-
-
+# Also, there is a script 'run_models.R' to run resampling from terminal
 library(tidyposterior)
 # Bayesian ANOVA
-
 # function to get a name of the best preprocessor from your resample
 best_preprocessor <- function(res_obj) {
   res_obj %>% select_best("roc_auc") %>% pull(.config)
@@ -431,16 +343,24 @@ best_aucs <- function(res_obj, model_name){
     filter(.metric == "roc_auc", .config == best_preprocessor(res_obj)) %>%
     select(id, id2, {{model_name}} := .estimate)
 }
+
+
+# returns df of best re-sample from each model submitted
+# use it for perf_mod()
+res_comp_table <- function(res_list, mod_names){
+  # res_list: list of resamples objects
+  # mod_names: (model) names that become column names
+  comp_df <-
+  map2(res_list, mod_names,
+       ~ best_aucs(res_obj = .x, model_name = .y)) %>% 
+  reduce(inner_join, by = c("id", "id2")) %>% 
+  set_names("id", "id2", mod_names) %>% 
+  unite(id, id, id2)
+  return(comp_df)
+}
 ```
 
 # Penalized LR
-
-## UMAP
-
-If you want to use UMAP instead of real features, then you should not
-use supervised UMAP.
-
-Also, (supervised) UMAP recipe dumps core for whatever reason
 
 ## NCORR recipe
 
@@ -449,30 +369,17 @@ during resampling and the advantage it gives is marginal.
 
 You can load an `.rds` file if it exists.
 
-```{r, fig.width=10}
-# correlation threshold was tuned as well
-lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_rs20_corr_tune.rds"))
+```{r, fig.width=6, fig.height=3}
+# this one was trained on the old data set
+#lr_ncorr_res <- readRDS(paste0(models_path_old, "lr_ncorr_rs20_corr_tune.rds"))
+
+# this one is old now as well
+# lr_ncorr_res <- readRDS(paste0(models_path_old, "lr_ncorr_rs20_new.rds"))
+
+# this one is trained on the newest iteration of our data set
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_p20.rds"))
 
 autoplot(lr_ncorr_res)
-```
-
-### New data
-
-```{r, fig.width=6}
-# correlation threshold was tuned as well
-lr_ncorr_res <- readRDS(paste0(models_path_old, "lr_ncorr_rs20_new.rds"))
-
-autoplot(lr_ncorr_res)
-```
-
-### ROC of resamples
-
-```{r}
-lr_ncorr_res %>% 
-  collect_predictions() %>% 
-  group_by(id) %>% 
-  roc_curve(truth = resistance, estimate = .pred_HR) %>% 
-  autoplot()
 ```
 
 ### Gain curve
@@ -500,23 +407,13 @@ make_roc(lr_ncorr_res, "") %>%
   autoplot() + ggtitle("LR (norm)")
 ```
 
-Even newer data
-
-```{r}
-# correlation threshold was tuned as well
-lr_ncorr_res_new <- readRDS(paste0(models_path, "lr_ncorr_p20.rds"))
-
-show_best(lr_ncorr_res_new)
-```
-
-
 ## NCORQ recipe
 
 New ncorq with dummies after ORQ doesn't make any changes
 
 ```{r}
-# tuned corr theshold
-lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorq_rs20_corr_tune.rds"))
+# tuned corr threshold
+lr_ncorq_res <- readRDS(paste0(models_path_old, "lr_ncorq_rs20_corr_tune.rds"))
 
 lr_ncorq_res %>% autoplot()
 ```
@@ -549,72 +446,51 @@ make_roc(lr_ncorq_res, "") %>%
 
 Very close, but not better than regular 'no corr' recipe
 
-## PCA recipe
+## PCA + YJ recipe
 
 Space-filling grid as well, 0.9 variance is set to be kept during PCA
 
 
 ```{r, fig.width = 10}
-lr_pca_res <- readRDS(paste0(models_path, "lr_pca_rs20.rds"))
+lr_pcayj_res <- readRDS(paste0(models_path, "lr_pcayj_p20.rds"))
 
-
-autoplot(lr_pca_res)
+# there were many errors during tuning process
+autoplot(lr_pcayj_res)
 ```
-
-### Gain curve
-
-```{r}
-lr_pca_res %>% 
-  collect_predictions() %>% 
-  #group_by(id) %>% 
-  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
-  autoplot()
-```
-
-Much better gain curve so far
 
 ### Best models
 
 ```{r}
-lr_pca_res %>% 
+lr_pcayj_res %>% 
   show_best("roc_auc", n = 5)
 ```
 
 ### ROC
 
 ```{r}
-make_roc(lr_pca_res, "") %>% 
-  autoplot() + ggtitle("LR (PCA)")
+make_roc(lr_pcayj_res, "") %>% 
+  autoplot() + ggtitle("LR (PCA+YJ)")
 ```
 
-
-
-## NS recipe
+## NCORR + YJ recipe
 
 ```{r}
-lr_ns <- logistic_reg(penalty = tune(),
-                      mixture = 1) %>%
-  set_engine("glmnet")
+lr_ncoryj_res <- readRDS(paste0(models_path, "lr_ncoryj_p20.rds"))
 
-ns_wf <- workflow() %>% 
-  add_model(lr_ns) %>% 
-  add_recipe(ns_recipe)
-  
-ns_res <- ns_wf %>%
-  tune_grid(
-    grid = 20,
-    resamples = cv_folds,
-    control = control_grid(save_pred = TRUE,
-                           save_workflow = TRUE),
-    metrics = cls_metrics
-  )
+autoplot(lr_ncoryj_res)
+```
 
-ns_res_wl <- ns_wf %>%
-  tune_race_win_loss(
-    resamples = cv_folds,
-    grid = 20,
-    control = control_race(verbose_elim = TRUE, save_pred = TRUE, burn_in = 10)
-  )
+### The best ones
+
+```{r}
+show_best(lr_ncoryj_res)
+```
+
+### ROC
+
+```{r}
+make_roc(lr_ncoryj_res, "") %>% 
+  autoplot() + ggtitle("LR (PCA+YJ)")
 ```
 
 
@@ -645,18 +521,12 @@ rfe_rec %>%
 ### Generate distributions
 
 ```{r}
-lr_comp <-
-  map2(list(lr_ncorr_res, lr_ncorq_res, lr_pca_res),
-       c("norm", "orq", "pca"),
-       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
-  reduce(inner_join, by = c("id", "id2")) %>% 
-  rename("norm" = .y.x, "orq" = .y.y, "pca" = .y) %>% 
-  unite(id, id, id2)
+lr_comp <- res_comp_table(res_list = list(lr_ncorr_res, lr_ncoryj_res, lr_pcayj_res), 
+                          mod_names = c("ncorr", "ncorr.yj", "pca.yj"))
 
 lr_posterior <- perf_mod(lr_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
 
 autoplot(lr_posterior)
-
 ```
 
 ### Estimate the Difference
@@ -681,7 +551,7 @@ The ordered quantile normalization is significantly better than PCA recipe.
 ## NCORR recipe
 
 ```{r, fig.width=8}
-mars_ncorr_res <- readRDS(paste0(models_path, "mars_ncorr_rs20_corr_tune.rds"))
+mars_ncorr_res <- readRDS(paste0(models_path, "mars_ncorr_p20.rds"))
 
 autoplot(mars_ncorr_res)
 ```
@@ -711,37 +581,28 @@ make_roc(mars_ncorr_res, "") %>%
   autoplot() + ggtitle("MARS")
 ```
 
-## PCA recipe
+## NCORR + YJ recipe
 
 ```{r, fig.width=8}
-mars_pca_res <- readRDS(paste0(models_path, "mars_pca_rs20_corr_tune.rds"))
+mars_ncoryj_res <- readRDS(paste0(models_path, "mars_ncoryj_p20.rds"))
 
-autoplot(mars_pca_res)
+autoplot(mars_ncoryj_res)
 ```
 
 The same picture here: more model terms should lead to better AUC
 
-### Gain curve
-
-```{r}
-mars_pca_res %>% 
-  collect_predictions() %>% 
-  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
-  autoplot()
-```
-
 ### Best models
 
 ```{r}
-mars_pca_res %>% 
+mars_ncoryj_res %>% 
   show_best("roc_auc", n = 5)
 ```
 
 ### Best ROC
 
 ```{r}
-make_roc(mars_pca_res, "") %>% 
-  autoplot() + ggtitle("MARS (PCA)")
+make_roc(mars_ncoryj_res, "") %>% 
+  autoplot() + ggtitle("MARS (no corr.+YJ)")
 ```
 
 ## NCORQ recipe
@@ -799,9 +660,10 @@ The difference between standard and PCA is insignificant
 Correlation threshold was tuned.
 
 ```{r}
-lsvm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr_rs20_corr_tune.rds"))
+# this one was obtained via racing
+lsvm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr_race_p30.rds"))
 
-autoplot(lsvm_ncorr_res)
+plot_race(lsvm_ncorr_res)
 ```
 
 ### Gain curve
@@ -827,15 +689,40 @@ make_roc(lsvm_ncorr_res, "") %>%
   autoplot() + ggtitle("linSVM")
 ```
 
+## NCORYJ recipe
+
+```{r}
+# trained with win-loss
+lsvm_ncoryj_res <- readRDS(paste0(models_path, "lsvm_ncoryj_race_p30.rds"))
+
+plot_race(lsvm_ncoryj_res)
+```
+
+
+### Best models
+
+```{r}
+lsvm_ncoryj_res %>% 
+  show_best("roc_auc", n = 5)
+```
+
+### ROC
+
+```{r}
+make_roc(lsvm_ncoryj_res, "") %>% 
+  autoplot() + ggtitle("linSVM (no corr. + YJ)")
+```
+
 ## NCORQ recipe
 
 ```{r}
-lsvm_ncorq_res <- readRDS(paste0(models_path, "lsvm_ncorq_rs20_corr_tune.rds"))
+# obtained via win-loss
+lsvm_ncorq_res <- readRDS(paste0(models_path, "lsvm_ncorq_race_p30.rds"))
 
-autoplot(lsvm_ncorq_res)
+plot_race(lsvm_ncorq_res)
 ```
 
-### Gain urve
+### Gain curve
 
 ```{r}
 lsvm_ncorq_res %>% 
@@ -857,56 +744,16 @@ make_roc(lsvm_ncorq_res, "") %>%
   autoplot() + ggtitle("linSVM (ORQ)")
 ```
 
-
-## PCA recipe
-
-```{r}
-lsvm_pca_res <- readRDS(paste0(models_path, "lsvm_pca_rs20_corr_tune.rds"))
-
-autoplot(lsvm_pca_res)
-```
-
-### Gain curve
-
-```{r}
-lsvm_pca_res %>% 
-  collect_predictions() %>% 
-  gain_curve(truth = resistance, estimate = .pred_HR) %>% 
-  autoplot()
-```
-
-### Best models
-
-```{r}
-lsvm_pca_res %>% 
-  show_best(metric = "roc_auc")
-```
-
-### Best ROC
-
-```{r}
-make_roc(lsvm_pca_res, "") %>% 
-  autoplot() + ggtitle("linSVM (PCA)")
-```
-
 ## Comparison of the preprocessors
 
 ```{r}
-
-lsvm_comp <-
-  map2(list(lsvm_ncorr_res, lsvm_pca_res, lsvm_ncorq_res),
-       c("norm", "pca", "orq"),
-       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
-  reduce(inner_join, by = c("id", "id2")) %>% 
-  rename("norm" = .y.x, "pca" = .y.y, "orq" = .y) %>% 
-  unite(id, id, id2)
+lsvm_comp <- res_comp_table(res_list = list(lsvm_ncorr_res, lsvm_ncoryj_res, lsvm_ncorq_res),
+                            mod_names = c("ncorr", "ncorr.yj", "ncorq"))
 
 lsvm_posterior <- perf_mod(lsvm_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
 
 autoplot(lsvm_posterior)
 ```
-
-PCA clearly sucks
 
 ```{r}
 lsvm_preproc_diff <- contrast_models(lsvm_posterior, seed = 100) 
@@ -914,16 +761,12 @@ lsvm_preproc_diff <- contrast_models(lsvm_posterior, seed = 100)
 summary(lsvm_preproc_diff)
 ```
 
-PCA is significantly worse than the rest.
-
-ORQ is no different form standard normalization.
-
 # Polynomial support vector machines (pSVM)
 
 ## NCORR recipe
 
 ```{r, fig.width=10, fig.height=6}
-psvm_ncorr_res <- readRDS(paste0(models_path, "psvm_ncorr_rs20_corr_tune.rds"))
+psvm_ncorr_res <- readRDS(paste0(models_path, ""))
 
 autoplot(psvm_ncorr_res)
 ```
@@ -953,11 +796,12 @@ make_roc(psvm_ncorr_res, "") %>%
 
 ## NCORQ recipe
 
-```{r, fig.width=10, fig.height=6}
-psvm_ncorq_res <- readRDS(paste0(models_path, "psvm_ncorq_rs20_corr_tune.rds"))
+```{r}
+psvm_ncorq_res <- readRDS(paste0(models_path, "psvm_ncorq_race_p30.rds"))
 
-autoplot(psvm_ncorq_res)
+plot_race(psvm_ncorq_res)
 ```
+
 ### Gain curve
 
 ```{r}
@@ -1212,17 +1056,8 @@ make_roc(rf_main_res, "") %>%
 
 ## NCORR recipe
 
-```{r}
-rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_rs20_corr_tune.rds"))
-
-rf_ncorr_res %>% autoplot()
-```
-
-### New data
-
-```{r}
-# the corr is tuned
-rf_ncorr_res <- readRDS(paste0(models_path_old, "rf_ncorr_rs20_new.rds"))
+```{r, fig.width=10}
+rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_p20.rds"))
 
 rf_ncorr_res %>% autoplot()
 ```
@@ -1249,16 +1084,6 @@ rf_ncorr_res %>%
 make_roc(rf_ncorr_res, "") %>% 
   autoplot() + ggtitle("RF (no corr)")
 ```
-
-Newer data
-
-```{r}
-# correlation threshold was tuned as well
-rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_p20.rds"))
-
-show_best(rf_ncorr_res)
-```
-
 
 ## Comparison of preprocessors
 
@@ -1338,15 +1163,7 @@ make_roc(xgb_main_bres, "") %>%
 ## NCORR recipe
 
 ```{r, fig.width=14, fig.height=8}
-xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_corr_tune.rds"))
-
-xgb_ncorr_bres %>% autoplot()
-```
-
-### New data
-
-```{r}
-xgb_ncorr_bres <- readRDS(paste0(models_path, "btb_ncorr_rs20_new.rds"))
+xgb_ncorr_bres <- readRDS(paste0(models_path, "xgb_ncorr_bayes_p20.rds"))
 
 xgb_ncorr_bres %>% autoplot()
 ```
@@ -1382,12 +1199,10 @@ make_roc(xgb_ncorr_bres, "XGB (no corr)") %>%
   autoplot()
 ```
 
-**NB:** This ROC looks much better than any other ROC so far
-
 ## NCORR + win-loss grid search
 
 ```{r}
-xgb_ncorr_wl <- readRDS(paste0(models_path, "bt_ncorr_rs50_corr_tune_wl.rds"))
+xgb_ncorr_wl <- readRDS(paste0(models_path, "xgb_ncorr_race_p30.rds"))
 
 plot_race(xgb_ncorr_wl)
 ```
@@ -1552,48 +1367,48 @@ make_roc(nnet_ncorq, "") %>%
   autoplot() + ggtitle("MLP (ORQ)")
 ```
 
-## PCA recipe
+## PCA + YJ recipe
 
 ```{r, fig.width=10, fig.height=4}
-nnet_pca <- readRDS(paste0(models_path, "mlp_pca_rs20_corr_tune.rds"))
+mlp_pca <- readRDS(paste0(models_path, "mlp_nnet_pcayj_p20.rds"))
 
-nnet_pca %>% autoplot()
+mlp_pca %>% autoplot()
 ```
 
 ### Best models
 
 ```{r}
-nnet_pca %>% show_best("roc_auc")
+mlp_pca %>% show_best("roc_auc")
 ```
 
 ### Best ROC
 
 ```{r}
-nnet_pca %>% 
+mlp_pca %>% 
   make_roc("") %>% 
-  autoplot() + ggtitle("MLP (PCA)")
+  autoplot() + ggtitle("MLP (PCA+YJ)")
 ```
 
-## NCORQ + Bayesian grid search
+## NCORYJ recipe
 
-```{r, fig.width=10, fig.height=4}
-mlp_ncorq_bres <- readRDS(paste0(models_path, "mlpb_ncorq_rs20_corr_tune.rds"))
+```{r, fig.width=10}
+mlp_ncoryj <- readRDS(paste0(models_path, "mlp_nnet_ncoryj_p20.rds"))
 
-mlp_ncorq_bres %>% autoplot()
+mlp_ncoryj %>% autoplot()
 ```
 
 ### Best ones
 
 ```{r}
-mlp_ncorq_bres %>% 
+mlp_ncoryj %>% 
   show_best("roc_auc")
 ```
 
 ### Best ROC
 
 ```{r}
-make_roc(mlp_ncorq_bres, "") %>% 
-  autoplot() + ggtitle("MLP (ORQ) Bayesian")
+make_roc(mlp_ncoryj, "") %>% 
+  autoplot() + ggtitle("MLP (no corr. + YJ)")
 ```
 
 
@@ -1601,11 +1416,11 @@ make_roc(mlp_ncorq_bres, "") %>%
 
 ```{r}
 mlp_comp <-
-  map2(list(nnet_ncorr, nnet_ncorq, nnet_pca, mlp_ncorq_bres),
-       c("norm", "orq", "pca", "bayes"),
-       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
+  map2(list(mlp_ncoryj, mlp_pca),
+       c("ncoryj", "pca"),
+       ~ best_aucs(res_obj = .x, model_name = .y)) %>% 
   reduce(inner_join, by = c("id", "id2")) %>% 
-  rename("norm" = .y.x, "orq" = .y.y, "pca" = .y.x.x, "bayes" = .y.y.y) %>% 
+  set_names("id", "id2", "ncoryj", "pca") %>% 
   unite(id, id, id2)
 
 mlp_posterior <- perf_mod(mlp_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
@@ -1618,9 +1433,6 @@ mlp_preproc_diff <- contrast_models(mlp_posterior, seed = 100)
 
 summary(mlp_preproc_diff)
 ```
-
-ORQ-normalization + Bayesian grid search outperform other preprocessors
-
 
 # Bagged MLP
 
@@ -1730,6 +1542,45 @@ save.image("data/all_models_local_update.RData")
 
 
 # Comparison of models
+
+Temp section
+
+```{r}
+roc_df <- map2_dfr(list(lr_ncorr_res_new, mlp_ncoryj, xgb, rf_ncorr_res),
+                            c("LR", "MLP", "XGB", "RF"), 
+                            function(x, y) make_roc(x, y))
+
+roc_df %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  scale_color_brewer(palette="Set1")
+```
+
+```{r}
+model_names <- c("LR",  "RF", "MLP PCA", "MLP", "XGB", "RF")
+
+poster_comp <-
+  map2(list(lr_ncorr_res_new, rf, mlp_pca, mlp, xgb, rf_ncorr_res),
+       model_names,
+       ~ best_aucs(res_obj = .x, model_name = .y)) %>% # model_names is not passed correctly
+  reduce(inner_join, by = c("id", "id2")) %>% 
+  set_names(c("id", "id2", model_names)) %>% 
+  unite(id, id, id2)
+
+df_posterior <- perf_mod(poster_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
+
+autoplot(df_posterior)
+```
+
+```{r}
+preproc_diff <- contrast_models(df_posterior, seed = 100) 
+
+summary(preproc_diff)
+```
+
+
 
 ## ROC of the best models
 
@@ -1969,39 +1820,49 @@ final_fit %>%
 ```
 
 ```{r}
-# tuned recipe
-best_corr <- nnet_ncorq %>% 
-  select_best("roc_auc") %>% 
-  pull(corr_tune)
+# best hyper params
+best <- mlp_ncoryj %>% 
+  select_best("roc_auc")
+
+# another way
+best <- select_by_pct_loss(mlp_ncoryj, "corr_tune")
+  
+# the 2nd best
+best <- filter(show_best(mlp_ncoryj, "roc_auc"), .config == "Preprocessor18_Model1")
 
 # recipe with tuned corr
-ncorq_recipe_tuned <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
-  step_nzv(all_predictors()) %>%
-  step_orderNorm(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = best_corr) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)
+yj_recipe_best_corr <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(threshold = best$corr_tune)
 
 # model spec
-mlp_mod <- set_model("nnet", 2)
+mlp_nnet_spec <-
+  mlp(hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune()) %>%
+  set_engine('nnet', num.threads = 8) %>%
+  set_mode('classification')
 
-best <- nnet_ncorq %>% 
-  select_best("roc_auc")
 
 last_mod <-
   mlp(
     hidden_units = best$hidden_units,
     penalty = best$penalty,
     epochs = best$epochs
-  )%>% 
-  set_engine("nnet", num.threads = 4) %>% 
+  ) %>%
+  set_engine("nnet", num.threads = 8) %>%
   set_mode("classification") 
 
-# this was the XGB workflow
+# the workflow
 mlp_wf <- workflow() %>% 
-  add_model(mlp_mod) %>% 
-  add_recipe(ncorq_recipe_tuned) # the recipe here should be the one that was used for this model
+  add_model(mlp_nnet_spec) %>% 
+  add_recipe(yj_recipe_best_corr) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
