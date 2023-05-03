@@ -238,7 +238,7 @@ cv_folds <- vfold_cv(df_train,
                      v = opt$folds, 
                      repeats = opt$resamples) 
 
-cls_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
+imbalanced_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
 
 #### FUNCTIONS ####
 set_model <- function(mod, cores) {
@@ -388,7 +388,7 @@ if (opt$grid_search == "space"){
       resamples = cv_folds,
       control = control_grid(save_pred = TRUE,
                              save_workflow = TRUE),
-      metrics = cls_metrics
+      metrics = imbalanced_metrics
     )
 } else if (opt$grid_search == "bayes"){
   model_res <- my_wf %>%
@@ -412,6 +412,7 @@ if (opt$grid_search == "space"){
       param_info = param_set,
       resamples = cv_folds,
       grid = opt$points,
+      metrics = imbalanced_metrics,
       control = control_race(
         verbose_elim = TRUE,
         save_pred = TRUE,
