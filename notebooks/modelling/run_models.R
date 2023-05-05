@@ -7,7 +7,7 @@ option_list <- list(
     c("-m", "--model"),
     type = "character",
     default = NULL,
-    help = "A model type (should be one of the following: 'lr', 'mars', 'bag_mars', 'lsvm', 'psvm', 'rf', 'knn', 'bt', 'nb', 'bag_mlp', 'mlp_keras', 'mlp_nnet')",
+    help = "A model type (should be one of the following: 'lr', 'mars', 'bag_mars', 'lsvm', 'psvm', 'rbfsvm', 'rf', 'knn', 'bt', 'nb', 'bag_mlp', 'mlp_keras', 'mlp_nnet')",
     metavar = "character"
   ),
   make_option(
@@ -169,14 +169,18 @@ data_strain$N50 <- NULL
 data_strain[is.na(data_strain)] <- 0
 
 #### SPLIT ####
+# same seed number as in modelling.Rmd
 set.seed(124)
 
-data_split <- initial_split(data_strain, prop = opt$proportion, strata = resistance)
+# splitting proportion should be the same
+data_split <- initial_split(data_strain, 
+                            prop = opt$proportion, 
+                            strata = resistance)
 
 df_train <- training(data_split)
 df_test <- testing(data_split)
 
-#### RECIPES ####
+#### PREPROCESSING RECIPES ####
 main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -237,8 +241,8 @@ cv_folds <- vfold_cv(df_train,
                      strata = "resistance", 
                      v = opt$folds, 
                      repeats = opt$resamples) 
-
-imbalanced_metrics <- metric_set(roc_auc, j_index) # metrics for imbalanced classes
+# metrics for imbalanced classes
+imbalanced_metrics <- metric_set(roc_auc, j_index) 
 
 #### FUNCTIONS ####
 set_model <- function(mod, cores) {
@@ -294,6 +298,14 @@ set_model <- function(mod, cores) {
       scale_factor = tune(),
       margin = NULL ) %>% # regression only 
       set_mode("classification") %>%
+      set_engine("kernlab", num.threads = cores)
+  } else if (mod == "rbfsvm"){
+    my_mod <- svm_rbf(
+      cost = tune(),
+      rbf_sigma = tune(),
+      margin = tune(),
+      mode = "classification"
+    ) %>% 
       set_engine("kernlab", num.threads = cores)
   } else if (mod == "mlp_keras"){
     my_mod <-
