@@ -27,6 +27,7 @@ library(vip)
 library(skimr)
 library(stacks)
 library(bestNormalize) # for ord QQ norm
+library(tidyposterior) # for Bayesian ANOVA
 #library(embed) # for UMAP
 library(finetune) # for win-loss tuning
 
@@ -195,7 +196,7 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
 pca_recipe %>% prep() %>% juice()
 ```
 
-## MLP PCA Yeo-Johnson recipe
+## PCA Yeo-Johnson recipe
 
 Borrowed from 'Tidy modeling with R': Chapter 13.2 'Evaluating the grid'
 
@@ -210,12 +211,30 @@ pcayj_recipe <-
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_pca(all_predictors(), num_comp = tune()) %>% 
   step_normalize(all_numeric_predictors())
+
+# if I choose, say, 3 PCs, will it compress all predictors into 3 PCs or just pick 3 best out of more PCs?
+pcayj_recipe_test <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_pca(all_predictors(), num_comp = 3) %>% 
+  step_normalize(all_numeric_predictors())
+
+pcayj_recipe_test %>% 
+  prep() %>% 
+  juice() %>% 
+  dim()
+# indeed just 3 PCs in total
 ```
 
 
-## MLP Yeo-Johnson recipe
+## NCORR Yeo-Johnson recipe
 
-development of the approach above, but with decorrelation and no pCA
+development of the approach above, but with decorrelation and no PCA
 
 ```{r}
 yj_recipe <- 
@@ -226,7 +245,7 @@ yj_recipe <-
   step_YeoJohnson(all_numeric_predictors()) %>% 
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_corr(threshold = tune("corr_tune"))
+  step_corr(threshold = tune("corr_tune")) # The step will try to remove the minimum number of columns so that all the resulting absolute correlations are less than this value
 ```
 
 
@@ -329,7 +348,6 @@ make_roc <- function(mod_res, title){
 }
 
 # Also, there is a script 'run_models.R' to run resampling from terminal
-library(tidyposterior)
 # Bayesian ANOVA
 # function to get a name of the best preprocessor from your resample
 best_preprocessor <- function(res_obj) {
@@ -1648,7 +1666,7 @@ The best model + preprocessor combinations:
 
 ## ROCs
 
-```{r, fig.width=5, fig.height=2}
+```{r, fig.width=8, fig.height=8}
 # you will need these two objects later
 best_resamples_list <- list(
     lr_ncoryj_res,
@@ -1698,7 +1716,7 @@ roc_df %>%
 
 Collect AUCs of the best model (with the best mean AUC) from each resamples object
 
-```{r, fig.width=6, fig.height=2}
+```{r, fig.width=8, fig.height=4}
 mod_comparison <- res_comp_table(best_resamples_list,
                                  best_resamples_names)
 
@@ -1816,35 +1834,38 @@ final_fit %>%
 
 ```{r}
 # tuned recipe
-best_corr <- lr_ncorr_res %>% 
-  select_best("roc_auc") %>% 
-  pull(corr_tune)
+best <- lr_ncoryj_res %>% 
+  # show_best("roc_auc") %>% filter(.config == "Preprocessor07_Model1") # lower corr. threshold
+  select_best("roc_auc") # higher corr. threshold - see the recipe first definition
 
-ncorr_recipe_tuned <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
-  step_nzv(all_predictors()) %>%
+yj_recipe_tuned <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
   step_normalize(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = best_corr) %>% # tuned threshold
-  step_smote(resistance, over_ratio = 1, seed = 100)
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(threshold = best$corr_tune)
 
 # model spec
-lr_mod <- set_model("lr", 8)
-
-best <- lr_ncorr_res %>% 
-  select_best("roc_auc")
+lr_mod_spec <- logistic_reg(
+        penalty = tune(), 
+        mixture = 1) %>% 
+      set_engine("glmnet") %>% 
+  set_mode("classification")
 
 last_mod <-
   logistic_reg(
     penalty = best$penalty
   ) %>% 
-  set_engine("glmnet", num.threads = 8) %>% 
+  set_engine("glmnet", num.threads = 2) %>% 
   set_mode("classification") 
 
 # workflow
 lr_wf <- workflow() %>% 
-  add_model(lr_mod) %>% 
-  add_recipe(ncorr_recipe_tuned) # the recipe here should be the one that was used for this model
+  add_model(lr_mod_spec) %>% 
+  add_recipe(yj_recipe_tuned) # the recipe here should be the one that was used for this model
 
 # the last workflow
 last_wf <- 
@@ -1943,6 +1964,68 @@ final_fit %>%
 ```
 
 ```{r}
+#best <- select_best(mlp_ncoryj, "roc_auc")
+
+# let's choose model with the highest corr. threshold
+best <- mlp_ncoryj %>% 
+  show_best("roc_auc") %>% 
+  filter(.config == "Preprocessor15_Model1")
+
+yj_recipe_tuned <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(threshold = best$corr_tune)
+
+# model spec
+mlp_nnet_spec <-
+  mlp(hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune()) %>%
+  set_engine('nnet', num.threads = 8) %>%
+  set_mode('classification')
+
+
+last_mod <-
+  mlp(
+    hidden_units = best$hidden_units,
+    penalty = best$penalty,
+    epochs = best$epochs
+  ) %>%
+  set_engine("nnet", num.threads = 8) %>%
+  set_mode("classification") 
+
+# the workflow
+mlp_wf <- workflow() %>% 
+  add_model(mlp_nnet_spec) %>% 
+  add_recipe(yj_recipe_tuned) # the recipe here should be the one that was used for this model
+
+# the last workflow
+last_wf <- 
+  mlp_wf %>%  
+  update_model(last_mod)
+
+# the last fit
+set.seed(345)
+
+final_fit <- 
+  last_wf %>% 
+  last_fit(data_split)
+
+# emulates the process where, after determining the best model, 
+# the final fit on the entire training set is needed 
+# and is then evaluated on the test set.
+
+final_fit %>% 
+  collect_metrics()
+```
+
+
+```{r}
 # model spec
 lr_mod <- set_model("lr", 8)
 
@@ -1984,8 +2067,8 @@ final_fit %>%
 ## Final model's parameters
 
 ```{r, eval=F}
-final_fit %>% 
-  extract_fit_parsnip() %>% tidy() 
+final_fit %>%
+  extract_fit_parsnip() %>% tidy()
 ```
 
 ## ROC
@@ -2001,7 +2084,7 @@ final_fit %>%
 
 Probability cut-off = 0.5
 
-```{r, fig.width=2, fig.height=1}
+```{r, fig.width=4, fig.height=4}
 cm <- final_fit %>%
   collect_predictions() %>%
   conf_mat(truth = resistance, estimate = .pred_class)
@@ -2051,7 +2134,7 @@ sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, co
   labs(
     x = "Probability",
     y = "Metric Estimate",
-    title = "Final model: MLP+PCA"
+    title = "Final model: LR + YJ"
   )
 
 sens_spec_j_plot
@@ -2066,7 +2149,9 @@ order to have 100% sensitivity of the model
 
 (it will catch all HR cases, but there will be more false positives)
 
-```{r, fig.width=2, fig.height=2}
+*If MLP PCA:* you might want to use the j-index corresponding to the highest sensitivity
+
+```{r, fig.width=3, fig.height=2}
 pred_optimized <- final_fit %>%
   collect_predictions() %>% 
   mutate(
@@ -2077,6 +2162,19 @@ pred_optimized <- final_fit %>%
     )
   ) %>%
   select(resistance, contains(".pred"))
+
+# j-index = 0.557
+# threshold = 0.31
+# pred_optimized <- final_fit %>%
+#   collect_predictions() %>% 
+#   mutate(
+#     .pred = make_two_class_pred(
+#       estimate = .pred_HR, 
+#       levels = levels(resistance), 
+#       threshold = 0.31
+#     )
+#   ) %>%
+#   select(resistance, contains(".pred"))
 
 cm_optimized <- pred_optimized %>% 
   conf_mat(truth = resistance, estimate = .pred)
@@ -2093,16 +2191,97 @@ summary(cm_optimized)
 
 # Post-modelling analysis
 
-## Features importance
+## How does the PCA result look?
 
-```{r}
-final_fit %>% 
-  extract_fit_parsnip() %>% 
-  vip(num_features = 50, include_type = T) 
+If your winning model had PCA as input, look at the PCA results here
+
+```{r, fig.width=8}
+# you might need this
+library(ggforce)
+
+plot_validation_results <- function(dat, components) {
+  # dat - data table
+  # components - vector of components names to plot
+  dat %>%
+    select(-strain) %>%
+    select(all_of(c(components, "resistance"))) %>% 
+    # Create the scatterplot matrix
+    ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
+    geom_point(alpha = 0.4, size = 1) +
+    geom_autodensity(alpha = .3) +
+    facet_matrix(vars(-resistance), layer.diag = 2) + 
+    scale_color_brewer(palette = "Set1") + 
+    scale_fill_brewer(palette = "Set1")
+}
+
+# the recipe here is without SMOTE step
+pcayj_recipe_tuned %>% 
+  prep() %>% 
+  juice() %>% 
+  plot_validation_results(c("PC1", "PC2", "PC3")) + 
+  ggtitle("PCA input for MLP")
 ```
 
-Sequencing related features (coverage and read length) are here - among
-the most important
+
+## Features importance
+
+### How many predictors were removed
+
+```{r}
+yj_data_proc <- prep(yj_recipe_tuned, retain = TRUE)
+
+# NZV removed
+yj_data_proc$steps[[1]]$removals
+
+# predictors actually left in the model
+yj_data_proc$template %>% names()
+```
+
+around 40 predictors were removed
+
+### Predictors importance
+
+```{r, fig.height=6}
+final_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 60, include_type = T) 
+```
+
+#### Explained variation
+
+if *MLP PCA* 
+
+```{r}
+# find the step number corresponding to PCA, here it's 6
+data_pca <- pcayj_recipe_tuned %>% prep(retain=TRUE)
+
+sdev <- data_pca$steps[[6]]$res$sdev
+percent_variation <- sdev^2 / sum(sdev^2)
+
+var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
+                     var_explained = percent_variation,
+                     stringsAsFactors = FALSE)
+
+var_df <- var_df %>% 
+  mutate(var_cum_sum = cumsum(var_explained))
+
+var_df
+```
+
+
+### PCs loadings
+
+```{r, fig.width=10}
+# install.packages("devtools")
+# devtools::install_github("tidymodels/learntidymodels")
+library(learntidymodels)
+
+data_pca %>%
+  plot_top_loadings(component_number <= 3, n = 10) + 
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("PCA top loadings")
+```
+
 
 ## Shapley Additive Explanations
 
@@ -2112,31 +2291,30 @@ Lloyd Shapley (Nobel Prize 2012)
 library(fastshap)
 
 # final fit model
-final_xgb_mod <- 
+final_model_fit <- 
   last_wf %>%
   fit(df_train) %>% 
   pull_workflow_fit()
 
-final_xgb_mod <- final_fit %>% 
+final_model_fit <- final_fit %>% 
   extract_fit_parsnip()
 
 # Apply the preprocessing steps with prep and juice to the training data
-X <- prep(main_recipe, df_train) %>% 
+processed_matrix <- prep(yj_recipe_tuned, df_train) %>% 
   juice() %>% 
   select(-c(resistance, strain)) %>% # remove character columns
   as.matrix()
 
 # Compute shapley values 
+shap_values <- fastshap::explain(final_model_fit, X = processed_matrix, exact = TRUE)
 
-shap <- fastshap::explain(final_xgb_mod$fit, X = X, exact = TRUE)
-
-autoplot(shap)
+autoplot(shap_values)
 ```
 
 ### Dependence plot
 
 ```{r}
-feat <- prep(main_recipe, df_train) %>% 
+feat <- prep(yj_recipe_tuned, df_train) %>% 
   juice()
 
 autoplot(shap, 
@@ -2185,7 +2363,7 @@ final_recipe
 The final model fit
 
 ```{r}
-lr_fit <- last_wf %>% fit(df_train) %>% extract_fit_parsnip()
+final_mod_fit <- last_wf %>% fit(df_train) %>% extract_fit_parsnip()
 ```
 
 
@@ -2201,19 +2379,74 @@ data_strain_proc
 # I tested this code on df_test and it gives the same confusion matrix as the code above in section 'Final fit' and 'Confusion matrix with prob=0.5'
 # So it's the right way to apply predict() to the entire data set to identify false predictions
 
-prediction_all_data <- predict(lr_fit, new_data=data_strain_proc, type="prob") %>% 
-  select(.pred_HR) %>% 
-  mutate(.pred_class = if_else(.pred_HR >= max_j_index_threshold, "HR", "nonHR"),
-         .true_class = data_strain$resistance,
-         strain = data_strain$strain) %>% 
-  rename(.prob_HR = .pred_HR) 
+prediction_all_data <-
+  predict(final_mod_fit, new_data = data_strain_proc, type = "prob") %>%
+  select(.pred_HR) %>%
+  mutate(
+    .pred_class = if_else(.pred_HR >= max_j_index_threshold, "HR", "nonHR"),
+    .true_class = data_strain$resistance,
+    strain = data_strain$strain
+  ) %>%
+  rename(.prob_HR = .pred_HR)
 
 prediction_all_data
 ```
 
-### AMR types and false predictions
+## DALEX
+
+You can choose for instance false positives and look what influenced their classification as HR
 
 ```{r}
+false_positives <- 
+  prediction_all_data %>% 
+  filter(.pred_class == "HR", 
+         .true_class == "nonHR")
+
+false_positives
+```
+
+```{r}
+library(DALEXtra)
+
+explainer_final <- 
+  explain_tidymodels(
+    final_mod_fit, 
+    data = data_strain_proc, 
+    y = data_strain$resistance,
+    label = "LR",
+    verbose = FALSE
+  )
+
+data_strain_proc$strain <- data_strain$strain
+data_strain_proc$resistance <- data_strain$resistance
+
+obs_interest <- data_strain_proc %>% 
+  filter(strain == "DA62984") %>% 
+  select(-c(strain, resistance))
+
+
+final_mod_breakdown <-
+  predict_parts(explainer = explainer_final, new_observation = obs_interest)
+
+final_mod_breakdown
+```
+
+Most of the predictors don't make any contributions at all.
+
+Also, `contribution` is *the probability of nonHR* (because the last line 'prediction' equals `1 - .prob_HR` )
+
+```{r}
+# look at nc.beta.lac.plasmid contribution
+data_strain_proc %>% 
+  mutate(label = if_else(strain == "DA62984", "DA62984", resistance)) %>% 
+  ggplot(aes(label, n.TEM.1)) +
+  geom_jitter(aes(color=resistance))
+```
+
+
+## AMR types and false predictions
+
+```{r, eval=FALSE}
 # this is for Dan
 amr_types_strain <- read_csv("data/amr_types_strain.csv")
 
