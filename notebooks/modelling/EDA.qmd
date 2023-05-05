@@ -393,16 +393,30 @@ based on recipe with ORQ normalization
 pca_rec <- orq_recipe %>%
   step_pca(all_numeric_predictors(), threshold = 0.9)
 
-data_pca <- prep(pca_rec, retain = TRUE)
+# the winning PCA recipe from modelling.Rmd
+pcayj_recipe_test <- 
+  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_pca(all_predictors(), num_comp = 3) %>% 
+  step_normalize(all_numeric_predictors())
 
-data_pca$template %>% 
-  plot_validation_results(c("PC01", "PC02", "PC03")) + 
+#data_pca <- prep(pcayj_recipe, retain = TRUE)
+
+pcayj_recipe_test %>% 
+  prep() %>% 
+  juice() %>% 
+  plot_validation_results(c("PC1", "PC2", "PC3")) + 
   ggtitle("Principal Component Analysis (HR12)")
 ```
 
 #### 3D version
 
-```{r}
+```{r, eval=F}
 library(plotly)
 
 pca3d <- plot_ly(data_pca$template, 
