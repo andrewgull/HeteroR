@@ -1488,13 +1488,27 @@ mlp_ncoryj %>%
   show_best("roc_auc")
 ```
 
+## Keras + PCA + YJ
+
+```{r, fig.width=10, fig.height=2}
+mlpk_pca <- readRDS(paste0(models_path, "mlp_keras_pcayj_race_p30.rds"))
+
+mlpk_pca %>% plot_race()
+```
+
+### Best models
+
+```{r}
+mlpk_pca %>% show_best("roc_auc")
+```
+
 ## Comparison of the preprocessors
 
 ### ROCs
 
 ```{r, fig.width=5, fig.height=2}
-mlp_rocs <- map2_dfr(list(mlp_ncoryj, mlp_pca, mlp_ncorq),
-                            c("MLP ncorr+yj",  "MLP pca+yj", "MLP ncorq"), 
+mlp_rocs <- map2_dfr(list(mlp_ncoryj, mlp_pca, mlp_ncorq, mlpk_pca),
+                            c("MLP ncorr+yj",  "MLP pca+yj", "MLP ncorq", "Keras pca+yj"), 
                             function(x, y) make_roc(x, y))
 
 mlp_rocs %>% 
@@ -1506,11 +1520,13 @@ mlp_rocs %>%
   scale_color_brewer(palette="Set1")
 ```
 
+Keras PCA looks exactly like NNET PCA
+
 ### Posterior distributions
 
 ```{r}
-mlp_comp <- res_comp_table(res_list = list(mlp_ncoryj, mlp_pca, mlp_ncorq),
-                           mod_names = c("ncoryj", "pca", "ncorq"))
+mlp_comp <- res_comp_table(res_list = list(mlp_ncoryj, mlp_pca, mlp_ncorq, mlpk_pca),
+                           mod_names = c("ncoryj", "pca", "ncorq", "keras"))
 
 mlp_posterior <-
   perf_mod(
@@ -1530,6 +1546,7 @@ mlp_preproc_diff <- contrast_models(mlp_posterior, seed = 100)
 
 summary(mlp_preproc_diff)
 ```
+
 
 # Bagged MLP
 
