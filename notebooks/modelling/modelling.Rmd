@@ -32,9 +32,7 @@ library(tidyposterior) # for Bayesian ANOVA
 library(finetune) # for win-loss tuning
 
 # path for models
-models_path <- "~/Data/HeteroR/results/models/scheme12/"
-models_path_old <- "~/Data/HeteroR/results/models/scheme12_old/"
-models_path_cv5 <- "~/Data/HeteroR/results/models/scheme123/folds5/"
+models_path <- "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/"
 ```
 
 # Read and process data
