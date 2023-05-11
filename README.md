@@ -33,116 +33,18 @@
 
 The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable) - a Python-based workflow management system for reproducible and scalable data analysis. [The "rolling" paper reference](https://f1000research.com/articles/10-33/v2) 
 
-## The project structure
-
-The project home directory is `/home/andrei/Data/HetroR`
- which contains the following directories:
-
-```bash
- $ tree                    
-.
-├── images
-│   ├── dag_full.png
-│   ├── heatmap44.png
-│   ├── heatmap54.png
-│   ├── HR_workflow_features_scheme.png
-│   └── unstable_HR_model.png
-├── notebooks
-│   ├── genome_assembly_summary.rmd
-│   ├── repeats_summary.ipynb
-│   ├── testing_rgi_output.Rmd
-│   ├── testing_rgi_output.Rproj
-│   ├── why_unicycler_gets_killed.Rmd
-│   └── why_unicycler_gets_killed.Rproj
-├── README.md
-├── resources
-│   ├── busco_downloads
-│   ├── data_raw
-│   ├── localDB
-│   └── strain_lists
-├── results
-│   ├── annotations
-│   ├── assemblies
-│   ├── assemblies_joined
-│   ├── coverage
-│   ├── data_filtered
-│   ├── direct_repeats
-│   ├── final
-│   ├── logs
-│   ├── mapping
-│   ├── plasmids
-│   ├── qualcheck_assembly
-│   ├── qualcheck_reads
-│   └── resistance_genes
-└── workflow
-    ├── config.yaml
-    ├── envs
-    │   ├── bedtools.yaml
-    │   ├── busco_quast.yaml
-    │   ├── bwa.yaml
-    │   ├── fastp.yaml
-    │   ├── filtlong.yaml
-    │   ├── grf.yaml
-    │   ├── prokka.yaml
-    │   ├── quast.yaml
-    │   ├── rgi.yaml
-    │   ├── rscripts.yaml
-    │   ├── samtools.yaml
-    │   ├── spades.yaml
-    │   ├── spade.yaml
-    │   ├── trnascan.yaml
-    │   └── unicycler.yaml
-    ├── scripts
-    │   ├── assembly_summary.py
-    │   ├── coverage.sh
-    │   ├── flanking_regions.py
-    │   ├── get_card_db.sh
-    │   ├── get_new_strains_list.sh
-    │   ├── GRF_parser.py
-    │   ├── gr_generator.py
-    │   ├── join_two_fastas.py
-    │   ├── makefile
-    │   ├── map_back.sh
-    │   ├── nanopore_qc.py
-    │   ├── process_files.py
-    │   ├── QC_assembly.py
-    │   ├── run_qualcheck.R
-    │   ├── run_qualcheck.sh
-    │   ├── run_quast.py
-    │   └── update_symlinks.py
-    └── snakefile.smk
-
-
-```
-
-### Directories' description
+### Directories description
 
 `images/` - workflow DAGs, RGI heatmaps etc.
 
 `resources/` is for storing retrieved/transferred data like: raw_reads, BUSCO downloads, strain lists
 
-   - `data_raw/` - raw sequencing data (both Illumina and Nanopore reads) copied from Argos 
+   - `data_raw/` - raw sequencing data (both Illumina and Nanopore reads) transferred from Argos 
    - `strain_lists/` - lists of available and processed strains, serves as input to some scripts that prepare data for the processing by the pipeline
    - `busco_downloads/` - files required by BUSCO
 
 `results/` is for everything the pipeline produces
-  - `data_filtered/` - sequencing data after filtering with filtlong and fastp
-  - `direct_repeats/` - direct repeats as detected by GRF
-  - `qualcheck_reads/` - quality control data
-  - `assemblies/` - hybrid assemblies made with Unicycler
-  - `qualcheck_assembly/` - assembly quality control made with BUSCO and QUAST
-  - `mapping/` - mapping of short reads onto genome assembly to collect unmapped reads
-  - `plasmids/` - assembly of unmapped reads with SPAdes ('plasmid' mode) to assemble plasmids missed by Unicycler
-  - `assemblies_joined/` - keeps merged hybrid and plasmid assembly
-  - `annotations/` - assembly annotations made with PROKKA and tRNA-ScanSE, GFF files with direct repeats
-  - `resistance_genes/` - resistance genes tables identified by RGI (requires local CARD database)
-  - `logs/` - tool's logs
-  - `coverage/` - a bunch of tables with Nanopore coverage
-  - `final/` - "regulatory" dir created by Snakemake, nothing important there
   
-`test_dir/` - various test of tools used in the pipeline
-  - `tools/` - some tools required for the testing 
-
 `localDB/` - local instance of the CARD database (required by RGI)
 
 `notebooks/` - these are copies of actual notebooks that I keep on GoogleDrive. Hope these copies will be updated regularly
@@ -154,20 +56,20 @@ The project home directory is `/home/andrei/Data/HetroR`
 
 `config.yaml` - a list of strains to be processed
 
-## How to run the analysis:
+## How to run the pipeline:
+
+### Prerequisites
 
 1. mount ARGOS
-2. get list of strains on ARGOS `ls /home/andrei/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains/ > strains_on_argos.txt`
-3. get list of strains to process `bash workflow/scripts/get_new_strains_list.sh strains_on_argos.txt > strains_to_process.txt`
-4. run `workflow/scripts/process_files.py -s strains_to_process.txt` to transfer read files from ARGOS, rename them, calculate coverage and create config file.
-5. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
-6. run the pipeline using the command `snakemake --use-conda --cores 14 --resources mem_mb=12000`
-7. run the following command to produce a nice heatmap of resistance hits in your strains:
-   ```
-   cd results/resistance_genes; 
-   for D in DA*; do ln -s "/home/andrei/Data/HeteroR/results/resistance_genes/"$D"/rgi_table.json" "/home/andrei/Data/HeteroR/results/resistance_genes/linked/"$D"_rgi_table.json"; done && 
-   rgi heatmap -i linked -o heatmap -cat gene_family -clus samples
-   ```
+2. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
+3. download BUSCO data base
+
+### Steps
+
+1. get list of strains on ARGOS `ls ~/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains/ > strains_on_argos.txt`
+2. get list of strains to process `bash workflow/scripts/get_new_strains_list.sh strains_on_argos.txt > strains.txt`
+3. run `workflow/scripts/process_files.py -s resources/strain_lists/strains.txt -c configs/strains.yaml -l 45000000` to transfer read files from ARGOS, rename them, calculate coverage and create config file for snakemake. 
+4. run the pipeline using the command `snakemake --snakefile workflow/snakefile.smk --configfile configs/strains.yaml --use-conda --cores 10`
 
 Steps with species-specific parameters:
 - PROKKA (genus, species)
@@ -205,7 +107,7 @@ quast-download-busco
 
 ## Dependencies
 
-All dependencies are installed by `snakemake` itself in isolated environments using `conda`. 
+All dependencies are installed by `snakemake` itself in isolated environments using `mamba`. 
 The environments are described using YAML files that can be found in ``workflow/envs``
 
 ### List of tools used in the pipeline
@@ -228,3 +130,7 @@ The environments are described using YAML files that can be found in ``workflow/
 ## Current workflow's DAG
 
 ![dag](images/dag.png)
+
+## Data analysis
+
+All the data analysis code including machine learning part can be found in ``notebooks/``
