@@ -18,6 +18,10 @@ editor: visual
 ```{r, include=F}
 knitr::opts_chunk$set(message = F, warning = F)
 library(tidyverse)
+library(furrr)
+
+plan(multisession, workers = 10)
+
 ```
 
 This is a notebook for creating various features and their exploration
@@ -126,7 +130,7 @@ Each strain contains:
 Start from a table with repeat.
 
 ```{r, eval=FALSE}
-load("/home/andrei/Data/HeteroR/notebooks/features.RData")
+load("/mnt/data/andrei/Data/HeteroR/notebooks/features.RData")
 ```
 
 ## Read table with repeats: way no. 1
@@ -139,7 +143,7 @@ How many strains with annotated repeats we have?
 
 ```{r}
 # a new way of getting repeat data frame across all strains
-strains <- dir("/home/andrei/Data/HeteroR/results/direct_repeats")
+strains <- dir("/mnt/data/andrei/Data/HeteroR/results/direct_repeats")
 length(strains)
 ```
 
@@ -148,8 +152,8 @@ length(strains)
 Some tables are empty!
 
 ```{r, message=FALSE}
-repeat_df <- map_dfr(strains, function(x){
-  path <- paste0("/home/andrei/Data/HeteroR/results/annotations/", x, "/repeats/", x, "_repeats.csv")
+repeat_df <- future_map_dfr(strains, function(x){
+  path <- paste0("/mnt/data/andrei/Data/HeteroR/results/annotations/", x, "/repeats/", x, "_repeats.csv")
   df <- read_csv(path, col_types = "ccdddddc")
   return(df)
   }) %>% 
@@ -219,8 +223,8 @@ length(unique(repeat_df$strain))
 ### Read BED files to determine center spanning repeat pairs
 
 ```{r, message=FALSE}
-bed_df <- map_dfr(strains, function(x){
-    path <- paste0("/home/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
+bed_df <- future_map_dfr(strains, function(x){
+    path <- paste0("/mnt/data/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
     df <- read_delim(path, col_names = FALSE, col_types = "cddcdd") %>% mutate(strain = x)
     return(df)
   }) %>% 
@@ -270,8 +274,8 @@ They are required for filtering of resistance genes and much more...
 # in RGI tables I don't need the last two columns (Nudged and Note) 
 # because they cause problems during table reading
 
-rgi <- map_dfr(strains, function(x){
-        read_delim(file = paste0("/home/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = c("n/a", ""), 
+rgi <- future_map_dfr(strains, function(x){
+        read_delim(file = paste0("/mnt/data/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = c("n/a", ""), 
                    name_repair = "universal",
                    col_select = -c(Predicted_Protein, CARD_Protein_Sequence, Contig, Start, Stop, Orientation, Predicted_DNA, Note, Nudged),
                    show_col_types = FALSE) %>% 
@@ -630,7 +634,7 @@ workflow/scripts/coverage_cli.py resources/strain_lists/strains525.txt 5131220 r
 Read the coverage table
 
 ```{r, message=FALSE}
-coverage <- read_delim("/home/andrei/Data/HeteroR/results/coverage/strains525.tsv", na = c("", "NaN")) %>% 
+coverage <- read_delim("/mnt/data/andrei/Data/HeteroR/results/coverage/strains525.tsv", na = c("", "NaN")) %>% 
   mutate(strain = str_extract(file, "DA[0-9]*")) %>% 
   select(strain, coverage, max_len)
 
@@ -642,10 +646,10 @@ head(coverage)
 `completeness` and `N50` come from assemblies summary files
 
 ```{r, message=FALSE}
-summaries <- dir(path = "/home/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
+summaries <- dir(path = "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
 
-assemblies <- map_dfr(summaries, function(x){
-  read_delim(paste0("/home/andrei/Data/HeteroR/results/assemblies_joined/", x), col_types = "cccccccccccc")
+assemblies <- future_map_dfr(summaries, function(x){
+  read_delim(paste0("/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/", x), col_types = "cccccccccccc")
   }) %>% mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
                 Length = as.integer(gsub(",", "", Length, fixed = TRUE)),
                 N50 = as.integer(gsub(",", "", N50, fixed = TRUE)),
@@ -765,11 +769,11 @@ read_depth <- function(strain_name, max_gen_size=4500000) {
 }
 
 # get list of lists: df and strain name if size of the biggest fragment is smaller than max_gen_size
-list_UC <- map(UC_strains, ~ read_depth(.))
+list_UC <- future_map(UC_strains, ~ read_depth(.))
 # rbind the first elements: data frames
-df_UC <- map_dfr(list_UC, function(x) x[[1]])
+df_UC <- future_map_dfr(list_UC, function(x) x[[1]])
 # get the names of the strains with the size of the biggest fragment is smaller than max_gen_size
-short_UC <- unique(map_chr(list_UC, function(x) x[[2]]))
+short_UC <- unique(future_map_chr(list_UC, function(x) x[[2]]))
 short_UC <- short_UC[!is.na(short_UC)]
 
 df_UC_all <- df_UC %>% 
@@ -800,8 +804,8 @@ df_UC <-
 same as with UC
 
 ```{r}
-list_FMP <- map(FMP_strains, ~ read_depth(.))
-df_FMP <- map_dfr(list_FMP, function(x) x[[1]])
+list_FMP <- future_map(FMP_strains, ~ read_depth(.))
+df_FMP <- future_map_dfr(list_FMP, function(x) x[[1]])
 short_FMP <-unique(map_chr(list_FMP, function(x) x[[2]]))
 
 df_FMP_all <- df_FMP %>% 
@@ -848,7 +852,7 @@ read_depth_short <- function(x) {
    return(df)
  }
  
-df_UC_short_raw <- map_dfr(short_UC, ~ read_depth_short(.))
+df_UC_short_raw <- future_map_dfr(short_UC, ~ read_depth_short(.))
 df_UC_short_raw
 ```
 
@@ -1043,7 +1047,7 @@ get_cov_uc_header <- function(x) {
 }
 
 df_UC_short_no_scaffold_all <-
-  map_dfr(UC_short_no_scaffold, ~ get_cov_uc_header(.))
+  future_map_dfr(UC_short_no_scaffold, ~ get_cov_uc_header(.))
 
 df_UC_short_no_scaffold_all
 ```
@@ -1108,7 +1112,7 @@ short_UC_scaffold_plasmids_count <- function(x) {
 
 #short_UC_scaffold_plasmids_count(UC_short_scaffold[1])
 df_UC_short_scaffold_all <-
-  map_dfr(UC_short_scaffold, ~ short_UC_scaffold_plasmids_count(.))
+  future_map_dfr(UC_short_scaffold, ~ short_UC_scaffold_plasmids_count(.))
 
 df_UC_short_scaffold_all
 ```
@@ -1236,7 +1240,7 @@ build_short_FMP <- function(x) {
 }
 
 
-df_FMP_short_all <- map_dfr(short_FMP, ~ build_short_FMP(.))
+df_FMP_short_all <- future_map_dfr(short_FMP, ~ build_short_FMP(.))
 ```
 
 ```{r}
@@ -1383,7 +1387,7 @@ count_genes <- function(x) {
   
 }
 
-gene_counts_rgi <- map_dfr(strains, ~ count_genes(.))
+gene_counts_rgi <- future_map_dfr(strains, ~ count_genes(.))
 ```
 
 adding gene counts to features
@@ -1446,8 +1450,8 @@ If I assume that *oriC* is available only in circularized genomes then I might g
 from BCBio import GFF
 from Bio import SeqIO
 
-in_file = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gbk"
-out_file = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gff"
+in_file = "/mnt/data/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gbk"
+out_file = "/mnt/data/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gff"
 in_handle = open(in_file)
 out_handle = open(out_file, "w")
 
@@ -1482,11 +1486,11 @@ read_gff <- function(gff_filename) {
 }
 
 # get gff full paths using strain names vector
-gff_files <- map_chr(strains, ~ str_c("/home/andrei/Data/HeteroR/results/annotations/", ., "/prokka/", ., "_genomic.gff"))
+gff_files <- map_chr(strains, ~ str_c("/mnt/data/andrei/Data/HeteroR/results/annotations/", ., "/prokka/", ., "_genomic.gff"))
 
 # read gff files right in a tibble
 # it works quite long time
-gff <- map_dfr(gff_files, ~ read_gff(.)) %>%
+gff <- future_map_dfr(gff_files, ~ read_gff(.)) %>%
   separate(col = V9,
            sep = "locus_tag=",
            into = c("V10", "V11")) %>%
@@ -1829,7 +1833,7 @@ names(empty_tibble) <- c("record_id", "gene_center","X", "start_1", "end_1", "st
 # create a new read function that skips those adding an empty tibble
 read_csv_file <- possibly(read_csv, otherwise = empty_tibble)
 
-repeats_centered <- map_dfr(repeats_centered_files, ~ read_csv_file(., show_col_types = FALSE)) %>% 
+repeats_centered <- future_map_dfr(repeats_centered_files, ~ read_csv_file(., show_col_types = FALSE)) %>% 
   mutate(record_id = sub("_gene", "", record_id))
 
 repeats_centered <-
@@ -2135,8 +2139,6 @@ features_strain <- left_join(features_strain, repeat_counts_ampC, by = "strain")
 head(features_strain)
 ```
 
-
-
 ### AR length
 
 On chromosome, on plasmid, both
@@ -2277,7 +2279,7 @@ amr_gene_types <- features %>%
 # make a DF of each AMR type counts in each gene
 amr_gene_presence <- as_tibble(
   as.data.frame(
-    map(amr_types, function(x) ifelse(str_detect(amr_gene_types$AMR.Gene.Family, x), 1, 0)),
+    future_map(amr_types, function(x) ifelse(str_detect(amr_gene_types$AMR.Gene.Family, x), 1, 0)),
     col.names = amr_types))
 
 # add strain and summarize counts
@@ -2366,7 +2368,7 @@ tem_select <- function(x) {
 }
 
 
-tem_selected_seqs <- map(TEM_strains, ~ tem_select(.))
+tem_selected_seqs <- future_map(TEM_strains, ~ tem_select(.))
 
 # Merge the DNAStringSets into a single DNAStringSet
 merged_dna_set <- Reduce(c, tem_selected_seqs)
@@ -2691,7 +2693,7 @@ read_isescan_csv <- function(strain_name) {
   return(df)
 }
 
-isescan_df <- map_dfr(is_strains, ~ read_isescan_csv(.))
+isescan_df <- future_map_dfr(is_strains, ~ read_isescan_csv(.))
 
 isescan_df$seqID <- str_remove_all(isescan_df$seqID, "_gene")
 
@@ -2904,18 +2906,18 @@ isescan_df %>%
 Resistance testing will be added later in the EDA section
 
 ```{r}
-write.csv(n.beta.lac, "/home/andrei/Data/HeteroR/results/tables/n_beta_lac.csv", row.names = F)
+write.csv(n.beta.lac, "/mnt/data/andrei/Data/HeteroR/results/tables/n_beta_lac.csv", row.names = F)
 
-write.csv(features_strain, "/home/andrei/Data/HeteroR/results/tables/features_strain.csv", row.names = F)
+write.csv(features_strain, "/mnt/data/andrei/Data/HeteroR/results/tables/features_strain.csv", row.names = F)
 
-write.csv(features, "/home/andrei/Data/HeteroR/results/tables/features.csv", row.names = F)
+write.csv(features, "/mnt/data/andrei/Data/HeteroR/results/tables/features.csv", row.names = F)
 
 # write amp amr types to a file
-write.csv(amr_types_strain, "/home/andrei/Data/HeteroR/results/tables/amr_types_strain.csv", row.names = FALSE)
+write.csv(amr_types_strain, "/mnt/data/andrei/Data/HeteroR/results/tables/amr_types_strain.csv", row.names = FALSE)
 ```
 
 # Save the workspace
 
 ```{r, eval=TRUE}
-save.image(f = "/home/andrei/Data/HeteroR/notebooks/features.RData")
+save.image(f = "/mnt/data/andrei/Data/HeteroR/notebooks/features.RData")
 ```
