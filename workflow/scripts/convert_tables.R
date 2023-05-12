@@ -1,4 +1,5 @@
-setwd("/Users/andgu885/GoogleDrive/HeteroR/database/")
+# run in an in interactive R session
+# setwd to where the excel file is located
 
 library(readxl)
 library(dplyr)
