@@ -19,3 +19,7 @@ shiny_apps/
 .idea
 .ipynb_checkpoints
 *.js
+notebooks/unicycler_crash/
+notebooks/regulon_db/
+notebooks/sequencing_files/
+notebooks/rgi_output/
