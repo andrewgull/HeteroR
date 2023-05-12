@@ -43,8 +43,7 @@ def get_args():
                         help="number of threads to use with pigz", default=4)
     parser.add_argument("-m", "--mode", type=str, metavar="<mode>",
                         help="mode: all, copy, prep, coverage, config (optional)", default="all")
-    parser.add_argument("-a", "--argos", type=str, metavar="<path>", help="path to raw data on ARGOS (optional)",
-                        default="/home/andrei/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains")
+    parser.add_argument("-a", "--argos", type=str, metavar="<path>", help="path to raw data")
     parser.add_argument("-l", "--genome_length", type=int, metavar="<genome length>",
                         help="Approx. genome length, bp (optional, in E.coli=5131220)", default=5131220)
     parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.3')
@@ -90,7 +89,7 @@ def new_name(path_string):
 
 
 def prepare_files(strain_file, threads):
-    strains_w_no_files = list()
+    strains_w_no_files = []
     messages = ["\n"]
     # 1. COMPRESSING FILES
     # check uncompressed files and compress them
@@ -234,7 +233,7 @@ if __name__ == '__main__':
     args = get_args()
 
     # 1. Copy files
-    print("1. Transferring files from ARGOS...")
+    print("1. Transferring files from your storage server...")
     copy_results = copy_files(strain_file=args.strains, argos_path=args.argos)
     if copy_results > 0:
         print("WARNING! Something went wrong during raw files transfer: at least one process finished with exit code 1")
