@@ -9,11 +9,7 @@ from Bio import SeqIO
 import os
 
 
-# in_rgi = "/home/andrei/Data/HeteroR/results/resistance_genes/DA62886/rgi_table.txt"
-# in_gbk = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gbk"
-# out_gbk = "/home/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_resistance_genes.gbk"
-# filter_condition = "Loose"
-
+# inputs
 in_rgi = snakemake.input[0]
 strain = in_rgi.split("/")[2]
 in_gbk = os.path.join(snakemake.input[1], strain + "_genomic.gbk")
