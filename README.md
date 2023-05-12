@@ -4,34 +4,23 @@
 
 **Background:** Heteroresistance (HR) is a phenomenon in which a preexisting subpopulation of resistant cells can rapidly replicate in the presence of a given antibiotic, whereas the majority population of susceptible cells is killed. The mechanisms underlying HR are somewhat unclear, although unstable amplification of antibiotic resistance genes resulting in increased gene dosage is responsible for the resistant subpopulation in numerous cases
 
-**Objective:** Predicting heteroresistance from bacterial genome data.
+**Objective:** Predict heteroresistance from bacterial genome data using machine learning methods.
 
 **Input:** 
 - Nanopore and Illumina reads;
 - "resistance labels"
 
-**Metrics:**
-
-![metrics](images/HR_workflow_features_scheme.png)
+**Potential predictors**
 
 1. Presence of resistance genes (RG)
-   - presence of known RG as identified from the CARD database
-   - presence of efflux pumps as identified from the CARD database
 
 2. Presence of amplifiable regions
-   - For each RG all pairs of direct repeats (DR) flanking the RG. 
-     - DR min length = 10 bp, max mismatch = 10%, search range 100 kb. 
-     - DR pairs are scored according to their length, their level of identity, and their distance to each other. 
-     - These three parameters should reflect the probability that the segment encompassing the RG will be amplified. 
 
 3. Presence of deleterious effects
-   - truncated genes (any DR inside a gene?); 
-   - broken operons (any DR inside an operon?); operons will be identified via [ODB4](https://operondb.jp/)
-   - co-expression as identified by [StringDB](https://string-db.org/) (Are any of the genes in the amplified segment known to be co-expressed with a gene outside of the segment?)
-   - toxic essential genes: essential genes (as identified by databases TraDIS (?) and Keio(?)) being truncated may become toxic.
-   - toxic if over-expressed: gene amplifications may increase the expression of the gene, which in turn may be toxic. Related data can be found in databases [EDGE](https://www.pnas.org/content/pnas/early/2013/11/05/1312361110), [ASKA](https://academic.oup.com/dnaresearch/article/12/5/291/350187) and [PandaTox](https://exploration.weizmann.ac.il/pandatox/1_0/home.html).
 
-The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable) - a Python-based workflow management system for reproducible and scalable data analysis. [The "rolling" paper reference](https://f1000research.com/articles/10-33/v2) 
+The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable) - a Python-based workflow management system for reproducible and scalable data analysis. [The "rolling" paper reference](https://f1000research.com/articles/10-33/v2)
+
+Data analysis and modeling were perfomed using R.
 
 ### Directories description
 
@@ -60,9 +49,9 @@ The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/st
 
 ### Prerequisites
 
-1. mount ARGOS
+1. get raw sequencing data
 2. load a local instance of CARD db (it must be in the project dir as 'localDB' - use `rgi load`)
-3. download BUSCO data base
+3. download BUSCO database
 
 ### Steps
 
@@ -81,7 +70,7 @@ Current settings are:
 
 `memory = 1250 * threads, stack = 1000 * threads; if no threads specified, max memory 10000m, min 5000m`
 
-## Installation
+## Pipeline installation
 
 The basic requirement is `snakemake`, install it using `conda` or `mamba`:
 
@@ -133,4 +122,13 @@ The environments are described using YAML files that can be found in ``workflow/
 
 ## Data analysis
 
-All the data analysis code including machine learning part can be found in ``notebooks/``
+All the data analysis code (including machine learning) can be found in ``notebooks/``
+
+`modelling/`
+
+  - `features.qmd` - contains code and comments of feature engineering
+  - `EDA.qmd` - contains exploratory data analysis
+  - `EDA_app/` - interactive Shiny app for EDA
+  - `modelling.Rmd` - contains machine learning
+
+`assemblies_summary/` - code for summary stats on the genome assemblies
