@@ -405,7 +405,7 @@ pcayj_recipe_test <-
   step_pca(all_predictors(), num_comp = 3) %>% 
   step_normalize(all_numeric_predictors())
 
-#data_pca <- prep(pcayj_recipe, retain = TRUE)
+ data_pca <- prep(pcayj_recipe_test, retain = TRUE)
 
 pcayj_recipe_test %>% 
   prep() %>% 
@@ -420,9 +420,9 @@ pcayj_recipe_test %>%
 library(plotly)
 
 pca3d <- plot_ly(data_pca$template, 
-                 x = ~PC01, 
-                 y = ~PC02, 
-                 z = ~PC03, 
+                 x = ~PC1, 
+                 y = ~PC2, 
+                 z = ~PC3, 
                  color = ~data_pca$template$resistance, 
                  colors = c('#cf280c', '#1b56f7')) 
 
@@ -442,7 +442,7 @@ pca3d
 
 ```{r}
 # find the step number corresponding to PCA, here it's 5
-sdev <- data_pca$steps[[4]]$res$sdev
+sdev <- data_pca$steps[[6]]$res$sdev
 percent_variation <- sdev^2 / sum(sdev^2)
 
 var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
@@ -1085,7 +1085,7 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
 data_strain %>% select(contains("TEM", ignore.case=T)) %>% names()
 ```
 
-### Repeat count without 0s 
+### Repeat count without 0s
 
 ```{r}
 data_strain %>% 
@@ -1129,7 +1129,6 @@ data_strain %>%
   ylab("") +
   guides(fill="none")
 ```
-
 
 ## Beta-lactamases heatmap
 
@@ -1657,17 +1656,54 @@ Statistics based on BL of ampC-type only
 
 #### As a box plot
 
-```{r, fig.width=6, fig.height=4}
-ggplot(data_strain, aes(resistance, n.rep.total.ampC))+
+`n.rep.total.ampC` was removed from the table created in `features.qmd` in the new table and are replaced with `n.rep.plasmid.ampC` and `n.rep.chrom.ampC` whose sum would be equal to `n.rep.total.ampC` and therefore redundant. 
+We reintroduce it here since the table `data_strain` will be used only here in this notebook.  
+
+```{r}
+data_strain <- data_strain %>% mutate(n.rep.total.ampC = n.rep.plasmid.ampC + n.rep.chrom.ampC )
+```
+
+
+```{r, fig.width=8, fig.height=4, warning=FALSE}
+library(patchwork)
+
+y_max <- max(data_strain %>% select(n.rep.total.ampC, n.rep.chrom.ampC,n.rep.plasmid.ampC))
+
+p1 <- ggplot(data_strain, aes(resistance, n.rep.total.ampC))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Set1")+
-  ggtitle("ampC-type BL: total repeat count")+
-  ylab("N")+
-  guides(fill="none")
-  
+  ggtitle("total")+
+  ylab("N")+ xlab("") +
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.ampC))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("chromosomal")+
+  ylab("") + xlab("") +
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.ampC))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("plasmid")+
+  ylab("") + xlab("") + 
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p1 + p2 + p3+ 
+  plot_annotation(title = 'ampC-type BL repeat count')
+
 ```
+
 
 #### As distributions
 
@@ -1708,6 +1744,155 @@ ggplot(data_strain %>% filter(med.AR.len.ampC > 0), aes(resistance, med.AR.len.a
   guides(fill="none")
 
 ```
+
+TEM - like above 
+
+```{r}
+data_strain <- data_strain %>% mutate(n.rep.total.TEM = n.rep.plasmid.TEM + n.rep.chrom.TEM )
+```
+
+
+```{r, fig.width=8, fig.height=4, warning=FALSE}
+
+y_max <- max(data_strain %>% select(n.rep.total.TEM, n.rep.chrom.TEM,n.rep.plasmid.TEM))
+
+p1 <- ggplot(data_strain, aes(resistance, n.rep.total.TEM))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("total")+
+  ylab("N")+ xlab("") +
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.TEM))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("chromosomal")+
+  ylab("") + xlab("") +
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.TEM))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("plasmid")+
+  ylab("") + xlab("") + 
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p1 + p2 + p3+ 
+  plot_annotation(title = 'TEM-type BL repeat count')
+```
+
+### Median repeat length
+
+```{r, fig.width=6, fig.height=4}
+ggplot(data_strain %>% filter(med.rep.len.TEM > 0), aes(resistance, med.rep.len.TEM ))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("TEM C-type BL: median repeat length")+
+  ylab("length")+
+  guides(fill="none")
+```
+
+### Median AR size
+
+```{r}
+ggplot(data_strain %>% filter(med.AR.len.TEM > 0), aes(resistance, med.AR.len.TEM))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("TEM-type BL: median AR size")+
+  ylab("AR size")+
+  guides(fill="none")
+
+```
+
+CTX - like above 
+
+```{r}
+data_strain <- data_strain %>% mutate(n.rep.total.CTX = n.rep.plasmid.CTX + n.rep.chrom.CTX )
+```
+
+
+```{r, fig.width=8, fig.height=4, warning=FALSE}
+
+y_max <- max(data_strain %>% select(n.rep.total.CTX, n.rep.chrom.CTX,n.rep.plasmid.CTX))
+
+p1 <- ggplot(data_strain, aes(resistance, n.rep.total.CTX))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("total")+
+  ylab("N")+ xlab("") +
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.CTX))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("chromosomal")+
+  ylab("") + xlab("") +
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.CTX))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  ggtitle("plasmid")+
+  ylab("") + xlab("") + 
+  guides(fill="none") +
+  ylim(0,y_max)
+
+p1 + p2 + p3+ 
+  plot_annotation(title = 'CTX-type BL repeat count')
+```
+
+### Median repeat length
+
+```{r, fig.width=6, fig.height=4}
+ggplot(data_strain %>% filter(med.rep.len.CTX > 0), aes(resistance, med.rep.len.CTX ))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("CTX C-type BL: median repeat length")+
+  ylab("length")+
+  guides(fill="none")
+```
+
+### Median AR size
+
+```{r}
+ggplot(data_strain %>% filter(med.AR.len.CTX > 0), aes(resistance, med.AR.len.CTX))+
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Set1")+
+  coord_trans(y="sqrt") +
+  ggtitle("CTX-type BL: median AR size")+
+  ylab("AR size")+
+  guides(fill="none")
+
+```
+
 
 
 ## IS sequences
@@ -1756,7 +1941,3 @@ data_strain %>%
   ylab("IS families") +
   guides(fill="none")
 ```
-
-
-
-
