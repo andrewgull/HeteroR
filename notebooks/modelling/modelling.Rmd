@@ -1834,7 +1834,9 @@ final_fit %>%
 
 ```{r, eval=F}
 final_fit %>%
-  extract_fit_parsnip() %>% tidy()
+  extract_fit_parsnip() %>% tidy() %>% 
+  filter(estimate != 0) %>% 
+  arrange(-abs(estimate))
 ```
 
 ## ROC
@@ -2002,13 +2004,36 @@ yj_data_proc$steps[[1]]$removals
 
 around 40 predictors were removed
 
+Again, how many non-zero coefficients we have:
+
+```{r}
+final_fit %>%
+  extract_fit_parsnip() %>% tidy() %>% 
+  #filter(estimate != 0) %>% 
+  arrange(-abs(estimate))
+```
+
+Just 20 (including intercept)
+
 ### Predictors importance
 
 ```{r, fig.height=6}
 final_fit %>% 
   extract_fit_parsnip() %>% 
-  vip(num_features = 60, include_type = T) 
+  vi_model(lambda = best$penalty) %>% 
+  filter(Importance != 0) %>% 
+  arrange(-abs(Importance))
 ```
+
+```{r}
+final_fit %>% 
+  extract_fit_parsnip() %>%
+  vip()
+```
+
+
+This plot doesn't correspond to the table of coefficients above
+
 
 #### Explained variation
 
