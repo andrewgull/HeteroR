@@ -7,7 +7,7 @@ option_list <- list(
     c("-m", "--model"),
     type = "character",
     default = NULL,
-    help = "A model type (should be one of the following: 'lr1', 'lr0', 'mars', 'bag_mars', 'lsvm', 'psvm', 'rbfsvm', 'rf', 'knn', 'bt', 'nb', 'bag_mlp', 'mlp_keras', 'mlp_nnet')",
+    help = "A model type (should be one of the following: 'lr1', 'lr0', 'lr_en', 'mars', 'bag_mars', 'lsvm', 'psvm', 'rbfsvm', 'rf', 'knn', 'bt', 'nb', 'bag_mlp', 'mlp_keras', 'mlp_nnet')",
     metavar = "character"
   ),
   make_option(
@@ -256,6 +256,11 @@ set_model <- function(mod, cores) {
     my_mod <- logistic_reg(
       penalty = tune(), 
       mixture = 0) %>% 
+      set_engine("glmnet")
+  } else if (mod == "lr_en") {
+    my_mod <- logistic_reg(
+      penalty = tune(), 
+      mixture = tune()) %>% 
       set_engine("glmnet")
   } else if (mod == "mars") {
     my_mod <- mars(
