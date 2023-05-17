@@ -294,6 +294,25 @@ ns_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
+## Recursive Feature Elimination
+
+Doesn't work
+
+```{r}
+# devtools::install_github("stevenpawley/recipeselectors")
+library(recipeselectors)
+
+rfe_model <- rand_forest(mode = "classification") %>% 
+  set_engine("ranger", num.threads = 8)
+
+rfe_rec <- recipe(resistance ~., data = df_train) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_select_vip(all_numeric_predictors(), outcomme = "resistance", model = rfe_model, threshold = .9) 
+
+rfe_rec %>% 
+  prep() %>% 
+  juice()
+```
 
 # Folds and metrics
 
@@ -376,7 +395,7 @@ res_comp_table <- function(res_list, mod_names){
 }
 ```
 
-# Penalized LR
+# LASSO LR
 
 ## NCORR recipe
 
@@ -508,27 +527,6 @@ make_roc(lr_ncoryj_res, "") %>%
   autoplot() + ggtitle("LR (no corr.+YJ)")
 ```
 
-
-## Recursive Feature Elimination
-
-Doesn't work
-
-```{r}
-# devtools::install_github("stevenpawley/recipeselectors")
-library(recipeselectors)
-
-rfe_model <- rand_forest(mode = "classification") %>% 
-  set_engine("ranger", num.threads = 8)
-
-rfe_rec <- recipe(resistance ~., data = df_train) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_select_vip(all_numeric_predictors(), outcomme = "resistance", model = rfe_model, threshold = .9) 
-
-rfe_rec %>% 
-  prep() %>% 
-  juice()
-```
-
 ## Compare preprocessors
 
 ### ROCs overlapped
@@ -577,6 +575,29 @@ If CI doesn't include 0, then the difference is significant.
 In this case standard normalization is significantly better than the ordered quantile technique.
 
 The ordered quantile normalization is significantly better than PCA recipe.
+
+# RIDGE LR
+
+## NCORR + YJ recipe
+
+```{r}
+lr_ncoryj_res <- readRDS(paste0(models_path, "lr_ncoryj_p20.rds"))
+
+autoplot(lr_ncoryj_res)
+```
+
+### The best ones
+
+```{r}
+show_best(lr_ncoryj_res)
+```
+
+### ROC
+
+```{r}
+make_roc(lr_ncoryj_res, "") %>% 
+  autoplot() + ggtitle("LR (no corr.+YJ)")
+```
 
 # Multivariate adaptive regression splines (MARS)
 
