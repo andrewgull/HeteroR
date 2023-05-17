@@ -550,14 +550,34 @@ make_roc(lr0_ncoryj_res, "") %>%
   autoplot() + ggtitle("ridge LR (no corr.+YJ)")
 ```
 
+## Elastic net NCORR + YJ recipe
+
+```{r}
+lr_en_ncoryj_res <- readRDS(paste0(models_path, "lr-en_ncoryj_p20.rds"))
+
+autoplot(lr_en_ncoryj_res)
+```
+
+### The best ones
+
+```{r}
+show_best(lr_en_ncoryj_res)
+```
+
+### ROC
+
+```{r}
+make_roc(lr_en_ncoryj_res, "") %>% 
+  autoplot() + ggtitle("el.net LR (no corr.+YJ)")
+```
 
 ## Compare preprocessors
 
 ### ROCs overlapped
 
 ```{r}
-lr_rocs <- map2_dfr(list(lr_ncorr_res, lr_ncoryj_res, lr_pcayj_res, lr0_ncoryj_res),
-                            c("LR ncorr",  "LR ncorr+yj", "LR pca+yj", "LR ridge ncor+yj"), 
+lr_rocs <- map2_dfr(list(lr_ncorr_res, lr_ncoryj_res, lr_pcayj_res, lr0_ncoryj_res, lr_en_ncoryj_res),
+                            c("LR ncorr",  "LR ncorr+yj", "LR pca+yj", "LR ridge ncor+yj", "LE el.net"), 
                             function(x, y) make_roc(x, y))
 
 lr_rocs %>% 
@@ -576,8 +596,8 @@ lr_rocs %>%
 ```{r}
 lr_comp <-
   res_comp_table(
-    res_list = list(lr_ncorr_res, lr_ncoryj_res, lr_pcayj_res, lr0_ncoryj_res),
-    mod_names = c("ncorr", "ncorr.yj", "pca.yj", "ridge")
+    res_list = list(lr_ncorr_res, lr_ncoryj_res, lr_pcayj_res, lr0_ncoryj_res, lr_en_ncoryj_res),
+    mod_names = c("ncorr", "ncorr.yj", "pca.yj", "ridge", "el.net")
   )
 
 lr_posterior <-
@@ -611,6 +631,7 @@ In this case standard normalization is significantly better than the ordered qua
 
 The ordered quantile normalization is significantly better than PCA recipe.
 
+LASSO is easier to interpret, so we can choose it (ncorr + yj) over other similar models
 
 # Multivariate adaptive regression splines (MARS)
 
