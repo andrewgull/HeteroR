@@ -136,14 +136,14 @@ if (opt$model == "nb"){
 
 
 #### DATA ####
-path_data <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/features_strain.csv"
+path_data <- "data/features_strain.csv"
 
 if (opt$classification == "123") {
-  path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr123.csv"
+  path_labels <- "data/heteroresistance_testing_gr123.csv"
 } else if (opt$classification == "12") {
-  path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr12.csv"
+  path_labels <- "data/heteroresistance_testing_gr12.csv"
 } else if (opt$classification == "13") {
-  path_labels <- "/home/andrei/GitProjects/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr13.csv"
+  path_labels <- "data/heteroresistance_testing_gr13.csv"
 }
 
 data_strain <- readr::read_csv(path_data,
