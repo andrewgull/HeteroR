@@ -1931,19 +1931,6 @@ pred_optimized <- final_fit %>%
   ) %>%
   select(resistance, contains(".pred"))
 
-# j-index = 0.557
-# threshold = 0.31
-# pred_optimized <- final_fit %>%
-#   collect_predictions() %>% 
-#   mutate(
-#     .pred = make_two_class_pred(
-#       estimate = .pred_HR, 
-#       levels = levels(resistance), 
-#       threshold = 0.31
-#     )
-#   ) %>%
-#   select(resistance, contains(".pred"))
-
 cm_optimized <- pred_optimized %>% 
   conf_mat(truth = resistance, estimate = .pred)
 
@@ -1958,38 +1945,6 @@ summary(cm_optimized)
 
 
 # Post-modelling analysis
-
-## How does the PCA result look?
-
-If your winning model had PCA as input, look at the PCA results here
-
-```{r, fig.width=8}
-# you might need this
-library(ggforce)
-
-plot_validation_results <- function(dat, components) {
-  # dat - data table
-  # components - vector of components names to plot
-  dat %>%
-    select(-strain) %>%
-    select(all_of(c(components, "resistance"))) %>% 
-    # Create the scatterplot matrix
-    ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
-    geom_point(alpha = 0.4, size = 1) +
-    geom_autodensity(alpha = .3) +
-    facet_matrix(vars(-resistance), layer.diag = 2) + 
-    scale_color_brewer(palette = "Set1") + 
-    scale_fill_brewer(palette = "Set1")
-}
-
-# the recipe here is without SMOTE step
-pcayj_recipe_tuned %>% 
-  prep() %>% 
-  juice() %>% 
-  plot_validation_results(c("PC1", "PC2", "PC3")) + 
-  ggtitle("PCA input for MLP")
-```
-
 
 ## Features importance
 
@@ -2009,7 +1964,7 @@ Again, how many non-zero coefficients we have:
 ```{r}
 final_fit %>%
   extract_fit_parsnip() %>% tidy() %>% 
-  #filter(estimate != 0) %>% 
+  filter(estimate != 0) %>% 
   arrange(-abs(estimate))
 ```
 
@@ -2028,48 +1983,10 @@ final_fit %>%
 ```{r}
 final_fit %>% 
   extract_fit_parsnip() %>%
-  vip()
+  vip(num_features = 30, include_type = T)
 ```
-
 
 This plot doesn't correspond to the table of coefficients above
-
-
-#### Explained variation
-
-if *MLP PCA* 
-
-```{r}
-# find the step number corresponding to PCA, here it's 6
-data_pca <- pcayj_recipe_tuned %>% prep(retain=TRUE)
-
-sdev <- data_pca$steps[[6]]$res$sdev
-percent_variation <- sdev^2 / sum(sdev^2)
-
-var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
-                     var_explained = percent_variation,
-                     stringsAsFactors = FALSE)
-
-var_df <- var_df %>% 
-  mutate(var_cum_sum = cumsum(var_explained))
-
-var_df
-```
-
-
-### PCs loadings
-
-```{r, fig.width=10}
-# install.packages("devtools")
-# devtools::install_github("tidymodels/learntidymodels")
-library(learntidymodels)
-
-data_pca %>%
-  plot_top_loadings(component_number <= 3, n = 10) + 
-  scale_fill_brewer(palette = "Paired") +
-  ggtitle("PCA top loadings")
-```
-
 
 ## Shapley Additive Explanations
 
