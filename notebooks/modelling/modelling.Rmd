@@ -299,15 +299,15 @@ ns_recipe <- recipe(resistance ~ ., data = df_train) %>%
 Doesn't work
 
 ```{r}
-# devtools::install_github("stevenpawley/recipeselectors")
-library(recipeselectors)
+devtools::install_github("stevenpawley/colino")
+library(colino)
 
 rfe_model <- rand_forest(mode = "classification") %>% 
-  set_engine("ranger", num.threads = 8)
+  set_engine("ranger", num.threads = 8, importance = "impurity" )
 
 rfe_rec <- recipe(resistance ~., data = df_train) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_select_vip(all_numeric_predictors(), outcomme = "resistance", model = rfe_model, threshold = .9) 
+  step_dummy(all_nominal_predictors())%>% 
+  step_select_vip(all_numeric_predictors(), outcome = "resistance", model = rfe_model, threshold = .9) 
 
 rfe_rec %>% 
   prep() %>% 
