@@ -30,6 +30,7 @@ library(bestNormalize) # for ord QQ norm
 library(tidyposterior) # for Bayesian ANOVA
 #library(embed) # for UMAP
 library(finetune) # for win-loss tuning
+source("functions.R")
 
 # path for models
 models_path <- "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/"
@@ -342,58 +343,6 @@ There are two ways to une hyper-parameters:
 -   Bayesian optimization of hyper-parameters which is used by
     `tune_bayes()`. Performs better than space-filling grid for models
     that are sensitive to hyper-parameters (like boosted trees)
-
-# Functions to simplify things
-
-To make model creation less repetitive
-
-```{r}
-## MAKE ROC OBJECT ##
-# for autoplot()
-
-make_roc <- function(mod_res, title){
-  
-  mod_best <- mod_res %>%
-    select_best(metric = "roc_auc")
-  
-  mod_auc <- mod_res %>% 
-    collect_predictions(parameters = mod_best) %>% 
-    roc_curve(resistance, .pred_HR) %>% 
-    mutate(model = title)
-  
-  return(mod_auc)
-}
-
-# Also, there is a script 'run_models.R' to run resampling from terminal
-# Bayesian ANOVA
-# function to get a name of the best preprocessor from your resample
-best_preprocessor <- function(res_obj) {
-  res_obj %>% select_best("roc_auc") %>% pull(.config)
-}
-
-# function to make a df with AUCs from the best preproc
-best_aucs <- function(res_obj, model_name){
-  res_obj %>%
-    collect_metrics(summarize = FALSE) %>%
-    filter(.metric == "roc_auc", .config == best_preprocessor(res_obj)) %>%
-    select(id, id2, {{model_name}} := .estimate)
-}
-
-
-# returns df of best re-sample from each model submitted
-# use it for perf_mod()
-res_comp_table <- function(res_list, mod_names){
-  # res_list: list of resamples objects
-  # mod_names: (model) names that become column names
-  comp_df <-
-  map2(res_list, mod_names,
-       ~ best_aucs(res_obj = .x, model_name = .y)) %>% 
-  reduce(inner_join, by = c("id", "id2")) %>% 
-  set_names("id", "id2", mod_names) %>% 
-  unite(id, id, id2)
-  return(comp_df)
-}
-```
 
 # Penalized LR
 

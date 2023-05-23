@@ -22,6 +22,7 @@ library(factoextra)
 library(cluster)
 library(skimr)
 library(readr)
+source("functions.R")
 ```
 
 # Intro
@@ -313,29 +314,12 @@ corrplot::corrplot(cor_matrix_norm, type = "upper", tl.col = "black", tl.cex = 0
 
 Choose the variable of interest in the function below or check the **shiny app** out!
 
-```{r}
+```{r, fig.width = 10, fig.height=5}
 library(patchwork)
 
-comp_plots <- function(col_name, orig_data, prep_data){
-  p_orig <- 
-  orig_data %>% 
-  ggplot(aes_string(x = col_name)) + 
-  geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
-  ggtitle(paste0("Original data (", col_name, ")"))
-  
-  p_norm <- 
-  prep_data %>% 
-  ggplot(aes_string(x = col_name)) + 
-  geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
-  ggtitle(paste0("Processed data (", col_name, ")"))
-  
-  return(list(p_orig, p_norm))
-}
-
 plots <- comp_plots("n.c.plasmids", data_strain, data_prep)
-```
 
-```{r, fig.width = 10, fig.height=5}
+# patchwork's syntax
 (plots[[1]] | plots[[2]])
 ```
 
@@ -1656,13 +1640,11 @@ Statistics based on BL of ampC-type only
 
 #### As a box plot
 
-`n.rep.total.ampC` was removed from the table created in `features.qmd` in the new table and are replaced with `n.rep.plasmid.ampC` and `n.rep.chrom.ampC` whose sum would be equal to `n.rep.total.ampC` and therefore redundant. 
-We reintroduce it here since the table `data_strain` will be used only here in this notebook.  
+`n.rep.total.ampC` was removed from the table created in `features.qmd` in the new table and are replaced with `n.rep.plasmid.ampC` and `n.rep.chrom.ampC` whose sum would be equal to `n.rep.total.ampC` and therefore redundant. We reintroduce it here since the table `data_strain` will be used only here in this notebook.
 
 ```{r}
 data_strain <- data_strain %>% mutate(n.rep.total.ampC = n.rep.plasmid.ampC + n.rep.chrom.ampC )
 ```
-
 
 ```{r, fig.width=8, fig.height=4, warning=FALSE}
 library(patchwork)
@@ -1704,7 +1686,6 @@ p1 + p2 + p3+
 
 ```
 
-
 #### As distributions
 
 ```{r, fig.width=6, fig.height=4}
@@ -1745,12 +1726,11 @@ ggplot(data_strain %>% filter(med.AR.len.ampC > 0), aes(resistance, med.AR.len.a
 
 ```
 
-TEM - like above 
+TEM - like above
 
 ```{r}
 data_strain <- data_strain %>% mutate(n.rep.total.TEM = n.rep.plasmid.TEM + n.rep.chrom.TEM )
 ```
-
 
 ```{r, fig.width=8, fig.height=4, warning=FALSE}
 
@@ -1819,12 +1799,11 @@ ggplot(data_strain %>% filter(med.AR.len.TEM > 0), aes(resistance, med.AR.len.TE
 
 ```
 
-CTX - like above 
+CTX - like above
 
 ```{r}
 data_strain <- data_strain %>% mutate(n.rep.total.CTX = n.rep.plasmid.CTX + n.rep.chrom.CTX )
 ```
-
 
 ```{r, fig.width=8, fig.height=4, warning=FALSE}
 
@@ -1892,8 +1871,6 @@ ggplot(data_strain %>% filter(med.AR.len.CTX > 0), aes(resistance, med.AR.len.CT
   guides(fill="none")
 
 ```
-
-
 
 ## IS sequences
 
