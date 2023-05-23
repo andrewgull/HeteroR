@@ -296,10 +296,15 @@ ns_recipe <- recipe(resistance ~ ., data = df_train) %>%
 
 ## Recursive Feature Elimination
 
-Doesn't work
-
+fixed on local copy - th original package in the tibble creation has
+ `name = c("top_p", "threshold"), `
+ instead of 
+ `name = c("top_p", "threshold", "cutoff"),`
+ 
+ the git repository was cloned locally, corrected and the package installed following 
+ https://kbroman.org/pkg_primer/pages/build.html
 ```{r}
-devtools::install_github("stevenpawley/colino")
+# devtools::install_github("stevenpawley/colino")
 library(colino)
 
 rfe_model <- rand_forest(mode = "classification") %>% 
