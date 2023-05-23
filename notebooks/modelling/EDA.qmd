@@ -813,7 +813,7 @@ ggplot(data_strain, aes(n.beta.lac)) +
 
 2.  There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
 
-#### Proportion bar-plot
+#### BL \> 4 proportion
 
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
@@ -821,7 +821,7 @@ When number of BL genes is greater than 3, quite likely that the strain is HR or
 ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
-  xlab("N beta-lact > 3") +
+  xlab("N beta-lact > 4") +
   ylab("proportion of strains") +
   scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
   theme(legend.title=element_blank())
@@ -894,12 +894,10 @@ ggplot(data_strain, aes(n.beta.lac.chrom)) +
 #### Proportion bar plot
 
 ```{r}
-n_bl_loc <- data_strain %>% 
+bl_loc_sum <- data_strain %>% 
   select(resistance, n.beta.lac.plasmid, n.beta.lac.chrom) %>% 
   gather("loc", "N", 2:3) %>% 
-  filter(N > 0)
-
-bl_loc_sum <- n_bl_loc %>% 
+  filter(N > 0) %>% 
   group_by(resistance, loc) %>% 
   summarise(sum.n = sum(N))
 
@@ -913,6 +911,18 @@ ggplot(bl_loc_sum, aes(loc, sum.n)) +
 ```
 
 If a strain has BL genes on chromosome only it's more likely to be non-HR than HR
+
+#### On chromosomes and plasmids among HR and nonHR
+
+```{r}
+ggplot(bl_loc_sum, aes(resistance, sum.n)) +
+  geom_col(aes(fill = loc), position = "fill") +
+  scale_fill_brewer(palette = "Set2") +
+  xlab("") +
+  ylab("proportion") +
+  #scale_x_discrete(labels = c("on chromosome", "on plasmids")) +
+  theme(legend.title = element_blank())
+```
 
 ### Beta-lactamases on plus strand
 
