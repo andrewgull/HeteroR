@@ -28,7 +28,7 @@ option_list <- list(
     c("-r", "--recipe"),
     type = "character",
     default = NULL,
-    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq', 'pcayj', 'ncoryj')",
+    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq', 'pcayj', 'ncoryj', 'mainrfe', 'yjmainrfe')",
     metavar = "character"
   ),
   make_option(
@@ -127,6 +127,7 @@ library(finetune) # for racing grid search
 library(themis) # for SMOTE
 library(bestNormalize) # for ORQ-norm
 library(embed) # for UMAP
+library(colino)
 
 if (opt$model == "nb"){
   library(discrim) # for NB with engine 'klaR'
@@ -235,6 +236,17 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_corr(threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
+
+
+rfe_model <- rand_forest(mode = "classification") %>% 
+  set_engine("ranger", num.threads = 8, importance = "impurity" )
+
+main_rfe_recipe <- main_recipe %>%
+  step_select_vip(all_numeric_predictors(), outcome = "resistance", model = rfe_model, threshold = .9)
+
+yj_rfe_recipe <-  yj_recipe %>%
+  step_select_vip(all_numeric_predictors(), outcome = "resistance", model = rfe_model, threshold = .9)
+
 
 #### FOLDS & METRICS ####
 cv_folds <- vfold_cv(df_train, 
@@ -377,6 +389,10 @@ set_rec <- function(rec, cores){
     rc <- pcayj_recipe
   } else if (rec == "ncoryj") {
     rc <- yj_recipe
+  } else if (rec == "mainrfe") {
+    rc <- main_rfe_recipe
+  } else if (rec == "yjmainrfe") {
+    rc <- yj_rfe_recipe    
   } else {
     print("ERROR! Undefined recipe!")
     quit(status = 1)

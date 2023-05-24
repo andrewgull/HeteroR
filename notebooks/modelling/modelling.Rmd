@@ -303,6 +303,7 @@ fixed on local copy - th original package in the tibble creation has
  
  the git repository was cloned locally, corrected and the package installed following 
  https://kbroman.org/pkg_primer/pages/build.html
+ 
 ```{r}
 # devtools::install_github("stevenpawley/colino")
 library(colino)
@@ -574,6 +575,199 @@ show_best(lr_en_ncoryj_res)
 ```{r}
 make_roc(lr_en_ncoryj_res, "") %>% 
   autoplot() + ggtitle("el.net LR (no corr.+YJ)")
+```
+
+## Random Forest with Recursive Features Elimination
+
+```{r}
+rf_mainrfe_race <- readRDS(paste0(models_path, "rf_mainrfe_race_p30.rds"))
+
+autoplot(rf_mainrfe_race)
+```
+
+### The best ones
+
+```{r}
+show_best(rf_mainrfe_race)
+```
+
+### ROC
+
+```{r}
+make_roc(rf_mainrfe_race, "") %>% 
+  autoplot() + ggtitle("rf (rfe)")
+```
+
+## Booster trees with Recursive Features Elimination
+
+```{r}
+bt_mainrfe_race <- readRDS(paste0(models_path, "bt_mainrfe_race_p30.rds"))
+
+autoplot(bt_mainrfe_race)
+```
+
+### The best ones
+
+```{r}
+show_best(bt_mainrfe_race)
+```
+
+### ROC
+
+```{r}
+make_roc(bt_mainrfe_race, "") %>% 
+  autoplot() + ggtitle("bt (rfe)")
+```
+## knn with Recursive Features Elimination + YJ recipe
+
+```{r}
+knn_yjmainrfe_race <- readRDS(paste0(models_path, "knn_yjmainrfe_race_p30.rds"))
+
+autoplot(knn_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(knn_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(knn_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("knn (rfe + YJ)")
+```
+## lsvm with Recursive Features Elimination + YJ recipe
+
+```{r}
+lsvm_yjmainrfe_race <- readRDS(paste0(models_path, "lsvm_yjmainrfe_race_p30.rds"))
+
+autoplot(lsvm_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(lsvm_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(lsvm_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("lsvm (rfe + YJ)")
+```
+
+## psvm with Recursive Features Elimination + YJ recipe
+
+```{r}
+psvm_yjmainrfe_race <- readRDS(paste0(models_path, "psvm_yjmainrfe_race_p30.rds"))
+
+autoplot(psvm_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(psvm_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(knn_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("psvm (rfe + YJ)")
+```
+
+## rbfsvm with Recursive Features Elimination + YJ recipe
+
+```{r}
+rbfsvm_yjmainrfe_race <- readRDS(paste0(models_path, "rbfsvm_yjmainrfe_race_p30.rds"))
+
+plot_race(knn_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(rbfsvm_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(rbfsvm_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("rbfsvm (rfe + YJ)")
+```
+
+## bag_mlp with Recursive Features Elimination + YJ recipe
+
+```{r}
+bagmlp_yjmainrfe_race <- readRDS(paste0(models_path, "bagmlp_yjmainrfe_race_p30.rds"))
+
+plot_race(bagmlp_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(bagmlp_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(bagmlp_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("bagmlp (rfe + YJ)")
+```
+
+## mlp_nnet with Recursive Features Elimination + YJ recipe
+
+```{r}
+mlpnne_yjmainrfe_race <- readRDS(paste0(models_path, "mlpnnet_yjmainrfe_race_p30.rds"))
+
+plot_race(mlpnne_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(mlpnne_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(mlpnne_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("knn (rfe + YJ)")
+```
+
+## mars with Recursive Features Elimination + YJ recipe
+
+```{r}
+mars_yjmainrfe_race <- readRDS(paste0(models_path, "mars_yjmainrfe_race_p30.rds"))
+
+plot_race(mars_yjmainrfe_race)
+```
+
+### The best ones
+```{r}
+show_best(mars_yjmainrfe_race)
+```
+
+### ROC
+```{r}
+make_roc(mars_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("mars (rfe + YJ)")
+```
+
+## bag_mars with Recursive Features Elimination + YJ recipe
+
+```{r}
+bagmars_yjmainrfe_race <- readRDS(paste0(models_path, "bag_mars_yjmainrfe_race_p30.rds"))
+
+plot_race(bagmars_yjmainrfe_race)
+```
+
+### The best ones
+```{r}
+show_best(bagmars_yjmainrfe_race)
+```
+
+
+### ROC
+```{r}
+make_roc(bagmars_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("bag mars (rfe + YJ)")
 ```
 
 ## Compare preprocessors
