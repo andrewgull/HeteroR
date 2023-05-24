@@ -567,6 +567,28 @@ show_best(bt_mainrfe_race)
 make_roc(bt_mainrfe_race, "") %>% 
   autoplot() + ggtitle("bt (rfe)")
 ```
+
+# Booster trees with Recursive Features Elimination Bayesian grid
+
+```{r}
+bt_mainrfe_bayes <- readRDS(paste0(models_path, "bt_mainrfe_bayes_p30.rds"))
+
+autoplot(bt_mainrfe_bayes)
+```
+
+### The best ones
+
+```{r}
+show_best(bt_mainrfe_bayes)
+```
+
+### ROC
+
+```{r}
+make_roc(bt_mainrfe_bayes, "") %>% 
+  autoplot() + ggtitle("bt (rfe)")
+```
+
 ## knn with Recursive Features Elimination + YJ recipe
 
 ```{r}
