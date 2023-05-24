@@ -1181,6 +1181,8 @@ fig
 
 ## Coverage
 
+### Plot
+
 ```{r}
 data_strain %>% 
     ggplot(aes(resistance, coverage)) +
@@ -1200,6 +1202,19 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+### KW test
+
+```{r}
+kruskal.test(data_strain$coverage, data_strain$resistance)
+```
+
+### Medians
+
+```{r}
+data_strain %>% group_by(resistance) %>% summarise(median=median(coverage))
+```
+
 
 ## Sequencing reads lengths
 
@@ -1234,6 +1249,11 @@ data_strain %>%
   guides(fill = "none")
 ```
 
+```{r}
+cor.test(data_strain$read.max.len, data_strain$coverage, method = "kendall")
+```
+
+
 ## Number of plasmids
 
 Per strain, doesn't depend on beta-lactamase presence or absence
@@ -1259,6 +1279,19 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+### Medians
+
+```{r}
+data_strain %>% group_by(resistance) %>% summarise(median=median(n.plasmids))
+```
+
+### Poisson model for count data
+
+```{r}
+summary(glm(n.plasmids ~ resistance, data=data_strain, family = "poisson"))
+```
+
 
 ### Bar plot - filtered version
 
