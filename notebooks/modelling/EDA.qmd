@@ -22,6 +22,7 @@ library(factoextra)
 library(cluster)
 library(skimr)
 library(readr)
+source("functions.R")
 ```
 
 # Intro
@@ -313,29 +314,12 @@ corrplot::corrplot(cor_matrix_norm, type = "upper", tl.col = "black", tl.cex = 0
 
 Choose the variable of interest in the function below or check the **shiny app** out!
 
-```{r}
+```{r, fig.width = 10, fig.height=5}
 library(patchwork)
 
-comp_plots <- function(col_name, orig_data, prep_data){
-  p_orig <- 
-  orig_data %>% 
-  ggplot(aes_string(x = col_name)) + 
-  geom_histogram(bins = 30, color = "white", fill = "blue", alpha = 1/3) + 
-  ggtitle(paste0("Original data (", col_name, ")"))
-  
-  p_norm <- 
-  prep_data %>% 
-  ggplot(aes_string(x = col_name)) + 
-  geom_histogram(bins = 30, color = "white", fill = "red", alpha = 1/3) + 
-  ggtitle(paste0("Processed data (", col_name, ")"))
-  
-  return(list(p_orig, p_norm))
-}
-
 plots <- comp_plots("n.c.plasmids", data_strain, data_prep)
-```
 
-```{r, fig.width = 10, fig.height=5}
+# patchwork's syntax
 (plots[[1]] | plots[[2]])
 ```
 
@@ -829,7 +813,7 @@ ggplot(data_strain, aes(n.beta.lac)) +
 
 2.  There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
 
-#### Proportion bar-plot
+#### BL \> 4 proportion
 
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
@@ -837,7 +821,7 @@ When number of BL genes is greater than 3, quite likely that the strain is HR or
 ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
-  xlab("N beta-lact > 3") +
+  xlab("N beta-lact > 4") +
   ylab("proportion of strains") +
   scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
   theme(legend.title=element_blank())
@@ -910,12 +894,10 @@ ggplot(data_strain, aes(n.beta.lac.chrom)) +
 #### Proportion bar plot
 
 ```{r}
-n_bl_loc <- data_strain %>% 
+bl_loc_sum <- data_strain %>% 
   select(resistance, n.beta.lac.plasmid, n.beta.lac.chrom) %>% 
   gather("loc", "N", 2:3) %>% 
-  filter(N > 0)
-
-bl_loc_sum <- n_bl_loc %>% 
+  filter(N > 0) %>% 
   group_by(resistance, loc) %>% 
   summarise(sum.n = sum(N))
 
@@ -929,6 +911,18 @@ ggplot(bl_loc_sum, aes(loc, sum.n)) +
 ```
 
 If a strain has BL genes on chromosome only it's more likely to be non-HR than HR
+
+#### On chromosomes and plasmids among HR and nonHR
+
+```{r}
+ggplot(bl_loc_sum, aes(resistance, sum.n)) +
+  geom_col(aes(fill = loc), position = "fill") +
+  scale_fill_brewer(palette = "Set2") +
+  xlab("") +
+  ylab("proportion") +
+  #scale_x_discrete(labels = c("on chromosome", "on plasmids")) +
+  theme(legend.title = element_blank())
+```
 
 ### Beta-lactamases on plus strand
 
@@ -1187,6 +1181,8 @@ fig
 
 ## Coverage
 
+### Plot
+
 ```{r}
 data_strain %>% 
     ggplot(aes(resistance, coverage)) +
@@ -1206,6 +1202,19 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+### KW test
+
+```{r}
+kruskal.test(data_strain$coverage, data_strain$resistance)
+```
+
+### Medians
+
+```{r}
+data_strain %>% group_by(resistance) %>% summarise(median=median(coverage))
+```
+
 
 ## Sequencing reads lengths
 
@@ -1240,6 +1249,11 @@ data_strain %>%
   guides(fill = "none")
 ```
 
+```{r}
+cor.test(data_strain$read.max.len, data_strain$coverage, method = "kendall")
+```
+
+
 ## Number of plasmids
 
 Per strain, doesn't depend on beta-lactamase presence or absence
@@ -1265,6 +1279,19 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+### Medians
+
+```{r}
+data_strain %>% group_by(resistance) %>% summarise(median=median(n.plasmids))
+```
+
+### Poisson model for count data
+
+```{r}
+summary(glm(n.plasmids ~ resistance, data=data_strain, family = "poisson"))
+```
+
 
 ### Bar plot - filtered version
 
@@ -1656,13 +1683,11 @@ Statistics based on BL of ampC-type only
 
 #### As a box plot
 
-`n.rep.total.ampC` was removed from the table created in `features.qmd` in the new table and are replaced with `n.rep.plasmid.ampC` and `n.rep.chrom.ampC` whose sum would be equal to `n.rep.total.ampC` and therefore redundant. 
-We reintroduce it here since the table `data_strain` will be used only here in this notebook.  
+`n.rep.total.ampC` was removed from the table created in `features.qmd` in the new table and are replaced with `n.rep.plasmid.ampC` and `n.rep.chrom.ampC` whose sum would be equal to `n.rep.total.ampC` and therefore redundant. We reintroduce it here since the table `data_strain` will be used only here in this notebook.
 
 ```{r}
 data_strain <- data_strain %>% mutate(n.rep.total.ampC = n.rep.plasmid.ampC + n.rep.chrom.ampC )
 ```
-
 
 ```{r, fig.width=8, fig.height=4, warning=FALSE}
 library(patchwork)
@@ -1704,7 +1729,6 @@ p1 + p2 + p3+
 
 ```
 
-
 #### As distributions
 
 ```{r, fig.width=6, fig.height=4}
@@ -1745,12 +1769,11 @@ ggplot(data_strain %>% filter(med.AR.len.ampC > 0), aes(resistance, med.AR.len.a
 
 ```
 
-TEM - like above 
+TEM - like above
 
 ```{r}
 data_strain <- data_strain %>% mutate(n.rep.total.TEM = n.rep.plasmid.TEM + n.rep.chrom.TEM )
 ```
-
 
 ```{r, fig.width=8, fig.height=4, warning=FALSE}
 
@@ -1819,12 +1842,11 @@ ggplot(data_strain %>% filter(med.AR.len.TEM > 0), aes(resistance, med.AR.len.TE
 
 ```
 
-CTX - like above 
+CTX - like above
 
 ```{r}
 data_strain <- data_strain %>% mutate(n.rep.total.CTX = n.rep.plasmid.CTX + n.rep.chrom.CTX )
 ```
-
 
 ```{r, fig.width=8, fig.height=4, warning=FALSE}
 
@@ -1892,8 +1914,6 @@ ggplot(data_strain %>% filter(med.AR.len.CTX > 0), aes(resistance, med.AR.len.CT
   guides(fill="none")
 
 ```
-
-
 
 ## IS sequences
 
