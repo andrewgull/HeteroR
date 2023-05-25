@@ -1,2 +1,53 @@
 strains:
   strain_name: strain_name
+
+# rule qc_illumina_* params
+fastqc_path: "/home/andrei/miniconda3/bin/fastqc"
+
+# rule trim_illumina params
+quality: "20"
+window_size: "4"
+cut_right: "20"
+length_required: "50"
+trim_front: "10"
+
+# rule trim_nanopore params
+min_nanopore_length: 3000
+
+# rule adaptive_hybrid_assembly params
+basecaller: "r941_min_fast_g507"
+genome_size: "5m"
+coverage: 50
+genome_length: 5131220
+cov_threshold: 30
+
+# rule qc_assembly params
+tax_dataset: "gammaproteobacteria_odb10"
+
+# rule assembly_summary params
+position: 2
+
+# rule assembly_annotation params
+centre: "UU"
+minlen: "200"
+genus: "Escherichia"
+species: "coli"
+
+# rule rg_annotation params
+filter_criterion: "Loose"
+
+# rule regions_coords params
+span: 100000
+min_plasmid_size: 1000
+
+# rule direct_repeats params
+mode: 2
+min_size: 20
+format: 1
+mism: 0
+seed_mism: 0
+max_dist: 205000
+min_dist: 100
+
+# rule dr_annotation params
+min_repeat_length: 20
