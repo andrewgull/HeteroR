@@ -23,9 +23,9 @@ rule qc_illumina_raw:
     message: "executing FastQC with {threads} threads on {wildcards.strain} raw Illumina files"
     log: "results/logs/{strain}_illumina_qc.log"
     conda: "envs/rscripts.yaml"
-    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
+    params: fastqc_path=config["fastqc_path"]
     shell:
-        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
+        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastqc_path} -t {threads} &> {log}"
 
 # quality check of trimmed short reads
 rule qc_illumina_trimmed:
@@ -38,9 +38,9 @@ rule qc_illumina_trimmed:
     message: "executing FastQC with {threads} threads on {wildcards.strain} trimmed Illumina files"
     log: "results/logs/{strain}_trimmed_qc.log"
     conda: "envs/rscripts.yaml"
-    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
+    params: fastqc_path=config["fastqc_path"]
     shell:
-        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
+        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastqc_path} -t {threads} &> {log}"
 
 # quality check for raw long reads
 # later only reads shorter than 1000 bp are removed
@@ -54,9 +54,9 @@ rule qc_nanopore_raw:
     message: "executing FastQC with {threads} threads on {wildcards.strain} raw Nanopore files"
     log: "results/logs/{strain}_nanopore_qc.log"
     conda: "envs/rscripts.yaml"
-    params: fastq_path="/home/andrei/miniconda3/bin/fastqc"
+    params: fastqc_path=config["fastqc_path"]
     shell:
-        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastq_path} -t {threads} &> {log}"
+        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastqc_path} -t {threads} &> {log}"
 
 # Automated short read trimming
 # fastp parameters:
@@ -88,7 +88,7 @@ rule trim_illumina:
     message: "executing fastp with {threads} threads on {wildcards.strain} short reads"
     log: "results/logs/{strain}_fastp.log"
     conda: "envs/fastp.yaml"
-    params: q="20", W="4", r="20", l="50", f="10"
+    params: q=config["quality"], W=config["window_size"], r=config["cut_right"], l=config["length_required"], f=config["trim_front"]
     shell:
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} "
         "--out2 {output.short_read_2} "
@@ -108,7 +108,7 @@ rule filter_nanopore:
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
     threads: 18
-    params: min_len=3000
+    params: min_len=config["min_nanopore_length"]
     shell:
         "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
@@ -128,7 +128,7 @@ rule adaptive_hybrid_assembly:
     log:
         "results/logs/{strain}_assembly.log"
     conda: "envs/hybrid_assembly.yaml"
-    params: basecaller="r941_min_fast_g507", genome_size="5m", coverage=50, genome_length=5131220, cov_threshold=30
+    params: basecaller=config["basecaller"], genome_size=config["genome_size"], coverage=config["coverage"], genome_length=config["genome_length"], cov_threshold=config["cov_threshold"]
     script:
         "scripts/adaptive_hybrid_assembly.py"
 
@@ -142,7 +142,7 @@ rule qc_assembly:
     threads: 18
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
     conda: "envs/busco_quast.yaml"
-    params: tax_dataset="gammaproteobacteria_odb10"
+    params: tax_dataset=config["tax_dataset"]
     script:
         "scripts/QC_assembly.py"
 
@@ -214,7 +214,7 @@ rule assembly_summary:
     output:
          "results/assemblies_joined/{strain}/summary.tsv"
     threads: 1
-    params: position=2
+    params: position=config["position"]
     message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
     log: "results/logs/{strain}_assembly_summary.log"
     script:
@@ -244,7 +244,7 @@ rule assembly_annotation:
     message: "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
     log: "results/logs/{strain}_prokka.log"
     conda: "envs/prokka.yaml"
-    params: centre="UU", minlen="200", genus="Escherichia", species="coli"
+    params: centre=config["centre"], minlen=config["minlen"], genus=config["genus"], species=config["species"]
     shell:
         # skip tRNAs search?
         "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix {wildcards.strain}_genomic --centre {params.centre} --genus {params.genus} "
@@ -339,7 +339,7 @@ rule rg_annotation:
         "results/annotations/{strain}/prokka"
     output:
         "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
-    params: filter_criterion="Loose"
+    params: filter_criterion=config["filter_criterion"]
     script:
         "scripts/rgi2gff.py"
 
@@ -355,7 +355,7 @@ rule regions_coords:
        "results/direct_repeats/{strain}/regions/regions_overlapping_3_end.bed"
     message: "creating BED files for RGs flanking regions in {wildcards.strain} assembly"
     log: "results/logs/{strain}_getbed.log"
-    params: span=100000, min_plasmid_size=1000
+    params: span=config["span"], min_plasmid_size=config["min_plasmid_size"]
     script:
         "scripts/flanking_regions.py"
 
@@ -417,7 +417,7 @@ rule direct_repeats:
     message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf_perfect.log"
     conda: "envs/grf.yaml"
-    params: mode=2, min_size=20, format=1, mism=0, seed_mism=0, max_dist=205000, min_dist=100
+    params: mode=config["mode"], min_size=config["min_size"], format=config["format"], mism=config["mism"], seed_mism=config["seed_mism"], max_dist=config["max_dist"], min_dist=config["min_dist"]
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
@@ -432,7 +432,7 @@ rule dr_annotation:
         "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
         "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff"
     message: "executing GFF_parser.py on {wildcards.strain} perfect repeats data"
-    params: min_len=20
+    params: min_len=config["min_repeat_length"]
     log: "results/logs/{strain}_gff_perfect.log"
     script: "scripts/GRF_parser.py"
 
