@@ -612,7 +612,7 @@ make_roc(knn_yjmainrfe_race, "") %>%
 ```{r}
 lsvm_yjmainrfe_race <- readRDS(paste0(models_path, "lsvm_yjmainrfe_race_p30.rds"))
 
-autoplot(lsvm_yjmainrfe_race)
+plot_race(lsvm_yjmainrfe_race)
 ```
 ### The best ones
 
@@ -626,12 +626,32 @@ make_roc(lsvm_yjmainrfe_race, "") %>%
   autoplot() + ggtitle("lsvm (rfe + YJ)")
 ```
 
+## lsvm with Recursive Features Elimination + YJ recipe Bayesian grid tuning
+
+```{r}
+lsvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "lsvm_yjmainrfe_bayes_p30.rds"))
+
+autoplot(lsvm_yjmainrfe_bayes)
+```
+### The best ones
+
+```{r}
+show_best(lsvm_yjmainrfe_bayes)
+```
+### ROC
+
+```{r}
+make_roc(lsvm_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("lsvm (rfe + YJ) bayesian grid")
+```
+
+
 ## psvm with Recursive Features Elimination + YJ recipe
 
 ```{r}
 psvm_yjmainrfe_race <- readRDS(paste0(models_path, "psvm_yjmainrfe_race_p30.rds"))
 
-autoplot(psvm_yjmainrfe_race)
+plot_race(psvm_yjmainrfe_race)
 ```
 ### The best ones
 
@@ -645,12 +665,31 @@ make_roc(knn_yjmainrfe_race, "") %>%
   autoplot() + ggtitle("psvm (rfe + YJ)")
 ```
 
+## psvm with Recursive Features Elimination + YJ recipe Bayesian grid 
+
+```{r}
+psvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "psvm_yjmainrfe_bayes_p30.rds"))
+
+autoplot(psvm_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(psvm_yjmainrfe_bayes)
+```
+### ROC
+
+```{r}
+make_roc(psvm_yjmainrfe_bayes, "") %>% 
+  autoplot() + ggtitle("psvm (rfe + YJ) Bayesian grid search")
+```
+
 ## rbfsvm with Recursive Features Elimination + YJ recipe
 
 ```{r}
 rbfsvm_yjmainrfe_race <- readRDS(paste0(models_path, "rbfsvm_yjmainrfe_race_p30.rds"))
 
-plot_race(knn_yjmainrfe_race)
+plot_race(rbfsvm_yjmainrfe_race)
 ```
 ### The best ones
 
@@ -662,6 +701,25 @@ show_best(rbfsvm_yjmainrfe_race)
 ```{r}
 make_roc(rbfsvm_yjmainrfe_race, "") %>% 
   autoplot() + ggtitle("rbfsvm (rfe + YJ)")
+```
+
+## rbfsvm with Recursive Features Elimination + YJ recipe Bayesian grid
+
+```{r}
+rbfsvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "rbfsvm_yjmainrfe_bayes_p30.rds"))
+
+autoplot(rbfsvm_yjmainrfe_bayes)
+```
+### The best ones
+
+```{r}
+show_best(rbfsvm_yjmainrfe_bayes)
+```
+### ROC
+
+```{r}
+make_roc(rbfsvm_yjmainrfe_bayes, "") %>% 
+  autoplot() + ggtitle("rbfsvm (rfe + YJ) Bayesian grid")
 ```
 
 ## bag_mlp with Recursive Features Elimination + YJ recipe
