@@ -796,8 +796,6 @@ Low coverage, incomplete assembly, susceptible, no repeats.
 #### Proportion
 
 ```{r}
-#data_strain$resistance <- factor()
-
 ggplot(data_strain, aes(n.beta.lac)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette = "Set1") +
@@ -828,6 +826,22 @@ ggplot(data_strain, aes(n.beta.lac.4)) +
 ```
 
 Now the chance of being HR is higher than the chance of being nonHR
+
+#### Number of Beta-lactamases vs resistance
+
+Let's fit Poisson regression
+
+```{r}
+resistance_01 <- ifelse(data_strain$resistance == "HR", 1, 0)
+
+poisson_fit_nbl <- glm(resistance_01 ~ data_strain$n.beta.lac, family = "poisson")
+summary(poisson_fit_nbl)
+```
+
+```{r}
+exp(coef(poisson_fit_nbl))
+```
+
 
 ### Beta-lactamases on plasmids and chromosome
 
@@ -1318,6 +1332,57 @@ data_strain %>%
   guides(fill = "none")
 ```
 
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.plasmids ~ coverage, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+```{r}
+exp(coef(pois_fit))
+```
+
+Increase of `coverage` by 1 unit decreases `n.plasmids` 0.99 times - which is very slow decrease, though (and barely significant)
+
+## Number of plasmids vs completeness
+
+### Plot
+
+```{r}
+data_strain %>%
+  ggplot(aes(chrom.status, n.plasmids)) +
+  geom_violin(aes(fill = chrom.status), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = chrom.status),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.plasmids ~ chrom.status, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+
+```{r}
+exp(coef(pois_fit))
+```
+
+'linearity' increases `n.plasmids` in 1.6 times
+
 ## Plasmid copy number
 
 ```{r}
@@ -1341,6 +1406,18 @@ data_strain %>%
   #coord_trans(y="sqrt")
 ```
 
+#### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ resistance, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+```{r}
+exp(coef(pois_fit))
+```
+
+nonHR decreases `n.c.plasmids` times 0.6
+
 ### Copy number vs Coverage
 
 ```{r}
@@ -1353,6 +1430,19 @@ data_strain %>%
   xlab("coverage") +
   guides(fill = "none")
 ```
+
+#### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ coverage, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+```{r}
+exp(coef(pois_fit))
+```
+
+Increase in `coverage` slowly decreases `n.c.plasmids`, but now it's significant.
 
 ## Copy number vs number of plasmids
 
@@ -1367,7 +1457,20 @@ data_strain %>%
   guides(fill = "none")
 ```
 
-## Copy number and completeness
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ n.plasmids, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+```{r}
+exp(coef(pois_fit))
+```
+
+increase in `n.plasmids` by 1 unit increases `n.c.plasmids` 1.4 times
+
+## Copy number of plasmids and completeness
 
 ```{r}
 data_strain %>%
@@ -1388,6 +1491,20 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ chrom.status, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+
+```{r}
+exp(coef(pois_fit))
+```
+
+'linearity' increases `n.c.plasmids`
 
 ## Median total repeat length
 
