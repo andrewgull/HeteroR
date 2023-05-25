@@ -114,13 +114,6 @@ option_list <- list(
 opt_parser <- OptionParser(option_list = option_list)
 opt <- parse_args(opt_parser)
 
-# check validity of options
-# if (opt$search != "bayes" | opt$search != "space"){
-#   print("ERROR! Unknown type of grid search!")
-#   quit(status = 1)
-# } 
-
-
 #### LIBS ####
 suppressPackageStartupMessages(library(tidymodels)) # to keep quiet
 library(finetune) # for racing grid search
@@ -129,9 +122,9 @@ library(bestNormalize) # for ORQ-norm
 library(embed) # for UMAP
 library(colino)
 
-if (opt$model == "nb"){
+if (opt$model == "nb") {
   library(discrim) # for NB with engine 'klaR'
-} else if (opt$model == "bag_mars" | opt$model == "bag_mlp"){
+} else if (opt$model == "bag_mars" | opt$model == "bag_mlp") {
   library(baguette) # for bagged models
 }
 
@@ -174,8 +167,8 @@ data_strain[is.na(data_strain)] <- 0
 set.seed(124)
 
 # splitting proportion should be the same
-data_split <- initial_split(data_strain, 
-                            prop = opt$proportion, 
+data_split <- initial_split(data_strain,
+                            prop = opt$proportion,
                             strata = resistance)
 
 df_train <- training(data_split)
@@ -183,54 +176,52 @@ df_test <- testing(data_split)
 
 #### PREPROCESSING RECIPES ####
 main_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
+  update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
+  update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   #step_corr(threshold = opt$corr_threshold) %>%
-  step_corr(threshold = tune("corr_tune")) %>% 
+  step_corr(threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
-  update_role(resistance, new_role = "outcome") %>% 
-  step_nzv(all_predictors()) %>% 
+  update_role(resistance, new_role = "outcome") %>%
+  step_nzv(all_predictors()) %>%
   #step_normalize(all_numeric_predictors()) %>%
-  step_orderNorm(all_numeric_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
   step_pca(all_predictors(), threshold = .9)
 
-pcayj_recipe <- 
-  recipe(resistance ~ ., data = df_train) %>%
+pcayj_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_pca(all_predictors(), num_comp = tune()) %>% 
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_pca(all_predictors(), num_comp = tune()) %>%
   step_normalize(all_numeric_predictors())
 
-yj_recipe <- 
-  recipe(resistance ~ ., data = df_train) %>%
+yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
   step_corr(threshold = tune("corr_tune"))
 
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
+  update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
@@ -238,41 +229,51 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 
-rfe_model <- rand_forest(mode = "classification") %>% 
-  set_engine("ranger", num.threads = 8, importance = "impurity" )
+rfe_model <- rand_forest(mode = "classification") %>%
+  set_engine("ranger", num.threads = 8, importance = "impurity")
 
 main_rfe_recipe <- main_recipe %>%
-  step_select_vip(all_numeric_predictors(), outcome = "resistance", model = rfe_model, threshold = .9)
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  )
 
 yj_rfe_recipe <-  yj_recipe %>%
-  step_select_vip(all_numeric_predictors(), outcome = "resistance", model = rfe_model, threshold = .9)
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  )
 
 
 #### FOLDS & METRICS ####
-cv_folds <- vfold_cv(df_train, 
-                     strata = "resistance", 
-                     v = opt$folds, 
-                     repeats = opt$resamples) 
+cv_folds <- vfold_cv(df_train,
+                     strata = "resistance",
+                     v = opt$folds,
+                     repeats = opt$resamples)
 # metrics for imbalanced classes
-imbalanced_metrics <- metric_set(roc_auc, j_index) 
+imbalanced_metrics <- metric_set(roc_auc, j_index)
 
 #### FUNCTIONS ####
 set_model <- function(mod, cores) {
   # create model specification
   if (mod == "lr1") {
     my_mod <- logistic_reg(
-        penalty = tune(), 
-        mixture = 1) %>% 
+        penalty = tune(),
+        mixture = 1) %>%
       set_engine("glmnet")
   } else if (mod == "lr0") {
     my_mod <- logistic_reg(
-      penalty = tune(), 
-      mixture = 0) %>% 
+      penalty = tune(),
+      mixture = 0) %>%
       set_engine("glmnet")
   } else if (mod == "lr_en") {
     my_mod <- logistic_reg(
       penalty = tune(), 
-      mixture = tune()) %>% 
+      mixture = tune()) %>%
       set_engine("glmnet")
   } else if (mod == "mars") {
     my_mod <- mars(
@@ -280,7 +281,7 @@ set_model <- function(mod, cores) {
       engine = "earth",
       num_terms = tune(),
       prod_degree = tune(),
-      prune_method = "backward") %>% 
+      prune_method = "backward") %>%
       translate()
   } else if(mod == "lsvm") {
     my_mod <- svm_linear(
@@ -289,24 +290,24 @@ set_model <- function(mod, cores) {
       set_engine("kernlab")  # default
   } else if(mod == "rf") {
     my_mod <- rand_forest(
-      mtry = tune(), 
-      min_n = tune(), 
-      trees = 1000) %>% 
-      set_engine("ranger", num.threads = cores) %>% 
+      mtry = tune(),
+      min_n = tune(),
+      trees = 1000) %>%
+      set_engine("ranger", num.threads = cores) %>%
       set_mode("classification")
-  } else if(mod == "bt") {
+  } else if (mod == "bt") {
     my_mod <- boost_tree(
-      trees = 50, 
-      mtry = tune(), 
-      min_n = tune(), 
-      tree_depth = tune(), 
-      learn_rate = tune(), 
-      loss_reduction = tune(), 
-      sample_size = tune(), 
-      stop_iter = tune()) %>% 
-      set_engine("xgboost", num.threads = cores) %>% 
+      trees = 50,
+      mtry = tune(),
+      min_n = tune(),
+      tree_depth = tune(),
+      learn_rate = tune(),
+      loss_reduction = tune(),
+      sample_size = tune(),
+      stop_iter = tune()) %>%
+      set_engine("xgboost", num.threads = cores) %>%
       set_mode("classification")
-  } else if(mod == "knn") {
+  } else if (mod == "knn") {
     my_mod <- nearest_neighbor(
       neighbors = tune(),
       weight_func = tune(),
@@ -318,21 +319,21 @@ set_model <- function(mod, cores) {
       cost = tune(),
       degree = tune(),
       scale_factor = tune(),
-      margin = NULL ) %>% # regression only 
+      margin = NULL) %>% # regression only
       set_mode("classification") %>%
       set_engine("kernlab", num.threads = cores)
-  } else if (mod == "rbfsvm"){
+  } else if (mod == "rbfsvm") {
     my_mod <- svm_rbf(
       cost = tune(),
       rbf_sigma = tune(),
       margin = tune(),
       mode = "classification"
-    ) %>% 
+    ) %>%
       set_engine("kernlab", num.threads = cores)
-  } else if (mod == "mlp_keras"){
+  } else if (mod == "mlp_keras") {
     my_mod <-
-      mlp(hidden_units = tune(), 
-          penalty = NULL, 
+      mlp(hidden_units = tune(),
+          penalty = NULL,
           epochs = tune(),
           dropout = tune(),
           activation = "relu",
@@ -341,8 +342,8 @@ set_model <- function(mod, cores) {
       set_engine("keras", num.threads = cores)
   } else if (mod == "mlp_nnet") {
     my_mod <-
-      mlp(hidden_units = tune(), 
-          penalty = tune(), 
+      mlp(hidden_units = tune(),
+          penalty = tune(),
           epochs = tune()) %>%
       set_mode("classification") %>%
       set_engine("nnet", num.threads = cores)
@@ -365,19 +366,18 @@ set_model <- function(mod, cores) {
     my_mod <- bag_mlp(
       hidden_units = tune(),
       penalty = tune(),
-      epochs = tune()) %>% 
-      set_engine("nnet", num.threads = cores) %>% 
-      set_mode("classification") %>% 
+      epochs = tune()) %>%
+      set_engine("nnet", num.threads = cores) %>%
+      set_mode("classification") %>%
       translate()
   }
   return(my_mod)
 }
 
 
-set_rec <- function(rec, cores){
-  
+set_rec <- function(rec, cores) {
   # choose a recipe
-  if (rec == "main"){
+  if (rec == "main") {
     rc <- main_recipe
   } else if (rec == "ncorr") {
     rc <- ncorr_recipe
@@ -392,7 +392,7 @@ set_rec <- function(rec, cores){
   } else if (rec == "mainrfe") {
     rc <- main_rfe_recipe
   } else if (rec == "yjmainrfe") {
-    rc <- yj_rfe_recipe    
+    rc <- yj_rfe_recipe
   } else {
     print("ERROR! Undefined recipe!")
     quit(status = 1)
@@ -401,14 +401,14 @@ set_rec <- function(rec, cores){
 }
 
 #### CREATE A WORKFLOW ####
-# using chosen model specification 
+# using chosen model specification
 # and chosen recipe
-my_wf <- workflow() %>% 
-  add_model(set_model(mod = opt$model, cores = opt$threads)) %>% 
+my_wf <- workflow() %>%
+  add_model(set_model(mod = opt$model, cores = opt$threads)) %>%
   add_recipe(set_rec(opt$recipe))
 
 #### EXTRACT PARAMETERS ####
-if (opt$model == "rf" | opt$model == "bt"){
+if (opt$model == "rf" | opt$model == "bt") {
   # extract settings for bayesian grid search (special case)
   param_set <- extract_parameter_set_dials(my_wf) %>%
     finalize(x = df_train %>% select(-resistance))
@@ -418,7 +418,7 @@ if (opt$model == "rf" | opt$model == "bt"){
 }
 
 #### MODEL TUNING ####
-if (opt$grid_search == "space"){
+if (opt$grid_search == "space") {
   model_res <- my_wf %>%
     tune_grid(
       param_info = param_set,
@@ -428,7 +428,7 @@ if (opt$grid_search == "space"){
                              save_workflow = TRUE),
       metrics = imbalanced_metrics
     )
-} else if (opt$grid_search == "bayes"){
+} else if (opt$grid_search == "bayes") {
   model_res <- my_wf %>%
     tune_bayes(
       resamples = cv_folds,
@@ -461,7 +461,6 @@ if (opt$grid_search == "space"){
 } else if (opt$grid_search == "race+bayes") {
   # explore many points and optimize the winning ones
   resamp_obj <- readRDS(opt$rds) # resamples to optimize
-  
   model_res <- my_wf %>%
     tune_bayes(
       resamples = cv_folds,
@@ -487,4 +486,3 @@ print(perf)
 
 #### SAVE MODEL RESAMPLES ####
 saveRDS(object = model_res, file = opt$output)
-
