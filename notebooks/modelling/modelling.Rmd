@@ -405,14 +405,14 @@ New ncorq with dummies after ORQ doesn't make any changes
 
 ```{r}
 # tuned corr threshold
-lr_ncorq_res <- readRDS(paste0(models_path_old, "lr_ncorq_rs20_corr_tune.rds"))
+lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorq_p30.rds"))
 
 lr_ncorq_res %>% autoplot()
 ```
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 lr_ncorq_res %>% 
   collect_predictions() %>% 
   #group_by(id) %>% 
@@ -595,7 +595,7 @@ make_roc(bt_mainrfe_bayes, "") %>%
 ```{r}
 knn_yjmainrfe_race <- readRDS(paste0(models_path, "knn_yjmainrfe_race_p30.rds"))
 
-autoplot(knn_yjmainrfe_race)
+plot_race(knn_yjmainrfe_race)
 ```
 ### The best ones
 
@@ -745,19 +745,19 @@ make_roc(bagmlp_yjmainrfe_race, "") %>%
 ## mlp_nnet with Recursive Features Elimination + YJ recipe
 
 ```{r}
-mlpnne_yjmainrfe_race <- readRDS(paste0(models_path, "mlpnnet_yjmainrfe_race_p30.rds"))
+mlpnnet_yjmainrfe_race <- readRDS(paste0(models_path, "mlpnnet_yjmainrfe_race_p30.rds"))
 
-plot_race(mlpnne_yjmainrfe_race)
+plot_race(mlpnnet_yjmainrfe_race)
 ```
 ### The best ones
 
 ```{r}
-show_best(mlpnne_yjmainrfe_race)
+show_best(mlpnnet_yjmainrfe_race)
 ```
 ### ROC
 
 ```{r}
-make_roc(mlpnne_yjmainrfe_race, "") %>% 
+make_roc(mlpnnet_yjmainrfe_race, "") %>% 
   autoplot() + ggtitle("knn (rfe + YJ)")
 ```
 
@@ -876,7 +876,7 @@ This plot suggests that greater number of model terms can give greater AUC and J
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 mars_ncorr_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -922,7 +922,7 @@ make_roc(mars_ncoryj_res, "") %>%
 ## NCORQ recipe
 
 ```{r}
-mars_ncorq_res <- readRDS(paste0(models_path, "mars_ncorq_rs20_corr_tune.rds"))
+mars_ncorq_res <- readRDS(paste0(models_path, "mars_ncorq_p30.rds"))
 
 autoplot(mars_ncorq_res)
 ```
@@ -1027,11 +1027,28 @@ rf_bt_rfe_diff <- contrast_models(rf_bt_rfe_posterior, seed = 100)
 summary(rf_bt_rfe_diff)
 ```
 
+## Comparison of the preprocessing in MARS
+
+### ROCs overlapped
+
+```{r}
+mars_rocs <- map2_dfr(list(mars_ncorr_res, mars_ncoryj_res,mars_yjmainrfe_race, bagmars_yjmainrfe_race), c("ncorr sfg", "ncorr.yj sfg","mainrfe.yj race","bag mainrfe.yj race"), 
+                            function(x, y) make_roc(x, y))
+
+mars_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1")
+```
+
 ## Comparison of the preprocessing steps
 
 ```{r}
-mars_comp <- res_comp_table(res_list = list(mars_ncorr_res, mars_ncoryj_res),
-                            mod_names = c("ncorr", "ncorr.yj"))
+mars_comp <- res_comp_table(res_list = list(mars_ncorr_res, mars_ncoryj_res,mars_yjmainrfe_race, bagmars_yjmainrfe_race),
+                            mod_names = c("ncorr sfg", "ncorr.yj sfg","mainrfe.yj race","bag mainrfe.yj race"))
 
 mars_posterior <- perf_mod(mars_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
 
@@ -1059,7 +1076,7 @@ plot_race(lsvm_ncorr_res)
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 lsvm_ncorr_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1108,7 +1125,7 @@ plot_race(lsvm_ncorq_res)
 
 ### Gain curve
 
-```{r}
+```{r,eval =FALSE}
 lsvm_ncorq_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1170,7 +1187,7 @@ plot_race(psvm_ncorr_res)
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 psvm_ncorr_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1201,7 +1218,7 @@ plot_race(psvm_ncorq_res)
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 psvm_ncorq_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1254,7 +1271,7 @@ plot_race(psvm_pca_res)
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 psvm_pca_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1429,7 +1446,7 @@ knn_ncorr_res %>%
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 knn_ncorr_res %>% 
   collect_predictions() %>% 
   #group_by(id) %>% 
@@ -1454,7 +1471,7 @@ knn_ncorq_res %>%
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 knn_ncorq_res %>% 
   collect_predictions() %>% 
   #group_by(id) %>% 
@@ -1494,11 +1511,30 @@ knn_rocs %>%
   scale_color_brewer(palette="Set1")
 ```
 
+## Comparison of the preprocessing in KNN
+
+### ROCs overlapped
+
+```{r}
+knn_rocs <- map2_dfr(list(knn_ncorr_res, knn_ncoryj_res, knn_ncorq_res, knn_yjmainrfe_race), c("ncorr", "ncorr.yj", "ncorr.orq","rfe_race.yj"), 
+                            function(x, y) make_roc(x, y))
+
+knn_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1")
+```
+
+
+
 ### Posterior distributions
 
 ```{r, fig.width=5, fig.height=2}
-knn_comp <- res_comp_table(res_list = list(knn_ncorr_res, knn_ncoryj_res, knn_ncorq_res),
-                           c("ncorr", "ncorr.yj", "ncorr.orq"))
+knn_comp <- res_comp_table(res_list = list(knn_ncorr_res, knn_ncoryj_res, knn_ncorq_res, knn_yjmainrfe_race),
+                           c("ncorr", "ncorr.yj", "ncorr.orq","rfe_race.yj"))
 
 knn_posterior <- perf_mod(knn_comp, iter = 2000, seed = 100, refresh = 0, chains = 5, cores = 2)
 
@@ -1539,7 +1575,7 @@ plot_race(rf_main_res)
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 rf_main_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1563,7 +1599,7 @@ rf_ncorr_res %>% autoplot()
 
 ### Gain curve
 
-```{r}
+```{r, eval=FALSE}
 rf_ncorr_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1639,7 +1675,7 @@ xgb_main_res %>%
 
 ### Gain curve
 
-```{r, fig.width=6}
+```{r, fig.width=6,eval=FALSE}
 xgb_main_res %>% 
   collect_predictions() %>% 
   gain_curve(truth = resistance, estimate = .pred_HR) %>% 
@@ -1667,7 +1703,7 @@ xgb_ncorr_bres %>%
 
 ### Gain curve
 
-```{r}
+```{r,eval=FALSE}
 xgb_ncorr_bres %>% 
   collect_predictions() %>% 
   #group_by(id) %>% 
@@ -1874,9 +1910,9 @@ mlpk_pca %>% show_best("roc_auc")
 
 ### ROCs
 
-```{r, fig.width=5, fig.height=2}
-mlp_rocs <- map2_dfr(list(mlp_ncoryj, mlp_pca, mlp_ncorq, mlpk_pca),
-                            c("MLP ncorr+yj",  "MLP pca+yj", "MLP ncorq", "Keras pca+yj"), 
+```{r, fig.width=7, fig.height=7}
+mlp_rocs <- map2_dfr(list(mlp_ncoryj, mlp_pca, mlp_ncorq, mlpk_pca, bagmlp_yjmainrfe_race, mlpnnet_yjmainrfe_race),
+                            c("MLP ncorr+yj",  "MLP pca+yj", "MLP ncorq", "Keras pca+yj", "bagMLP rfe yj race", "nnetMLP rfe yj race"), 
                             function(x, y) make_roc(x, y))
 
 mlp_rocs %>% 
@@ -1893,8 +1929,8 @@ Keras PCA looks exactly like NNET PCA
 ### Posterior distributions
 
 ```{r}
-mlp_comp <- res_comp_table(res_list = list(mlp_ncoryj, mlp_pca, mlp_ncorq, mlpk_pca),
-                           mod_names = c("ncoryj", "pca", "ncorq", "keras"))
+mlp_comp <- res_comp_table(res_list = list(mlp_ncoryj, mlp_pca, mlp_ncorq, mlpk_pca, bagmlp_yjmainrfe_race, mlpnnet_yjmainrfe_race),
+                           mod_names = c("MLP ncorr+yj",  "MLP pca+yj", "MLP ncorq", "Keras pca+yj", "bagMLP rfe yj race", "nnetMLP rfe yj race"))
 
 mlp_posterior <-
   perf_mod(
