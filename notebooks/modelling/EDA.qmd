@@ -22,6 +22,8 @@ library(factoextra)
 library(cluster)
 library(skimr)
 library(readr)
+library(themis) # smote
+library(ggforce) # for plot_validation_results()
 source("functions.R")
 ```
 
@@ -326,22 +328,9 @@ plots <- comp_plots("n.c.plasmids", data_strain, data_prep)
 If the original distribution is very skewed then normalization doesn't help much.
 
 ```{r}
-library(ggforce)
 
-plot_validation_results <- function(dat, components) {
-  # dat - data table
-  # components - vector of components names to plot
-  dat %>%
-    select(-strain) %>%
-    select(all_of(c(components, "resistance"))) %>% 
-    # Create the scatterplot matrix
-    ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
-    geom_point(alpha = 0.4, size = 1) +
-    geom_autodensity(alpha = .3) +
-    facet_matrix(vars(-resistance), layer.diag = 2) + 
-    scale_color_brewer(palette = "Set1") + 
-    scale_fill_brewer(palette = "Set1")
-}
+
+
 ```
 
 ### Yeo-Johnson transformation
@@ -379,17 +368,17 @@ pca_rec <- orq_recipe %>%
 
 # the winning PCA recipe from modelling.Rmd
 pcayj_recipe_test <- 
-  recipe(resistance ~ ., data = df_train) %>%
+  recipe(resistance ~ ., data = data_strain) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
   step_YeoJohnson(all_numeric_predictors()) %>% 
   step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  #step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_pca(all_predictors(), num_comp = 3) %>% 
   step_normalize(all_numeric_predictors())
 
- data_pca <- prep(pcayj_recipe_test, retain = TRUE)
+data_pca <- prep(pcayj_recipe_test, retain = TRUE)
 
 pcayj_recipe_test %>% 
   prep() %>% 
@@ -796,8 +785,6 @@ Low coverage, incomplete assembly, susceptible, no repeats.
 #### Proportion
 
 ```{r}
-#data_strain$resistance <- factor()
-
 ggplot(data_strain, aes(n.beta.lac)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette = "Set1") +
@@ -828,6 +815,20 @@ ggplot(data_strain, aes(n.beta.lac.4)) +
 ```
 
 Now the chance of being HR is higher than the chance of being nonHR
+
+#### Number of Beta-lactamases vs resistance
+
+Let's fit a logistic regression
+
+```{r}
+logreg_nbl_fit <- glm(resistance ~ n.beta.lac, data = data_strain, family = "binomial")
+summary(logreg_nbl_fit)
+```
+
+```{r}
+exp(coef(logreg_nbl_fit))
+```
+
 
 ### Beta-lactamases on plasmids and chromosome
 
@@ -1318,6 +1319,57 @@ data_strain %>%
   guides(fill = "none")
 ```
 
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.plasmids ~ coverage, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+```{r}
+exp(coef(pois_fit))
+```
+
+Increase of `coverage` by 1 unit decreases `n.plasmids` 0.99 times - which is very slow decrease, though (and barely significant)
+
+## Number of plasmids vs completeness
+
+### Plot
+
+```{r}
+data_strain %>%
+  ggplot(aes(chrom.status, n.plasmids)) +
+  geom_violin(aes(fill = chrom.status), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = chrom.status),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set2") +
+  ggtitle("") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.plasmids ~ chrom.status, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+
+```{r}
+exp(coef(pois_fit))
+```
+
+'linearity' increases `n.plasmids` in 1.6 times
+
 ## Plasmid copy number
 
 ```{r}
@@ -1341,6 +1393,18 @@ data_strain %>%
   #coord_trans(y="sqrt")
 ```
 
+#### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ resistance, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+```{r}
+exp(coef(pois_fit))
+```
+
+nonHR decreases `n.c.plasmids` times 0.6
+
 ### Copy number vs Coverage
 
 ```{r}
@@ -1353,6 +1417,19 @@ data_strain %>%
   xlab("coverage") +
   guides(fill = "none")
 ```
+
+#### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ coverage, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+```{r}
+exp(coef(pois_fit))
+```
+
+Increase in `coverage` slowly decreases `n.c.plasmids`, but now it's significant.
 
 ## Copy number vs number of plasmids
 
@@ -1367,7 +1444,20 @@ data_strain %>%
   guides(fill = "none")
 ```
 
-## Copy number and completeness
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ n.plasmids, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+```{r}
+exp(coef(pois_fit))
+```
+
+increase in `n.plasmids` by 1 unit increases `n.c.plasmids` 1.4 times
+
+## Copy number of plasmids and completeness
 
 ```{r}
 data_strain %>%
@@ -1388,6 +1478,20 @@ data_strain %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+### Poisson model for count data
+
+```{r}
+pois_fit <- glm(n.c.plasmids ~ chrom.status, data=data_strain, family = "poisson")
+summary(pois_fit)
+```
+
+
+```{r}
+exp(coef(pois_fit))
+```
+
+'linearity' increases `n.c.plasmids`
 
 ## Median total repeat length
 
@@ -1413,6 +1517,15 @@ med_rep_len %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+```{r}
+med_rep_len %>% 
+  filter(location=="med.tot.rep.len.plasmid",
+         med.len > 0) %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(med.len))
+```
+
 
 ### Average total
 
@@ -1541,6 +1654,20 @@ ggplot(max_rep_len, aes(resistance, max.len)) +
 ```
 
 ```{r}
+max_rep_len %>% 
+  filter(location == "max.rep.len") %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(max.len))
+```
+
+```{r}
+max_rep_len %>% 
+  filter(location == "max.rep.len.plasmid") %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(max.len))
+```
+
+```{r}
 ggplot(max_rep_len %>% filter(location == "max.rep.len.plasmid"), aes(resistance, max.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
@@ -1589,6 +1716,20 @@ ggplot(rep_count %>% filter(location == "n.rep.plasmid"), aes(resistance, n.rep)
   guides(fill = "none")
 ```
 
+```{r}
+rep_count %>% 
+  filter(location == "n.rep.plasmid") %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(n.rep))
+```
+
+```{r}
+rep_count %>% 
+  filter(location == "n.rep.total") %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(n.rep))
+```
+
 ## Amplifiable region size
 
 ```{r}
@@ -1613,6 +1754,13 @@ ar_len %>%
   xlab("") +
   guides(fill = "none")
 ```
+
+```{r}
+ar_len %>% 
+  group_by(location, resistance) %>%
+  summarise(median = median(ar.len))
+```
+
 
 ## Distance to oriC
 
