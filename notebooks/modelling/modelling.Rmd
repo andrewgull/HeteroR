@@ -526,279 +526,6 @@ make_roc(lr_en_ncoryj_res, "") %>%
   autoplot() + ggtitle("el.net LR (no corr.+YJ)")
 ```
 
-## Random Forest with Recursive Features Elimination
-
-```{r}
-rf_mainrfe_race <- readRDS(paste0(models_path, "rf_mainrfe_race_p30.rds"))
-
-autoplot(rf_mainrfe_race)
-```
-
-### The best ones
-
-```{r}
-show_best(rf_mainrfe_race)
-```
-
-### ROC
-
-```{r}
-make_roc(rf_mainrfe_race, "") %>% 
-  autoplot() + ggtitle("rf (rfe)")
-```
-
-## Booster trees with Recursive Features Elimination
-
-```{r}
-bt_mainrfe_race <- readRDS(paste0(models_path, "bt_mainrfe_race_p30.rds"))
-
-# NOT WORKING
-#autoplot(bt_mainrfe_race)
-```
-
-### The best ones
-
-```{r}
-show_best(bt_mainrfe_race)
-```
-
-### ROC
-
-```{r}
-make_roc(bt_mainrfe_race, "") %>% 
-  autoplot() + ggtitle("bt (rfe)")
-```
-
-# Booster trees with Recursive Features Elimination Bayesian grid
-
-```{r}
-bt_mainrfe_bayes <- readRDS(paste0(models_path, "bt_mainrfe_bayes_p30.rds"))
-
-autoplot(bt_mainrfe_bayes)
-```
-
-### The best ones
-
-```{r}
-show_best(bt_mainrfe_bayes)
-```
-
-### ROC
-
-```{r}
-make_roc(bt_mainrfe_bayes, "") %>% 
-  autoplot() + ggtitle("bt (rfe)")
-```
-
-## knn with Recursive Features Elimination + YJ recipe
-
-```{r}
-knn_yjmainrfe_race <- readRDS(paste0(models_path, "knn_yjmainrfe_race_p30.rds"))
-
-plot_race(knn_yjmainrfe_race)
-```
-### The best ones
-
-```{r}
-show_best(knn_yjmainrfe_race)
-```
-### ROC
-
-```{r}
-make_roc(knn_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("knn (rfe + YJ)")
-```
-## lsvm with Recursive Features Elimination + YJ recipe
-
-```{r}
-lsvm_yjmainrfe_race <- readRDS(paste0(models_path, "lsvm_yjmainrfe_race_p30.rds"))
-
-plot_race(lsvm_yjmainrfe_race)
-```
-### The best ones
-
-```{r}
-show_best(lsvm_yjmainrfe_race)
-```
-### ROC
-
-```{r}
-make_roc(lsvm_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("lsvm (rfe + YJ)")
-```
-
-## lsvm with Recursive Features Elimination + YJ recipe Bayesian grid tuning
-
-```{r}
-lsvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "lsvm_yjmainrfe_bayes_p30.rds"))
-
-autoplot(lsvm_yjmainrfe_bayes)
-```
-### The best ones
-
-```{r}
-show_best(lsvm_yjmainrfe_bayes)
-```
-### ROC
-
-```{r}
-make_roc(lsvm_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("lsvm (rfe + YJ) bayesian grid")
-```
-
-
-## psvm with Recursive Features Elimination + YJ recipe
-
-```{r}
-psvm_yjmainrfe_race <- readRDS(paste0(models_path, "psvm_yjmainrfe_race_p30.rds"))
-
-plot_race(psvm_yjmainrfe_race)
-```
-### The best ones
-
-```{r}
-show_best(psvm_yjmainrfe_race)
-```
-### ROC
-
-```{r}
-make_roc(knn_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("psvm (rfe + YJ)")
-```
-
-## psvm with Recursive Features Elimination + YJ recipe Bayesian grid 
-
-```{r}
-psvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "psvm_yjmainrfe_bayes_p30.rds"))
-
-autoplot(psvm_yjmainrfe_bayes)
-```
-### The best ones
-
-```{r}
-show_best(psvm_yjmainrfe_bayes)
-```
-### ROC
-
-```{r}
-make_roc(psvm_yjmainrfe_bayes, "") %>% 
-  autoplot() + ggtitle("psvm (rfe + YJ) Bayesian grid search")
-```
-
-## rbfsvm with Recursive Features Elimination + YJ recipe
-
-```{r}
-rbfsvm_yjmainrfe_race <- readRDS(paste0(models_path, "rbfsvm_yjmainrfe_race_p30.rds"))
-
-plot_race(rbfsvm_yjmainrfe_race)
-```
-### The best ones
-
-```{r}
-show_best(rbfsvm_yjmainrfe_race)
-```
-### ROC
-
-```{r}
-make_roc(rbfsvm_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("rbfsvm (rfe + YJ)")
-```
-
-## rbfsvm with Recursive Features Elimination + YJ recipe Bayesian grid
-
-```{r}
-rbfsvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "rbfsvm_yjmainrfe_bayes_p30.rds"))
-
-autoplot(rbfsvm_yjmainrfe_bayes)
-```
-### The best ones
-
-```{r}
-show_best(rbfsvm_yjmainrfe_bayes)
-```
-### ROC
-
-```{r}
-make_roc(rbfsvm_yjmainrfe_bayes, "") %>% 
-  autoplot() + ggtitle("rbfsvm (rfe + YJ) Bayesian grid")
-```
-
-## bag_mlp with Recursive Features Elimination + YJ recipe
-
-```{r}
-bagmlp_yjmainrfe_race <- readRDS(paste0(models_path, "bagmlp_yjmainrfe_race_p30.rds"))
-
-plot_race(bagmlp_yjmainrfe_race)
-```
-### The best ones
-
-```{r}
-show_best(bagmlp_yjmainrfe_race)
-```
-### ROC
-
-```{r}
-make_roc(bagmlp_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("bagmlp (rfe + YJ)")
-```
-
-## mlp_nnet with Recursive Features Elimination + YJ recipe
-
-```{r}
-mlpnnet_yjmainrfe_race <- readRDS(paste0(models_path, "mlpnnet_yjmainrfe_race_p30.rds"))
-
-plot_race(mlpnnet_yjmainrfe_race)
-```
-### The best ones
-
-```{r}
-show_best(mlpnnet_yjmainrfe_race)
-```
-### ROC
-
-```{r}
-make_roc(mlpnnet_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("knn (rfe + YJ)")
-```
-
-## mars with Recursive Features Elimination + YJ recipe
-
-```{r}
-mars_yjmainrfe_race <- readRDS(paste0(models_path, "mars_yjmainrfe_race_p30.rds"))
-
-plot_race(mars_yjmainrfe_race)
-```
-
-### The best ones
-```{r}
-show_best(mars_yjmainrfe_race)
-```
-
-### ROC
-```{r}
-make_roc(mars_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("mars (rfe + YJ)")
-```
-
-## bag_mars with Recursive Features Elimination + YJ recipe
-
-```{r}
-bagmars_yjmainrfe_race <- readRDS(paste0(models_path, "bag_mars_yjmainrfe_race_p30.rds"))
-
-plot_race(bagmars_yjmainrfe_race)
-```
-
-### The best ones
-```{r}
-show_best(bagmars_yjmainrfe_race)
-```
-
-
-### ROC
-```{r}
-make_roc(bagmars_yjmainrfe_race, "") %>% 
-  autoplot() + ggtitle("bag mars (rfe + YJ)")
-```
 
 ## Compare preprocessors
 
@@ -940,92 +667,8 @@ make_roc(mars_ncorq_res, "") %>%
   autoplot() + ggtitle("MARS (ORQ)")
 ```
 
-## Comparison of the preprocessing in SVM
 
-### ROCs overlapped
 
-```{r}
-svr_rfe_rocs <- map2_dfr(list(lsvm_yjmainrfe_race, psvm_yjmainrfe_race, rbfsvm_yjmainrfe_race, lsvm_yjmainrfe_bayes, psvm_yjmainrfe_bayes, rbfsvm_yjmainrfe_bayes), c("LSVM YJ rfe race",  "PSVM YJ rfe race", "RBFSVM YJ rfe race","LSVM YJ rfe bayes",  "PSVM YJ rfe bayes", "RBFSVM YJ rfe bayes" ), 
-                            function(x, y) make_roc(x, y))
-
-svr_rfe_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1")
-```
-
-### Generate distributions
-
-*post hoc* analysis of resampling results generated by models - via Bayesian ANOVA
-
-```{r}
-svm_rfe_comp <-  res_comp_table(res_list = list(lsvm_yjmainrfe_race, psvm_yjmainrfe_race, rbfsvm_yjmainrfe_race, lsvm_yjmainrfe_bayes, psvm_yjmainrfe_bayes, rbfsvm_yjmainrfe_bayes),
-    mod_names = c("LSVM YJ rfe race",  "PSVM YJ rfe race", "RBFSVM YJ rfe race","LSVM YJ rfe bayes",  "PSVM YJ rfe bayes", "RBFSVM YJ rfe bayes") )
-
-svm_rfe_posterior <-
-  perf_mod(
-    svr_rfe_comp,
-    iter = 2000,
-    seed = 100,
-    refresh = 0,
-    chains = 5,
-    cores = 2
-  )
-
-autoplot(svm_rfe_posterior)
-```
-
-```{r}
-svm_rfe_diff <- contrast_models(svm_rfe_posterior, seed = 100) 
-
-summary(svm_rfe_diff)
-```
-
-## Comparison of the preprocessing in RF + XGB
-
-### ROCs overlapped
-
-```{r}
-rf_bt_rfe_rocs <- map2_dfr(list(rf_main_res, rf_mainrfe_race, rf_ncorr_res, rf_ncoryj_res,bt_mainrfe_race,bt_mainrfe_bayes), c("RF sfg",  "RF rfe race","RF NCORR sfg","RF NCORR +YJ sfg", "BT rfe race", "BT rfe bayes"), 
-                            function(x, y) make_roc(x, y))
-
-rf_bt_rfe_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1")
-```
-
-### Generate distributions
-
-*post hoc* analysis of resampling results generated by models - via Bayesian ANOVA
-```{r}
-rf_bt_rfe_comp <-  res_comp_table(res_list = list(rf_main_res, rf_mainrfe_race, rf_ncorr_res, rf_ncoryj_res,bt_mainrfe_race,bt_mainrfe_bayes),
-    mod_names = c("RF sfg",  "RF rfe race","RF NCORR sfg","RF NCORR +YJ sfg", "BT rfe race", "BT rfe bayes") )
-
-rf_bt_rfe_posterior <-
-  perf_mod(
-    rf_bt_rfe_comp,
-    iter = 2000,
-    seed = 100,
-    refresh = 0,
-    chains = 5,
-    cores = 2
-  )
-
-autoplot(rf_bt_rfe_posterior)
-```
-
-```{r}
-rf_bt_rfe_diff <- contrast_models(rf_bt_rfe_posterior, seed = 100) 
-
-summary(rf_bt_rfe_diff)
-```
 
 ## Comparison of the preprocessing in MARS
 
@@ -1174,6 +817,49 @@ lsvm_preproc_diff <- contrast_models(lsvm_posterior, seed = 100)
 
 summary(lsvm_preproc_diff)
 ```
+
+## lsvm with Recursive Features Elimination + YJ recipe
+
+```{r}
+lsvm_yjmainrfe_race <- readRDS(paste0(models_path, "lsvm_yjmainrfe_race_p30.rds"))
+
+plot_race(lsvm_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(lsvm_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(lsvm_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("lsvm (rfe + YJ)")
+```
+
+## lsvm with Recursive Features Elimination + YJ recipe Bayesian grid tuning
+
+```{r}
+lsvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "lsvm_yjmainrfe_bayes_p30.rds"))
+
+autoplot(lsvm_yjmainrfe_bayes)
+```
+### The best ones
+
+```{r}
+show_best(lsvm_yjmainrfe_bayes)
+```
+### ROC
+
+```{r}
+make_roc(lsvm_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("lsvm (rfe + YJ) bayesian grid")
+```
+
+
+
+
+
 
 # Polynomial support vector machines (pSVM)
 
@@ -1330,6 +1016,44 @@ psvm_preproc_diff <- contrast_models(psvm_posterior, seed = 100)
 summary(psvm_preproc_diff)
 ```
 
+## psvm with Recursive Features Elimination + YJ recipe
+
+```{r}
+psvm_yjmainrfe_race <- readRDS(paste0(models_path, "psvm_yjmainrfe_race_p30.rds"))
+
+plot_race(psvm_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(psvm_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(psvm_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("psvm (rfe + YJ)")
+```
+
+## psvm with Recursive Features Elimination + YJ recipe Bayesian grid 
+
+```{r}
+psvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "psvm_yjmainrfe_bayes_p30.rds"))
+
+autoplot(psvm_yjmainrfe_bayes)
+```
+### The best ones
+
+```{r}
+show_best(psvm_yjmainrfe_bayes)
+```
+### ROC
+
+```{r}
+make_roc(psvm_yjmainrfe_bayes, "") %>% 
+  autoplot() + ggtitle("psvm (rfe + YJ) Bayesian grid search")
+```
+
 # Radial Basis Function SVM
 
 ## Main recipe
@@ -1425,6 +1149,87 @@ autoplot(rbf_posterior)
 rbf_preproc_diff <- contrast_models(rbf_posterior, seed = 100) 
 
 summary(rbf_preproc_diff)
+```
+
+## rbfsvm with Recursive Features Elimination + YJ recipe
+
+```{r}
+rbfsvm_yjmainrfe_race <- readRDS(paste0(models_path, "rbfsvm_yjmainrfe_race_p30.rds"))
+
+plot_race(rbfsvm_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(rbfsvm_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(rbfsvm_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("rbfsvm (rfe + YJ)")
+```
+
+## rbfsvm with Recursive Features Elimination + YJ recipe Bayesian grid
+
+```{r}
+rbfsvm_yjmainrfe_bayes <- readRDS(paste0(models_path, "rbfsvm_yjmainrfe_bayes_p30.rds"))
+
+autoplot(rbfsvm_yjmainrfe_bayes)
+```
+### The best ones
+
+```{r}
+show_best(rbfsvm_yjmainrfe_bayes)
+```
+### ROC
+
+```{r}
+make_roc(rbfsvm_yjmainrfe_bayes, "") %>% 
+  autoplot() + ggtitle("rbfsvm (rfe + YJ) Bayesian grid")
+```
+## Comparison of the preprocessing in SVM
+
+### ROCs overlapped
+
+```{r}
+svr_rfe_rocs <- map2_dfr(list(lsvm_yjmainrfe_race, psvm_yjmainrfe_race, rbfsvm_yjmainrfe_race, lsvm_yjmainrfe_bayes, psvm_yjmainrfe_bayes, rbfsvm_yjmainrfe_bayes), c("LSVM YJ rfe race",  "PSVM YJ rfe race", "RBFSVM YJ rfe race","LSVM YJ rfe bayes",  "PSVM YJ rfe bayes", "RBFSVM YJ rfe bayes" ), 
+                            function(x, y) make_roc(x, y))
+
+svr_rfe_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1")
+```
+
+### Generate distributions
+
+*post hoc* analysis of resampling results generated by models - via Bayesian ANOVA
+
+```{r}
+svm_rfe_comp <-  res_comp_table(res_list = list(lsvm_yjmainrfe_race, psvm_yjmainrfe_race, rbfsvm_yjmainrfe_race, lsvm_yjmainrfe_bayes, psvm_yjmainrfe_bayes, rbfsvm_yjmainrfe_bayes),
+    mod_names = c("LSVM YJ rfe race",  "PSVM YJ rfe race", "RBFSVM YJ rfe race","LSVM YJ rfe bayes",  "PSVM YJ rfe bayes", "RBFSVM YJ rfe bayes") )
+
+svm_rfe_posterior <-
+  perf_mod(
+    svm_rfe_comp,
+    iter = 2000,
+    seed = 100,
+    refresh = 0,
+    chains = 5,
+    cores = 2
+  )
+
+autoplot(svm_rfe_posterior)
+```
+
+```{r}
+svm_rfe_diff <- contrast_models(svm_rfe_posterior, seed = 100) 
+
+summary(svm_rfe_diff)
 ```
 
 # K-nearest neighbors (KNN)
@@ -1547,19 +1352,38 @@ knn_preproc_diff <- contrast_models(knn_posterior, seed = 100)
 summary(knn_preproc_diff)
 ```
 
-# Naive Bayes
+## knn with Recursive Features Elimination + YJ recipe
 
 ```{r}
-nb_ncorr <- readRDS(paste0(models_path, "nb_ncorr.rds"))
+knn_yjmainrfe_race <- readRDS(paste0(models_path, "knn_yjmainrfe_race_p30.rds"))
+
+plot_race(knn_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(knn_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(knn_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("knn (rfe + YJ)")
+```
+
+# Naive Bayes, kind of not working.
+
+```{r,eval =FALSE}
+nb_ncorr <- readRDS(paste0(models_path, "nb_ncorr_space_p30.rds"))
 
 nb_ncorr %>% autoplot()
 ```
 
-```{r}
+```{r,eval=FALSE}
 make_roc(nb_ncorr, "") %>% autoplot()
 ```
 
-```{r}
+```{r,eval=FALSE}
 nb_ncorr %>% show_best("roc_auc", n = 5)
 ```
 
@@ -1634,6 +1458,26 @@ plot_race(rf_ncoryj_res)
 show_best(rf_ncoryj_res)
 ```
 
+## Random Forest with Recursive Features Elimination
+
+```{r}
+rf_mainrfe_race <- readRDS(paste0(models_path, "rf_mainrfe_race_p30.rds"))
+
+autoplot(rf_mainrfe_race)
+```
+
+### The best ones
+
+```{r}
+show_best(rf_mainrfe_race)
+```
+
+### ROC
+
+```{r}
+make_roc(rf_mainrfe_race, "") %>% 
+  autoplot() + ggtitle("rf (rfe)")
+```
 
 ## Comparison of preprocessors
 
@@ -1716,6 +1560,93 @@ xgb_ncorr_bres %>%
 ```{r}
 xgb_ncorr_bres %>% 
   show_best(metric = "roc_auc", n = 5)
+```
+
+
+
+## Boosted trees with Recursive Features Elimination
+
+```{r}
+bt_mainrfe_race <- readRDS(paste0(models_path, "bt_mainrfe_race_p30.rds"))
+
+plot_race(bt_mainrfe_race)
+```
+
+### The best ones
+
+```{r}
+show_best(bt_mainrfe_race)
+```
+
+### ROC
+
+```{r}
+make_roc(bt_mainrfe_race, "") %>% 
+  autoplot() + ggtitle("bt (rfe)")
+```
+
+# Boosted trees with Recursive Features Elimination Bayesian grid
+
+```{r}
+bt_mainrfe_bayes <- readRDS(paste0(models_path, "bt_mainrfe_bayes_p30.rds"))
+
+autoplot(bt_mainrfe_bayes)
+```
+
+### The best ones
+
+```{r}
+show_best(bt_mainrfe_bayes)
+```
+
+### ROC
+
+```{r}
+make_roc(bt_mainrfe_bayes, "") %>% 
+  autoplot() + ggtitle("bt (rfe)")
+```
+
+## Comparison of the preprocessing in RF + XGB
+
+### ROCs overlapped
+
+```{r}
+rf_bt_rfe_rocs <- map2_dfr(list(rf_main_res, rf_mainrfe_race, rf_ncorr_res, rf_ncoryj_res,bt_mainrfe_race,bt_mainrfe_bayes), c("RF sfg",  "RF rfe race","RF NCORR sfg","RF NCORR +YJ sfg", "BT rfe race", "BT rfe bayes"), 
+                            function(x, y) make_roc(x, y))
+
+rf_bt_rfe_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1")
+```
+
+### Generate distributions
+
+*post hoc* analysis of resampling results generated by models - via Bayesian ANOVA
+```{r}
+rf_bt_rfe_comp <-  res_comp_table(res_list = list(rf_main_res, rf_mainrfe_race, rf_ncorr_res, rf_ncoryj_res,bt_mainrfe_race,bt_mainrfe_bayes),
+    mod_names = c("RF sfg",  "RF rfe race","RF NCORR sfg","RF NCORR +YJ sfg", "BT rfe race", "BT rfe bayes") )
+
+rf_bt_rfe_posterior <-
+  perf_mod(
+    rf_bt_rfe_comp,
+    iter = 2000,
+    seed = 100,
+    refresh = 0,
+    chains = 5,
+    cores = 2
+  )
+
+autoplot(rf_bt_rfe_posterior)
+```
+
+```{r}
+rf_bt_rfe_diff <- contrast_models(rf_bt_rfe_posterior, seed = 100) 
+
+summary(rf_bt_rfe_diff)
 ```
 
 ## NCORR + win-loss grid search
@@ -1906,6 +1837,27 @@ mlpk_pca %>% plot_race()
 mlpk_pca %>% show_best("roc_auc")
 ```
 
+
+
+## mlp_nnet with Recursive Features Elimination + YJ recipe
+
+```{r}
+mlpnnet_yjmainrfe_race <- readRDS(paste0(models_path, "mlpnnet_yjmainrfe_race_p30.rds"))
+
+plot_race(mlpnnet_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(mlpnnet_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(mlpnnet_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("mlp nnet (rfe + YJ)")
+```
+
 ## Comparison of the preprocessors
 
 ### ROCs
@@ -1923,6 +1875,7 @@ mlp_rocs %>%
   #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1")
 ```
+
 
 Keras PCA looks exactly like NNET PCA
 
@@ -1983,6 +1936,66 @@ Engine-Specific Arguments: num.threads = 8
 
 Computational engine: nnet
 
+## bag_mlp with Recursive Features Elimination + YJ recipe
+
+```{r}
+bagmlp_yjmainrfe_race <- readRDS(paste0(models_path, "bagmlp_yjmainrfe_race_p30.rds"))
+
+plot_race(bagmlp_yjmainrfe_race)
+```
+### The best ones
+
+```{r}
+show_best(bagmlp_yjmainrfe_race)
+```
+### ROC
+
+```{r}
+make_roc(bagmlp_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("bagmlp (rfe + YJ)")
+```
+
+#MARS
+## mars with Recursive Features Elimination + YJ recipe
+
+```{r}
+mars_yjmainrfe_race <- readRDS(paste0(models_path, "mars_yjmainrfe_race_p30.rds"))
+
+plot_race(mars_yjmainrfe_race)
+```
+
+### The best ones
+```{r}
+show_best(mars_yjmainrfe_race)
+```
+
+### ROC
+```{r}
+make_roc(mars_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("mars (rfe + YJ)")
+```
+
+## bag_mars with Recursive Features Elimination + YJ recipe
+
+```{r}
+bagmars_yjmainrfe_race <- readRDS(paste0(models_path, "bag_mars_yjmainrfe_race_p30.rds"))
+
+plot_race(bagmars_yjmainrfe_race)
+```
+
+### The best ones
+```{r}
+show_best(bagmars_yjmainrfe_race)
+```
+
+
+### ROC
+```{r}
+make_roc(bagmars_yjmainrfe_race, "") %>% 
+  autoplot() + ggtitle("bag mars (rfe + YJ)")
+```
+
+
 # Models stacking
 
 For successful stacking, you need the same set of predictors in every
@@ -1993,6 +2006,8 @@ Models with NOCORR recipe were among the best
 Models must be trained using the same set of features!
 
 Each model in the same stack must have same resampling method!
+
+
 
 ## Make a BRES stack
 
