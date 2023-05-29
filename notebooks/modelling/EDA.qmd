@@ -375,40 +375,16 @@ pcayj_recipe_test <-
   step_YeoJohnson(all_numeric_predictors()) %>% 
   step_normalize(all_numeric_predictors()) %>%
   #step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_pca(all_predictors(), num_comp = 3) %>% 
+  step_pca(all_numeric_predictors(), num_comp = 9) %>% 
   step_normalize(all_numeric_predictors())
 
-data_pca <- prep(pcayj_recipe_test, retain = TRUE)
+#data_pca <- prep(pcayj_recipe_test, retain = TRUE)
 
 pcayj_recipe_test %>% 
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("PC1", "PC2", "PC3")) + 
   ggtitle("Principal Component Analysis (HR12)")
-```
-
-#### 3D version
-
-```{r, eval=F}
-library(plotly)
-
-pca3d <- plot_ly(data_pca$template, 
-                 x = ~PC1, 
-                 y = ~PC2, 
-                 z = ~PC3, 
-                 color = ~data_pca$template$resistance, 
-                 colors = c('#cf280c', '#1b56f7')) 
-
-pca3d <- pca3d %>% 
-  add_markers(size = 2,
-              text = ~data_pca$template$strain)
-
-pca3d <- pca3d %>% 
-  layout(scene = list(xaxis = list(title = 'PC1'),
-                      yaxis = list(title = 'PC2'),
-                      zaxis = list(title = 'PC3'))) 
-
-pca3d
 ```
 
 ### Explained variance percentage
@@ -1792,22 +1768,8 @@ ggplot(min_ori, aes(resistance, dist)) +
 
 ```{r}
 min_ori %>% 
-  filter(location=="min.dist.oriC.plasmid") %>% 
-  ggplot(aes(resistance, dist)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
-  coord_trans(y = "sqrt") +
-  ylab("min dist oriC") +
-  xlab("") +
-  guides(fill = "none")
-```
-
-### Minimal distance on chromosome, on plasmids, both
-
-```{r}
-
+  group_by(location, resistance) %>% 
+  summarise(median = median(dist))
 ```
 
 ## Number of genes on plus strand
@@ -2090,11 +2052,46 @@ data_strain %>%
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y="sqrt") +
   ylab("max IS length") +
   guides(fill="none")
 ```
+
+```{r}
+data_strain %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(max.is.len))
+```
+
+```{r}
+kruskal.test(data_strain$max.is.len, data_strain$resistance)
+```
+
+### IS copies count
+
+```{r}
+data_strain %>% 
+  ggplot(aes(resistance, n.is.tot)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Pastel1") +
+  coord_trans(y="sqrt") +
+  ylab("IS copy number") +
+  guides(fill="none")
+```
+
+```{r}
+data_strain %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(n.is.tot))
+```
+
+```{r}
+kruskal.test(data_strain$n.is.tot, data_strain$resistance)
+```
+
 
 ### Total family number
 
@@ -2104,8 +2101,63 @@ data_strain %>%
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
-  #coord_trans(y="sqrt") +
+  scale_fill_brewer(palette = "Pastel1") +
   ylab("IS families") +
   guides(fill="none")
 ```
+
+```{r}
+data_strain %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(n.is.fam))
+```
+
+
+```{r}
+isfam_pois_fit <- glm(n.is.fam ~resistance, data = data_strain, family="poisson")
+
+summary(isfam_pois_fit)
+```
+
+```{r}
+exp(coef(isfam_pois_fit))
+```
+
+### min IS distance to the gene
+
+```{r}
+data_strain %>% 
+  ggplot(aes(resistance, min_distance_is_gene)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Pastel1") +
+  ylab("min distance") +
+  guides(fill="none")
+```
+
+
+```{r}
+data_strain %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(min_distance_is_gene, na.rm = T))
+```
+
+```{r}
+kruskal.test(data_strain$min_distance_is_gene, data_strain$resistance)
+```
+
+### Interrupted genes
+
+```{r}
+data_strain %>% 
+  ggplot(aes(resistance, n.interrupted.genes)) +
+  geom_violin(aes(fill=resistance), alpha=0.7)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
+  scale_fill_brewer(palette = "Pastel1") +
+  ylab("N interrupted genes") +
+  guides(fill="none")
+```
+
+Too few observations to compare.
