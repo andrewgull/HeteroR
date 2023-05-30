@@ -24,6 +24,7 @@ library(skimr)
 library(readr)
 library(themis) # smote
 library(ggforce) # for plot_validation_results()
+library(embed) # for umap and PCA variants
 source("functions.R")
 ```
 
@@ -325,14 +326,6 @@ plots <- comp_plots("n.c.plasmids", data_strain, data_prep)
 (plots[[1]] | plots[[2]])
 ```
 
-If the original distribution is very skewed then normalization doesn't help much.
-
-```{r}
-
-
-
-```
-
 ### Yeo-Johnson transformation
 
 ```{r}
@@ -363,35 +356,30 @@ plots <- comp_plots("coverage", data_strain, data_prep_yj)
 based on recipe with ORQ normalization
 
 ```{r}
-pca_rec <- orq_recipe %>%
-  step_pca(all_numeric_predictors(), threshold = 0.9)
-
 # the winning PCA recipe from modelling.Rmd
-pcayj_recipe_test <- 
+pcayj_recipe <- 
   recipe(resistance ~ ., data = data_strain) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  #step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_pca(all_numeric_predictors(), num_comp = 9) %>% 
+  step_YeoJohnson(all_numeric_predictors())  %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_pca(all_numeric_predictors(), num_comp = 4) %>% 
   step_normalize(all_numeric_predictors())
 
-#data_pca <- prep(pcayj_recipe_test, retain = TRUE)
-
-pcayj_recipe_test %>% 
+pcayj_recipe %>% 
   prep() %>% 
   juice() %>% 
-  plot_validation_results(c("PC1", "PC2", "PC3")) + 
-  ggtitle("Principal Component Analysis (HR12)")
+  plot_validation_results(c("PC1", "PC2", "PC3", "PC4")) +
+  ggtitle("Principal Component Analysis")
 ```
 
 ### Explained variance percentage
 
 ```{r}
 # find the step number corresponding to PCA, here it's 5
-sdev <- data_pca$steps[[6]]$res$sdev
+data_pca <- prep(pcayj_recipe, retain = TRUE)
+sdev <- data_pca$steps[[5]]$res$sdev
 percent_variation <- sdev^2 / sum(sdev^2)
 
 var_df <- data.frame(PC = paste0("PC", 1:length(sdev)),
@@ -404,102 +392,173 @@ var_df <- var_df %>%
 var_df
 ```
 
-28 PCs needed to explain 90% of variation
+10 PCs explain 70% of variation
+18 PCs needed to explain 80% of variation 
+30 PCs needed to explain 90% of variation
 
 Plot
 
 ```{r, fig.width=12, fig.height=6}
 var_df %>%
   mutate(PC = forcats::fct_inorder(PC)) %>%
+  slice_head(n = 20) %>% 
   ggplot(aes(x = PC, y = var_explained)) + 
   geom_col(aes(fill = var_cum_sum)) +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 5)) +
-  scale_fill_continuous(type = "viridis")
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 15)) +
+  scale_fill_continuous(type = "viridis") +
+  xlab("")
 ```
 
 ### Top loadings
 
-```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
-# install.packages("devtools")
-# devtools::install_github("tidymodels/learntidymodels")
-library(learntidymodels)
+10 PCs that explain 70% of variance
+
+```{r, message=FALSE, warning=FALSE, fig.width=15, fig.height=6}
+if (!require(learntidymodels, quietly = TRUE))  
+  devtools::install_github("tidymodels/learntidymodels")
 
 data_pca %>%
-  plot_top_loadings(component_number <= 10, n = 5) + 
+  plot_top_loadings(component_number <= 11, n = 5) + 
   scale_fill_brewer(palette = "Paired") +
   ggtitle("Principal Component Analysis")
+```
+
+## Polynomial k-basis PCA
+
+Kernel principal component analysis (kPCA) is an extension of a PCA analysis that conducts the calculations in a broader dimensionality defined by a kernel function
+
+```{r}
+kpcayj_recipe <- 
+  recipe(resistance ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors())  %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_kpca_poly(all_numeric_predictors(), num_comp = 9) %>% 
+  step_normalize(all_numeric_predictors())
+
+kpcayj_recipe %>% 
+  prep() %>% 
+  juice() %>% 
+  plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4")) +
+  ggtitle("Kernel Principal Component Analysis")
 ```
 
 ## ICA - Independent Component Analysis
 
 ```{r, message=FALSE, warning=FALSE}
-## ICA
-#install.packages("fastICA")
-ica_rec <- orq_recipe %>%
-  step_ica(all_numeric_predictors(), num_comp = 8)
+if (!require(fastICA)) 
+  install.packages("fastICA")
 
-data_ica <- prep(ica_rec, retain = TRUE)
+ica_recipe <- 
+  recipe(resistance ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors())  %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_ica(all_numeric_predictors(), num_comp = 5) %>% 
+  step_normalize(all_numeric_predictors())
+
+data_ica <- prep(ica_recipe, retain = TRUE)
 
 data_ica$template %>% 
-  plot_validation_results(c("IC1", "IC2", "IC3")) + 
-  ggtitle("Independent Component Analysis (HR12)")
+  plot_validation_results(c("IC1", "IC2", "IC3", "IC4")) + 
+  ggtitle("Independent Component Analysis")
 ```
 
-#### 3D version
+## Isomap Embedding
 
 ```{r}
-library(plotly)
+if (!require(dimRed)){
+  install.packages("dimRed")
+}
 
-ica3d <- plot_ly(data_ica$template, 
-                 x = ~IC1, 
-                 y = ~IC2, 
-                 z = ~IC3, 
-                 color = ~data_ica$template$resistance, 
-                 colors = c('#cf280c', '#1b56f7')) 
+if (!require(RSpectra)){
+  install.packages("RSpectra")
+}
 
-ica3d <- ica3d %>% 
-  add_markers(size = 2,
-              text = ~data_ica$template$strain)
+isomap_recipe <- 
+  recipe(resistance ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors())  %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_isomap(all_numeric_predictors(), num_terms = 5, neighbors = 50) %>% 
+  step_normalize(all_numeric_predictors())
 
-ica3d <- ica3d %>% 
-  layout(scene = list(xaxis = list(title = 'IC1'),
-                      yaxis = list(title = 'IC2'),
-                      zaxis = list(title = 'IC3'))) 
-
-ica3d
+isomap_recipe %>% 
+  prep() %>% 
+  juice() %>% 
+  plot_validation_results(c("Isomap1", "Isomap2", "Isomap3", "Isomap4")) + 
+  ggtitle("Isomap Embedding")
 ```
+
+## PLS
+
+it's a supervised version of PCA, be careful!
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!require(mixOmics, quietly = TRUE))
+  BiocManager::install("mixOmics")
+
+pls_recipe <- 
+  recipe(resistance ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors())  %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_pls(all_numeric_predictors(), num_comp = 4, outcome = "resistance") %>% 
+  step_normalize(all_numeric_predictors())
+
+pls_recipe %>% 
+  prep() %>% 
+  juice() %>% 
+  plot_validation_results(c("PLS1", "PLS2", "PLS3")) + 
+  ggtitle("PLS")
+```
+
 
 ## UMAP - uniform manifold approximation and projection
 
 > while high values will push UMAP towards representing the big-picture structure while losing fine detail.
 
-It is a supervised variant of UMAP
-
-Here I increase the minimal distance to see the local structure better
-
 ### Unsupervised
 
 ```{r, message=FALSE, warning=FALSE, fig.width=8}
-library(embed)
 
-umap_rec <- orq_recipe %>%
+umapuyj_recipe <- 
+  recipe(resistance ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors())  %>%
+  step_normalize(all_numeric_predictors()) %>% 
+    step_umap(
+    all_numeric_predictors(),
+    num_comp = 10,
+    min_dist = 0.8,
+    neighbors = 25
+  ) %>% 
+  step_normalize(all_numeric_predictors())
+
+umapu_recipe <- orq_recipe %>%
   step_umap(
     all_numeric_predictors(),
-    #outcome = "resistance",
     num_comp = 10,
-    min_dist = 0.01,
+    min_dist = 0.8,
     neighbors = 25
   )
 
-data_umap <- prep(umap_rec, retain = TRUE)
-
-# data_umap_sup$template %>% 
-#   ggplot(aes(UMAP01, UMAP02)) +
-#   geom_point(aes(color = resistance), alpha = 0.6) +
-#   scale_color_brewer(palette = "Set1") +
-#   ggtitle("Supervised UMAP (HR12)")
-
-data_umap$template %>% 
+umapuyj_recipe %>%
+  prep() %>% 
+  juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP unsupervised")
 ```
@@ -509,51 +568,36 @@ data_umap$template %>%
 Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
 
 ```{r, message=FALSE, warning=FALSE, fig.width=8}
-umap_rec_sup <- orq_recipe %>%
+umapsyj_recipe <- 
+  recipe(resistance ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_YeoJohnson(all_numeric_predictors())  %>%
+  step_normalize(all_numeric_predictors()) %>% 
+    step_umap(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    num_comp = 10,
+    min_dist = 0.8,
+    neighbors = 25
+  ) %>% 
+  step_normalize(all_numeric_predictors())
+
+umaps_recipe <- orq_recipe %>%
   step_umap(
     all_numeric_predictors(),
     outcome = "resistance",
     num_comp = 10,
-    min_dist = 0.01,
+    min_dist = 0.8,
     neighbors = 25
   )
 
-data_umap_sup <- prep(umap_rec_sup, retain = TRUE)
-
-data_umap_sup$template %>% 
+umaps_recipe %>%
+  prep() %>% 
+  juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP supervised")
-```
-
-### 3D version
-
-```{r, fig.width=10}
-library(plotly)
-
-umap3d <-
-  plot_ly(
-    data_umap_sup$template,
-    x = ~ UMAP01,
-    y = ~ UMAP02,
-    z = ~ UMAP03,
-    color = ~ data_umap_sup$template$resistance,
-    colors = c('#cf280c', '#1b56f7')
-    #symbol = data_umap_sup$template$prediction,
-    #symbols = c('circle', 'square', 'diamond')
-  )
-
-umap3d <- umap3d %>% 
-  add_markers(size = 2, text = ~ data_umap_sup$template$strain)
-
-umap3d <- umap3d %>% 
-  layout(scene = list(
-    xaxis = list(title = 'UMAP1'),
-    yaxis = list(title = 'UMAP2'),
-    zaxis = list(title = 'UMAP3')
-))
-
-umap3d
-
 ```
 
 ### With added FP and FN
