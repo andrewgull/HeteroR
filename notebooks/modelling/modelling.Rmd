@@ -306,8 +306,8 @@ fixed on local copy - th original package in the tibble creation has
  https://kbroman.org/pkg_primer/pages/build.html
  
 ```{r}
-# devtools::install_github("stevenpawley/colino")
-library(colino)
+if (!require(colino, quietly = TRUE))
+  devtools::install_github("andrewgull/colino")
 
 rfe_model <- rand_forest(mode = "classification") %>% 
   set_engine("ranger", num.threads = 8, importance = "impurity" )
