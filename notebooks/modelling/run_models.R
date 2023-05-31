@@ -94,7 +94,7 @@ option_list <- list(
     help = "correlation threshold for NOCORR recipe (currently is icluded in tuning)",
     default = 0.75,
     metavar = "0.75"
-  ),yj_rfe_recipe
+  ),
   make_option(
     c("-b", "--burnin"),
     type = "integer",
@@ -391,7 +391,7 @@ set_rec <- function(rec, cores) {
     rc <- yj_recipe
   } else if (rec == "mainrfe") {
     rc <- main_rfe_recipe
-  } else if (rec == "yjmainrfe") {
+  } else if (rec == "yjrfe") {
     rc <- yj_rfe_recipe
   } else {
     print("ERROR! Undefined recipe!")
