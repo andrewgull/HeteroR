@@ -28,7 +28,7 @@ option_list <- list(
     c("-r", "--recipe"),
     type = "character",
     default = NULL,
-    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq', 'pcayj', 'ncoryj', 'mainrfe', 'yjmainrfe')",
+    help = "recipe to use (should be one of the following: 'main', 'ncorr', 'pca', 'ncorq', 'pcayj', 'ncoryj', 'mainrfe', 'yjrfe')",
     metavar = "character"
   ),
   make_option(
@@ -94,7 +94,7 @@ option_list <- list(
     help = "correlation threshold for NOCORR recipe (currently is icluded in tuning)",
     default = 0.75,
     metavar = "0.75"
-  ),
+  ),yj_rfe_recipe
   make_option(
     c("-b", "--burnin"),
     type = "integer",
