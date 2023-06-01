@@ -188,7 +188,7 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   #step_corr(threshold = opt$corr_threshold) %>%
-  step_corr(threshold = tune("corr_tune")) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
@@ -218,14 +218,14 @@ yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_corr(threshold = tune("corr_tune"))
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
 
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = tune("corr_tune")) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 
