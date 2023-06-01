@@ -145,7 +145,7 @@ Target class:
 main_recipe %>% prep() %>% juice() %>% group_by(resistance) %>% count()
 ```
 
-## PCA + ORQ-normalization
+## ORQ-transform + PCA
 
 From [here](https://www.tmwr.org/grid-search.html):
 
@@ -195,7 +195,7 @@ pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
 pca_recipe %>% prep() %>% juice()
 ```
 
-## PCA Yeo-Johnson recipe
+## Yeo-Johnson transorm + PCA
 
 Borrowed from 'Tidy modeling with R': Chapter 13.2 'Evaluating the grid'
 
@@ -230,7 +230,7 @@ pcayj_recipe_test %>%
 # indeed just 3 PCs in total
 ```
 
-## NCORR Yeo-Johnson recipe
+## No correlation + Yeo-Johnson transform
 
 development of the approach above, but with decorrelation and no PCA
 
@@ -243,7 +243,7 @@ yj_recipe <-
   step_YeoJohnson(all_numeric_predictors()) %>% 
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_corr(threshold = tune("corr_tune")) # The step will try to remove the minimum number of columns so that all the resulting absolute correlations are less than this value
+  step_corr(all_predictors(), threshold = tune("corr_tune")) # The step will try to remove the minimum number of columns so that all the resulting absolute correlations are less than this value
 ```
 
 ## No correlation recipe
@@ -259,11 +259,11 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = tune("corr_tune")) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
-## No correlation + ORQ-norm recipe
+## No correlation + ORQ-transform recipe
 
 Dummies are created after normalization and transformation - same as in
 NCORR (before it was different: dummies before order norm!)
@@ -274,11 +274,11 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_nzv(all_predictors()) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(threshold = tune("corr_tune")) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
-## No corr + Spline basis expansion
+## No correlation + Spline basis expansion
 
 to incorporate non-linearity into the class boundary
 
@@ -289,7 +289,7 @@ ns_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_ns(all_predictors(), deg_free = tune()) %>% 
-  step_corr(threshold = tune("corr_tune")) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 ```
 
@@ -411,7 +411,7 @@ lr_pcayj_res %>%
 ## NCORR + YJ recipe
 
 ```{r}
-lr_ncoryj_res <- readRDS(paste0(models_path, "lr_ncoryj_p20.rds"))
+lr_ncoryj_res <- readRDS(paste0(models_path, "lr_ncoryj_p20_test.rds"))
 
 autoplot(lr_ncoryj_res)
 ```
@@ -1617,7 +1617,7 @@ mlp_pca %>% show_best("roc_auc")
 ## NCORR + YJ recipe
 
 ```{r}
-mlp_ncoryj <- readRDS(paste0(models_path, "mlp_nnet_ncoryj_p20.rds"))
+mlp_ncoryj <- readRDS(paste0(models_path, "mlp_ncoryj_p20_test.rds"))
 
 mlp_ncoryj %>% autoplot()
 ```
@@ -1927,19 +1927,22 @@ summary(mod_diff)
 
 So, LR, XGB and MLP insignificantly differ from each other
 
+## Top models
+
 ```{r}
 # calculate rocs
-
-roc3_df <-
-  map2_dfr(list(
-    mlp_ncoryj,
+top_models <- list(
+    lr_ncoryj_res,
     psvm_ncoryj_res,
     lsvm_ncoryj_res,
-    lr_ncoryj_res,
+    mlp_ncoryj,
     xgb_ncorr_bres,
-    xgb_mainrfe_bayes
-  ),
-           c("MLP", "pSVM", "lSVM", "LR", "XGB", "XGB rfe"),
+    xgb_mainrfe_bayes)
+
+
+roc3_df <-
+  map2_dfr(top_models,
+           c("LR", "pSVM", "lSVM", "MLP", "XGB", "XGB rfe"),
            function(x, y)
              make_roc(x, y))
 roc3_df %>% 
@@ -1963,91 +1966,294 @@ reaches sensitivity = 1.0 earlier than other and that's what I need
 > final fit on the entire training set is needed and is then evaluated
 > on the test set.
 
-## Model and workflow
+## Functions
 
 ```{r}
-# tuned recipe
-best <- lr_ncoryj_res %>% 
-  select_best("roc_auc") # higher corr. threshold - see the recipe first definition
+# function to run last fit process
+run_last_fit <-
+  function(model_name,
+           blank_spec,
+           tuned_spec,
+           recipe,
+           train_test_split = data_split,
+           return_fit = FALSE) {
+    # last workflow
+    last_wf <- workflow() %>%
+      add_model(blank_spec) %>%
+      add_recipe(recipe) %>%
+      update_model(tuned_spec)
+    
+    set.seed(345)
+    # final fit
+    final_fit <- final_metrics <-
+      last_wf %>%
+      last_fit(train_test_split)
+    # final metrics
+    final_metrics <-
+      final_fit %>%
+      collect_metrics() %>%
+      select(.metric, .estimate) %>%
+      mutate(model = model_name)
+    if (return_fit) {
+      return(list(final_metrics, final_fit))
+    } else {
+      return(list(final_metrics, NULL))
+    }
+  }
 
-yj_recipe_tuned <- 
-  recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_corr(threshold = best$corr_tune)
+# required by 4 models + 1 if it's ncorr
+update_corr_treshold <- function(base_recipe = yj_recipe, step_no, corr_threshold) {
+  # update step_corr threshold
+  base_recipe$steps[[step_no]] <-
+   recipes::update(base_recipe$steps[[step_no]], threshold = corr_threshold)
+  
+  return(base_recipe)
+}
 
-# model spec
-lr_mod_spec <- logistic_reg(
-        penalty = tune(), 
-        mixture = 1) %>% 
-      set_engine("glmnet") %>% 
+# required by 1
+main_rfe_recipe <- main_recipe %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  )
+
+# best models
+best_models <- map(top_models, ~select_best(., "roc_auc"))
+```
+
+## LR final
+
+```{r}
+# LR specs
+lr_spec_blank <- logistic_reg(
+  penalty = tune(),
+  mixture = 1,
+  engine = "glmnet",
+  mode = "classification"
+)
+
+lr_spec_tuned <-
+  logistic_reg(
+    penalty = best_models[[1]]$penalty,
+    mixture = 1,
+    engine = "glmnet",
+    mode = "classification"
+  )
+# LR last fit and metrics
+yj_recipe_tuned_lr <-
+  update_corr_treshold(step_no = 6, corr_threshold = best_models[[1]]$corr_tune)
+
+lr_final <-
+  run_last_fit("LR",
+               lr_spec_blank,
+               lr_spec_tuned,
+               recipe = yj_recipe_tuned_lr,
+               return_fit = TRUE)
+
+lr_final[[1]]
+```
+
+## MLP final
+
+```{r}
+# MLP specs
+mlp_spec_blank <-
+  mlp(hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune()) %>%
+  set_mode("classification") %>%
+  set_engine("nnet", num.threads = 4)
+
+mlp_spec_tuned <-
+  mlp(hidden_units = best_models[[4]]$hidden_units,
+      penalty = best_models[[4]]$penalty,
+      epochs = best_models[[4]]$epochs) %>%
+  set_mode("classification") %>%
+  set_engine("nnet", num.threads = 4)
+# MLP last fit and metrics
+yj_recipe_tuned_mlp <-
+  update_corr_treshold(step_no = 6, corr_threshold = best_models[[4]]$corr_tune)
+
+run_last_fit("MLP", mlp_spec_blank, mlp_spec_tuned, recipe = yj_recipe_tuned_mlp)
+```
+
+
+## pSVM final
+
+```{r}
+# polySVM specs /number 2/
+psvm_spec_blank <- svm_poly(
+  cost = tune(),
+  degree = tune(),
+  scale_factor = tune(),
+  margin = NULL
+) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab", num.threads = 4)
+
+psvm_spec_tuned <- svm_poly(
+  cost = best_models[[2]]$cost,
+  degree = best_models[[2]]$degree,
+  scale_factor = best_models[[2]]$scale_factor,
+  margin = NULL
+) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab", num.threads = 4)
+# polySVM last fit and metrics
+yj_recipe_tuned_psvm <-
+  update_corr_treshold(step_no = 6, corr_threshold = best_models[[2]]$corr_tune)
+
+psvm_final <-
+  run_last_fit(
+    "polySVM",
+    psvm_spec_blank,
+    psvm_spec_tuned,
+    recipe = yj_recipe_tuned_psvm,
+    return_fit = TRUE
+  )
+
+psvm_final[[1]]
+```
+
+
+## lSVM final
+
+```{r}
+# linSVM specs
+lsvm_spec_blank <- svm_linear(cost = tune()) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab")
+
+lsvm_spec_tuned <- svm_linear(cost = best_models[[3]]$cost) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab")
+# linSVM last fit and metrics
+yj_recipe_tuned_lsvm <-
+  update_corr_treshold(step_no = 6, corr_threshold = best_models[[3]]$corr_tune)
+
+run_last_fit("linSVM", lsvm_spec_blank, lsvm_spec_tuned, recipe = yj_recipe_tuned_lsvm)
+```
+
+
+## XGB ncorr final
+
+```{r}
+# XGB ncorr specs /number 5/
+xgb_spec_blank <- boost_tree(
+  trees = 50,
+  mtry = tune(),
+  min_n = tune(),
+  tree_depth = tune(),
+  learn_rate = tune(),
+  loss_reduction = tune(),
+  sample_size = tune(),
+  stop_iter = tune()
+) %>%
+  set_engine("xgboost", num.threads = 4) %>%
   set_mode("classification")
 
-last_mod <-
-  logistic_reg(
-    penalty = best$penalty
-  ) %>% 
-  set_engine("glmnet", num.threads = 2) %>% 
-  set_mode("classification") 
+xgb_ncorr_spec_tuned <- boost_tree(
+  trees = 50,
+  mtry = best_models[[5]]$mtry,
+  min_n = best_models[[5]]$min_n,
+  tree_depth = best_models[[5]]$tree_depth,
+  learn_rate = best_models[[5]]$learn_rate,
+  loss_reduction = best_models[[5]]$loss_reduction,
+  sample_size = best_models[[5]]$sample_size,
+  stop_iter = best_models[[5]]$stop_iter
+) %>%
+  set_engine("xgboost", num.threads = 4) %>%
+  set_mode("classification")
 
-# workflow
-lr_wf <- workflow() %>% 
-  add_model(lr_mod_spec) %>% 
-  add_recipe(yj_recipe_tuned) # the recipe here should be the one that was used for this model
+# XGB nocorr last fit and metrics
+ncorr_recipe_tuned_xgb <-
+  update_corr_treshold(
+    base_recipe = ncorr_recipe,
+    step_no = 4,
+    corr_threshold = best_models[[5]]$corr_tune
+  )
 
-# the last workflow
-last_wf <- 
-  lr_wf %>%  
-  update_model(last_mod)
+run_last_fit("XGB.ncorr", xgb_spec_blank, xgb_ncorr_spec_tuned, recipe = ncorr_recipe_tuned_xgb)
+```
 
-# the last fit
-set.seed(345)
 
-final_fit <- 
-  last_wf %>% 
-  last_fit(data_split)
+## XGB RFE final
 
-# emulates the process where, after determining the best model, 
-# the final fit on the entire training set is needed 
-# and is then evaluated on the test set.
+```{r}
+# XGB rfe specs /number 6/
+xgb_rfe_spec_tuned <- boost_tree(
+  trees = 50,
+  mtry = best_models[[6]]$mtry,
+  min_n = best_models[[6]]$min_n,
+  tree_depth = best_models[[6]]$tree_depth,
+  learn_rate = best_models[[6]]$learn_rate,
+  loss_reduction = best_models[[6]]$loss_reduction,
+  sample_size = best_models[[6]]$sample_size,
+  stop_iter = best_models[[6]]$stop_iter
+) %>%
+  set_engine("xgboost", num.threads = 4) %>%
+  set_mode("classification")
 
-final_fit %>% 
-  collect_metrics()
+# XGB rfe last fit and metrics
+xgb_rfe_final <- run_last_fit(
+  "XGB.rfe",
+  xgb_spec_blank,
+  xgb_rfe_spec_tuned,
+  recipe = main_rfe_recipe,
+  return_fit = TRUE
+)
+
+xgb_rfe_final[[1]]
 ```
 
 ## Final model's parameters
 
 ```{r, eval=F}
-final_fit %>%
-  extract_fit_parsnip() %>% tidy() %>% 
-  filter(estimate != 0) %>% 
-  arrange(-abs(estimate))
+xgb_rfe_final[[2]] %>%
+  extract_fit_parsnip()
+  # tidy() %>% 
+  # filter(estimate != 0) %>% 
+  # arrange(-abs(estimate))
 ```
 
 ## ROC
 
 ```{r}
-final_fit %>% 
+psvm_final[[2]] %>% 
   collect_predictions() %>% 
   roc_curve(resistance, .pred_HR) %>% 
   autoplot()
 ```
+
+```{r}
+lr_final[[2]] %>% 
+  collect_predictions() %>% 
+  roc_curve(resistance, .pred_HR) %>% 
+  autoplot()
+```
+
 
 ## Confusion Matrix
 
 Probability cut-off = 0.5
 
 ```{r}
-cm <- final_fit %>%
+cm <- psvm_final[[2]] %>%
   collect_predictions() %>%
   conf_mat(truth = resistance, estimate = .pred_class)
 
 autoplot(cm, type = "heatmap")
 ```
+
+```{r}
+lr_final[[2]] %>%
+  collect_predictions() %>%
+  conf_mat(truth = resistance, estimate = .pred_class) %>% 
+  autoplot(type = "heatmap")
+```
+
 
 ## Performance
 
@@ -2060,7 +2266,7 @@ summary(cm)
 ```{r, fig.width=8}
 # collect sens, spec, j-index at various cut-offs
 threshold_data <- 
-  final_fit %>%
+  psvm_final[[2]] %>%
   collect_predictions() %>%
   threshold_perf(resistance, .pred_HR, thresholds = seq(0.0, 1, by = 0.01)) %>% 
   filter(.metric != "distance") %>%
@@ -2091,7 +2297,7 @@ sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, co
   labs(
     x = "Probability",
     y = "Metric Estimate",
-    title = "Final model: LR + YJ"
+    title = "Final model: "
   )
 
 sens_spec_j_plot
@@ -2106,11 +2312,9 @@ order to have 100% sensitivity of the model
 
 (it will catch all HR cases, but there will be more false positives)
 
-*If MLP PCA:* you might want to use the j-index corresponding to the
-highest sensitivity
 
-```{r, fig.width=3, fig.height=2}
-pred_optimized <- final_fit %>%
+```{r}
+pred_optimized <- psvm_final[[2]] %>%
   collect_predictions() %>% 
   mutate(
     .pred = make_two_class_pred(
