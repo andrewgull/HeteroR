@@ -703,7 +703,7 @@ lsvm_ncorr_res %>%
 
 ```{r}
 # trained with win-loss
-lsvm_ncoryj_res <- readRDS(paste0(models_path, "lsvm_ncoryj_race_p30.rds"))
+lsvm_ncoryj_res <- readRDS(paste0(models_path, "lsvm_ncoryj_race_p30_test.rds"))
 
 plot_race(lsvm_ncoryj_res)
 ```
@@ -862,7 +862,7 @@ psvm_ncorq_res %>%
 ## NCORR + YJ
 
 ```{r}
-psvm_ncoryj_res <- readRDS(paste0(models_path, "psvm_ncoryj_race_p30.rds"))
+psvm_ncoryj_res <- readRDS(paste0(models_path, "psvm_ncoryj_race_p30_test.rds"))
 
 plot_race(psvm_ncoryj_res)
 ```
@@ -1339,7 +1339,7 @@ plot_race(rf_mainrfe_res)
 ### Best models
 
 ```{r}
-show_best(rf_mainrfe_race)
+show_best(rf_mainrfe_res)
 ```
 
 ## Comparison of preprocessors
@@ -1421,7 +1421,7 @@ xgb_main_res %>%
 Bayesian search
 
 ```{r}
-xgb_ncorr_bres <- readRDS(paste0(models_path, "xgb_ncorr_bayes_p20.rds"))
+xgb_ncorr_bres <- readRDS(paste0(models_path, "xgb_ncorr_bres_p30_test.rds"))
 
 xgb_ncorr_bres %>% 
   autoplot()
@@ -1438,7 +1438,15 @@ xgb_ncorr_bres %>%
 
 ```{r}
 xgb_ncorr_bres %>% 
-  show_best(metric = "roc_auc", n = 5)
+  show_best(metric = "roc_auc", n = 5) 
+```
+
+>Shrinkage (learning rate) is a gradient boosting regularization procedure that helps modify the update rule, which is aided by a parameter known as the learning rate. The use of learning rates below 0.1 produces improvements that are significant in the generalization of a model.
+
+```{r}
+xgb_ncorr_bres %>% 
+  show_best(metric = "roc_auc", n = 10) %>% 
+  arrange(learn_rate)
 ```
 
 ## NCORR + win-loss grid search
@@ -1471,7 +1479,7 @@ plot_race(xgb_ncoryj_res)
 show_best(xgb_ncoryj_res)
 ```
 
-## RFE + main recipe
+## RFE + main recipe + race
 
 ```{r}
 xgb_mainrfe_race <- readRDS(paste0(models_path, "bt_mainrfe_res_p30.rds"))
@@ -1485,7 +1493,7 @@ plot_race(xgb_mainrfe_race)
 show_best(xgb_mainrfe_race)
 ```
 
-# RFE + Bayesian search
+## RFE + main srcipe + Bayesian search
 
 ```{r}
 xgb_mainrfe_bayes <- readRDS(paste0(models_path, "bt_mainrfe_bres_p30.rds"))
@@ -1617,15 +1625,15 @@ mlp_pca %>% show_best("roc_auc")
 ## NCORR + YJ recipe
 
 ```{r}
-mlp_ncoryj <- readRDS(paste0(models_path, "mlp_ncoryj_p20_test.rds"))
+mlp_ncoryj_res <- readRDS(paste0(models_path, "mlp_ncoryj_p20_test.rds"))
 
-mlp_ncoryj %>% autoplot()
+mlp_ncoryj_res %>% autoplot()
 ```
 
 ### Best ones
 
 ```{r}
-mlp_ncoryj %>% 
+mlp_ncoryj_res %>% 
   show_best("roc_auc")
 ```
 
@@ -1678,7 +1686,7 @@ show_best(mlp_bag_yjrfe_res)
 ```{r}
 mlp_rocs <-
   map2_dfr(list(
-    mlp_ncoryj,
+    mlp_ncoryj_res,
     mlp_pca,
     mlp_ncorq,
     mlpk_pca,
@@ -1712,7 +1720,7 @@ mlp_rocs %>%
 mlp_comp <-
   res_comp_table(
     res_list = list(
-      mlp_ncoryj,
+      mlp_ncoryj_res,
       mlp_pca,
       mlp_ncorq,
       mlpk_pca,
@@ -1846,7 +1854,7 @@ The best model + preprocessor combinations:
 
 ## ROCs
 
-```{r, fig.width=8, fig.height=8}
+```{r}
 # you will need these two objects later
 best_resamples_list <- list(
     lr_ncoryj_res,
@@ -1859,7 +1867,7 @@ best_resamples_list <- list(
     xgb_ncorr_bres,
     xgb_mainrfe_bayes,
     mlp_pca,
-    mlp_ncoryj
+    mlp_ncoryj_res
   )
 best_resamples_names <- c(
     "LR",
@@ -1935,14 +1943,14 @@ top_models <- list(
     lr_ncoryj_res,
     psvm_ncoryj_res,
     lsvm_ncoryj_res,
-    mlp_ncoryj,
+    mlp_ncoryj_res,
     xgb_ncorr_bres,
     xgb_mainrfe_bayes)
 
 
 roc3_df <-
   map2_dfr(top_models,
-           c("LR", "pSVM", "lSVM", "MLP", "XGB", "XGB rfe"),
+           c("LR", "pSVM", "lSVM", "MLP", "XGB ncorr", "XGB rfe"),
            function(x, y)
              make_roc(x, y))
 roc3_df %>% 
@@ -2140,6 +2148,22 @@ run_last_fit("linSVM", lsvm_spec_blank, lsvm_spec_tuned, recipe = yj_recipe_tune
 ## XGB ncorr final
 
 ```{r}
+best_learn_rate_xgb <-
+  xgb_ncorr_bres %>% 
+  show_best('roc_auc', n = 10) %>% 
+  filter(learn_rate < 0.1) %>% 
+  select(
+    mtry,
+    min_n,
+    tree_depth,
+    learn_rate,
+    loss_reduction,
+    sample_size,
+    stop_iter,
+    corr_tune,
+    .config
+  )
+
 # XGB ncorr specs /number 5/
 xgb_spec_blank <- boost_tree(
   trees = 50,
@@ -2167,6 +2191,19 @@ xgb_ncorr_spec_tuned <- boost_tree(
   set_engine("xgboost", num.threads = 4) %>%
   set_mode("classification")
 
+# xgb_ncorr_spec_tuned <- boost_tree(
+#   trees = 50,
+#   mtry = best_learn_rate_xgb$mtry,
+#   min_n = best_learn_rate_xgb$min_n,
+#   tree_depth = best_learn_rate_xgb$tree_depth,
+#   learn_rate = best_learn_rate_xgb$learn_rate,
+#   loss_reduction = best_learn_rate_xgb$loss_reduction,
+#   sample_size = best_learn_rate_xgb$sample_size,
+#   stop_iter = best_learn_rate_xgb$stop_iter
+# ) %>%
+#   set_engine("xgboost", num.threads = 4) %>%
+#   set_mode("classification")
+
 # XGB nocorr last fit and metrics
 ncorr_recipe_tuned_xgb <-
   update_corr_treshold(
@@ -2175,7 +2212,23 @@ ncorr_recipe_tuned_xgb <-
     corr_threshold = best_models[[5]]$corr_tune
   )
 
-run_last_fit("XGB.ncorr", xgb_spec_blank, xgb_ncorr_spec_tuned, recipe = ncorr_recipe_tuned_xgb)
+# ncorr_recipe_tuned_xgb <-
+#   update_corr_treshold(
+#     base_recipe = ncorr_recipe,
+#     step_no = 4,
+#     corr_threshold = best_learn_rate_xgb$corr_tune
+#   )
+
+xgb_ncorr_final <-
+  run_last_fit(
+    "XGB.ncorr",
+    xgb_spec_blank,
+    xgb_ncorr_spec_tuned,
+    recipe = ncorr_recipe_tuned_xgb,
+    return_fit = TRUE
+  )
+
+xgb_ncorr_final[[1]]
 ```
 
 
@@ -2208,102 +2261,140 @@ xgb_rfe_final <- run_last_fit(
 xgb_rfe_final[[1]]
 ```
 
-## Final model's parameters
-
-```{r, eval=F}
-xgb_rfe_final[[2]] %>%
-  extract_fit_parsnip()
-  # tidy() %>% 
-  # filter(estimate != 0) %>% 
-  # arrange(-abs(estimate))
-```
-
 ## ROC
 
 ```{r}
-psvm_final[[2]] %>% 
+mod_labels <- c("XGB ncorr", "LLR")
+
+make_final_roc <- function(fit_obj, title=""){
+  fit_obj %>%   
   collect_predictions() %>% 
   roc_curve(resistance, .pred_HR) %>% 
-  autoplot()
-```
+  autoplot() + ggtitle(title)
+}
 
-```{r}
-lr_final[[2]] %>% 
-  collect_predictions() %>% 
-  roc_curve(resistance, .pred_HR) %>% 
-  autoplot()
-```
+rocs_final <- map2(list(xgb_ncorr_final[[2]], lr_final[[2]]), mod_labels, ~make_final_roc(.x, .y))
 
+library(patchwork)
+
+(rocs_final[[1]] | rocs_final[[2]])
+```
 
 ## Confusion Matrix
 
 Probability cut-off = 0.5
 
 ```{r}
-cm <- psvm_final[[2]] %>%
-  collect_predictions() %>%
-  conf_mat(truth = resistance, estimate = .pred_class)
-
-autoplot(cm, type = "heatmap")
-```
-
-```{r}
-lr_final[[2]] %>%
+make_cm <- function(fit_obj, title="") {
+  fit_obj %>%
   collect_predictions() %>%
   conf_mat(truth = resistance, estimate = .pred_class) %>% 
-  autoplot(type = "heatmap")
+  autoplot(type = "heatmap") + ggtitle(title)
+}
+
+conf_mat_final <- map2(list(xgb_ncorr_final[[2]], lr_final[[2]]), mod_labels, ~make_cm(.x, .y))
+
+(conf_mat_final[[1]] | conf_mat_final[[2]])
 ```
+
 
 
 ## Performance
 
 ```{r}
-summary(cm)
+get_metrics <- function(fit_obj, label="") {
+  fit_obj %>%
+  collect_predictions() %>%
+  conf_mat(truth = resistance, estimate = .pred_class) %>% 
+  summary() %>% 
+  select(-.estimator) %>% 
+  mutate(model = label)
+}
+
+bind_rows(get_metrics(xgb_ncorr_final[[2]], "XGB ncorr"),
+          get_metrics(lr_final[[2]], "LLR")) %>%
+  pivot_wider(names_from = model, values_from = .estimate)
 ```
 
 ## Probability cutoff adjustment by maximum j-index
 
-```{r, fig.width=8}
-# collect sens, spec, j-index at various cut-offs
-threshold_data <- 
-  psvm_final[[2]] %>%
-  collect_predictions() %>%
-  threshold_perf(resistance, .pred_HR, thresholds = seq(0.0, 1, by = 0.01)) %>% 
-  filter(.metric != "distance") %>%
-  mutate(group = case_when(
-    .metric == "sens" | .metric == "spec" ~ "1",
-    TRUE ~ "2"
-  ))
-
-# find max j-index
-max_j_index_threshold <- threshold_data %>%
-  filter(.metric == "j_index") %>%
-  filter(.estimate == max(.estimate)) %>%
-  pull(.threshold)
-
-# max_j_index_threshold may be a vector, use its last element
-if (length(max_j_index_threshold) > 1){
-  max_j_index_threshold <- max_j_index_threshold[length(max_j_index_threshold)]
+```{r}
+maxj <- function(threshold_df) {
+  # find max j-index
+  max_j_index_threshold <- threshold_df %>%
+    filter(.metric == "j_index") %>%
+    filter(.estimate == max(.estimate)) %>%
+    pull(.threshold)
+  
+  # max_j_index_threshold may be a vector, use its last element
+  if (length(max_j_index_threshold) > 1) {
+    max_j_index_threshold <-
+      max_j_index_threshold[length(max_j_index_threshold)]
+  }
+  
+  return(max_j_index_threshold)
 }
 
-# plot metrics v cut-offs
-sens_spec_j_plot <- ggplot(threshold_data, aes(x = .threshold, y = .estimate, color = .metric, alpha = group)) +
-  geom_line(size = 1) +
-  #theme_minimal() +
-  #scale_color_viridis_d(end = 0.9) +
-  scale_color_brewer(palette = "Set1") +
-  scale_alpha_manual(values = c(.4, 1), guide = "none") +
-  geom_vline(xintercept = max_j_index_threshold, alpha = .8, color = "grey30", linetype = "longdash") +
-  labs(
-    x = "Probability",
-    y = "Metric Estimate",
-    title = "Final model: "
-  )
+get_threshold <- function(fit_obj){
+    # collect sens, spec, j-index at various cut-offs
+  threshold_data <-
+    fit_obj %>%
+    collect_predictions() %>%
+    threshold_perf(resistance, .pred_HR, thresholds = seq(0.0, 1, by = 0.01)) %>%
+    filter(.metric != "distance") %>%
+    mutate(group = case_when(.metric == "sens" |
+                               .metric == "spec" ~ "1",
+                             TRUE ~ "2"))
+  return(threshold_data)
+}
 
-sens_spec_j_plot
+senspec_plot <- function(fit_obj, title="") {
+  # collect sens, spec, j-index at various cut-offs
+  threshold_data <- get_threshold(fit_obj)
+  
+  # find max j-index
+  max_j_index_threshold <- maxj(threshold_data)
+  
+  # plot metrics v cut-offs
+  sens_spec_j_plot <-
+    ggplot(threshold_data,
+           aes(
+             x = .threshold,
+             y = .estimate,
+             color = .metric,
+             alpha = group
+           )) +
+    geom_line(size = 1) +
+    #theme_minimal() +
+    #scale_color_viridis_d(end = 0.9) +
+    scale_color_brewer(palette = "Set1") +
+    scale_alpha_manual(values = c(.4, 1), guide = "none") +
+    geom_vline(
+      xintercept = max_j_index_threshold,
+      alpha = .8,
+      color = "grey30",
+      linetype = "longdash"
+    ) +
+    labs(x = "Probability",
+         y = "Metric Estimate",
+         title = title)
+  return(sens_spec_j_plot)
+}
 ```
 
-What performance will I get using this maximal j-index?
+XGB
+
+```{r}
+senspec_plot(xgb_ncorr_final[[2]], "XGB ncorr")
+```
+
+LR
+
+```{r}
+senspec_plot(lr_final[[2]], "LLR")
+```
+
+XGB reaches higher sensitivity faster than LR on the same level of sensitivity
 
 ### Optimized confusion matrix
 
@@ -2314,27 +2405,48 @@ order to have 100% sensitivity of the model
 
 
 ```{r}
-pred_optimized <- psvm_final[[2]] %>%
-  collect_predictions() %>% 
-  mutate(
-    .pred = make_two_class_pred(
-      estimate = .pred_HR, 
-      levels = levels(resistance), 
-      threshold = max_j_index_threshold
-    )
-  ) %>%
-  select(resistance, contains(".pred"))
+optimize_prediction <- function(fit.obj){
+  j_index <- maxj(get_threshold(fit.obj))
+  
+  optimized <- fit.obj %>%
+    collect_predictions() %>%
+    mutate(.pred = make_two_class_pred(
+      estimate = .pred_HR,
+      levels = levels(resistance),
+      threshold = j_index
+    )) %>%
+    select(resistance, contains(".pred"))
+  
+  return(optimized)
+}
 
-cm_optimized <- pred_optimized %>% 
-  conf_mat(truth = resistance, estimate = .pred)
+cm_optimized_xgb <- optimize_prediction(xgb_ncorr_final[[2]]) %>% 
+  conf_mat(truth = resistance, estimate = .pred) %>% 
+  autoplot(type = "heatmap") + ggtitle("XGB ncorr")
 
-autoplot(cm_optimized, type = "heatmap")
+cm_optimized_lr <- optimize_prediction(lr_final[[2]]) %>% 
+  conf_mat(truth = resistance, estimate = .pred) %>% 
+  autoplot(type = "heatmap") + ggtitle("LLR")
+
+(cm_optimized_xgb | cm_optimized_lr)
 ```
 
 ### Optimized performance
 
 ```{r}
-summary(cm_optimized)
+get_metrics2 <- function(fit.obj, label){
+  optimize_prediction(fit.obj) %>% 
+    conf_mat(truth = resistance, estimate = .pred_class) %>% 
+    summary() %>% 
+    mutate(model = label)
+}
+
+bind_rows(
+  get_metrics2(xgb_ncorr_final[[2]], "XGB ncorr"),
+  get_metrics2(lr_final[[2]], "LLR")
+) %>% 
+  pivot_wider(names_from = model, values_from = .estimate) %>% 
+  select(-.estimator)
 ```
 
 # Post-modelling analysis
@@ -2343,49 +2455,33 @@ summary(cm_optimized)
 
 ### How many predictors were removed
 
-```{r}
-yj_data_proc <- prep(yj_recipe_tuned, retain = TRUE)
+Around 40 predictors were removed during `step_nzv()` and about 10 during `step_corr()` or 80 during LASSO
 
-# NZV removed
-yj_data_proc$steps[[1]]$removals
-```
 
-around 40 predictors were removed
+### Predictors importance
 
-Again, how many non-zero coefficients we have:
+LLR coefficients
 
 ```{r}
-final_fit %>%
+lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
   arrange(-abs(estimate))
 ```
 
-Just 20 (including intercept)
-
-### Predictors importance
-
-```{r, fig.height=6}
-final_fit %>% 
-  extract_fit_parsnip() %>% 
-  vi_model(lambda = best$penalty) %>% 
-  filter(Importance != 0) %>% 
-  arrange(-abs(Importance))
-```
+XGB features importance
 
 ```{r}
-final_fit %>% 
-  extract_fit_parsnip() %>%
-  vip(num_features = 30, include_type = T)
+xgb_ncorr_final[[2]] %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 40, include_type = T)
 ```
-
-This plot doesn't correspond to the table of coefficients above
 
 ## Shapley Additive Explanations
 
 Lloyd Shapley (Nobel Prize 2012)
 
-```{r, fig.height=8}
+```{r, eval=FALSE}
 library(fastshap)
 
 # final fit model
@@ -2411,7 +2507,7 @@ autoplot(shap_values)
 
 ### Dependence plot
 
-```{r}
+```{r, eval=FALSE}
 feat <- prep(yj_recipe_tuned, df_train) %>% 
   juice()
 
@@ -2425,7 +2521,7 @@ autoplot(shap,
 
 ### Contributions in each strain
 
-```{r, fig.height=10}
+```{r, eval=FALSE}
 library(patchwork)
 p1 <- autoplot(shap, type = "contribution", row_num = 1) +
   ggtitle("DA62886")
@@ -2438,54 +2534,11 @@ p1+p2
 
 ### Force plot
 
-```{r}
+```{r, eval=FALSE}
 force_plot(object = shap[1,], 
            feature_values = X[1,], 
            display = "html", 
            link = "logit")
-```
-
-## Extracting predictions
-
-Using the final model fit and adjusted probability cut-off
-
-That final recipe:
-
-```{r}
-final_recipe <- last_wf %>% fit(df_train) %>% extract_recipe()
-
-final_recipe
-```
-
-The final model fit
-
-```{r}
-final_mod_fit <- last_wf %>% fit(df_train) %>% extract_fit_parsnip()
-```
-
-```{r}
-data_strain_proc <- final_recipe %>%
-  bake(new_data = data_strain) %>% 
-  select(-c(strain, resistance))
-
-data_strain_proc
-```
-
-```{r}
-# I tested this code on df_test and it gives the same confusion matrix as the code above in section 'Final fit' and 'Confusion matrix with prob=0.5'
-# So it's the right way to apply predict() to the entire data set to identify false predictions
-
-prediction_all_data <-
-  predict(final_mod_fit, new_data = data_strain_proc, type = "prob") %>%
-  select(.pred_HR) %>%
-  mutate(
-    .pred_class = if_else(.pred_HR >= max_j_index_threshold, "HR", "nonHR"),
-    .true_class = data_strain$resistance,
-    strain = data_strain$strain
-  ) %>%
-  rename(.prob_HR = .pred_HR)
-
-prediction_all_data
 ```
 
 ## DALEX
@@ -2493,7 +2546,7 @@ prediction_all_data
 You can choose for instance false positives and look what influenced
 their classification as HR
 
-```{r}
+```{r, eval=FALSE}
 false_positives <- 
   prediction_all_data %>% 
   filter(.pred_class == "HR", 
@@ -2502,7 +2555,7 @@ false_positives <-
 false_positives
 ```
 
-```{r}
+```{r, eval=FALSE}
 library(DALEXtra)
 
 explainer_final <- 
@@ -2533,12 +2586,55 @@ Most of the predictors don't make any contributions at all.
 Also, `contribution` is *the probability of nonHR* (because the last
 line 'prediction' equals `1 - .prob_HR` )
 
-```{r}
+```{r, eval=FALSE}
 # look at nc.beta.lac.plasmid contribution
 data_strain_proc %>% 
   mutate(label = if_else(strain == "DA62984", "DA62984", resistance)) %>% 
   ggplot(aes(label, n.TEM.1)) +
   geom_jitter(aes(color=resistance))
+```
+
+## Extracting predictions
+
+Using the final model fit and adjusted probability cut-off
+
+That final recipe:
+
+```{r, eval=FALSE}
+final_recipe <- last_wf %>% fit(df_train) %>% extract_recipe()
+
+final_recipe
+```
+
+The final model fit
+
+```{r, eval=FALSE}
+final_mod_fit <- last_wf %>% fit(df_train) %>% extract_fit_parsnip()
+```
+
+```{r, eval=FALSE}
+data_strain_proc <- final_recipe %>%
+  bake(new_data = data_strain) %>% 
+  select(-c(strain, resistance))
+
+data_strain_proc
+```
+
+```{r, eval=FALSE}
+# I tested this code on df_test and it gives the same confusion matrix as the code above in section 'Final fit' and 'Confusion matrix with prob=0.5'
+# So it's the right way to apply predict() to the entire data set to identify false predictions
+
+prediction_all_data <-
+  predict(final_mod_fit, new_data = data_strain_proc, type = "prob") %>%
+  select(.pred_HR) %>%
+  mutate(
+    .pred_class = if_else(.pred_HR >= max_j_index_threshold, "HR", "nonHR"),
+    .true_class = data_strain$resistance,
+    strain = data_strain$strain
+  ) %>%
+  rename(.prob_HR = .pred_HR)
+
+prediction_all_data
 ```
 
 ## AMR types and false predictions
@@ -2552,7 +2648,7 @@ prediction_all_data %>%
   write.csv(file="data/amr_types_prediction_prob.csv", row.names = F)
 ```
 
-```{r}
+```{r, eval=FALSE}
 # amr_type_pred <- read_csv("data/amr_types_prediction_prob.csv")
 
 amr_type_pred %>% 
@@ -2565,7 +2661,7 @@ amr_type_pred %>%
   scale_fill_gradient(low="white", high="blue") 
 ```
 
-```{r}
+```{r, eval=FALSE}
 amr_type_pred %>% 
   filter(.pred_class == .true_class) %>% 
   pivot_longer(cols = colnames(amr_type_pred)[5:25],
