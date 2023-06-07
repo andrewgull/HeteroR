@@ -352,6 +352,37 @@ There are two ways to une hyper-parameters:
 By default all models here are LASSO regression models, unless specific
 type of penalization is stated.
 
+
+## MAIN recipe 
+
+```{r, fig.width=6, fig.height=3}
+lr_main <- readRDS(paste0(models_path, "lr_main_space_p30.rds"))
+
+autoplot(lr_main)
+```
+
+### Best models
+
+```{r}
+lr_main %>% 
+  show_best("roc_auc", n = 5) 
+```
+
+## LOO MAIN recipe 
+
+```{r, fig.width=6, fig.height=3}
+lr_main_LOO <- readRDS(paste0(models_path, "lr_main_space_p30_LOO.rds"))
+
+autoplot(lr_main)
+```
+
+### Best lr_main_LOO
+
+```{r}
+lr_main_LOO %>% 
+  show_best("roc_auc", n = 5) 
+```
+
 ## NCORR recipe
 
 For LR I used space filling grid, cause Bayesian would cause errors
