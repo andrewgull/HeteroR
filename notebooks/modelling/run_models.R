@@ -255,8 +255,7 @@ cv_folds <- vfold_cv(df_train,
                      v = opt$folds,
                      repeats = opt$resamples)
 # try LOO 
-# cv_folds <- lood_cv(df_train,
-#                     strata = "resistance")
+data_loo  <- loo_cv(df_train)
 
 #### FUNCTIONS ####
 set_model <- function(mod, cores) {
@@ -479,6 +478,8 @@ if (opt$grid_search == "space") {
         save_workflow = TRUE
       )
     )
+}  else if (opt$grid_search == "loo"){
+  model_res <- my_wf %>% fit_resamples(Y ~ X, data_loo)
 }
 
 # show performance

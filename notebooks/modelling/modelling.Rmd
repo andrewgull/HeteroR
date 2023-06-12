@@ -368,21 +368,6 @@ lr_main %>%
   show_best("roc_auc", n = 5) 
 ```
 
-## LOO MAIN recipe 
-
-```{r, fig.width=6, fig.height=3}
-lr_main_LOO <- readRDS(paste0(models_path, "lr_main_space_p30_LOO.rds"))
-
-autoplot(lr_main)
-```
-
-### Best lr_main_LOO
-
-```{r}
-lr_main_LOO %>% 
-  show_best("roc_auc", n = 5) 
-```
-
 ## NCORR recipe
 
 For LR I used space filling grid, cause Bayesian would cause errors
@@ -728,6 +713,18 @@ plot_race(lsvm_ncorr_res)
 ```{r}
 lsvm_ncorr_res %>% 
   show_best("roc_auc", n = 5)
+```
+
+### Predictors that remained
+
+```{r}
+recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold =0.59836019) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% ncol()
 ```
 
 ## NCORYJ recipe
@@ -1538,6 +1535,26 @@ autoplot(xgb_mainrfe_bayes)
 show_best(xgb_mainrfe_bayes)
 ```
 
+### Predictors that remained
+
+```{r}
+rfe_model <- rand_forest(mode = "classification") %>%
+  set_engine("ranger", num.threads = 8, importance = "impurity")
+
+recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames()
+```
+
 ## Comparison of the preprocessors
 
 ### ROCs
@@ -1637,6 +1654,18 @@ plot_race(mlp_ncorq)
 ```{r}
 mlp_ncorq %>% 
   show_best("roc_auc")
+```
+
+### Predictors that remained
+
+```{r}
+recipe(resistance ~ ., data = df_train) %>%
+     update_role(strain, new_role = "ID") %>% 
+     step_nzv(all_predictors()) %>%
+     step_orderNorm(all_numeric_predictors()) %>%
+     step_dummy(all_nominal_predictors()) %>%
+     step_corr(all_predictors(), threshold = 0.5860753) %>%
+     step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>%  colnames()
 ```
 
 ## PCA + YJ recipe
