@@ -254,8 +254,9 @@ cv_folds <- vfold_cv(df_train,
                      strata = "resistance",
                      v = opt$folds,
                      repeats = opt$resamples)
-# try LOO 
-data_loo  <- loo_cv(df_train)
+
+# metrics for imbalanced classes
+imbalanced_metrics <- metric_set(roc_auc, j_index)
 
 #### FUNCTIONS ####
 set_model <- function(mod, cores) {
