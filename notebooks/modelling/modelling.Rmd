@@ -2436,7 +2436,7 @@ cm_optimized_lr <- optimize_prediction(lr_final[[2]]) %>%
 ```{r}
 get_metrics2 <- function(fit.obj, label){
   optimize_prediction(fit.obj) %>% 
-    conf_mat(truth = resistance, estimate = .pred_class) %>% 
+    conf_mat(truth = resistance, estimate = .pred) %>% 
     summary() %>% 
     mutate(model = label)
 }
