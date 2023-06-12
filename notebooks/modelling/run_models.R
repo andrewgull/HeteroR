@@ -254,6 +254,7 @@ cv_folds <- vfold_cv(df_train,
                      strata = "resistance",
                      v = opt$folds,
                      repeats = opt$resamples)
+
 # metrics for imbalanced classes
 imbalanced_metrics <- metric_set(roc_auc, j_index)
 
@@ -478,6 +479,8 @@ if (opt$grid_search == "space") {
         save_workflow = TRUE
       )
     )
+}  else if (opt$grid_search == "loo"){
+  model_res <- my_wf %>% fit_resamples(Y ~ X, data_loo)
 }
 
 # show performance
