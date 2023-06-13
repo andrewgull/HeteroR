@@ -1188,7 +1188,7 @@ rbf_preproc_diff <- contrast_models(rbf_posterior, seed = 100)
 summary(rbf_preproc_diff)
 ```
 
-# K-nearest neighbors (KNN)
+# k-Nearest Neighbors (KNN)
 
 ## NCORR recipe
 
@@ -1993,7 +1993,13 @@ mod_diff <- contrast_models(mod_posterior, seed = 100)
 summary(mod_diff)
 ```
 
-So, LR, XGB and MLP insignificantly differ from each other
+Insignificant differences in mean AUCs:
+
+```{r}
+summary(mod_diff) %>% filter(lower < 0, upper > 0)
+```
+
+LR is insignificantly better than XGBs and SVMs
 
 ## Top models
 
@@ -2454,7 +2460,15 @@ LR
 senspec_plot(lr_final[[2]], "LLR")
 ```
 
-XGB reaches higher sensitivity faster than LR on the same level of sensitivity
+j-index and the probability threshold
+
+```{r}
+lr_final[[2]] %>%
+  get_threshold() %>%
+  filter(.metric == "j_index") %>%
+  filter(.estimate == max(.estimate)) %>%
+  slice_tail()
+```
 
 ### Optimized confusion matrix
 
@@ -2511,95 +2525,79 @@ bind_rows(
 
 # Post-modelling analysis
 
-## Features importance
+## Features used by the best model
 
 ### How many predictors were removed
 
-Around 40 predictors were removed during `step_nzv()` and about 10 during `step_corr()` or 80 during LASSO
+Overall, we have `r ncol(df_train) - 2` predictors.
+
+#### Predictors left after applying `step_nzv()`
+
+```{r}
+# NB: strain and resistance are still there
+recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>% 
+  step_nzv(all_predictors()) %>% 
+  prep() %>% 
+  juice() %>% 
+  ncol()
+```
 
 
-### Predictors importance
+#### Predictors left after applying both `step_nzv()` and `step_corr()`
 
-LLR coefficients
+```{r}
+# NB: strain and resistance are still there
+yj_recipe_tuned_lr %>% prep() %>% juice() %>% ncol()
+```
+
+Correlation threshold in the best LLR is `r best_models[[1]]$corr_tune`
+
+### Features importance
+
+Non-zero LLR coefficients:
 
 ```{r}
 lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
-  arrange(-abs(estimate))
+  arrange(-abs(estimate)) %>% 
+  mutate(odds.ratio = exp(estimate))
 ```
 
-XGB features importance
+Just 19 features plus Intercept are used by the model.
+
+On the `odds.ratio` column: 
+
+- units in which predictors are measured have been transformed
+
+- apparently, nonHR is outcome 1 here and HR is outcome 0, because increase in `n.beta.lac` decreases chances of outcome 1.
+
+
+### Predictors increasing the risk of HR:
 
 ```{r}
-xgb_ncorr_final[[2]] %>% 
-  extract_fit_parsnip() %>% 
-  vip(num_features = 40, include_type = T)
+lr_final[[2]] %>%
+  extract_fit_parsnip() %>% tidy() %>% 
+  filter(estimate != 0) %>% 
+  arrange(-abs(estimate)) %>% 
+  mutate(odds.ratio = exp(estimate)) %>% 
+  filter(odds.ratio < 1.0) %>% 
+  select(term)
 ```
 
-## Shapley Additive Explanations
+### Predictors decreasing the risk of HR
 
-Lloyd Shapley (Nobel Prize 2012)
-
-```{r, eval=FALSE}
-library(fastshap)
-
-# final fit model
-final_model_fit <- 
-  last_wf %>%
-  fit(df_train) %>% 
-  pull_workflow_fit()
-
-final_model_fit <- final_fit %>% 
-  extract_fit_parsnip()
-
-# Apply the preprocessing steps with prep and juice to the training data
-processed_matrix <- prep(yj_recipe_tuned, df_train) %>% 
-  juice() %>% 
-  select(-c(resistance, strain)) %>% # remove character columns
-  as.matrix()
-
-# Compute shapley values 
-shap_values <- fastshap::explain(final_model_fit, X = processed_matrix, exact = TRUE)
-
-autoplot(shap_values)
+```{r}
+lr_final[[2]] %>%
+  extract_fit_parsnip() %>% tidy() %>% 
+  filter(estimate != 0) %>% 
+  arrange(-abs(estimate)) %>% 
+  mutate(odds.ratio = exp(estimate)) %>% 
+  filter(odds.ratio >= 1.0) %>% 
+  select(term)
 ```
 
-### Dependence plot
-
-```{r, eval=FALSE}
-feat <- prep(yj_recipe_tuned, df_train) %>% 
-  juice()
-
-autoplot(shap, 
-         type = "dependence", 
-         feature = "min.AR.len.cen", 
-         X = feat,
-         smooth = TRUE, 
-         color_by = "resistance")
-```
-
-### Contributions in each strain
-
-```{r, eval=FALSE}
-library(patchwork)
-p1 <- autoplot(shap, type = "contribution", row_num = 1) +
-  ggtitle("DA62886")
-
-p2 <- autoplot(shap, type = "contribution", row_num = 10) +
-  ggtitle("DA63030")
-
-p1+p2
-```
-
-### Force plot
-
-```{r, eval=FALSE}
-force_plot(object = shap[1,], 
-           feature_values = X[1,], 
-           display = "html", 
-           link = "logit")
-```
 
 ## DALEX
 
