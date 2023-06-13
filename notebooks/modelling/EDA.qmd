@@ -253,7 +253,7 @@ data_strain[is.na(data_strain)] <- 0
 
 # Write the first processed version of the data set to shiny's data directory
 
-```{r}
+```{r, eval=FALSE}
 write.csv(data_strain, file = "EDA_app/data/features_strain.csv", row.names = FALSE)
 ```
 
@@ -471,13 +471,13 @@ data_ica$template %>%
 ## Isomap Embedding
 
 ```{r}
-if (!require(dimRed)){
-  install.packages("dimRed")
-}
-
-if (!require(RSpectra)){
-  install.packages("RSpectra")
-}
+# if (!require(dimRed)){
+#   install.packages("dimRed")
+# }
+# 
+# if (!require(RSpectra)){
+#   install.packages("RSpectra")
+# }
 
 isomap_recipe <- 
   recipe(resistance ~ ., data = data_strain) %>%
@@ -486,7 +486,7 @@ isomap_recipe <-
   step_dummy(all_nominal_predictors()) %>% 
   step_YeoJohnson(all_numeric_predictors())  %>%
   step_normalize(all_numeric_predictors()) %>% 
-  step_isomap(all_numeric_predictors(), num_terms = 5, neighbors = 50) %>% 
+  step_isomap(all_numeric_predictors(), num_terms = 5, neighbors = 10) %>% 
   step_normalize(all_numeric_predictors())
 
 isomap_recipe %>% 
@@ -501,11 +501,11 @@ isomap_recipe %>%
 it's a supervised version of PCA, be careful!
 
 ```{r}
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
-if (!require(mixOmics, quietly = TRUE))
-  BiocManager::install("mixOmics")
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# if (!require(mixOmics, quietly = TRUE))
+#   BiocManager::install("mixOmics")
 
 pls_recipe <- 
   recipe(resistance ~ ., data = data_strain) %>%
@@ -697,7 +697,7 @@ groups 1,2 and 3 are very similar to each other
 
 ### 3D version
 
-```{r}
+```{r, eval=FALSE}
 library(plotly)
 
 umap3d <-
@@ -1185,7 +1185,7 @@ ggplot(amr_types_strain_td, aes(strain, AMR.type)) +
 
 #### Interactive version
 
-```{r, eval=F, fig.width=12}
+```{r, eval=F, fig.width=12, eval=FALSE}
 library(plotly)
 
 vals <- scales::rescale(c(0:max(amr_types_strain_td$N)))
