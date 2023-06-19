@@ -318,6 +318,19 @@ rfe_rec %>%
   juice()
 ```
 
+## Boruta features selection
+
+to use with RF and BT algorithms
+
+```{r}
+# step_select_boruta() from colino
+main_boruta_recipe <- main_recipe %>% 
+  step_select_boruta(all_predictors(), outcome = "resistance")
+
+main_boruta_recipe %>% prep() %>% juice() %>% ncol()
+```
+
+
 # Folds and metrics
 
 > If a model is poorly calibrated, the ROC curve value might not show
@@ -1521,7 +1534,7 @@ plot_race(xgb_mainrfe_race)
 show_best(xgb_mainrfe_race)
 ```
 
-## RFE + main srcipe + Bayesian search
+## RFE + main recipe + Bayesian search
 
 ```{r}
 xgb_mainrfe_bayes <- readRDS(paste0(models_path, "bt_mainrfe_bres_p30.rds"))
@@ -1555,6 +1568,19 @@ recipe(resistance ~ ., data = df_train) %>%
   ) %>% prep() %>% juice() %>% colnames()
 ```
 
+## Boruta features selection + main recipe + Bayes search
+
+```{r}
+xgb_main_bor_bres <- readRDS(paste0(models_path, "bt_mainbor_bres_bs_p30.rds"))
+
+autoplot(xgb_main_bor_bres)
+```
+
+```{r}
+show_best(xgb_main_bor_bres)
+```
+
+
 ## Comparison of the preprocessors
 
 ### ROCs
@@ -1567,7 +1593,8 @@ xgb_rocs <-
     xgb_ncorr_wl,
     xgb_ncoryj_res,
     xgb_mainrfe_race,
-    xgb_mainrfe_bayes
+    xgb_mainrfe_bayes,
+    xgb_main_bor_bres
   ),
   c(
     "main",
@@ -1575,7 +1602,8 @@ xgb_rocs <-
     "ncorr.wl",
     "ncorr.yj",
     "main.rfe.race",
-    "main.rfe.bayes"
+    "main.rfe.bayes",
+    "main.bor.bayes"
   ),
   function(x, y)
     make_roc(x, y))
@@ -1592,24 +1620,28 @@ xgb_rocs %>%
 
 ### Posterior distributions
 
+I have excluded models tuned with win-loss approach, since their performance was significantly worse
+
 ```{r}
 xgb_comp <-
   res_comp_table(
     res_list = list(
       xgb_main_res,
       xgb_ncorr_bres,
-      xgb_ncorr_wl,
+      #xgb_ncorr_wl,
       xgb_ncoryj_res,
-      xgb_mainrfe_race,
-      xgb_mainrfe_bayes
+      #xgb_mainrfe_race,
+      xgb_mainrfe_bayes,
+      xgb_main_bor_bres
     ),
     mod_names = c(
       "main",
       "ncorr.bayes",
-      "ncorr.wl",
+      #"ncorr.wl",
       "ncorr.yj",
-      "main.rfe.race",
-      "main.rfe.bayes"
+      #"main.rfe.race",
+      "main.rfe.bayes",
+      "main.bor.bayes"
     )
   )
 
@@ -1631,7 +1663,7 @@ autoplot(xgb_posterior)
 ```{r}
 xgb_preproc_diff <- contrast_models(xgb_posterior, seed = 100) 
 
-summary(xgb_preproc_diff)
+summary(xgb_preproc_diff) %>% filter(grepl("bor.", contrast))
 ```
 
 # Multilayer perceptron (MLP NNET)
