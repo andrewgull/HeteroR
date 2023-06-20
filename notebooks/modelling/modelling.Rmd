@@ -360,6 +360,25 @@ There are two ways to une hyper-parameters:
     `tune_bayes()`. Performs better than space-filling grid for models
     that are sensitive to hyper-parameters (like boosted trees)
 
+# Rule-based prediction
+
+Let's take a rule 'if there is more than 3 beta-lactamases, then the strain is HR' (from EDA)
+
+```{r}
+rule_pred <- 
+  df_train %>% 
+  mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
+  select(pred, resistance)
+
+conf_mat(rule_pred, truth = resistance, estimate = pred)
+```
+
+```{r}
+conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
+  summary()
+```
+
+
 # Penalized LR
 
 By default all models here are LASSO regression models, unless specific
