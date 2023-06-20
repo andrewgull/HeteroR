@@ -816,7 +816,7 @@ ggplot(data_strain, aes(n.beta.lac)) +
 
 **OBS!**
 
-1.  If number of BL-genes is higher than 3, the strain is more likely to be HR
+1.  If number of BL-genes is higher than 4, the strain is more likely to be HR
 
 2.  There are `r nrow(data_strain %>% filter(n.beta.lac == 1, resistance == "HR"))` HR strain with only 1 beta-lactamase (which is *ampC*)
 

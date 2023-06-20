@@ -362,7 +362,7 @@ There are two ways to une hyper-parameters:
 
 # Rule-based prediction
 
-Let's take a rule 'if there is more than 3 beta-lactamases, then the strain is HR' (from EDA)
+Let's take a rule 'if there is more than 4 beta-lactamases, then the strain is HR' (from EDA)
 
 ```{r}
 rule_pred <- 
