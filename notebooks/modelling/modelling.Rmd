@@ -325,9 +325,16 @@ to use with RF and BT algorithms
 ```{r}
 # step_select_boruta() from colino
 main_boruta_recipe <- main_recipe %>% 
-  step_select_boruta(all_predictors(), outcome = "resistance")
+  step_select_boruta(all_predictors(), outcome = "resistance", options = list(maxRuns = 500))
 
 main_boruta_recipe %>% prep() %>% juice() %>% ncol()
+```
+
+## Boruta + YJ transfor + NOCORR
+
+```{r}
+yj_boruta_recipe <- yj_recipe %>% 
+  step_select_boruta(all_predictors(), outcome = "resistance")
 ```
 
 
@@ -759,7 +766,7 @@ recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% ncol()
 ```
 
-## NCORYJ recipe
+## NCOR + YJ recipe
 
 ```{r}
 # trained with win-loss
@@ -1402,16 +1409,55 @@ plot_race(rf_mainrfe_res)
 show_best(rf_mainrfe_res)
 ```
 
+## Boruta feature selection
+
+main recipe
+
+```{r}
+rf_mainbor_res <- readRDS(paste0(models_path, "rf_mainbor_p30.rds"))
+
+autoplot(rf_mainbor_res)
+```
+
+```{r}
+show_best(rf_mainbor_res)
+```
+
+yj transform and decorr
+
+```{r}
+rf_yjbor_res <- readRDS(paste0(models_path, "rf_yjbor_p30.rds"))
+
+autoplot(rf_yjbor_res)
+```
+
+```{r}
+show_best(rf_yjbor_res)
+```
+
+
 ## Comparison of preprocessors
 
 ### ROCs
 
 ```{r}
-rf_rocs <-
-  map2_dfr(list(rf_main_res,
+mod_list <- list(rf_main_res,
                 rf_mainrfe_res,
                 rf_ncorr_res,
-                rf_ncoryj_res), c("main", "main.rfe", "ncorr", "ncorr.yj"),
+                rf_ncoryj_res,
+                rf_mainbor_res,
+                rf_yjbor_res)
+
+mod_names <- c("main", 
+             "main.rfe", 
+             "ncorr", 
+             "ncorr.yj",
+             "main.boruta",
+             "ncorr.yj.bor")
+
+rf_rocs <-
+  map2_dfr(mod_list, 
+           mod_names,
            function(x, y)
              make_roc(x, y))
 
@@ -1430,8 +1476,8 @@ rf_rocs %>%
 ```{r}
 rf_comp <-
   res_comp_table(
-    res_list = list(rf_main_res, rf_mainrfe_res, rf_ncorr_res, rf_ncoryj_res),
-    mod_names = c("main", "rfe.race", "ncorr", "ncorr.yj")
+    res_list = mod_list,
+    mod_names = mod_names
   )
 
 rf_posterior <-
@@ -1590,7 +1636,7 @@ recipe(resistance ~ ., data = df_train) %>%
 ## Boruta features selection + main recipe + Bayes search
 
 ```{r}
-xgb_main_bor_bres <- readRDS(paste0(models_path, "bt_mainbor_bres_bs_p30.rds"))
+xgb_main_bor_bres <- readRDS(paste0(models_path, "bt_mainbor_bres_p30.rds"))
 
 autoplot(xgb_main_bor_bres)
 ```
@@ -1599,31 +1645,49 @@ autoplot(xgb_main_bor_bres)
 show_best(xgb_main_bor_bres)
 ```
 
+## Boruta + YJ-transform
+
+```{r}
+xgb_yjbor_bres <- readRDS(paste0(models_path, "xgb_yjbor_bres_p30.rds"))
+
+autoplot(xgb_yjbor_bres)
+```
+
+```{r}
+show_best(xgb_yjbor_bres)
+```
+
 
 ## Comparison of the preprocessors
 
 ### ROCs
 
 ```{r}
-xgb_rocs <-
-  map2_dfr(list(
+mod_list <- list(
     xgb_main_res,
     xgb_ncorr_bres,
-    xgb_ncorr_wl,
-    xgb_ncoryj_res,
-    xgb_mainrfe_race,
+    #xgb_ncorr_wl,
+    #xgb_ncoryj_res,
+    #xgb_mainrfe_race,
     xgb_mainrfe_bayes,
-    xgb_main_bor_bres
-  ),
-  c(
+    xgb_main_bor_bres,
+    xgb_yjbor_bres
+  )
+
+mod_names <- c(
     "main",
     "ncorr.bayes",
-    "ncorr.wl",
-    "ncorr.yj",
-    "main.rfe.race",
+    #"ncorr.wl",
+    #"ncorr.yj",
+    #"main.rfe.race",
     "main.rfe.bayes",
-    "main.bor.bayes"
-  ),
+    "main.bor.bayes",
+    "ncorr.yj.bor"
+  )
+
+xgb_rocs <-
+  map2_dfr(mod_list,
+  mod_names,
   function(x, y)
     make_roc(x, y))
 
@@ -1644,24 +1708,8 @@ I have excluded models tuned with win-loss approach, since their performance was
 ```{r}
 xgb_comp <-
   res_comp_table(
-    res_list = list(
-      xgb_main_res,
-      xgb_ncorr_bres,
-      #xgb_ncorr_wl,
-      xgb_ncoryj_res,
-      #xgb_mainrfe_race,
-      xgb_mainrfe_bayes,
-      xgb_main_bor_bres
-    ),
-    mod_names = c(
-      "main",
-      "ncorr.bayes",
-      #"ncorr.wl",
-      "ncorr.yj",
-      #"main.rfe.race",
-      "main.rfe.bayes",
-      "main.bor.bayes"
-    )
+    res_list = mod_list,
+    mod_names = mod_names
   )
 
 xgb_posterior <-
@@ -1682,7 +1730,7 @@ autoplot(xgb_posterior)
 ```{r}
 xgb_preproc_diff <- contrast_models(xgb_posterior, seed = 100) 
 
-summary(xgb_preproc_diff) %>% filter(grepl("bor.", contrast))
+summary(xgb_preproc_diff) #%>% filter(grepl("bor.", contrast))
 ```
 
 # Multilayer perceptron (MLP NNET)
@@ -1969,27 +2017,27 @@ The best model + preprocessor combinations:
 # you will need these two objects later
 best_resamples_list <- list(
     lr_ncoryj_res,
-    bag_mars_yjrfe_res,
+    #bag_mars_yjrfe_res,
     lsvm_ncoryj_res,
     psvm_ncoryj_res,
     rbf_ncoryj_res,
     knn_yjrfe_res,
-    rf_mainrfe_res,
+    rf_ncoryj_res,
     xgb_ncorr_bres,
-    xgb_mainrfe_bayes,
+    xgb_yjbor_bres,
     mlp_pca,
     mlp_ncoryj_res
   )
 best_resamples_names <- c(
     "LR",
-    "bag MARS",
+    #"bag MARS",
     "SVM lin",
     "SVM poly",
     "SVM rbf",
     "kNN",
     "RF",
-    "XGB, ncorr.bayes",
-    "XGB, main.rfe",
+    "XGB, ncorr",
+    "XGB, yj+boruta",
     "MLP, pca.yj",
     "MLP, ncorr.yj"
   )
@@ -2062,12 +2110,13 @@ top_models <- list(
     lsvm_ncoryj_res,
     mlp_ncoryj_res,
     xgb_ncorr_bres,
-    xgb_mainrfe_bayes)
+    xgb_yjbor_bres)
 
+top_names <- c("LR", "pSVM", "lSVM", "MLP", "XGB ncorr", "XGB yj boruta")
 
 roc3_df <-
   map2_dfr(top_models,
-           c("LR", "pSVM", "lSVM", "MLP", "XGB ncorr", "XGB rfe"),
+           top_names,
            function(x, y)
              make_roc(x, y))
 roc3_df %>% 
@@ -2084,6 +2133,32 @@ roc3_df %>%
 Based on ROC shape I would choose XGB for the final fit - the XGB model
 reaches sensitivity = 1.0 earlier than other and that's what I need
 (find all HRs)
+
+```{r}
+mod_comparison <- res_comp_table(top_models,
+                                 top_names)
+
+mod_posterior <-
+  perf_mod(
+    mod_comparison,
+    iter = 2000,
+    seed = 100,
+    refresh = 0,
+    chains = 5,
+    cores = 8
+  )
+
+autoplot(mod_posterior) + 
+  scale_color_brewer(palette = "Set3")
+```
+
+
+```{r}
+mod_diff <- contrast_models(mod_posterior, seed = 100) 
+
+summary(mod_diff)
+```
+
 
 # Final fit
 
@@ -2349,11 +2424,11 @@ xgb_ncorr_final[[1]]
 ```
 
 
-## XGB RFE final
+## XGB YJ Boruta final
 
 ```{r}
-# XGB rfe specs /number 6/
-xgb_rfe_spec_tuned <- boost_tree(
+# XGB yjbor specs /number 6/
+xgb_yjbor_spec_tuned <- boost_tree(
   trees = 50,
   mtry = best_models[[6]]$mtry,
   min_n = best_models[[6]]$min_n,
@@ -2366,16 +2441,23 @@ xgb_rfe_spec_tuned <- boost_tree(
   set_engine("xgboost", num.threads = 4) %>%
   set_mode("classification")
 
-# XGB rfe last fit and metrics
-xgb_rfe_final <- run_last_fit(
-  "XGB.rfe",
+ncoryj_bor_recipe_tuned_xgb <-
+  update_corr_treshold(
+    base_recipe = yj_boruta_recipe,
+    step_no = 6,
+    corr_threshold = best_models[[6]]$corr_tune
+  )
+
+# XGB yjbor last fit and metrics
+xgb_yjbor_final <- run_last_fit(
+  "XGB.yjbor",
   xgb_spec_blank,
-  xgb_rfe_spec_tuned,
-  recipe = main_rfe_recipe,
+  xgb_yjbor_spec_tuned,
+  recipe = ncoryj_bor_recipe_tuned_xgb,
   return_fit = TRUE
 )
 
-xgb_rfe_final[[1]]
+xgb_yjbor_final[[1]]
 ```
 
 ## ROC
@@ -2567,6 +2649,7 @@ get_metrics2 <- function(fit.obj, label){
 }
 
 bind_rows(
+  get_metrics2(xgb_yjbor_final[[2]], "XGB yjbor"),
   get_metrics2(xgb_ncorr_final[[2]], "XGB ncorr"),
   get_metrics2(lr_final[[2]], "LLR")
 ) %>% 
@@ -2649,6 +2732,223 @@ lr_final[[2]] %>%
   select(term)
 ```
 
+
+## Minimal set of predictors chosen by Boruta
+
+Four predictors were chosen by Boruta algorithms as being significantly more important than the rest
+
+Here we use the same pre-processing as before: yj_recipe with tuned corr. threshold from the best `xgb_yjbor_bres`
+
+```{r}
+set.seed(42)
+
+ncoryj_recipe_tuned_xgb <-
+  update_corr_treshold(
+    base_recipe = yj_recipe,
+    step_no = 6,
+    corr_threshold = best_models[[6]]$corr_tune
+  )
+
+df_train_yj <-
+  ncoryj_recipe_tuned_xgb %>% prep() %>% juice() %>% select(-strain)
+
+bor_pred_selection <- Boruta::Boruta(resistance ~., data = df_train_yj, maxRuns=200)
+
+bor_pred_selection
+```
+
+```{r, fig.width=10}
+plot(bor_pred_selection)
+```
+
+```{r, fig.width=10}
+minimal_pred <- bor_pred_selection$ImpHistory %>%
+  as_tibble() %>%
+  pivot_longer(cols = 1:80,
+               names_to = "pred",
+               values_to = "value") %>%
+  group_by(pred) %>%
+  mutate(median = median(value)) 
+
+minimal_pred %>% 
+  filter(median > 9.4) %>%
+  ggplot(aes(reorder(pred, median), value)) +
+  geom_boxplot(notch = T) +
+  geom_violin(alpha = 0.1) +
+  theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 0.55,
+    hjust = 0.5
+  )) +
+  xlab("") +
+  ylab("Z-score")
+```
+
+```{r}
+minimal_pred_best <- minimal_pred %>% filter(median > 11.5) %>% select(-median)
+
+kruskal.test(minimal_pred_best$value, minimal_pred_best$pred)
+```
+
+```{r}
+minimal_pred_best <- minimal_pred %>% filter(median > 13.5) %>% select(-median)
+
+kruskal.test(minimal_pred_best$value, minimal_pred_best$pred)
+```
+
+n.TEM.1 and IS6 differ non-significantly
+
+n.rep.plasmid.TEM and min_distance_is_gene differ significantly
+
+
+Why to choose the top 3?
+
+Their 'boxes' overlap.
+
+### A model with the minimal set
+
+```{r}
+minimal_pred %>% distinct(pred, .keep_all = T) %>% arrange(-median)
+```
+
+```{r}
+top_predictors <- 
+  minimal_pred %>% 
+  #filter(median > 10) %>% 
+  distinct(pred, .keep_all = T) %>% 
+  arrange(-median) %>% 
+  head(n = 3) %>% 
+  pull(pred)
+
+data_strain_min <- data_strain %>% select(resistance, all_of(top_predictors))
+
+set.seed(124)
+
+data_split_min <- initial_split(data_strain_min, prop = 0.8, strata = resistance)
+
+df_train_min <- training(data_split_min)
+df_test_min <- testing(data_split_min)
+
+cv_folds_min <- vfold_cv(df_train_min, strata = "resistance", v = 10, repeats = 10)
+
+min_set_recipe <- recipe(resistance ~ ., data = df_train_min) %>% 
+  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+rf_spec <-
+  rand_forest(mtry = tune(), min_n = tune()) %>%
+  set_engine('ranger', num.threads = 6) %>%
+  set_mode('classification')
+
+min_pred_wf <- workflow() %>% 
+  add_model(rf_spec) %>% 
+  add_recipe(min_set_recipe)
+
+param_set <- extract_parameter_set_dials(min_pred_wf) %>%
+  finalize(x = df_train_min %>% select(-resistance))
+
+rf_min_res <- min_pred_wf %>%
+  tune_grid(
+    param_info = param_set,
+    grid = 20,
+    resamples = cv_folds_min,
+    control = control_grid(save_pred = TRUE,
+                           save_workflow = TRUE),
+    metrics = cls_metrics
+  )
+
+autoplot(rf_min_res)
+```
+
+```{r}
+show_best(rf_min_res, metric= "roc_auc")
+```
+
+```{r}
+top_models <- list(
+    lr_ncoryj_res,
+    rf_min_res)
+
+top_names <- c("LR", "RF top 3")
+
+roc3_df <-
+  map2_dfr(top_models,
+           top_names,
+           function(x, y)
+             make_roc(x, y))
+roc3_df %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = -1, option = "H")+
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("")
+```
+
+```{r}
+mod_comparison <- res_comp_table(list(lr_ncoryj_res, rf_min_res),
+                                 c("LR", "RF"))
+
+mod_posterior <-
+  perf_mod(
+    mod_comparison,
+    iter = 2000,
+    seed = 100,
+    refresh = 0,
+    chains = 5,
+    cores = 8
+  )
+
+autoplot(mod_posterior) + 
+  scale_color_brewer(palette = "Set1") 
+```
+
+```{r}
+mod_diff <- contrast_models(mod_posterior, seed = 100) 
+
+summary(mod_diff)
+```
+
+```{r}
+rf_best_top3 <- select_best(rf_min_res, metric = "roc_auc")
+
+rf_min_tuned <-
+  rand_forest(mtry = rf_best_top3$mtry, 
+              min_n = rf_best_top3$min_n) %>%
+  set_engine('ranger', num.threads = 2) %>%
+  set_mode('classification')
+
+rf_min_final <- run_last_fit(
+  "RF top 3",
+  rf_spec,
+  rf_min_tuned,
+  recipe = min_set_recipe,
+  train_test_split = data_split_min,
+  return_fit = TRUE
+)
+
+rf_min_final[[1]]
+```
+
+```{r}
+make_final_roc(rf_min_final[[2]], "RF top 3")
+```
+
+```{r}
+make_cm(rf_min_final[[2]])
+```
+
+```{r}
+get_metrics(rf_min_final[[2]], "RF top 3") %>% pivot_wider(names_from = model, values_from = .estimate)
+```
+
+```{r}
+senspec_plot(rf_min_final[[2]], "RF top 3")
+```
+
+As XGB with Boruta-selected predictors, this one lacks high sensitivity.
 
 ## DALEX
 
