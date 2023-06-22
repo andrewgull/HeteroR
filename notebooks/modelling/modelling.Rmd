@@ -2733,7 +2733,7 @@ lr_final[[2]] %>%
 ```
 
 
-## Minimal set of predictors chosen by Boruta
+# Minimal set of predictors chosen by Boruta
 
 Four predictors were chosen by Boruta algorithms as being significantly more important than the rest
 
@@ -2805,7 +2805,7 @@ Why to choose the top 3?
 
 Their 'boxes' overlap.
 
-### A model with the minimal set
+## An RF model with the top 3 predictors
 
 ```{r}
 minimal_pred %>% distinct(pred, .keep_all = T) %>% arrange(-median)
@@ -2858,6 +2858,8 @@ rf_min_res <- min_pred_wf %>%
     metrics = cls_metrics
   )
 
+saveRDS(rf_min_res, "/home/andrei/Data/HeteroR/results/models/scheme12/rf_min3_res.rds")
+
 autoplot(rf_min_res)
 ```
 
@@ -2865,31 +2867,50 @@ autoplot(rf_min_res)
 show_best(rf_min_res, metric= "roc_auc")
 ```
 
+## An XGB model with the top 3 predictors
+
+same top 3 predictors from Boruta selection
+
+```{r}
+xgb_min3_bres <- readRDS("~/Data/HeteroR/results/models/scheme12/xgb_min3_yj_bres_p30.rds")
+
+autoplot(xgb_min3_bres)
+```
+
+```{r}
+show_best(xgb_min3_bres)
+```
+
+## ROCs
+
 ```{r}
 top_models <- list(
     lr_ncoryj_res,
-    rf_min_res)
+    rf_min_res,
+    xgb_min3_bres)
 
-top_names <- c("LR", "RF top 3")
+top_names <- c("LR", "RF top 3", "XGB top 3")
 
-roc3_df <-
+roc_min_df <-
   map2_dfr(top_models,
            top_names,
            function(x, y)
              make_roc(x, y))
-roc3_df %>% 
+roc_min_df %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
   #scale_color_viridis_d(direction = -1, option = "H")+
-  scale_color_brewer(palette = "Set1") +
+  scale_color_brewer(palette = "Set1") +0.8936514
   ggtitle("")
 ```
 
+## Distribution comparison
+
 ```{r}
-mod_comparison <- res_comp_table(list(lr_ncoryj_res, rf_min_res),
-                                 c("LR", "RF"))
+mod_comparison <- res_comp_table(top_models,
+                                 top_names)
 
 mod_posterior <-
   perf_mod(
@@ -2905,11 +2926,17 @@ autoplot(mod_posterior) +
   scale_color_brewer(palette = "Set1") 
 ```
 
+
 ```{r}
 mod_diff <- contrast_models(mod_posterior, seed = 100) 
 
 summary(mod_diff)
 ```
+
+
+## Test set
+
+### RF min 3
 
 ```{r}
 rf_best_top3 <- select_best(rf_min_res, metric = "roc_auc")
@@ -2932,23 +2959,100 @@ rf_min_final <- run_last_fit(
 rf_min_final[[1]]
 ```
 
+#### Final ROC
+
 ```{r}
 make_final_roc(rf_min_final[[2]], "RF top 3")
 ```
+
+#### Final confusion matrix
 
 ```{r}
 make_cm(rf_min_final[[2]])
 ```
 
+#### Final metrix
+
 ```{r}
 get_metrics(rf_min_final[[2]], "RF top 3") %>% pivot_wider(names_from = model, values_from = .estimate)
 ```
+
+#### Final sensitivity/specificity plot
 
 ```{r}
 senspec_plot(rf_min_final[[2]], "RF top 3")
 ```
 
-As XGB with Boruta-selected predictors, this one lacks high sensitivity.
+This one lacks high sensitivity.
+
+### XGB min 3
+
+```{r}
+boost_tree_xgboost_spec <-
+  boost_tree(
+    tree_depth = tune(),
+    trees = tune(),
+    learn_rate = tune(),
+    min_n = tune(),
+    loss_reduction = tune(),
+    sample_size = tune(),
+    stop_iter = tune()
+  ) %>%
+  set_engine('xgboost', num.threads = 4) %>%
+  set_mode('classification')
+
+
+
+xgb_best_top3 <- select_best(xgb_min3_bres, metric = "roc_auc")
+
+xgb_min_tuned <-
+  boost_tree(
+    trees = 50,
+    min_n = xgb_best_top3$min_n,
+    tree_depth = xgb_best_top3$tree_depth,
+    learn_rate = xgb_best_top3$learn_rate,
+    loss_reduction = xgb_best_top3$loss_reduction,
+    sample_size = xgb_best_top3$sample_size,
+    stop_iter = xgb_best_top3$stop_iter
+  ) %>%
+  set_engine('ranger', num.threads = 2) %>%
+  set_mode('classification')
+
+xgb_min_final <- run_last_fit(
+  "XGB top 3",
+  boost_tree_xgboost_spec,
+  xgb_min_tuned,
+  recipe = min_set_recipe,
+  train_test_split = data_split_min,
+  return_fit = TRUE
+)
+
+xgb_min_final[[1]]
+```
+
+#### Final ROC
+
+```{r}
+make_final_roc(xgb_min_final[[2]], "xgb top 3")
+```
+
+#### Final confusion matrix
+
+```{r}
+make_cm(xgb_min_final[[2]])
+```
+
+#### Final metrix
+
+```{r}
+get_metrics(xgb_min_final[[2]], "xgb top 3") %>% pivot_wider(names_from = model, values_from = .estimate)
+```
+
+#### Final sensitivity/specificity plot
+
+```{r}
+senspec_plot(xgb_min_final[[2]], "xgb top 3")
+```
 
 ## DALEX
 
