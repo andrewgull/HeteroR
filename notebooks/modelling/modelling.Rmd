@@ -40,7 +40,7 @@ models_path <- "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/"
 
 The data sets are the same as in EDA
 
-```{r}
+```{r read data}
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
   filter(strain != "DA63310")
 
@@ -67,7 +67,7 @@ data_strain %>%
 
 Add n.beta.lac \>4
 
-```{r}
+```{r init processing}
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
@@ -99,7 +99,7 @@ hr_testing %>% filter(is.na(resistance))
 
 Stratified split
 
-```{r}
+```{r data split}
 set.seed(124)
 
 data_split <- initial_split(data_strain, prop = 0.8, strata = resistance)
@@ -128,7 +128,7 @@ df_test %>%
 > steps. For other models, a traditional response surface design model
 > expansion (i.e., quadratic and two-way interactions) is a good idea.
 
-```{r}
+```{r main recipe}
 main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -180,7 +180,7 @@ If you look at EDA, you'll see that ORQ gives better distributions and
 less PCs to explain the same amount of variance, than regular
 `step_normalize()`. (Same is true for this recipe below)
 
-```{r}
+```{r pca recipe}
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
   update_role(resistance, new_role = "outcome") %>% 
@@ -199,7 +199,7 @@ pca_recipe %>% prep() %>% juice()
 
 Borrowed from 'Tidy modeling with R': Chapter 13.2 'Evaluating the grid'
 
-```{r}
+```{r pca+yj recipe}
 pcayj_recipe <- 
   recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
@@ -234,7 +234,7 @@ pcayj_recipe_test %>%
 
 development of the approach above, but with decorrelation and no PCA
 
-```{r}
+```{r yj recipe}
 yj_recipe <- 
   recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
@@ -253,7 +253,7 @@ with tuned correlation threshold
 *NB* Dummies are created after normalization and transformation! (This
 recipe performed better than others)
 
-```{r}
+```{r norm recipe}
 ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -268,7 +268,7 @@ ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
 Dummies are created after normalization and transformation - same as in
 NCORR (before it was different: dummies before order norm!)
 
-```{r}
+```{r orq recipe}
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -282,7 +282,7 @@ ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
 
 to incorporate non-linearity into the class boundary
 
-```{r}
+```{r ns recipe}
 ns_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
   step_nzv(all_predictors()) %>%
@@ -302,7 +302,7 @@ fixed on local copy - th original package in the tibble creation has
 the git repository was cloned locally, corrected and the package
 installed following <https://kbroman.org/pkg_primer/pages/build.html>
 
-```{r}
+```{r rfe recipe}
 if (!require(colino, quietly = TRUE))
   devtools::install_github("andrewgull/colino")
 
@@ -322,7 +322,7 @@ rfe_rec %>%
 
 to use with RF and BT algorithms
 
-```{r}
+```{r boruta+main recipe}
 # step_select_boruta() from colino
 main_boruta_recipe <- main_recipe %>% 
   step_select_boruta(all_predictors(), outcome = "resistance", options = list(maxRuns = 500))
@@ -332,7 +332,7 @@ main_boruta_recipe %>% prep() %>% juice() %>% ncol()
 
 ## Boruta + YJ transfor + NOCORR
 
-```{r}
+```{r boruta+yj recipe}
 yj_boruta_recipe <- yj_recipe %>% 
   step_select_boruta(all_predictors(), outcome = "resistance")
 ```
@@ -349,7 +349,7 @@ yj_boruta_recipe <- yj_recipe %>%
 > The value of the J-index ranges from [0, 1] and is 1 when there are no
 > false positives and no false negatives.
 
-```{r}
+```{r cv and metrics}
 # Stratified, repeated 10-fold cross-validation is used to resample the model:
 cv_folds <- vfold_cv(df_train, strata = "resistance", v = 10, repeats = 10) 
 # metrics for imbalanced classes
@@ -371,7 +371,7 @@ There are two ways to une hyper-parameters:
 
 Let's take a rule 'if there is more than 4 beta-lactamases, then the strain is HR' (from EDA)
 
-```{r}
+```{r base rule}
 rule_pred <- 
   df_train %>% 
   mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
@@ -394,7 +394,7 @@ type of penalization is stated.
 
 ## MAIN recipe 
 
-```{r, fig.width=6, fig.height=3}
+```{r lr main, fig.height=3, fig.width=6}
 lr_main <- readRDS(paste0(models_path, "lr_main_space_p30.rds"))
 
 autoplot(lr_main)
@@ -414,7 +414,7 @@ during resampling and the advantage it gives is marginal.
 
 You can load an `.rds` file if it exists.
 
-```{r, fig.width=6, fig.height=3}
+```{r lr norm, fig.height=3, fig.width=6}
 lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_p20.rds"))
 
 autoplot(lr_ncorr_res)
@@ -431,7 +431,7 @@ lr_ncorr_res %>%
 
 New ncorq with dummies after ORQ doesn't make any changes
 
-```{r}
+```{r lr orq}
 # tuned corr threshold
 lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorq_p30.rds"))
 
@@ -449,7 +449,7 @@ lr_ncorq_res %>%
 
 Space-filling grid as well, number of components to be tuned
 
-```{r}
+```{r lr pca}
 lr_pcayj_res <- readRDS(paste0(models_path, "lr_pcayj_p20.rds"))
 
 # there were many errors during tuning process
@@ -465,7 +465,7 @@ lr_pcayj_res %>%
 
 ## NCORR + YJ recipe
 
-```{r}
+```{r lr yj}
 lr_ncoryj_res <- readRDS(paste0(models_path, "lr_ncoryj_p20_test.rds"))
 
 autoplot(lr_ncoryj_res)
@@ -477,9 +477,15 @@ autoplot(lr_ncoryj_res)
 show_best(lr_ncoryj_res)
 ```
 
+```{r}
+show_best(lr_ncoryj_res, metric = "j_index")
+```
+
+The same model is the best
+
 ## Ridge NCORR + YJ recipe
 
-```{r}
+```{r lrr yj}
 lr0_ncoryj_res <- readRDS(paste0(models_path, "lr0_ncoryj_p20.rds"))
 
 autoplot(lr0_ncoryj_res)
@@ -493,7 +499,7 @@ show_best(lr0_ncoryj_res)
 
 ## Elastic net NCORR + YJ recipe
 
-```{r}
+```{r lre yj}
 lr_en_ncoryj_res <- readRDS(paste0(models_path, "lr-en_ncoryj_p20.rds"))
 
 autoplot(lr_en_ncoryj_res)
@@ -509,7 +515,7 @@ show_best(lr_en_ncoryj_res)
 
 ### ROCs overlapped
 
-```{r}
+```{r lr compare}
 lr_rocs <-
   map2_dfr(list(
     lr_ncorr_res,
@@ -591,7 +597,7 @@ other similar models
 
 ## NCORR recipe
 
-```{r}
+```{r mars norm}
 mars_ncorr_res <- readRDS(paste0(models_path, "mars_ncorr_p20.rds"))
 
 autoplot(mars_ncorr_res)
@@ -740,7 +746,7 @@ summary(mars_preproc_diff)
 
 ## NCORR recipe
 
-```{r}
+```{r lsvm norm}
 # this one was obtained via racing
 lsvm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr_race_p30.rds"))
 
@@ -898,7 +904,7 @@ summary(lsvm_preproc_diff)
 
 ## NCORR recipe
 
-```{r}
+```{r psvm norm}
 psvm_ncorr_res <- readRDS(paste0(models_path, "psvm_ncorr_race_p30.rds"))
 
 plot_race(psvm_ncorr_res)
@@ -1066,7 +1072,7 @@ summary(psvm_preproc_diff)
 
 ## Main recipe
 
-```{r}
+```{r rsvm main}
 rbf_main_res <- readRDS(paste0(models_path, "rbfsvm_main_race_p30.rds"))
 
 plot_race(rbf_main_res)
@@ -1231,7 +1237,7 @@ summary(rbf_preproc_diff)
 
 ## NCORR recipe
 
-```{r}
+```{r knn norm}
 knn_ncorr_res <- readRDS(paste0(models_path, "knn_ncorr_race_p30.rds"))
 
 plot_race(knn_ncorr_res)
@@ -1353,7 +1359,7 @@ summary(knn_preproc_diff)
 
 ## Main recipe
 
-```{r}
+```{r rf main}
 rf_main_res <- readRDS(paste0(models_path, "rf_main_race_p30.rds"))
 
 plot_race(rf_main_res)
@@ -1501,14 +1507,14 @@ rf_preproc_diff <- contrast_models(rf_posterior, seed = 100)
 summary(rf_preproc_diff)
 ```
 
-# Boosted Trees (BT)
+# Gradient Boosted Trees (GBT)
 
 BT are sensitive to hyper-parameters that's why, Bayesian grid search
 should be preferable.
 
 ## Main recipe
 
-```{r}
+```{r xgb main}
 # win-loss search was used here
 xgb_main_res <- readRDS(paste0(models_path, "xgb_main_race_p30.rds"))
 
@@ -1549,11 +1555,6 @@ xgb_ncorr_bres %>%
 
 >Shrinkage (learning rate) is a gradient boosting regularization procedure that helps modify the update rule, which is aided by a parameter known as the learning rate. The use of learning rates below 0.1 produces improvements that are significant in the generalization of a model.
 
-```{r}
-xgb_ncorr_bres %>% 
-  show_best(metric = "roc_auc", n = 10) %>% 
-  arrange(learn_rate)
-```
 
 ## NCORR + win-loss grid search
 
@@ -1741,7 +1742,7 @@ aka feed-forward neural network
 
 Applying ORQ-normalization improves MLP (nnet) performance
 
-```{r}
+```{r mlp orq}
 # win-loss here
 mlp_ncorq <- readRDS(paste0(models_path, "mlp_nnet_ncorq_race_p30.rds"))
 
@@ -1930,7 +1931,7 @@ Each model in the same stack must have same resampling method!
 
 ## Make a BRES stack
 
-```{r, eval=FALSE}
+```{r stacking, eval=FALSE}
 library(stacks)
 
 # no corr set
@@ -2007,17 +2008,17 @@ The best model + preprocessor combinations:
 
 -   RF: main or ncorr, but rfe is not overfitted
 
--   XGB: ncorr bayes or main rfe; the rest are very close to each other
+-   XGB: ncorr bayes or boruta + yj; the rest are very close to each other
 
 -   MLP: ncorr yj and orq; the rest are very close to each other
 
 ## ROCs
 
-```{r}
+```{r comparison1}
 # you will need these two objects later
 best_resamples_list <- list(
     lr_ncoryj_res,
-    #bag_mars_yjrfe_res,
+    bag_mars_yjrfe_res,
     lsvm_ncoryj_res,
     psvm_ncoryj_res,
     rbf_ncoryj_res,
@@ -2030,7 +2031,7 @@ best_resamples_list <- list(
   )
 best_resamples_names <- c(
     "LR",
-    #"bag MARS",
+    "bag MARS",
     "SVM lin",
     "SVM poly",
     "SVM rbf",
@@ -2102,7 +2103,7 @@ LR is insignificantly better than XGBs and SVMs
 
 ## Top models
 
-```{r}
+```{r comparison2}
 # calculate rocs
 top_models <- list(
     lr_ncoryj_res,
@@ -2168,7 +2169,7 @@ summary(mod_diff)
 
 ## Functions
 
-```{r}
+```{r ff func}
 # function to run last fit process
 run_last_fit <-
   function(model_name,
@@ -2225,7 +2226,7 @@ best_models <- map(top_models, ~select_best(., "roc_auc"))
 
 ## LR final
 
-```{r}
+```{r lr ff}
 # LR specs
 lr_spec_blank <- logistic_reg(
   penalty = tune(),
@@ -2257,7 +2258,7 @@ lr_final[[1]]
 
 ## MLP final
 
-```{r}
+```{r mlp ff}
 # MLP specs
 mlp_spec_blank <-
   mlp(hidden_units = tune(),
@@ -2282,7 +2283,7 @@ run_last_fit("MLP", mlp_spec_blank, mlp_spec_tuned, recipe = yj_recipe_tuned_mlp
 
 ## pSVM final
 
-```{r}
+```{r psvm ff}
 # polySVM specs /number 2/
 psvm_spec_blank <- svm_poly(
   cost = tune(),
@@ -2320,7 +2321,7 @@ psvm_final[[1]]
 
 ## lSVM final
 
-```{r}
+```{r lsvm ff}
 # linSVM specs
 lsvm_spec_blank <- svm_linear(cost = tune()) %>%
   set_mode("classification") %>%
@@ -2339,7 +2340,7 @@ run_last_fit("linSVM", lsvm_spec_blank, lsvm_spec_tuned, recipe = yj_recipe_tune
 
 ## XGB ncorr final
 
-```{r}
+```{r xgb1 ff}
 best_learn_rate_xgb <-
   xgb_ncorr_bres %>% 
   show_best('roc_auc', n = 10) %>% 
@@ -2426,7 +2427,7 @@ xgb_ncorr_final[[1]]
 
 ## XGB YJ Boruta final
 
-```{r}
+```{r xgb2 ff}
 # XGB yjbor specs /number 6/
 xgb_yjbor_spec_tuned <- boost_tree(
   trees = 50,
@@ -2462,7 +2463,7 @@ xgb_yjbor_final[[1]]
 
 ## ROC
 
-```{r}
+```{r ff roc}
 mod_labels <- c("XGB ncorr", "LLR")
 
 make_final_roc <- function(fit_obj, title=""){
@@ -2483,7 +2484,7 @@ library(patchwork)
 
 Probability cut-off = 0.5
 
-```{r}
+```{r ff cm}
 make_cm <- function(fit_obj, title="") {
   fit_obj %>%
   collect_predictions() %>%
@@ -2500,7 +2501,7 @@ conf_mat_final <- map2(list(xgb_ncorr_final[[2]], lr_final[[2]]), mod_labels, ~m
 
 ## Performance
 
-```{r}
+```{r ff metrics}
 get_metrics <- function(fit_obj, label="") {
   fit_obj %>%
   collect_predictions() %>%
@@ -2517,7 +2518,7 @@ bind_rows(get_metrics(xgb_ncorr_final[[2]], "XGB ncorr"),
 
 ## Probability cutoff adjustment by maximum j-index
 
-```{r}
+```{r ff prob adj func}
 maxj <- function(threshold_df) {
   # find max j-index
   max_j_index_threshold <- threshold_df %>%
@@ -2611,7 +2612,7 @@ order to have 100% sensitivity of the model
 (it will catch all HR cases, but there will be more false positives)
 
 
-```{r}
+```{r opt cm}
 optimize_prediction <- function(fit.obj){
   j_index <- maxj(get_threshold(fit.obj))
   
@@ -2640,7 +2641,7 @@ cm_optimized_lr <- optimize_prediction(lr_final[[2]]) %>%
 
 ### Optimized performance
 
-```{r}
+```{r opt perf}
 get_metrics2 <- function(fit.obj, label){
   optimize_prediction(fit.obj) %>% 
     conf_mat(truth = resistance, estimate = .pred) %>% 
@@ -2667,7 +2668,7 @@ Overall, we have `r ncol(df_train) - 2` predictors.
 
 #### Predictors left after applying `step_nzv()`
 
-```{r}
+```{r n nzv}
 # NB: strain and resistance are still there
 recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>% 
@@ -2680,7 +2681,7 @@ recipe(resistance ~ ., data = df_train) %>%
 
 #### Predictors left after applying both `step_nzv()` and `step_corr()`
 
-```{r}
+```{r n corr}
 # NB: strain and resistance are still there
 yj_recipe_tuned_lr %>% prep() %>% juice() %>% ncol()
 ```
@@ -2691,7 +2692,7 @@ Correlation threshold in the best LLR is `r best_models[[1]]$corr_tune`
 
 Non-zero LLR coefficients:
 
-```{r}
+```{r lr coeff}
 lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
@@ -2710,7 +2711,7 @@ On the `odds.ratio` column:
 
 ### Predictors increasing the risk of HR:
 
-```{r}
+```{r feat pos}
 lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
@@ -2722,7 +2723,7 @@ lr_final[[2]] %>%
 
 ### Predictors decreasing the risk of HR
 
-```{r}
+```{r feat neg}
 lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
@@ -2739,7 +2740,7 @@ Four predictors were chosen by Boruta algorithms as being significantly more imp
 
 Here we use the same pre-processing as before: yj_recipe with tuned corr. threshold from the best `xgb_yjbor_bres`
 
-```{r}
+```{r min feat set}
 set.seed(42)
 
 ncoryj_recipe_tuned_xgb <-
@@ -2761,10 +2762,10 @@ bor_pred_selection
 plot(bor_pred_selection)
 ```
 
-```{r, fig.width=10}
+```{r min feat boxplot, fig.width=10}
 minimal_pred <- bor_pred_selection$ImpHistory %>%
   as_tibble() %>%
-  pivot_longer(cols = 1:80,
+  pivot_longer(cols = 1:77,
                names_to = "pred",
                values_to = "value") %>%
   group_by(pred) %>%
@@ -2811,7 +2812,7 @@ Their 'boxes' overlap.
 minimal_pred %>% distinct(pred, .keep_all = T) %>% arrange(-median)
 ```
 
-```{r}
+```{r min recipe}
 top_predictors <- 
   minimal_pred %>% 
   #filter(median > 10) %>% 
@@ -2847,7 +2848,12 @@ min_pred_wf <- workflow() %>%
 
 param_set <- extract_parameter_set_dials(min_pred_wf) %>%
   finalize(x = df_train_min %>% select(-resistance))
+```
 
+
+If you need to train this model again run this chunk:
+
+```{r rf min3 train, eval=FALSE}
 rf_min_res <- min_pred_wf %>%
   tune_grid(
     param_info = param_set,
@@ -2858,10 +2864,16 @@ rf_min_res <- min_pred_wf %>%
     metrics = cls_metrics
   )
 
-saveRDS(rf_min_res, "/home/andrei/Data/HeteroR/results/models/scheme12/rf_min3_res.rds")
+saveRDS(rf_min_res, paste0(models_path, "rf_min3_res.rds"))
+```
 
+By default this chunk is used:
+
+```{r rf min3 res}
+rf_min_res <- readRDS(paste0(models_path, "rf_min3_res.rds"))
 autoplot(rf_min_res)
 ```
+
 
 ```{r}
 show_best(rf_min_res, metric= "roc_auc")
@@ -2871,8 +2883,8 @@ show_best(rf_min_res, metric= "roc_auc")
 
 same top 3 predictors from Boruta selection
 
-```{r}
-xgb_min3_bres <- readRDS("~/Data/HeteroR/results/models/scheme12/xgb_min3_yj_bres_p30.rds")
+```{r xgb min3}
+xgb_min3_bres <- readRDS(paste0(models_path, "xgb_min3_yj_bres_p30.rds"))
 
 autoplot(xgb_min3_bres)
 ```
@@ -2883,7 +2895,7 @@ show_best(xgb_min3_bres)
 
 ## ROCs
 
-```{r}
+```{r min3 rocs}
 top_models <- list(
     lr_ncoryj_res,
     rf_min_res,
@@ -2902,7 +2914,7 @@ roc_min_df %>%
   geom_abline(lty = 3) + 
   coord_equal() + 
   #scale_color_viridis_d(direction = -1, option = "H")+
-  scale_color_brewer(palette = "Set1") +0.8936514
+  scale_color_brewer(palette = "Set1") +
   ggtitle("")
 ```
 
@@ -2938,7 +2950,7 @@ summary(mod_diff)
 
 ### RF min 3
 
-```{r}
+```{r rf min3 test}
 rf_best_top3 <- select_best(rf_min_res, metric = "roc_auc")
 
 rf_min_tuned <-
@@ -2987,7 +2999,7 @@ This one lacks high sensitivity.
 
 ### XGB min 3
 
-```{r}
+```{r xgb min3 test}
 boost_tree_xgboost_spec <-
   boost_tree(
     tree_depth = tune(),
@@ -3015,7 +3027,7 @@ xgb_min_tuned <-
     sample_size = xgb_best_top3$sample_size,
     stop_iter = xgb_best_top3$stop_iter
   ) %>%
-  set_engine('ranger', num.threads = 2) %>%
+  set_engine('xgboost', num.threads = 2) %>%
   set_mode('classification')
 
 xgb_min_final <- run_last_fit(
