@@ -477,6 +477,12 @@ autoplot(lr_ncoryj_res)
 show_best(lr_ncoryj_res)
 ```
 
+```{r}
+show_best(lr_ncoryj_res, metric = "j_index")
+```
+
+The same model is the best
+
 ## Ridge NCORR + YJ recipe
 
 ```{r}
@@ -1549,11 +1555,6 @@ xgb_ncorr_bres %>%
 
 >Shrinkage (learning rate) is a gradient boosting regularization procedure that helps modify the update rule, which is aided by a parameter known as the learning rate. The use of learning rates below 0.1 produces improvements that are significant in the generalization of a model.
 
-```{r}
-xgb_ncorr_bres %>% 
-  show_best(metric = "roc_auc", n = 10) %>% 
-  arrange(learn_rate)
-```
 
 ## NCORR + win-loss grid search
 
@@ -2746,7 +2747,7 @@ ncoryj_recipe_tuned_xgb <-
   update_corr_treshold(
     base_recipe = yj_recipe,
     step_no = 6,
-    corr_threshold = best_models[[6]]$corr_tune
+    corr_threshold = 0.9 #best_models[[6]]$corr_tune
   )
 
 df_train_yj <-
@@ -2764,7 +2765,7 @@ plot(bor_pred_selection)
 ```{r, fig.width=10}
 minimal_pred <- bor_pred_selection$ImpHistory %>%
   as_tibble() %>%
-  pivot_longer(cols = 1:80,
+  pivot_longer(cols = 1:77,
                names_to = "pred",
                values_to = "value") %>%
   group_by(pred) %>%
@@ -2811,7 +2812,9 @@ Their 'boxes' overlap.
 minimal_pred %>% distinct(pred, .keep_all = T) %>% arrange(-median)
 ```
 
-```{r}
+If you need to train this model again run this chunk:
+
+```{r, eval=FALSE}
 top_predictors <- 
   minimal_pred %>% 
   #filter(median > 10) %>% 
@@ -2858,10 +2861,16 @@ rf_min_res <- min_pred_wf %>%
     metrics = cls_metrics
   )
 
-saveRDS(rf_min_res, "/home/andrei/Data/HeteroR/results/models/scheme12/rf_min3_res.rds")
+saveRDS(rf_min_res, paste0(models_path, "rf_min3_res.rds"))
+```
 
+By default this chunk is used:
+
+```{r}
+rf_min_res <- readRDS(paste0(models_path, "rf_min3_res.rds"))
 autoplot(rf_min_res)
 ```
+
 
 ```{r}
 show_best(rf_min_res, metric= "roc_auc")
@@ -2872,7 +2881,7 @@ show_best(rf_min_res, metric= "roc_auc")
 same top 3 predictors from Boruta selection
 
 ```{r}
-xgb_min3_bres <- readRDS("~/Data/HeteroR/results/models/scheme12/xgb_min3_yj_bres_p30.rds")
+xgb_min3_bres <- readRDS(paste0(models_path, "xgb_min3_yj_bres_p30.rds"))
 
 autoplot(xgb_min3_bres)
 ```
