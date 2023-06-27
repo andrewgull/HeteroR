@@ -2008,7 +2008,7 @@ The best model + preprocessor combinations:
 
 -   RF: main or ncorr, but rfe is not overfitted
 
--   XGB: ncorr bayes or main rfe; the rest are very close to each other
+-   XGB: ncorr bayes or boruta + yj; the rest are very close to each other
 
 -   MLP: ncorr yj and orq; the rest are very close to each other
 
@@ -2018,7 +2018,7 @@ The best model + preprocessor combinations:
 # you will need these two objects later
 best_resamples_list <- list(
     lr_ncoryj_res,
-    #bag_mars_yjrfe_res,
+    bag_mars_yjrfe_res,
     lsvm_ncoryj_res,
     psvm_ncoryj_res,
     rbf_ncoryj_res,
@@ -2031,7 +2031,7 @@ best_resamples_list <- list(
   )
 best_resamples_names <- c(
     "LR",
-    #"bag MARS",
+    "bag MARS",
     "SVM lin",
     "SVM poly",
     "SVM rbf",
@@ -2747,7 +2747,7 @@ ncoryj_recipe_tuned_xgb <-
   update_corr_treshold(
     base_recipe = yj_recipe,
     step_no = 6,
-    corr_threshold = 0.9 #best_models[[6]]$corr_tune
+    corr_threshold = best_models[[6]]$corr_tune
   )
 
 df_train_yj <-
