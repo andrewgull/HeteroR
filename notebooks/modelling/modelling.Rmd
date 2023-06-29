@@ -358,7 +358,7 @@ cls_metrics <- metric_set(roc_auc, j_index)
 
 # Grid
 
-There are two ways to une hyper-parameters:
+There are two ways to tune hyper-parameters:
 
 -   the maximum entropy design (space-filling grid) which used in
     `tune()`
@@ -865,24 +865,30 @@ show_best(lsvm_yjrfe_bres)
 
 ## Comparison of the preprocessors
 
-### ROCs
+### ROCs overlapped
 
 ```{r}
-lsvm_rocs <-
-  map2_dfr(list(
+lsvm_best_res <- list(
     lsvm_ncorr_res,
     lsvm_ncoryj_res,
     lsvm_ncorq_res,
     lsvm_yjrfe_res,
     lsvm_yjrfe_bres
-  ),
-  c(
+  )
+  lsvm_best_names <- c(
     "ncorr",
     "ncorr.yj",
     "ncorr.orq",
     "rfe.yj",
     "rfe.yj.bayes"
-  ),
+  )
+```
+
+
+```{r}
+lsvm_rocs <-
+  map2_dfr(lsvm_best_res,
+  lsvm_best_names,
   function(x, y)
     make_roc(x, y))
 
@@ -891,9 +897,26 @@ lsvm_rocs %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("linear SVM")
+  ggtitle("linSVM, ROC curves")
+```
+
+### PR-curves overlapped
+
+```{r lsvm compare pr}
+lsvm_prs <-
+  map2_dfr(lsvm_best_res,
+  lsvm_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+lsvm_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("linSVM, PR curves")
 ```
 
 ### Distributions
@@ -1026,35 +1049,60 @@ show_best(psvm_yjrfe_bres)
 ### ROCs overlapped
 
 ```{r}
-psvm_rocs <-
-  map2_dfr(list(
+psvm_best_res <- list(
     psvm_ncorr_res,
     psvm_ncorq_res,
     psvm_ncoryj_res,
     psvm_pca_res,
     psvm_yjrfe_res,
     psvm_yjrfe_bres
-  ),
-  c(
+  )
+
+psvm_best_names <- c(
     "ncorr",
     "ncorr.orq",
     "ncorr.yj",
     "pca.yj",
     "rfr.yj.race",
     "rfe.yj.bayes"
-  ),
-  function(x, y)
-    make_roc(x, y))
+  )
+```
+
+
+```{r}
+psvm_rocs <-
+  map2_dfr(psvm_best_res,
+           psvm_best_names,
+           function(x, y)
+             make_roc(x, y))
 
 psvm_rocs %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("polynomial SVM")
+  ggtitle("polySVM, ROC curves")
 ```
+
+### PR curves overlapped
+
+```{r}
+psvm_prs <-
+  map2_dfr(psvm_best_res,
+           psvm_best_names,
+           function(x, y)
+             make_pr(x, y))
+
+psvm_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("polySVM, PR curves")
+```
+
 
 ### Distributions
 
@@ -1188,37 +1236,61 @@ show_best(rbfsvm_yjrfe_bres)
 
 ## Comparison of the preprocessors
 
-### ROCs
+### ROC curves overlapped
 
 ```{r}
-rbf_rocs <-
-  map2_dfr(list(
+rsvm_best_res <- list(
     rbf_main_res,
     rbf_ncorr_res,
     rbf_ncorq_res,
     rbf_ncoryj_res,
     rbfsvm_yjrfe_res,
     rbfsvm_yjrfe_bres
-  ),
-  c(
+  )
+
+rsvm_best_names <- c(
     "main",
     "ncorr",
     "ncorr.orq",
     "ncorr.yj",
     "rfe.yj.race",
     "rfe.yj.bayes"
-  ),
-  function(x, y)
-    make_roc(x, y))
+  )
+```
+
+
+```{r}
+rbf_rocs <-
+  map2_dfr(rsvm_best_res,
+           rsvm_best_names,
+           function(x, y)
+             make_roc(x, y))
 
 rbf_rocs %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("rbf SVM")
+  ggtitle("rbfSVM, ROC curves")
+```
+
+### PR curves overlapped
+
+```{r}
+rsvm_prs <-
+  map2_dfr(rsvm_best_res,
+           rsvm_best_names,
+           function(x, y)
+             make_pr(x, y))
+
+rsvm_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("rbfSVM, PR curves")
 ```
 
 ### Distributions
@@ -1226,22 +1298,8 @@ rbf_rocs %>%
 ```{r}
 rbf_comp <-
   res_comp_table(
-    res_list = list(
-      rbf_main_res,
-      rbf_ncorr_res,
-      rbf_ncorq_res,
-      rbf_ncoryj_res,
-      rbfsvm_yjrfe_res,
-      rbfsvm_yjrfe_bres
-    ),
-    mod_names = c(
-      "main",
-      "ncorr",
-      "ncorr.orq",
-      "ncorr.yj",
-      "rfe.yj.race",
-      "rfe.yj.bayes"
-    )
+    res_list = rsvm_best_res,
+    mod_names = rsvm_best_names
   )
 
 rbf_posterior <-
@@ -1330,15 +1388,21 @@ show_best(knn_yjrfe_res)
 ### ROCs overlapped
 
 ```{r}
+knn_best_res <- list(knn_ncorr_res,
+                     knn_ncorq_res,
+                     knn_ncoryj_res,
+                     knn_yjrfe_res)
+knn_best_names <- c("ncorr",
+                    "ncorr.orq",
+                    "ncorr.yj",
+                    "rfe.yj")
+```
+
+
+```{r}
 knn_rocs <-
-  map2_dfr(list(knn_ncorr_res,
-                knn_ncorq_res,
-                knn_ncoryj_res,
-                knn_yjrfe_res),
-           c("ncorr",
-             "ncorr.orq",
-             "ncorr.yj",
-             "rfe.yj"),
+  map2_dfr(knn_best_res,
+           knn_best_names,
            function(x, y)
              make_roc(x, y))
 
@@ -1347,9 +1411,26 @@ knn_rocs %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("kNN")
+  ggtitle("kNN, ROC curves")
+```
+
+### PR curves overlapped
+
+```{r}
+knn_prs <-
+  map2_dfr(knn_best_res,
+           knn_best_names,
+           function(x, y)
+             make_pr(x, y))
+
+knn_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("kNN, PR curves")
 ```
 
 ### Posterior distributions
@@ -1476,26 +1557,29 @@ show_best(rf_yjbor_res)
 
 ## Comparison of preprocessors
 
-### ROCs
+### ROCs overlapped
 
 ```{r}
-mod_list <- list(rf_main_res,
+rf_best_res <- list(rf_main_res,
                 rf_mainrfe_res,
                 rf_ncorr_res,
                 rf_ncoryj_res,
                 rf_mainbor_res,
                 rf_yjbor_res)
-
-mod_names <- c("main", 
+  
+rf_best_names <- c("main", 
              "main.rfe", 
              "ncorr", 
              "ncorr.yj",
              "main.boruta",
              "ncorr.yj.bor")
+```
 
+
+```{r}
 rf_rocs <-
-  map2_dfr(mod_list, 
-           mod_names,
+  map2_dfr(rf_best_res, 
+           rf_best_names,
            function(x, y)
              make_roc(x, y))
 
@@ -1504,9 +1588,26 @@ rf_rocs %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
   ggtitle("RF")
+```
+
+### PR curves overlapped
+
+```{r}
+rf_prs <-
+  map2_dfr(rf_best_res,
+           rf_best_names,
+           function(x, y)
+             make_pr(x, y))
+
+rf_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("RF, PR curves")
 ```
 
 ### Distributions
@@ -1514,8 +1615,8 @@ rf_rocs %>%
 ```{r}
 rf_comp <-
   res_comp_table(
-    res_list = mod_list,
-    mod_names = mod_names
+    res_list = rf_best_res,
+    mod_names = rf_best_names
   )
 
 rf_posterior <-
@@ -1544,19 +1645,19 @@ summary(rf_preproc_diff)
 BT are sensitive to hyper-parameters that's why, Bayesian grid search
 should be preferable.
 
-## Main recipe
+## Main recipe + win-loss search
 
 ```{r xgb main}
 # win-loss search was used here
-xgb_main_res <- readRDS(paste0(models_path, "xgb_main_race_p30.rds"))
+xgb_main_wl <- readRDS(paste0(models_path, "xgb_main_race_p30.rds"))
 
-plot_race(xgb_main_res)
+plot_race(xgb_main_wl)
 ```
 
 ### Best models
 
 ```{r}
-xgb_main_res %>% 
+xgb_main_wl %>% 
   show_best(metric = "roc_auc")
 ```
 
@@ -1571,13 +1672,6 @@ xgb_ncorr_bres %>%
   autoplot()
 ```
 
-### Iterations
-
-```{r}
-xgb_ncorr_bres %>% 
-  autoplot(type = "performance")
-```
-
 ### Best models
 
 ```{r}
@@ -1586,51 +1680,6 @@ xgb_ncorr_bres %>%
 ```
 
 >Shrinkage (learning rate) is a gradient boosting regularization procedure that helps modify the update rule, which is aided by a parameter known as the learning rate. The use of learning rates below 0.1 produces improvements that are significant in the generalization of a model.
-
-
-## NCORR + win-loss grid search
-
-```{r}
-xgb_ncorr_wl <- readRDS(paste0(models_path, "xgb_ncorr_race_p30.rds"))
-
-plot_race(xgb_ncorr_wl)
-```
-
-### Best models
-
-```{r}
-xgb_ncorr_wl %>% 
-  show_best(metric = "roc_auc")
-```
-
-## NCORR + YJ
-
-```{r}
-# win-loss search here
-xgb_ncoryj_res <- readRDS(paste0(models_path, "xgb_ncoryj_race_p30.rds"))
-
-plot_race(xgb_ncoryj_res)
-```
-
-### Best models
-
-```{r}
-show_best(xgb_ncoryj_res)
-```
-
-## RFE + main recipe + race
-
-```{r}
-xgb_mainrfe_race <- readRDS(paste0(models_path, "bt_mainrfe_res_p30.rds"))
-
-plot_race(xgb_mainrfe_race)
-```
-
-### Best models
-
-```{r}
-show_best(xgb_mainrfe_race)
-```
 
 ## RFE + main recipe + Bayesian search
 
@@ -1666,7 +1715,7 @@ recipe(resistance ~ ., data = df_train) %>%
   ) %>% prep() %>% juice() %>% colnames()
 ```
 
-## Boruta features selection + main recipe + Bayes search
+## Main recipe + Boruta + Bayesian search
 
 ```{r}
 xgb_main_bor_bres <- readRDS(paste0(models_path, "bt_mainbor_bres_p30.rds"))
@@ -1678,7 +1727,7 @@ autoplot(xgb_main_bor_bres)
 show_best(xgb_main_bor_bres)
 ```
 
-## Boruta + YJ-transform
+## Boruta + YJ-transform + Bayesian search
 
 ```{r}
 xgb_yjbor_bres <- readRDS(paste0(models_path, "xgb_yjbor_bres_p30.rds"))
@@ -1696,31 +1745,25 @@ show_best(xgb_yjbor_bres)
 ### ROCs
 
 ```{r}
-mod_list <- list(
-    xgb_main_res,
+xgb_best_res <- list(
+    xgb_main_wl,
     xgb_ncorr_bres,
-    #xgb_ncorr_wl,
-    #xgb_ncoryj_res,
-    #xgb_mainrfe_race,
     xgb_mainrfe_bayes,
     xgb_main_bor_bres,
     xgb_yjbor_bres
   )
 
-mod_names <- c(
+xgb_best_names <- c(
     "main",
     "ncorr.bayes",
-    #"ncorr.wl",
-    #"ncorr.yj",
-    #"main.rfe.race",
     "main.rfe.bayes",
     "main.bor.bayes",
     "ncorr.yj.bor"
   )
 
 xgb_rocs <-
-  map2_dfr(mod_list,
-  mod_names,
+  map2_dfr(xgb_best_res,
+  xgb_best_names,
   function(x, y)
     make_roc(x, y))
 
@@ -1729,9 +1772,26 @@ xgb_rocs %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("XGB")
+  ggtitle("XGB, ROC curves")
+```
+
+### PR curves overlapped
+
+```{r}
+xgb_prs <-
+  map2_dfr(xgb_best_res,
+           xgb_best_names,
+           function(x, y)
+             make_pr(x, y))
+
+xgb_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("XGB, PR curves")
 ```
 
 ### Posterior distributions
@@ -1741,8 +1801,8 @@ I have excluded models tuned with win-loss approach, since their performance was
 ```{r}
 xgb_comp <-
   res_comp_table(
-    res_list = mod_list,
-    mod_names = mod_names
+    res_list = xgb_best_res,
+    mod_names = xgb_best_names
   )
 
 xgb_posterior <-
@@ -1763,7 +1823,7 @@ autoplot(xgb_posterior)
 ```{r}
 xgb_preproc_diff <- contrast_models(xgb_posterior, seed = 100) 
 
-summary(xgb_preproc_diff) #%>% filter(grepl("bor.", contrast))
+summary(xgb_preproc_diff) 
 ```
 
 # Multilayer perceptron (MLP NNET)
@@ -1776,15 +1836,15 @@ Applying ORQ-normalization improves MLP (nnet) performance
 
 ```{r mlp orq}
 # win-loss here
-mlp_ncorq <- readRDS(paste0(models_path, "mlp_nnet_ncorq_race_p30.rds"))
+mlp_ncorq_wl <- readRDS(paste0(models_path, "mlp_nnet_ncorq_race_p30.rds"))
 
-plot_race(mlp_ncorq)
+plot_race(mlp_ncorq_wl)
 ```
 
 ### Best models
 
 ```{r}
-mlp_ncorq %>% 
+mlp_ncorq_wl %>% 
   show_best("roc_auc")
 ```
 
@@ -1846,64 +1906,83 @@ mlpk_pca %>% show_best("roc_auc")
 ## RFE + YJ recipe
 
 ```{r}
-mlp_yjrfe_race <- readRDS(paste0(models_path, "mlp_yjrfe_res_p30.rds"))
+mlp_yjrfe_wl <- readRDS(paste0(models_path, "mlp_yjrfe_res_p30.rds"))
 
-plot_race(mlp_yjrfe_race)
+plot_race(mlp_yjrfe_wl)
 ```
 
 ### Best models
 
 ```{r}
-show_best(mlp_yjrfe_race)
+show_best(mlp_yjrfe_wl)
 ```
 
 ## Bag MLP + RFE + YJ recipe
 
 ```{r}
-mlp_bag_yjrfe_res <- readRDS(paste0(models_path, "bag_mlp_yjrfe_res_p30.rds"))
+mlp_bag_yjrfe_wl <- readRDS(paste0(models_path, "bag_mlp_yjrfe_res_p30.rds"))
 
-plot_race(mlp_bag_yjrfe_res)
+plot_race(mlp_bag_yjrfe_wl)
 ```
 
 ### Best models
 
 ```{r}
-show_best(mlp_bag_yjrfe_res)
+show_best(mlp_bag_yjrfe_wl)
 ```
 
 ## Comparison of the preprocessors
 
-### ROCs
+### ROCs overlapped
 
 ```{r}
-mlp_rocs <-
-  map2_dfr(list(
+mlp_best_res <- list(
     mlp_ncoryj_res,
     mlp_pca,
-    mlp_ncorq,
-    mlpk_pca,
-    mlp_bag_yjrfe_res,
-    mlp_yjrfe_race
-  ),
-  c(
+    mlp_ncorq_wl,
+    mlp_bag_yjrfe_wl,
+    mlp_yjrfe_wl
+  )
+
+mlp_best_names <- c(
     "ncorr.yj",
     "pca.yj",
     "ncorr.orq",
-    "keras.pca.yj",
     "bag.rfe.yj.race",
     "rfe.yj.race"
-  ),
-  function(x, y)
-    make_roc(x, y))
+  )
+
+mlp_rocs <-
+  map2_dfr(mlp_best_res,
+           mlp_best_names,
+           function(x, y)
+             make_roc(x, y))
 
 mlp_rocs %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("MLP/FFNN")
+  ggtitle("MLP/FFNN, ROC curves")
+```
+
+### PR curves overlapped
+
+```{r}
+mlp_prs <-
+  map2_dfr(mlp_best_res,
+           mlp_best_names,
+           function(x, y)
+             make_pr(x, y))
+
+mlp_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("MLP/FFNN, PR curves")
 ```
 
 ### Posterior distributions
@@ -1911,22 +1990,8 @@ mlp_rocs %>%
 ```{r}
 mlp_comp <-
   res_comp_table(
-    res_list = list(
-      mlp_ncoryj_res,
-      mlp_pca,
-      mlp_ncorq,
-      mlpk_pca,
-      mlp_bag_yjrfe_res,
-      mlp_yjrfe_race
-    ),
-    mod_names = c(
-      "ncorr.yj",
-      "pca.yj",
-      "ncorr.orq",
-      "keras.pca.yj",
-      "bag.rfe.yj.race",
-      "rfe.yj.race"
-    )
+    res_list = mlp_best_res,
+    mod_names = mlp_best_names
   )
 
 mlp_posterior <-
@@ -2050,7 +2115,7 @@ The best model + preprocessor combinations:
 # you will need these two objects later
 best_resamples_list <- list(
     lr_ncoryj_res,
-    bag_mars_yjrfe_res,
+    lr_ncorr_res,
     lsvm_ncoryj_res,
     psvm_ncoryj_res,
     rbf_ncoryj_res,
@@ -2059,11 +2124,11 @@ best_resamples_list <- list(
     xgb_ncorr_bres,
     xgb_yjbor_bres,
     mlp_pca,
-    mlp_ncoryj_res
+    mlp_bag_yjrfe_wl
   )
 best_resamples_names <- c(
-    "LR",
-    "bag MARS",
+    "LR yj",
+    "LR norm",
     "SVM lin",
     "SVM poly",
     "SVM rbf",
@@ -2072,7 +2137,7 @@ best_resamples_names <- c(
     "XGB, ncorr",
     "XGB, yj+boruta",
     "MLP, pca.yj",
-    "MLP, ncorr.yj"
+    "MLP, bag.ncorr.yj"
   )
 
 # calculate rocs
@@ -2087,8 +2152,8 @@ roc_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
+  scale_color_viridis_d(direction = 1, option = "B") +
+  #scale_color_brewer(palette="Set1") +
   ggtitle("All the best models")
 
 ```
@@ -2141,7 +2206,7 @@ top_models <- list(
     lr_ncoryj_res,
     psvm_ncoryj_res,
     lsvm_ncoryj_res,
-    mlp_ncoryj_res,
+    mlp_bag_yjrfe_wl,
     xgb_ncorr_bres,
     xgb_yjbor_bres)
 
@@ -2157,15 +2222,31 @@ roc3_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = -1, option = "H")+
   scale_color_brewer(palette = "Set1") +
-  ggtitle("top models")
+  ggtitle("ROC curves, top models")
 
 ```
 
 Based on ROC shape I would choose XGB for the final fit - the XGB model
 reaches sensitivity = 1.0 earlier than other and that's what I need
 (find all HRs)
+
+```{r}
+pr3_df <-
+  map2_dfr(top_models,
+           top_names,
+           function(x, y)
+             make_pr(x, y))
+pr3_df %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0,1)) + 
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("PR curves, top models")
+```
+
+
 
 ```{r}
 mod_comparison <- res_comp_table(top_models,
@@ -2505,12 +2586,35 @@ make_final_roc <- function(fit_obj, title=""){
   autoplot() + ggtitle(title)
 }
 
-rocs_final <- map2(list(xgb_ncorr_final[[2]], lr_final[[2]]), mod_labels, ~make_final_roc(.x, .y))
+make_final_pr <- function(fit_obj, title=""){
+  fit_obj %>%   
+  collect_predictions() %>% 
+  pr_curve(resistance, .pred_HR) %>% 
+  autoplot() + ggtitle(title)
+}
+
+rocs_final <- map2(list(xgb_yjbor_final[[2]], lr_final[[2]]), mod_labels, ~make_final_roc(.x, .y))
 
 library(patchwork)
 
 (rocs_final[[1]] | rocs_final[[2]])
 ```
+
+## PR
+
+```{r}
+make_final_pr <- function(fit_obj, title=""){
+  fit_obj %>%   
+  collect_predictions() %>% 
+  pr_curve(resistance, .pred_HR) %>% 
+  autoplot() + ggtitle(title)
+}
+
+prs_final <- map2(list(xgb_ncorr_final[[2]], lr_final[[2]]), mod_labels, ~make_final_pr(.x, .y))
+
+(prs_final[[1]] | prs_final[[2]])
+```
+
 
 ## Confusion Matrix
 
