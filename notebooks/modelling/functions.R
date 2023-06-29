@@ -1,16 +1,29 @@
 ## MAKE ROC OBJECT ##
 # for autoplot()
-make_roc <- function(mod_res, title){
+make_roc <- function(mod_res, title, filtering_metric="roc_auc"){
   
   mod_best <- mod_res %>%
-    select_best(metric = "roc_auc")
+    select_best(metric = filtering_metric)
   
-  mod_auc <- mod_res %>% 
+  mod_roc <- mod_res %>% 
     collect_predictions(parameters = mod_best) %>% 
     roc_curve(resistance, .pred_HR) %>% 
     mutate(model = title)
   
-  return(mod_auc)
+  return(mod_roc)
+}
+
+make_pr <- function(mod_res, title, filtering_metric="roc_auc"){
+  
+  mod_best <- mod_res %>%
+    select_best(metric = filtering_metric)
+  
+  mod_pr <- mod_res %>% 
+    collect_predictions(parameters = mod_best) %>% 
+    pr_curve(resistance, .pred_HR) %>% 
+    mutate(model = title)
+  
+  return(mod_pr)
 }
 
 # Also, there is a script 'run_models.R' to run resampling from terminal
