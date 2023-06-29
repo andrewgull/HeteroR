@@ -256,7 +256,7 @@ cv_folds <- vfold_cv(df_train,
                      repeats = opt$resamples)
 
 # metrics for imbalanced classes
-imbalanced_metrics <- metric_set(roc_auc, j_index)
+imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
 
 #### FUNCTIONS ####
 set_model <- function(mod, cores) {
