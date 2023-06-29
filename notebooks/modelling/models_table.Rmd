@@ -1,0 +1,1164 @@
+---
+title: "models_table"
+output: html_document
+date: "2023-06-27"
+---
+
+```{r}
+library(readr)
+library(tidymodels)
+library(themis)
+library(probably)
+library(vip)
+library(skimr)
+library(stacks)
+library(bestNormalize) # for ord QQ norm
+library(tidyposterior) # for Bayesian ANOVA
+#library(embed) # for UMAP
+library(finetune) # for win-loss tuning
+source("functions.R")
+library(colino)
+
+# path for models
+models_path <- "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/"
+
+rfe_model <- rand_forest(mode = "classification") %>%
+  set_engine("ranger", num.threads = 8, importance = "impurity")
+
+#function to get
+get_j_index <- function(res){res %>%   show_best("j_index",n =20) %>% filter(.config == (
+    res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+)) %>%  select(mean) %>% as.character()}
+```
+FROM modeling
+
+
+# Read and process data
+
+The data sets are the same as in EDA
+
+```{r}
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
+  filter(strain != "DA63310")
+
+# TWO SCHEMES
+hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
+  filter(!is.na(strain)) %>% 
+  rename("resistance" = Gr12 )
+
+hr_testing13 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr13)) %>% 
+  filter(!is.na(strain)) %>% 
+  rename("resistance" = Gr13 )
+
+# created during EDA
+hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv") 
+
+# USE HR 1+2
+data_strain <- data_strain %>% 
+  left_join(hr_testing12, by = "strain")
+
+data_strain %>% 
+  group_by(resistance) %>% 
+  count()
+```
+
+Add n.beta.lac \>4
+
+```{r}
+strains <- data_strain$strain
+
+data_strain <- data_strain %>% 
+  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
+  filter(resistance != "R") %>% 
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
+         chrom.status = factor(chrom.status))
+
+data_strain$N50 <- NULL
+#data_strain$NA. <- NULL
+data_strain[is.na(data_strain)] <- 0
+```
+
+# Data split
+
+Stratified split
+
+```{r}
+set.seed(124)
+
+data_split <- initial_split(data_strain, prop = 0.8, strata = resistance)
+
+df_train <- training(data_split)
+df_test <- testing(data_split)
+
+cv_folds <- vfold_cv(df_train, strata = "resistance", v = 10, repeats = 10) 
+```
+
+# RECIPIES
+
+```{r}
+main_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+
+pcayj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_pca(all_predictors(), num_comp = tune()) %>%
+  step_normalize(all_numeric_predictors())
+
+yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
+
+ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+```
+
+# MODELS
+
+```{r}
+lr_en <- logistic_reg(
+      penalty = tune(), 
+      mixture = tune()) %>%
+      set_engine("glmnet")
+```
+
+
+#LR 
+
+## MAIN 
+
+```{r}
+lr_main <- readRDS(paste0(models_path, "lr_main_space_p30.rds"))
+
+best_perf_hyp <- lr_main %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(lr_main)
+
+my_mod <-  logistic_reg(
+        penalty =  best_perf_hyp$penalty[1],
+        mixture = 1) %>%
+      set_engine("glmnet")
+
+ my_wf <- workflow() %>%
+  add_model(my_mod) %>%
+  add_recipe(main_recipe)
+ 
+best_params <- lr_main %>% 
+    select_best("roc_auc")
+ 
+
+final_model <- finalize_workflow(my_wf, best_params) %>%
+  last_fit(data_split)
+
+trained_mod <- final_model %>% 
+  extract_workflow() %>% 
+  pull_workflow_fit()
+
+coefs <- coef(trained_mod$fit, s =  best_perf_hyp$penalty[1])
+
+# -1 to remove intercept 
+n_predictors <- coefs@i %>% length -1 
+
+final_tibble <- tibble(Model = "LR", Preprocessin= "MAIN", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = NA, n_predictors =  n_predictors)
+
+final_tibble
+```
+
+## NCORR 
+```{r}
+lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_p20.rds"))
+
+best_perf_hyp <- lr_ncorr_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(lr_ncorr_res)
+
+corr_tune <-best_perf_hyp$corr_tune[1]
+
+#Rebuild the workflow to extract the number of selected features 
+my_mod <-  logistic_reg(
+        penalty =  best_perf_hyp$penalty[1],
+        mixture = 1) %>%
+      set_engine("glmnet")
+
+my_rec <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+ my_wf <- workflow() %>%
+  add_model(my_mod) %>%
+  add_recipe(my_rec)
+ 
+best_params <- lr_ncorr_res %>% 
+    select_best("roc_auc")
+ 
+
+final_model <- finalize_workflow(my_wf, best_params) %>%
+  last_fit(data_split)
+
+trained_mod <- final_model %>% 
+  extract_workflow() %>% 
+  pull_workflow_fit()
+
+coefs <- coef(trained_mod$fit, s = best_perf_hyp$penalty[1])
+
+# -1 to remove intercept 
+n_predictors <- coefs@i %>% length -1 
+
+tmp_tibble <- tibble(Model = "LR", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORQ
+
+```{r}
+lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorq_p30.rds"))
+mean_auc <-
+  lr_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lr_ncorq_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lr_ncorq_res %>%   show_best("j_index") %>% filter(.config == (
+    lr_ncorq_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- lr_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+#Rebuild the workflow to extract the number of selected features 
+
+my_mod <-  logistic_reg(
+        penalty =  lr_ncorq_res %>%   show_best("roc_auc", n = 1) %>% select(penalty) %>% as.numeric(),
+        mixture = 1) %>%
+      set_engine("glmnet")
+
+my_rec <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+ my_wf <- workflow() %>%
+  add_model(my_mod) %>%
+  add_recipe(my_rec)
+ 
+best_params <- lr_ncorq_res %>% 
+    select_best("roc_auc")
+ 
+
+final_model <- finalize_workflow(my_wf, best_params) %>%
+  last_fit(data_split)
+
+trained_mod <- final_model %>% 
+  extract_workflow() %>% 
+  pull_workflow_fit()
+
+coefs <- coef(trained_mod$fit, s = lr_ncorq_res %>%   show_best("roc_auc", n = 1) %>%  select(penalty) %>% as.numeric())
+
+# -1 to remove intercept 
+n_predictors <- coefs@i %>% length -1 
+
+tmp_tibble <- tibble(Model = "LR", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## PCA + YJ recipe
+
+```{r}
+lr_pcayj_res <- readRDS(paste0(models_path, "lr_pcayj_p20.rds"))
+mean_auc <-
+  lr_pcayj_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lr_pcayj_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lr_pcayj_res %>%   show_best("j_index",n =20) %>% filter(.config == (
+    lr_pcayj_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- NA
+
+#Rebuild the workflow to extract the number of selected features 
+
+my_mod <-  logistic_reg(
+        penalty =  lr_ncorq_res %>%   show_best("roc_auc", n = 1) %>% select(penalty) %>% as.numeric(),
+        mixture = 1) %>%
+      set_engine("glmnet")
+
+my_rec <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+ my_wf <- workflow() %>%
+  add_model(my_mod) %>%
+  add_recipe(my_rec)
+ 
+best_params <- lr_pcayj_res %>% 
+    select_best("roc_auc")
+ 
+
+final_model <- finalize_workflow(my_wf, best_params) %>%
+  last_fit(data_split)
+
+trained_mod <- final_model %>% 
+  extract_workflow() %>% 
+  pull_workflow_fit()
+
+coefs <- coef(trained_mod$fit, s = lr_pcayj_res %>%   show_best("roc_auc", n = 1) %>%  select(penalty) %>% as.numeric())
+
+# -1 to remove intercept 
+n_predictors <- coefs@i %>% length -1 
+
+tmp_tibble <- tibble(Model = "LR", Preprocessin= "PCA_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+
+## NCORR + YJ 
+
+```{r}
+lr_ncoryj_res <- readRDS(paste0(models_path, "lr_ncoryj_p20_test.rds"))
+mean_auc <-
+  lr_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lr_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lr_ncoryj_res %>%   show_best("j_index",n =20) %>% filter(.config == (
+    lr_ncoryj_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <-  lr_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+#Rebuild the workflow to extract the number of selected features 
+my_mod <-  logistic_reg(
+        penalty =  lr_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(penalty) %>% as.numeric(),
+        mixture = 1) %>%
+      set_engine("glmnet")
+
+my_rec <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune)
+
+ my_wf <- workflow() %>%
+  add_model(my_mod) %>%
+  add_recipe(my_rec)
+ 
+ 
+best_params <- lr_ncoryj_res %>% 
+    select_best("roc_auc")
+ 
+
+final_model <- finalize_workflow(my_wf, best_params) %>%
+  last_fit(data_split)
+
+trained_mod <- final_model %>% 
+  extract_workflow() %>% 
+  pull_workflow_fit()
+
+coefs <- coef(trained_mod$fit, s = lr_ncoryj_res %>%   show_best("roc_auc", n = 1) %>%  select(penalty) %>% as.numeric())
+
+# -1 to remove intercept 
+n_predictors <- coefs@i %>% length -1 
+
+tmp_tibble <- tibble(Model = "LR", Preprocessin= " NCORR_YJ ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## Ridge NCORR + YJ 
+
+```{r}
+lr0_ncoryj_res <- readRDS(paste0(models_path, "lr0_ncoryj_p20.rds"))
+mean_auc <-
+  lr0_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lr0_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lr0_ncoryj_res %>%   show_best("j_index",n =20) %>% filter(.config == (
+    lr0_ncoryj_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- lr0_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+# given that ridge pushes thowards zero but not totally to zero I don't need to redo all the model but just preprocessing
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "Ridge_LR", Preprocessin= "NCORR_YJ ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+
+```
+
+Elastic net NCORR + YJ recipe
+
+```{r}
+lr_en_ncoryj_res <- readRDS(paste0(models_path, "lr-en_ncoryj_p20.rds"))
+mean_auc <-
+  lr_en_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lr_en_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lr_en_ncoryj_res %>%   show_best("j_index",n =20) %>% filter(.config == (
+    lr_en_ncoryj_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <-  lr_en_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+#Rebuild the workflow to extract the number of selected features 
+
+my_mod  <- logistic_reg(
+      penalty =    lr_en_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(penalty) %>% as.numeric(),
+      mixture = lr_en_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(mixture) %>% as.numeric(),) %>%
+      set_engine("glmnet")
+
+#check this 
+my_rec <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune)
+
+ my_wf <- workflow() %>%
+  add_model(my_mod) %>%
+  add_recipe(my_rec)
+ 
+best_params <- lr_en_ncoryj_res %>% 
+    select_best("roc_auc")
+ 
+
+final_model <- finalize_workflow(my_wf, best_params) %>%
+  last_fit(data_split)
+
+trained_mod <- final_model %>% 
+  extract_workflow() %>% 
+  pull_workflow_fit()
+
+coefs <- coef(trained_mod$fit, s = lr_en_ncoryj_res %>%   show_best("roc_auc", n = 1) %>%  select(penalty) %>% as.numeric())
+
+# -1 to remove intercept 
+n_predictors <- coefs@i %>% length -1 
+
+tmp_tibble <- tibble(Model = "EL_LR", Preprocessin= " NCORR_YJ ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+# MARS
+
+## NCORR 
+
+```{r mars norm}
+mars_ncorr_res <- readRDS(paste0(models_path, "mars_ncorr_p20.rds"))
+
+mean_auc <-
+  mars_ncorr_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  mars_ncorr_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  mars_ncorr_res %>%   show_best("j_index",n=20) %>% filter(.config == (
+    mars_ncorr_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- mars_ncorr_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + YJ 
+
+```{r mars norm}
+mars_ncoryj_res <- readRDS(paste0(models_path, "mars_ncoryj_p20.rds"))
+
+mean_auc <-
+  mars_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  mars_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  mars_ncoryj_res %>%   show_best("j_index",n=20) %>% filter(.config == (
+    mars_ncoryj_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- mars_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORQ
+
+```{r}
+mars_ncorq_res <- readRDS(paste0(models_path, "mars_ncorq_p30.rds"))
+
+mean_auc <-
+  mars_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  mars_ncorq_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  mars_ncorq_res %>%   show_best("j_index") %>% filter(.config == (
+    mars_ncorq_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- mars_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + YJ recipe
+
+```{r}
+mars_yjrfe_res <- readRDS(paste0(models_path, "mars_yjrfe_res_p30.rds"))
+
+mean_auc <-
+  mars_yjrfe_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  mars_yjrfe_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  mars_yjrfe_res %>%   show_best("j_index") %>% filter(.config == (
+    mars_yjrfe_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- mars_yjrfe_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## Bagged MARS + RFE + YJ recipe
+
+```{r}
+bag_mars_yjrfe_res <- readRDS(paste0(models_path, "bag_mars_yjrfe_res_p30.rds"))
+
+mean_auc <-
+  bag_mars_yjrfe_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  bag_mars_yjrfe_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  bag_mars_yjrfe_res %>%   show_best("j_index") %>% filter(.config == (
+    bag_mars_yjrfe_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- bag_mars_yjrfe_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "MARS_Bagged", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+# Linear support vector machines (lSVM)
+
+## NCORR 
+
+```{r mars norm}
+lsvm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr_race_p30.rds"))
+
+mean_auc <-
+  lsvm_ncorr_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lsvm_ncorr_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lsvm_ncorr_res %>%   show_best("j_index",n=20) %>% filter(.config == (
+    lsvm_ncorr_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- lsvm_ncorr_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + YJ 
+
+```{r mars norm}
+lsvm_ncoryj_res <- readRDS(paste0(models_path, "lsvm_ncoryj_race_p30_test.rds"))
+
+mean_auc <-
+  lsvm_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lsvm_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lsvm_ncoryj_res %>%   show_best("j_index",n=20) %>% filter(.config == (
+    lsvm_ncoryj_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- lsvm_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORQ
+
+```{r}
+lsvm_ncorq_res <- readRDS(paste0(models_path, "lsvm_ncorq_race_p30.rds"))
+
+mean_auc <-
+  lsvm_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lsvm_ncorq_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lsvm_ncorq_res %>%   show_best("j_index") %>% filter(.config == (
+    lsvm_ncorq_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- lsvm_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + YJ recipe
+
+```{r}
+lsvm_yjrfe_res <- readRDS(paste0(models_path, "lsvm_yjrfe_res_p30.rds"))
+
+mean_auc <-
+  lsvm_yjrfe_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  lsvm_yjrfe_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  lsvm_yjrfe_res %>%   show_best("j_index") %>% filter(.config == (
+    lsvm_yjrfe_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- lsvm_yjrfe_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + YJ recipe Bayesian grid tuning 
+
+skipped
+
+#Polynomial support vector machines (pSVM)
+
+## NCORR 
+
+```{r mars norm}
+psvm_ncorr_res <- readRDS(paste0(models_path, "psvm_ncorr_race_p30.rds"))
+
+mean_auc <-
+  psvm_ncorr_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  psvm_ncorr_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  psvm_ncorr_res %>%   show_best("j_index",n=20) %>% filter(.config == (
+    psvm_ncorr_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- psvm_ncorr_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+
+```{r}
+blank_mod <-  svm_poly(
+      cost = tune(),
+      degree = tune(),
+      scale_factor = tune(),
+      margin = NULL) %>% # regression only
+      set_mode("classification") %>%
+      set_engine("kernlab", num.threads = cores)
+best_svm <-  psvm_ncorr_res %>%  select_best() 
+tuned_mod <- 
+  blank_mod <-  svm_poly(
+      cost =best_svm$cost,
+      degree = best_svm$degree,
+      scale_factor =best_svm$scale_factor,
+      margin = NULL) %>% # regression only
+      set_mode("classification") %>%
+      set_engine("kernlab", num.threads = cores)
+
+tuned_rec <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = best_svm$corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+run_last_fit <-
+  function(model_name,
+           blank_spec,
+           tuned_spec,
+           recipe,
+           train_test_split = data_split,
+           return_fit = FALSE) {
+    # last workflow
+    last_wf <- workflow() %>%
+      add_model(blank_spec) %>%
+      add_recipe(recipe) %>%
+      update_model(tuned_spec)
+    
+    set.seed(345)
+    # final fit
+    final_fit <- final_metrics <-
+      last_wf %>%
+      last_fit(train_test_split)
+    # final metrics
+    final_metrics <-
+      final_fit %>%
+      collect_metrics() %>%
+      select(.metric, .estimate) %>%
+      mutate(model = model_name)
+    if (return_fit) {
+      return(list(final_metrics, final_fit))
+    } else {
+      return(list(final_metrics, NULL))
+    }
+  }
+
+run_last_fit("psvm_ncorr", blank_mod,tuned_mod,tuned_rec )
+```
+
+
+
+## NCORQ
+
+```{r}
+psvm_ncorq_res <- readRDS(paste0(models_path, "psvm_ncorq_race_p30.rds"))
+
+mean_auc <-
+  psvm_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  psvm_ncorq_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  psvm_ncorq_res %>%   show_best("j_index") %>% filter(.config == (
+    psvm_ncorq_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- psvm_ncorq_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + YJ 
+
+```{r mars norm}
+psvm_ncoryj_res <- readRDS(paste0(models_path, "psvm_ncoryj_race_p30_test.rds"))
+
+mean_auc <-
+  psvm_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  psvm_ncoryj_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  psvm_ncoryj_res %>%   show_best("j_index",n=20) %>% filter(.config == (
+    psvm_ncoryj_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- psvm_ncoryj_res %>%   show_best("roc_auc", n = 1)  %>% select(corr_tune) %>% as.character()
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## PCA + YJ 
+
+```{r}
+psvm_pca_res <- readRDS(paste0(models_path, "psvm_pcayj_race_p30.rds"))
+
+mean_auc <-
+  psvm_pca_res %>%   show_best("roc_auc", n = 1)  %>% select(mean) %>% as.character()
+st_error <-
+  psvm_pca_res %>%   show_best("roc_auc", n = 1) %>% select(std_err) %>% as.character()
+
+mean_j_index <-
+  psvm_pca_res %>%   show_best("j_index",n =20) %>% filter(.config == (
+    psvm_pca_res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+  )) %>%  select(mean) %>% as.character()
+
+corr_tune <- NA
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_pca(all_predictors(), num_comp =psvm_pca_res %>%   show_best("roc_auc", n = 1)  %>% select(num_comp) %>% as.character()) %>%
+  step_normalize(all_numeric_predictors()) %>% prep() %>% juice() %>% colnames() %>% length()
+
+
+tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "PCA_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + YJ recipe
+
+```{r}
+psvm_yjrfe_res <- readRDS(paste0(models_path, "psvm_yjrfe_res_p30.rds"))
+
+best_perf_hyp <- psvm_yjrfe_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(psvm_yjrfe_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + YJ recipe Bayesian grid
+
+skipped - very symilar to space
+
+# Radial Basis Function SVM
+
+## MAIN
+
+```{r}
+rbf_main_res <- readRDS(paste0(models_path, "rbfsvm_main_race_p30.rds"))
+
+best_perf_hyp <- rbf_main_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(rbf_main_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+
+
+
+
+
+
+
+# XGB 
+
+# BORUTA XGB JY 
+```{r}
+xgb_yjbor_bres <- readRDS(paste0(models_path, "xgb_yjbor_bres_p30.rds"))
+
+
+best_perf_hyp <- xgb_yjbor_bres %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <- NA
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+
+n_predictoes <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% 
+  step_select_boruta(all_predictors(), outcome = "resistance") %>% prep() %>% juice() %>% colnames() %>% length()
+
+tmp_tibble <- tibble(Model = "XGB", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+
+
+
