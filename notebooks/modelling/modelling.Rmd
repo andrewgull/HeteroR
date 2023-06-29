@@ -515,16 +515,30 @@ show_best(lr_en_ncoryj_res)
 
 ### ROCs overlapped
 
-```{r lr compare}
-lr_rocs <-
-  map2_dfr(list(
+```{r}
+lr_best_res <- list(
     lr_ncorr_res,
     lr_ncoryj_res,
     lr_pcayj_res,
     lr0_ncoryj_res,
     lr_en_ncoryj_res
-  ),
-  c("lasso.ncorr",  "lasso.ncorr.yj", "lasso.pca.yj", "ridge.ncorr.yj", "elnet.ncorr.yj"),
+  )
+
+lr_best_names <-
+  c(
+    "lasso.ncorr",
+    "lasso.ncorr.yj",
+    "lasso.pca.yj",
+    "ridge.ncorr.yj",
+    "elnet.ncorr.yj"
+  )
+```
+
+
+```{r lr compare roc}
+lr_rocs <-
+  map2_dfr(lr_best_res,
+  lr_best_names,
   function(x, y)
     make_roc(x, y))
 
@@ -534,6 +548,24 @@ lr_rocs %>%
   geom_abline(lty = 3) + 
   coord_equal() + 
   #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("LR")
+```
+
+### PR-curves overlapped
+
+```{r lr compare pr}
+lr_prs <-
+  map2_dfr(lr_best_res,
+  lr_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+lr_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
   scale_color_brewer(palette="Set1") +
   ggtitle("LR")
 ```
