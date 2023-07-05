@@ -192,7 +192,7 @@ coefs <- coef(trained_mod$fit, s =  best_perf_hyp$penalty[1])
 
 
 
-predictors_to_remove <- c("(Intercept)","resistance", "strain", "ID")
+predictors_to_remove <- c("(Intercept)","resistance", "strain")
 
 coefficients <- coefs%>% row.names()
 n_predictors <- coefficients[coefs@i] %>% discard(~ .x %in% predictors_to_remove) %>% length 
@@ -546,7 +546,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   #step_corr(threshold = opt$corr_threshold) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames()  %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -577,7 +577,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -607,7 +607,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -644,7 +644,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
     outcome = "resistance",
     model = rfe_model,
     threshold = .9
-  ) %>% prep() %>% juice() %>% colnames() %>% length()
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "MARS", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -681,7 +681,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
     outcome = "resistance",
     model = rfe_model,
     threshold = .9
-  ) %>% prep() %>% juice() %>% colnames() %>% length()
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "MARS_Bagged", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -714,7 +714,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   #step_corr(threshold = opt$corr_threshold) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -745,7 +745,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -775,7 +775,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -812,7 +812,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
     outcome = "resistance",
     model = rfe_model,
     threshold = .9
-  ) %>% prep() %>% juice() %>% colnames() %>% length()
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -849,7 +849,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   #step_corr(threshold = opt$corr_threshold) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -942,7 +942,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -973,7 +973,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -1004,8 +1004,8 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_pca(all_predictors(), num_comp =psvm_pca_res %>%   show_best("roc_auc", n = 1)  %>% select(num_comp) %>% as.character()) %>%
-  step_normalize(all_numeric_predictors()) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_pca(all_predictors(), num_comp = best_perf_hyp$num_comp[1]) %>%
+  step_normalize(all_numeric_predictors()) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 
 tmp_tibble <- tibble(Model = "pSVM", Preprocessin= "PCA_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
@@ -1043,7 +1043,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
     outcome = "resistance",
     model = rfe_model,
     threshold = .9
-  ) %>% prep() %>% juice() %>% colnames() %>% length()
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "lSVM", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -1078,7 +1078,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "rbfSVM", Preprocessin= "MAIN", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -1109,7 +1109,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   #step_corr(threshold = opt$corr_threshold) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "rbfSVM", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -1139,7 +1139,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_orderNorm(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_corr(all_predictors(), threshold = corr_tune) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "rbfSVM", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -1170,7 +1170,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% length()
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
 tmp_tibble <- tibble(Model = "rbfSVM", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
@@ -1179,17 +1179,511 @@ final_tibble <- bind_rows(final_tibble,tmp_tibble)
 final_tibble
 ```
 
+## RFE + YJ recipe
 
+```{r}
+rbfsvm_yjrfe_res <- readRDS(paste0(models_path, "rbfsvm_yjrfe_res_p30.rds"))
 
+best_perf_hyp <- rbfsvm_yjrfe_res %>% show_best(n=20 )
 
+mean_auc <- best_perf_hyp$mean[1]
 
+st_error <- best_perf_hyp$std_err[1]
 
+mean_j_index <-get_j_index(rbfsvm_yjrfe_res)
 
+corr_tune <- best_perf_hyp$corr_tune[1]
 
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
-# XGB 
+tmp_tibble <- tibble(Model = "rbfSVM", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
-## BORUTA XGB JY 
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + YJ recipe Bayesian grid tuning 
+
+skipped
+
+# k-Nearest Neighbors (KNN)
+
+## NCORR 
+
+```{r}
+knn_ncorr_res <- readRDS(paste0(models_path, "knn_ncorr_race_p30.rds"))
+
+best_perf_hyp <- knn_ncorr_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(knn_ncorr_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "KNN", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORQ
+
+```{r}
+knn_ncorq_res <- readRDS(paste0(models_path, "knn_ncorq_race_p30.rds"))
+
+best_perf_hyp <- knn_ncorq_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(knn_ncorq_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "KNN", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + YJ 
+
+```{r}
+knn_ncoryj_res <- readRDS(paste0(models_path, "knn_ncoryj_race_p30.rds"))
+
+best_perf_hyp <- knn_ncoryj_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(knn_ncoryj_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "KNN", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + YJ recipe
+
+```{r}
+knn_yjrfe_res <- readRDS(paste0(models_path, "knn_yjrfe_res_p30.rds"))
+
+best_perf_hyp <- knn_yjrfe_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(knn_yjrfe_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "KNN", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+# Random Forest (RF)
+
+## MAIN
+
+```{r}
+rf_main_res <- readRDS(paste0(models_path, "rf_main_race_p30.rds"))
+
+best_perf_hyp <- rf_main_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(rf_main_res)
+
+corr_tune <- NA
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "RF", Preprocessin= "MAIN", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR 
+
+```{r mars norm}
+rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_p20.rds"))
+
+best_perf_hyp <- rf_ncorr_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(rf_ncorr_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "RF", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + YJ 
+
+```{r}
+rf_ncoryj_res <- readRDS(paste0(models_path, "rf_ncoryj_race_p30.rds"))
+
+best_perf_hyp <- rf_ncoryj_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(rf_ncoryj_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "RF", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + main recipe
+
+```{r}
+rf_mainrfe_res <- readRDS(paste0(models_path, "rf_mainrfe_res_p30.rds"))
+
+best_perf_hyp <- rf_mainrfe_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(rf_mainrfe_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "RF", Preprocessin= "MAIN_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## MAIN Boruta 
+
+```{r}
+rf_mainbor_res <- readRDS(paste0(models_path, "rf_mainbor_p30.rds"))
+
+best_perf_hyp <- rf_mainbor_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(rf_mainbor_res)
+
+corr_tune <- NA
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_select_boruta(all_predictors(), outcome = "resistance") %>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "RF", Preprocessin= "MAIN_Boruta", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+Is it possible that 
+boruta in RF selects all of the params?
+
+```{r}
+library(Boruta)
+
+bor_df <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)  %>% prep() %>% juice() %>% select(-strain)
+
+b <- Boruta(resistance ~ ., data = bor_df)
+
+plot(b)
+```
+
+# Boosted Trees (BT)
+
+## MAIN
+
+```{r}
+rf_main_res <- readRDS(paste0(models_path, "rf_main_race_p30.rds"))
+
+best_perf_hyp <- rf_main_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(rf_main_res)
+
+corr_tune <- NA
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "BT", Preprocessin= "MAIN", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + win-loss 
+
+```{r}
+xgb_main_wl <- readRDS(paste0(models_path, "xgb_main_race_p30.rds"))
+
+best_perf_hyp <- xgb_main_wl %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(xgb_main_wl)
+
+corr_tune <- NA
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "BT", Preprocessin= "NCORR_WL", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + Bayes
+
+```{r}
+xgb_ncorr_bres <- readRDS(paste0(models_path, "xgb_ncorr_bres_p30_test.rds"))
+
+best_perf_hyp <- xgb_ncorr_bres %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <- NA
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  #step_corr(threshold = opt$corr_threshold) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "BT", Preprocessin= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## RFE + main recipe + Bayesian search
+
+```{r}
+xgb_mainrfe_bayes <- readRDS(paste0(models_path, "bt_mainrfe_bres_p30.rds"))
+
+best_perf_hyp <- xgb_mainrfe_bayes %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <- NA
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)%>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "BT", Preprocessin= "MAIN_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## MAIN Boruta 
+
+```{r}
+xgb_main_bor_bres <- readRDS(paste0(models_path, "bt_mainbor_bres_p30.rds"))
+
+best_perf_hyp <- xgb_main_bor_bres %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <- NA
+
+corr_tune <- NA
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_select_boruta(all_predictors(), outcome = "resistance") %>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "BT", Preprocessin= "MAIN_Boruta", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## MAIN + YJ-transform Boruta 
+
 ```{r}
 xgb_yjbor_bres <- readRDS(paste0(models_path, "xgb_yjbor_bres_p30.rds"))
 
@@ -1203,22 +1697,200 @@ mean_j_index <- NA
 
 corr_tune <- best_perf_hyp$corr_tune[1]
 
-n_predictoes <- recipe(resistance ~ ., data = df_train) %>%
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_corr(all_predictors(), threshold = corr_tune) %>% 
-  step_select_boruta(all_predictors(), outcome = "resistance") %>% prep() %>% juice() %>% colnames() %>% length()
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_boruta(all_predictors(), outcome = "resistance") %>% prep() %>% juice() %>% colnames()%>% discard(~ .x %in% predictors_to_remove) %>% length()
 
-tmp_tibble <- tibble(Model = "XGB", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BT", Preprocessin= "MAIN_YJ_Boruta", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
 final_tibble
 ```
+
+# Multilayer perceptron (MLP NNET)
+
+## NCORQ 
+
+```{r}
+# win-loss here
+mlp_ncorq_wl <- readRDS(paste0(models_path, "mlp_nnet_ncorq_race_p30.rds"))
+
+best_perf_hyp <- mlp_ncorq_wl %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(mlp_ncorq_wl)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "MLP", Preprocessin= "NCORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## PCA + YJ 
+
+```{r}
+mlp_pca <- readRDS(paste0(models_path, "mlp_nnet_pcayj_p20.rds"))
+
+best_perf_hyp <- mlp_pca %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(mlp_pca)
+
+corr_tune <- NA
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_pca(all_predictors(), num_comp = best_perf_hyp$num_comp[1]) %>%
+  step_normalize(all_numeric_predictors()) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+
+tmp_tibble <- tibble(Model = "MLP", Preprocessin= "PCA_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## NCORR + YJ 
+
+```{r}
+mlp_ncoryj_res <- readRDS(paste0(models_path, "mlp_ncoryj_p20_test.rds"))
+
+best_perf_hyp <- mlp_ncoryj_res %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(mlp_ncoryj_res)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "MLP", Preprocessin= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## Keras + PCA + YJ
+
+skipped - the same
+
+## RFE + YJ recipe
+
+```{r}
+mlp_yjrfe_wl <- readRDS(paste0(models_path, "mlp_yjrfe_res_p30.rds"))
+
+best_perf_hyp <- mlp_yjrfe_wl %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(mlp_yjrfe_wl)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "MLP", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+## Bag MLP + RFE + YJ recipe
+
+```{r}
+mlp_bag_yjrfe_wl <- readRDS(paste0(models_path, "bag_mlp_yjrfe_res_p30.rds"))
+
+
+best_perf_hyp <- mlp_bag_yjrfe_wl %>% show_best(n=20 )
+
+mean_auc <- best_perf_hyp$mean[1]
+
+st_error <- best_perf_hyp$std_err[1]
+
+mean_j_index <-get_j_index(mlp_bag_yjrfe_wl)
+
+corr_tune <- best_perf_hyp$corr_tune[1]
+
+n_predictors <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_corr(all_predictors(), threshold = corr_tune) %>%
+  step_select_vip(
+    all_numeric_predictors(),
+    outcome = "resistance",
+    model = rfe_model,
+    threshold = .9
+  ) %>% prep() %>% juice() %>% colnames() %>% discard(~ .x %in% predictors_to_remove) %>% length()
+
+tmp_tibble <- tibble(Model = "Bag_MLP", Preprocessin= "NCORR_YJ_RFE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+
+final_tibble <- bind_rows(final_tibble,tmp_tibble)
+
+final_tibble
+```
+
+
 
 
 
