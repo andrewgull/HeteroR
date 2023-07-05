@@ -248,6 +248,12 @@ yj_rfe_recipe <-  yj_recipe %>%
     threshold = .9
   )
 
+main_boruta_recipe <- main_recipe %>%
+  step_select_boruta(all_predictors(), outcome = "resistance")
+
+yj_boruta_recipe <- yj_recipe %>%
+  step_select_boruta(all_predictors(), outcome = "resistance")
+
 
 #### FOLDS & METRICS ####
 cv_folds <- vfold_cv(df_train,
