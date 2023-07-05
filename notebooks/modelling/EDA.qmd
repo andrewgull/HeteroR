@@ -392,9 +392,7 @@ var_df <- var_df %>%
 var_df
 ```
 
-10 PCs explain 70% of variation
-18 PCs needed to explain 80% of variation 
-30 PCs needed to explain 90% of variation
+10 PCs explain 70% of variation 18 PCs needed to explain 80% of variation 30 PCs needed to explain 90% of variation
 
 Plot
 
@@ -523,7 +521,6 @@ pls_recipe %>%
   plot_validation_results(c("PLS1", "PLS2", "PLS3")) + 
   ggtitle("PLS")
 ```
-
 
 ## UMAP - uniform manifold approximation and projection
 
@@ -848,7 +845,6 @@ summary(logreg_nbl_fit)
 ```{r}
 exp(coef(logreg_nbl_fit))
 ```
-
 
 ### Beta-lactamases on plasmids and chromosome
 
@@ -1236,7 +1232,6 @@ kruskal.test(data_strain$coverage, data_strain$resistance)
 data_strain %>% group_by(resistance) %>% summarise(median=median(coverage))
 ```
 
-
 ## Sequencing reads lengths
 
 ```{r}
@@ -1273,7 +1268,6 @@ data_strain %>%
 ```{r}
 cor.test(data_strain$read.max.len, data_strain$coverage, method = "kendall")
 ```
-
 
 ## Number of plasmids
 
@@ -1312,7 +1306,6 @@ data_strain %>% group_by(resistance) %>% summarise(median=median(n.plasmids))
 ```{r}
 summary(glm(n.plasmids ~ resistance, data=data_strain, family = "poisson"))
 ```
-
 
 ### Bar plot - filtered version
 
@@ -1383,7 +1376,6 @@ pois_fit <- glm(n.plasmids ~ chrom.status, data=data_strain, family = "poisson")
 summary(pois_fit)
 ```
 
-
 ```{r}
 exp(coef(pois_fit))
 ```
@@ -1419,6 +1411,7 @@ data_strain %>%
 pois_fit <- glm(n.c.plasmids ~ resistance, data=data_strain, family = "poisson")
 summary(pois_fit)
 ```
+
 ```{r}
 exp(coef(pois_fit))
 ```
@@ -1506,7 +1499,6 @@ pois_fit <- glm(n.c.plasmids ~ chrom.status, data=data_strain, family = "poisson
 summary(pois_fit)
 ```
 
-
 ```{r}
 exp(coef(pois_fit))
 ```
@@ -1545,7 +1537,6 @@ med_rep_len %>%
   group_by(resistance) %>% 
   summarise(median = median(med.len))
 ```
-
 
 ### Average total
 
@@ -1780,7 +1771,6 @@ ar_len %>%
   group_by(location, resistance) %>%
   summarise(median = median(ar.len))
 ```
-
 
 ## Distance to oriC
 
@@ -2088,6 +2078,33 @@ data_strain %>%
   ylab("proportion")
 ```
 
+### ISAS1
+
+This IS family was the only predictor used by rbfSVM + ncor+yj+rfe
+
+What's so special about it?
+
+```{r}
+data_strain %>%
+  ggplot(aes(resistance, ISAS1)) +
+  geom_violin(aes(fill = resistance), alpha = 0.7) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T
+  ) +
+  geom_jitter(alpha = 0.2,
+              width = 0.15,
+              height = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("ISAS1 count") +
+  ylab("n") +
+  xlab("") +
+  guides(fill = "none")
+```
+
+
 ### IS max length
 
 ```{r}
@@ -2136,7 +2153,6 @@ data_strain %>%
 kruskal.test(data_strain$n.is.tot, data_strain$resistance)
 ```
 
-
 ### Total family number
 
 ```{r}
@@ -2155,7 +2171,6 @@ data_strain %>%
   group_by(resistance) %>% 
   summarise(median = median(n.is.fam))
 ```
-
 
 ```{r}
 isfam_pois_fit <- glm(n.is.fam ~resistance, data = data_strain, family="poisson")
@@ -2179,7 +2194,6 @@ data_strain %>%
   ylab("min distance") +
   guides(fill="none")
 ```
-
 
 ```{r}
 data_strain %>% 
