@@ -2829,11 +2829,14 @@ Correlation threshold in the best LLR is `r best_models[[1]]$corr_tune`
 Non-zero LLR coefficients:
 
 ```{r lr coeff}
-lr_final[[2]] %>%
+lr_coeff_df <- lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
   arrange(-abs(estimate)) %>% 
-  mutate(odds.ratio = exp(estimate))
+  mutate(odds.ratio = exp(estimate)) %>% 
+  select(-penalty)
+
+lr_coeff_df
 ```
 
 Just 19 features plus Intercept are used by the model.
@@ -2848,11 +2851,7 @@ On the `odds.ratio` column:
 ### Predictors increasing the risk of HR:
 
 ```{r feat pos}
-lr_final[[2]] %>%
-  extract_fit_parsnip() %>% tidy() %>% 
-  filter(estimate != 0) %>% 
-  arrange(-abs(estimate)) %>% 
-  mutate(odds.ratio = exp(estimate)) %>% 
+lr_coeff_df %>% 
   filter(odds.ratio < 1.0) %>% 
   select(term)
 ```
@@ -2860,15 +2859,21 @@ lr_final[[2]] %>%
 ### Predictors decreasing the risk of HR
 
 ```{r feat neg}
-lr_final[[2]] %>%
-  extract_fit_parsnip() %>% tidy() %>% 
-  filter(estimate != 0) %>% 
-  arrange(-abs(estimate)) %>% 
-  mutate(odds.ratio = exp(estimate)) %>% 
+lr_coeff_df %>% 
   filter(odds.ratio >= 1.0) %>% 
   select(term)
 ```
 
+### Plot
+
+```{r}
+lr_coeff_df %>% 
+  mutate(effect = if_else(estimate < 0, "negative", "positive")) %>% 
+  ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio)) +
+  geom_col(aes(fill=effect)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 14)) +
+  xlab("")
+```
 
 # Minimal set of predictors chosen by Boruta
 
