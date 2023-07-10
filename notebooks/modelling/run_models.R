@@ -182,13 +182,20 @@ main_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_dummy(all_nominal_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
+base_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
 ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  #step_corr(threshold = opt$corr_threshold) %>%
-  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
+  step_nzv(all_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
@@ -219,6 +226,22 @@ yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>%
   step_corr(all_predictors(), threshold = tune("corr_tune"))
+
+baseyj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+baseyj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
 
 ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
@@ -400,6 +423,10 @@ set_rec <- function(rec, cores) {
     rc <- main_rfe_recipe
   } else if (rec == "yjrfe") {
     rc <- yj_rfe_recipe
+  } else if (rec == "base") {
+    rc <- base_recipe
+  } else if (rec == "baseyj") {
+    rc <- baseyj_recipe
   } else {
     print("ERROR! Undefined recipe!")
     quit(status = 1)
