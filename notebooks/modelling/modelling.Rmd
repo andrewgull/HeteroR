@@ -71,7 +71,6 @@ Add n.beta.lac \>4
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
@@ -79,7 +78,6 @@ data_strain <- data_strain %>%
          chrom.status = factor(chrom.status))
 
 data_strain$N50 <- NULL
-#data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 ```
 
@@ -2334,6 +2332,7 @@ main_rfe_recipe <- main_recipe %>%
   )
 
 # best models
+#top_models <- list(lr_ncoryj_res)
 best_models <- map(top_models, ~select_best(., "roc_auc"))
 ```
 
@@ -2848,7 +2847,7 @@ On the `odds.ratio` column:
 - apparently, nonHR is outcome 1 here and HR is outcome 0, because increase in `n.beta.lac` decreases chances of outcome 1.
 
 
-### Predictors increasing the risk of HR:
+### Predictors decreasing the risk of HR:
 
 ```{r feat pos}
 lr_coeff_df %>% 
@@ -2856,7 +2855,7 @@ lr_coeff_df %>%
   select(term)
 ```
 
-### Predictors decreasing the risk of HR
+### Predictors increasing the risk of HR
 
 ```{r feat neg}
 lr_coeff_df %>% 
@@ -2866,13 +2865,17 @@ lr_coeff_df %>%
 
 ### Plot
 
-```{r}
+```{r, fig.width=8, fig.height=6}
 lr_coeff_df %>% 
-  mutate(effect = if_else(estimate < 0, "positive", "negative")) %>% 
-  ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio)) +
+  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
+         odds.ratio = if_else(odds.ratio < 1, odds.ratio * -1, odds.ratio*1)) %>% 
+  filter(term != "(Intercept)") %>% 
+  ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
   geom_col(aes(fill=effect)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 6)) +
-  xlab("")
+  scale_fill_brewer(palette="Paired") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 12)) +
+  xlab("") +
+  coord_flip()
 ```
 
 # Minimal set of predictors chosen by Boruta
