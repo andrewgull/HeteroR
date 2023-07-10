@@ -2867,8 +2867,7 @@ lr_coeff_df %>%
 
 ```{r, fig.width=8, fig.height=6}
 lr_coeff_df %>% 
-  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
-         odds.ratio = if_else(odds.ratio < 1, odds.ratio * -1, odds.ratio*1)) %>% 
+  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>% 
   filter(term != "(Intercept)") %>% 
   ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
   geom_col(aes(fill=effect)) +
