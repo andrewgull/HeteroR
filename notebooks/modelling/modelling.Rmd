@@ -2833,7 +2833,7 @@ lr_coeff_df <- lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
   arrange(-abs(estimate)) %>% 
-  mutate(odds.ratio = exp(estimate)) %>% 
+  mutate(odds.ratio = 1/exp(estimate)) %>% 
   select(-penalty)
 
 lr_coeff_df
@@ -2868,10 +2868,10 @@ lr_coeff_df %>%
 
 ```{r}
 lr_coeff_df %>% 
-  mutate(effect = if_else(estimate < 0, "negative", "positive")) %>% 
+  mutate(effect = if_else(estimate < 0, "positive", "negative")) %>% 
   ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio)) +
   geom_col(aes(fill=effect)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 14)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 6)) +
   xlab("")
 ```
 
