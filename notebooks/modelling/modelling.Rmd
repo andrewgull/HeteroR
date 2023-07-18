@@ -1466,8 +1466,8 @@ show_best(bt_base_bor_res)
 
 ## Base recipe + Boruta + Bayesian search
 
-```{r}
-bt_base_bor_bres <- readRDS(paste0(models_path, "bt_mainbor_bres_p30.rds"))
+```{r, fig.width=10}
+bt_base_bor_bres <- readRDS(paste0(models_path, "base_bt_boruta_bres_light.rds"))
 
 autoplot(bt_base_bor_bres)
 ```
@@ -2009,6 +2009,8 @@ best_models <- map(top_models, ~select_best(., "roc_auc"))
 ## LR final
 
 ```{r lr ff}
+set.seed(800)
+
 # LR specs
 lr_spec_blank <- logistic_reg(
   penalty = tune(),
@@ -2041,6 +2043,8 @@ lr_final[[1]]
 ## GBT final
 
 ```{r gbt ff}
+set.seed(300)
+
 library(bonsai)
 
 # GBT base specs /number 2/
@@ -2527,28 +2531,7 @@ show_best(lgb_min_res, metric= "roc_auc")
 
 ## ROCs
 
-```{r min3 rocs}
-top_models <- list(
-    lr_base_yj_res,
-    rf_min_res,
-    xgb_min3_bres)
-
-top_names <- c("LR", "RF top 3", "XGB top 3")
-
-roc_min_df <-
-  map2_dfr(top_models,
-           top_names,
-           function(x, y)
-             make_roc(x, y))
-roc_min_df %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = -1, option = "H")+
-  scale_color_brewer(palette = "Set1") +
-  ggtitle("")
-
+```{r gbt min roc}
 autoplot(make_roc(lgb_min_res, "")) +
   ggtitle("GBT, min 5")
 ```
