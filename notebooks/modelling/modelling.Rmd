@@ -71,7 +71,6 @@ Add n.beta.lac \>4
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
@@ -79,7 +78,6 @@ data_strain <- data_strain %>%
          chrom.status = factor(chrom.status))
 
 data_strain$N50 <- NULL
-#data_strain$NA. <- NULL
 data_strain[is.na(data_strain)] <- 0
 ```
 
@@ -120,7 +118,7 @@ df_test %>%
 
 # Preprocessing recipes
 
-## Basic Recipe
+## Base Recipe
 
 > Some models (notably neural networks, KNN, and support vector
 > machines) require predictors that have been centered and scaled, so
@@ -129,23 +127,52 @@ df_test %>%
 > expansion (i.e., quadratic and two-way interactions) is a good idea.
 
 ```{r main recipe}
-main_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
+base_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
   
-main_recipe %>% prep() %>% juice()
+base_recipe %>% prep() %>% juice() %>% dim()
 ```
 
 Target class:
 
 ```{r}
-main_recipe %>% prep() %>% juice() %>% group_by(resistance) %>% count()
+base_recipe %>% prep() %>% juice() %>% group_by(resistance) %>% count()
 ```
 
-## ORQ-transform + PCA
+
+## Base + YJ transformation
+
+```{r}
+base_yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+```
+
+
+## Base + ORQ transformation
+
+```{r}
+base_orq_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+```
+
+
+## PCA
 
 From [here](https://www.tmwr.org/grid-search.html):
 
@@ -172,78 +199,18 @@ From [here](https://www.tmwr.org/grid-search.html):
 **NB:** As comparison in EDA notebook showed, OQ-normalization works
 better than Yeo-Johnson transformation.
 
-For PCA
-
-Does ORQ-normalization `step_orderNorm()` really help?
-
-If you look at EDA, you'll see that ORQ gives better distributions and
-less PCs to explain the same amount of variance, than regular
-`step_normalize()`. (Same is true for this recipe below)
-
-```{r pca recipe}
-pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  update_role(resistance, new_role = "outcome") %>% 
-  step_nzv(all_predictors()) %>% 
-  #step_normalize(all_numeric_predictors()) %>%
-  step_orderNorm(all_numeric_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_pca(all_predictors(), threshold = .9)
-  
-
-pca_recipe %>% prep() %>% juice()
-```
-
-## Yeo-Johnson transorm + PCA
-
 Borrowed from 'Tidy modeling with R': Chapter 13.2 'Evaluating the grid'
 
 ```{r pca+yj recipe}
-pcayj_recipe <- 
-  recipe(resistance ~ ., data = df_train) %>%
+pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
   update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_pca(all_predictors(), num_comp = tune()) %>% 
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_pca(all_predictors(), num_comp = tune()) %>%
   step_normalize(all_numeric_predictors())
-
-# if I choose, say, 3 PCs, will it compress all predictors into 3 PCs or just pick 3 best out of more PCs?
-pcayj_recipe_test <- 
-  recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_pca(all_predictors(), num_comp = 3) %>% 
-  step_normalize(all_numeric_predictors())
-
-pcayj_recipe_test %>% 
-  prep() %>% 
-  juice() %>% 
-  dim()
-# indeed just 3 PCs in total
-```
-
-## No correlation + Yeo-Johnson transform
-
-development of the approach above, but with decorrelation and no PCA
-
-```{r yj recipe}
-yj_recipe <- 
-  recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_corr(all_predictors(), threshold = tune("corr_tune")) # The step will try to remove the minimum number of columns so that all the resulting absolute correlations are less than this value
 ```
 
 ## No correlation recipe
@@ -255,12 +222,30 @@ recipe performed better than others)
 
 ```{r norm recipe}
 ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
+  update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)
+  step_nzv(all_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
+```
+
+## No correlation + Yeo-Johnson transform
+
+development of the approach above, but with decorrelation and no PCA
+
+```{r yj recipe}
+ncorr_yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
 ```
 
 ## No correlation + ORQ-transform recipe
@@ -269,72 +254,50 @@ Dummies are created after normalization and transformation - same as in
 NCORR (before it was different: dummies before order norm!)
 
 ```{r orq recipe}
-ncorq_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
-  step_nzv(all_predictors()) %>%
-  step_orderNorm(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)
-```
-
-## No correlation + Spline basis expansion
-
-to incorporate non-linearity into the class boundary
-
-```{r ns recipe}
-ns_recipe <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
+ncorr_orq_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_ns(all_predictors(), deg_free = tune()) %>% 
-  step_corr(all_predictors(), threshold = tune("corr_tune")) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100)
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
 ```
 
-## Recursive Feature Elimination
+## Base + Boruta feature selection
 
-fixed on local copy - th original package in the tibble creation has
+from `colino` package
+
+to use with RF and BT algorithms
+
+fixed on local copy - the original package in the tibble creation has
 `name = c("top_p", "threshold"),` instead of
 `name = c("top_p", "threshold", "cutoff"),`
 
 the git repository was cloned locally, corrected and the package
 installed following <https://kbroman.org/pkg_primer/pages/build.html>
 
+(this was done to employ the RFE steps)
+
 ```{r rfe recipe}
 if (!require(colino, quietly = TRUE))
   devtools::install_github("andrewgull/colino")
 
-rfe_model <- rand_forest(mode = "classification") %>% 
-  set_engine("ranger", num.threads = 8, importance = "impurity" )
+base_boruta_recipe <- base_recipe %>%
+  step_select_boruta(all_predictors(), outcome = "resistance")
 
-rfe_rec <- recipe(resistance ~., data = df_train) %>% 
-  step_dummy(all_nominal_predictors())%>% 
-  step_select_vip(all_numeric_predictors(), outcome = "resistance", model = rfe_model, threshold = .9) 
-
-rfe_rec %>% 
-  prep() %>% 
-  juice()
+base_boruta_recipe %>% prep() %>% juice() %>% ncol()
 ```
 
-## Boruta features selection
-
-to use with RF and BT algorithms
-
-```{r boruta+main recipe}
-# step_select_boruta() from colino
-main_boruta_recipe <- main_recipe %>% 
-  step_select_boruta(all_predictors(), outcome = "resistance", options = list(maxRuns = 500))
-
-main_boruta_recipe %>% prep() %>% juice() %>% ncol()
-```
-
-## Boruta + YJ transfor + NOCORR
+## Base + YJ transform + Boruta feature selection
 
 ```{r boruta+yj recipe}
-yj_boruta_recipe <- yj_recipe %>% 
+base_yj_boruta_recipe <- base_yj_recipe %>% 
   step_select_boruta(all_predictors(), outcome = "resistance")
+
+base_yj_boruta_recipe %>% prep() %>% juice() %>% ncol()
 ```
 
 
@@ -392,146 +355,88 @@ By default all models here are LASSO regression models, unless specific
 type of penalization is stated.
 
 
-## MAIN recipe 
+## Base recipe 
 
-```{r lr main, fig.height=3, fig.width=6}
-lr_main <- readRDS(paste0(models_path, "lr_main_space_p30.rds"))
+```{r lr norm, fig.height=6, fig.width=6}
+lr_base_res <- read_wfset("models_llr.rds", "base_LLR")
 
-autoplot(lr_main)
+autoplot(lr_base_res)
 ```
 
 ### Best models
 
 ```{r}
-lr_main %>% 
+lr_base_res %>% 
   show_best("roc_auc", n = 5) 
 ```
 
-## NCORR recipe
+## Base + YJ recipe
 
-For LR I used space filling grid, cause Bayesian would cause errors
-during resampling and the advantage it gives is marginal.
+```{r lr yj, fig.height=6, fig.width=6}
+lr_base_yj_res <- read_wfset("models_llr.rds", "baseyj_LLR")
 
-You can load an `.rds` file if it exists.
-
-```{r lr norm, fig.height=3, fig.width=6}
-lr_ncorr_res <- readRDS(paste0(models_path, "lr_ncorr_p20.rds"))
-
-autoplot(lr_ncorr_res)
+autoplot(lr_base_yj_res)
 ```
 
 ### Best models
 
 ```{r}
-lr_ncorr_res %>% 
-  show_best("roc_auc", n = 5) 
-```
-
-## NCORQ recipe
-
-New ncorq with dummies after ORQ doesn't make any changes
-
-```{r lr orq}
-# tuned corr threshold
-lr_ncorq_res <- readRDS(paste0(models_path, "lr_ncorq_p30.rds"))
-
-lr_ncorq_res %>% autoplot()
-```
-
-### Best models
-
-```{r}
-lr_ncorq_res %>%
-  show_best("roc_auc", n = 5)
-```
-
-## PCA + YJ recipe
-
-Space-filling grid as well, number of components to be tuned
-
-```{r lr pca}
-lr_pcayj_res <- readRDS(paste0(models_path, "lr_pcayj_p20.rds"))
-
-# there were many errors during tuning process
-autoplot(lr_pcayj_res)
-```
-
-### Best models
-
-```{r}
-lr_pcayj_res %>% 
-  show_best("roc_auc", n = 5)
-```
-
-## NCORR + YJ recipe
-
-```{r lr yj}
-lr_ncoryj_res <- readRDS(paste0(models_path, "lr_ncoryj_p20_test.rds"))
-
-autoplot(lr_ncoryj_res)
-```
-
-### Best models
-
-```{r}
-show_best(lr_ncoryj_res)
+show_best(lr_base_yj_res)
 ```
 
 ```{r}
-show_best(lr_ncoryj_res, metric = "j_index")
+show_best(lr_base_yj_res, metric = "j_index")
 ```
 
 The same model is the best
 
-## Ridge NCORR + YJ recipe
+## Base + ORQ recipe
 
-```{r lrr yj}
-lr0_ncoryj_res <- readRDS(paste0(models_path, "lr0_ncoryj_p20.rds"))
+```{r lr orq}
+lr_base_orq_res <- read_wfset("models_llr.rds", "baseorq_LLR")
 
-autoplot(lr0_ncoryj_res)
+lr_base_orq_res %>% autoplot()
 ```
 
 ### Best models
 
 ```{r}
-show_best(lr0_ncoryj_res)
+lr_base_orq_res %>%
+  show_best("roc_auc", n = 5)
 ```
 
-## Elastic net NCORR + YJ recipe
+## PCA recipe
 
-```{r lre yj}
-lr_en_ncoryj_res <- readRDS(paste0(models_path, "lr-en_ncoryj_p20.rds"))
+```{r lr pca}
+lr_pca_res <- read_wfset("models_llr.rds", "pca_LLR")
 
-autoplot(lr_en_ncoryj_res)
+autoplot(lr_pca_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(lr_en_ncoryj_res)
+lr_pca_res %>% 
+  show_best("roc_auc", n = 5)
 ```
+
+
 
 ## Compare preprocessors
 
 ### ROCs overlapped
 
 ```{r}
-lr_best_res <- list(
-    lr_ncorr_res,
-    lr_ncoryj_res,
-    lr_pcayj_res,
-    lr0_ncoryj_res,
-    lr_en_ncoryj_res
-  )
+lr_best_res <- list(lr_base_res,
+                    lr_base_yj_res,
+                    lr_base_orq_res,
+                    lr_pca_res)
 
 lr_best_names <-
-  c(
-    "lasso.ncorr",
-    "lasso.ncorr.yj",
-    "lasso.pca.yj",
-    "ridge.ncorr.yj",
-    "elnet.ncorr.yj"
-  )
+  c("base",
+    "base.yj",
+    "base.orq",
+    "pca")
 ```
 
 
@@ -547,9 +452,8 @@ lr_rocs %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("LR")
+  ggtitle("LR, ROC curves")
 ```
 
 ### PR-curves overlapped
@@ -567,7 +471,7 @@ lr_prs %>%
   geom_abline(lty = 3) + 
   coord_equal(ylim=c(0, 1)) + 
   scale_color_brewer(palette="Set1") +
-  ggtitle("LR")
+  ggtitle("LR, PR curves")
 ```
 
 ### Generate distributions
@@ -578,14 +482,8 @@ Bayesian ANOVA
 ```{r}
 lr_comp <-
   res_comp_table(
-    res_list = list(
-      lr_ncorr_res,
-      lr_ncoryj_res,
-      lr_pcayj_res,
-      lr0_ncoryj_res,
-      lr_en_ncoryj_res
-    ),
-    mod_names = c("ncorr", "ncorr.yj", "pca.yj", "ridge", "el.net")
+    res_list = lr_best_res,
+    mod_names = lr_best_names
   )
 
 lr_posterior <-
@@ -595,7 +493,7 @@ lr_posterior <-
     seed = 100,
     refresh = 0,
     chains = 5,
-    cores = 2
+    cores = 8
   )
 
 autoplot(lr_posterior)
@@ -616,27 +514,19 @@ Positive mean value means that mean of norm \> mean of orq etc.
 
 If CI doesn't include 0, then the difference is significant.
 
-In this case standard normalization is significantly better than the
-ordered quantile technique.
+PCA performs significantly worse than the other models.
 
-The ordered quantile normalization is significantly better than PCA
-recipe.
-
-LASSO is easier to interpret, so we can choose it (ncorr + yj) over
-other similar models
+Base, YJ and ORQ pre-processing recipes don't differ significantly in ROC AUC, but there is a difference in PR curves: base has better PR-curve.
 
 # Multivariate adaptive regression splines (MARS)
 
 ## NCORR recipe
 
 ```{r mars norm}
-mars_ncorr_res <- readRDS(paste0(models_path, "mars_ncorr_p20.rds"))
+mars_ncorr_res <- read_wfset("models_mars_knn.rds", "ncorr_mars")
 
 autoplot(mars_ncorr_res)
 ```
-
-This plot suggests that greater number of model terms can give greater
-AUC and J-index
 
 ### Best models
 
@@ -648,7 +538,7 @@ mars_ncorr_res %>%
 ## NCORR + YJ recipe
 
 ```{r}
-mars_ncoryj_res <- readRDS(paste0(models_path, "mars_ncoryj_p20.rds"))
+mars_ncoryj_res <- read_wfset("models_mars_knn.rds", "ncorryj_mars")
 
 autoplot(mars_ncoryj_res)
 ```
@@ -660,10 +550,10 @@ mars_ncoryj_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-## NCORQ recipe
+## NCORR + ORQ recipe
 
 ```{r}
-mars_ncorq_res <- readRDS(paste0(models_path, "mars_ncorq_p30.rds"))
+mars_ncorq_res <- read_wfset("models_mars_knn.rds", "ncorrorq_mars")
 
 autoplot(mars_ncorq_res)
 ```
@@ -674,53 +564,87 @@ autoplot(mars_ncorq_res)
 mars_ncorq_res %>% show_best("roc_auc", n = 5)
 ```
 
-## MARS + RFE + YJ recipe
+## PCA
 
 ```{r}
-mars_yjrfe_res <- readRDS(paste0(models_path, "mars_yjrfe_res_p30.rds"))
+mars_pca_res <- read_wfset("models_mars_knn.rds", "pca_mars")
 
-plot_race(mars_yjrfe_res)
+autoplot(mars_pca_res)
+```
+
+```{r}
+show_best(mars_pca_res, metric = "roc_auc")
+```
+
+
+# Bagged MARS 
+
+## NCORR + YJ recipe
+
+```{r}
+mars_bag_ncoryj_res <- read_wfset("models_mars_knn.rds", "ncorryj_bag_mars")
+
+autoplot(mars_bag_ncoryj_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(mars_yjrfe_res)
+show_best(mars_bag_ncoryj_res)
 ```
 
-## Bagged MARS + RFE + YJ recipe
+## NCORR + ORQ recipe
 
 ```{r}
-bag_mars_yjrfe_res <- readRDS(paste0(models_path, "bag_mars_yjrfe_res_p30.rds"))
+mars_bag_ncorq_res <- read_wfset("models_mars_knn.rds", "ncorrorq_bag_mars")
 
-plot_race(bag_mars_yjrfe_res)
+autoplot(mars_bag_ncorq_res)
 ```
-
-### Best models
 
 ```{r}
-show_best(bag_mars_yjrfe_res)
+show_best(mars_bag_ncorq_res, "roc_auc")
 ```
+
+## PCA
+
+```{r}
+mars_bag_pca_res <- read_wfset("models_mars_knn.rds", "pca_bag_mars")
+
+autoplot(mars_bag_pca_res)
+```
+
+```{r}
+show_best(mars_bag_pca_res)
+```
+
 
 ## Compare preprocessors
 
 ### ROCs overlapped
 
 ```{r}
-mars_rocs <-
-  map2_dfr(list(
+mars_best_res <- list(
     mars_ncorr_res,
     mars_ncoryj_res,
     mars_ncorq_res,
-    mars_yjrfe_res,
-    bag_mars_yjrfe_res
-  ), c(
+    mars_pca_res,
+    mars_bag_ncoryj_res,
+    mars_bag_ncorq_res,
+    mars_bag_pca_res
+  )
+  
+mars_best_names <- c(
     "ncorr",
     "ncorr.yj",
     "ncorr.orq",
-    "rfe.yj",
-    "bag.rfe.yj"
-  ),
+    "pca",
+    "bag.yj",
+    "bag.orq",
+    "bag.pca"
+  )
+
+mars_rocs <-
+  map2_dfr(mars_best_res, mars_best_names,
   function(x, y)
     make_roc(x, y))
 
@@ -729,30 +653,36 @@ mars_rocs %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
   scale_color_brewer(palette="Set1") +
-  ggtitle("MARS")
+  ggtitle("MARS, ROC curves")
 ```
+
+### PR curves overlapped
+
+```{r}
+mars_prs <-
+  map2_dfr(mars_best_res,
+  mars_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+mars_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("MARS, PR curves")
+```
+
 
 ## Comparison of the preprocessing steps
 
 ```{r}
 mars_comp <-
   res_comp_table(
-    res_list = list(
-      mars_ncorr_res,
-      mars_ncoryj_res,
-      mars_ncorq_res,
-      mars_yjrfe_res,
-      bag_mars_yjrfe_res
-    ),
-    mod_names = c(
-      "ncorr",
-      "ncorr.yj",
-      "ncorr.orq",
-      "rfe.yj",
-      "bag.rfe.yj"
-    )
+    res_list = mars_best_res,
+    mod_names = mars_best_names
   )
 
 mars_posterior <-
@@ -762,7 +692,7 @@ mars_posterior <-
     seed = 100,
     refresh = 0,
     chains = 5,
-    cores = 2
+    cores = 6
   )
 
 autoplot(mars_posterior)
@@ -776,13 +706,20 @@ summary(mars_preproc_diff)
 
 # Linear support vector machines (lSVM)
 
+```{r}
+# models in this file
+readRDS(paste0(models_path, "models_svm_mlp.rds")) %>% 
+  filter(grepl("lsvm", wflow_id)) %>% 
+  pull(wflow_id)
+```
+
+
 ## NCORR recipe
 
 ```{r lsvm norm}
-# this one was obtained via racing
-lsvm_ncorr_res <- readRDS(paste0(models_path, "lsvm_ncorr_race_p30.rds"))
+lsvm_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_lsvm")
 
-plot_race(lsvm_ncorr_res)
+autoplot(lsvm_ncorr_res)
 ```
 
 ### Best models
@@ -792,25 +729,13 @@ lsvm_ncorr_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-### Predictors that remained
+
+## NCORR + YJ recipe
 
 ```{r}
-recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>% 
-  step_nzv(all_predictors()) %>%
-  step_normalize(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_corr(all_predictors(), threshold =0.59836019) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% ncol()
-```
+lsvm_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_lsvm")
 
-## NCOR + YJ recipe
-
-```{r}
-# trained with win-loss
-lsvm_ncoryj_res <- readRDS(paste0(models_path, "lsvm_ncoryj_race_p30_test.rds"))
-
-plot_race(lsvm_ncoryj_res)
+autoplot(lsvm_ncoryj_res)
 ```
 
 ### Best models
@@ -820,13 +745,12 @@ lsvm_ncoryj_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-## NCORQ recipe
+## NCORR + ORQ recipe
 
 ```{r}
-# obtained via win-loss
-lsvm_ncorq_res <- readRDS(paste0(models_path, "lsvm_ncorq_race_p30.rds"))
+lsvm_ncorq_res <-  read_wfset("models_svm_mlp.rds", "ncorrorq_lsvm")
 
-plot_race(lsvm_ncorq_res)
+autoplot(lsvm_ncorq_res)
 ```
 
 ### Best models
@@ -835,33 +759,20 @@ plot_race(lsvm_ncorq_res)
 lsvm_ncorq_res %>% show_best("roc_auc")
 ```
 
-## RFE + YJ recipe
+## PCA
 
 ```{r}
-lsvm_yjrfe_res <- readRDS(paste0(models_path, "lsvm_yjrfe_res_p30.rds"))
+lsvm_pca_res <-  read_wfset("models_svm_mlp.rds", "pca_lsvm")
 
-plot_race(lsvm_yjrfe_res)
+autoplot(lsvm_pca_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(lsvm_yjrfe_res)
+show_best(lsvm_pca_res, metric = "roc_auc")
 ```
 
-## RFE + YJ recipe Bayesian grid tuning
-
-```{r}
-lsvm_yjrfe_bres <- readRDS(paste0(models_path, "lsvm_yjrfe_bres_p30.rds"))
-
-autoplot(lsvm_yjrfe_bres)
-```
-
-### Best models
-
-```{r}
-show_best(lsvm_yjrfe_bres)
-```
 
 ## Comparison of the preprocessors
 
@@ -872,15 +783,13 @@ lsvm_best_res <- list(
     lsvm_ncorr_res,
     lsvm_ncoryj_res,
     lsvm_ncorq_res,
-    lsvm_yjrfe_res,
-    lsvm_yjrfe_bres
+    lsvm_pca_res
   )
   lsvm_best_names <- c(
     "ncorr",
     "ncorr.yj",
     "ncorr.orq",
-    "rfe.yj",
-    "rfe.yj.bayes"
+    "pca"
   )
 ```
 
@@ -924,14 +833,8 @@ lsvm_prs %>%
 ```{r}
 lsvm_comp <-
   res_comp_table(
-    res_list = list(
-      lsvm_ncorr_res,
-      lsvm_ncoryj_res,
-      lsvm_ncorq_res,
-      lsvm_yjrfe_res,
-      lsvm_yjrfe_bres
-    ),
-    mod_names = c("ncorr",  "ncorr.yj", "ncorr.orq", "rfe.yj.race", "rfe.yj.bayes")
+    res_list = lsvm_best_res,
+    mod_names = lsvm_best_names
   )
 
 lsvm_posterior <-
@@ -941,7 +844,7 @@ lsvm_posterior <-
     seed = 100,
     refresh = 0,
     chains = 5,
-    cores = 2
+    cores = 6
   )
 
 autoplot(lsvm_posterior)
@@ -960,9 +863,9 @@ summary(lsvm_preproc_diff)
 ## NCORR recipe
 
 ```{r psvm norm}
-psvm_ncorr_res <- readRDS(paste0(models_path, "psvm_ncorr_race_p30.rds"))
+psvm_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_psvm")
 
-plot_race(psvm_ncorr_res)
+autoplot(psvm_ncorr_res)
 ```
 
 ### Best models
@@ -972,12 +875,28 @@ psvm_ncorr_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-## NCORQ recipe
+
+## NCORR + YJ
 
 ```{r}
-psvm_ncorq_res <- readRDS(paste0(models_path, "psvm_ncorq_race_p30.rds"))
+psvm_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_psvm")
 
-plot_race(psvm_ncorq_res)
+autoplot(psvm_ncoryj_res)
+```
+
+### Best models
+
+```{r}
+show_best(psvm_ncoryj_res, metric = "roc_auc")
+```
+
+
+## NCORR + ORQ recipe
+
+```{r}
+psvm_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_psvm")
+
+autoplot(psvm_ncorq_res)
 ```
 
 ### Best models
@@ -987,26 +906,12 @@ psvm_ncorq_res %>%
   show_best("roc_auc")
 ```
 
-## NCORR + YJ
+## PCA 
 
 ```{r}
-psvm_ncoryj_res <- readRDS(paste0(models_path, "psvm_ncoryj_race_p30_test.rds"))
+psvm_pca_res <- read_wfset("models_svm_mlp.rds", "pca_psvm")
 
-plot_race(psvm_ncoryj_res)
-```
-
-### Best models
-
-```{r}
-show_best(psvm_ncoryj_res)
-```
-
-## PCA + YJ recipe
-
-```{r}
-psvm_pca_res <- readRDS(paste0(models_path, "psvm_pcayj_race_p30.rds"))
-
-plot_race(psvm_pca_res)
+autoplot(psvm_pca_res)
 ```
 
 ### Best models
@@ -1014,34 +919,6 @@ plot_race(psvm_pca_res)
 ```{r}
 psvm_pca_res %>% 
   show_best("roc_auc")
-```
-
-## RFE + YJ recipe
-
-```{r}
-psvm_yjrfe_res <- readRDS(paste0(models_path, "psvm_yjrfe_res_p30.rds"))
-
-plot_race(psvm_yjrfe_res)
-```
-
-### Best models
-
-```{r}
-show_best(psvm_yjrfe_res)
-```
-
-## RFE + YJ recipe Bayesian grid
-
-```{r}
-psvm_yjrfe_bres <- readRDS(paste0(models_path, "psvm_yjrfe_bres_p30.rds"))
-
-autoplot(psvm_yjrfe_bres)
-```
-
-### Best models
-
-```{r}
-show_best(psvm_yjrfe_bres)
 ```
 
 ## Comparison of the preprocessing steps
@@ -1053,18 +930,14 @@ psvm_best_res <- list(
     psvm_ncorr_res,
     psvm_ncorq_res,
     psvm_ncoryj_res,
-    psvm_pca_res,
-    psvm_yjrfe_res,
-    psvm_yjrfe_bres
+    psvm_pca_res
   )
 
 psvm_best_names <- c(
     "ncorr",
     "ncorr.orq",
     "ncorr.yj",
-    "pca.yj",
-    "rfr.yj.race",
-    "rfe.yj.bayes"
+    "pca"
   )
 ```
 
@@ -1113,17 +986,13 @@ psvm_comp <-
       psvm_ncorr_res,
       psvm_ncorq_res,
       psvm_ncoryj_res,
-      psvm_pca_res,
-      psvm_yjrfe_res,
-      psvm_yjrfe_bres
+      psvm_pca_res
     ),
     mod_names = c(
       "ncorr",
       "ncorr.orq",
       "ncorr.yj",
-      "pca.yj",
-      "rfe.yj.race",
-      "rfe.yj.bayes"
+      "pca.yj"
     )
   )
 
@@ -1134,7 +1003,7 @@ psvm_posterior <-
     seed = 100,
     refresh = 0,
     chains = 5,
-    cores = 2
+    cores = 4
   )
 
 autoplot(psvm_posterior)
@@ -1150,89 +1019,61 @@ summary(psvm_preproc_diff)
 
 # Radial Basis Function SVM
 
-## Main recipe
-
-```{r rsvm main}
-rbf_main_res <- readRDS(paste0(models_path, "rbfsvm_main_race_p30.rds"))
-
-plot_race(rbf_main_res)
-```
-
-### Best models
-
-```{r}
-show_best(rbf_main_res)
-```
-
 ## NCORR recipe
 
 ```{r}
-rbf_ncorr_res <- readRDS(paste0(models_path, "rbfsvm_ncorr_race_p30.rds"))
+rbf_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_rbfsvm")
 
-plot_race(rbf_ncorr_res)
+autoplot(rbf_ncorr_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(rbf_ncorr_res)
+show_best(rbf_ncorr_res, metric = "roc_auc")
 ```
 
-## NCORQ recipe
+## NCORR + YJ recipe
 
 ```{r}
-rbf_ncorq_res <- readRDS(paste0(models_path, "rbfsvm_ncorq_race_p30.rds"))
+rbf_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_rbfsvm")
 
-plot_race(rbf_ncorq_res)
+autoplot(rbf_ncoryj_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(rbf_ncorq_res)
+show_best(rbf_ncoryj_res, metric = "roc_auc")
 ```
 
-## NCORR + YJ
+## NCORR + ORQ recipe
 
 ```{r}
-rbf_ncoryj_res <- readRDS(paste0(models_path, "rbfsvm_ncoryj_race_p30.rds"))
+rbf_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_rbfsvm")
 
-plot_race(rbf_ncoryj_res)
+autoplot(rbf_ncorq_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(rbf_ncoryj_res)
+show_best(rbf_ncorq_res, metric = "roc_auc")
 ```
 
-## RFE + YJ recipe
+## PCA
 
 ```{r}
-rbfsvm_yjrfe_res <- readRDS(paste0(models_path, "rbfsvm_yjrfe_res_p30.rds"))
+rbf_pca_res <- read_wfset("models_svm_mlp.rds", "pca_rbfsvm")
 
-plot_race(rbfsvm_yjrfe_res)
+autoplot(rbf_pca_res)
 ```
 
-### Best models
 
 ```{r}
-show_best(rbfsvm_yjrfe_res)
+show_best(rbf_pca_res, metric = "roc_auc")
 ```
 
-## RFE + YJ recipe Bayesian grid
-
-```{r}
-rbfsvm_yjrfe_bres <- readRDS(paste0(models_path, "rbfsvm_yjrfe_bres_p30.rds"))
-
-autoplot(rbfsvm_yjrfe_bres)
-```
-
-### Best models
-
-```{r}
-show_best(rbfsvm_yjrfe_bres)
-```
 
 ## Comparison of the preprocessors
 
@@ -1240,21 +1081,18 @@ show_best(rbfsvm_yjrfe_bres)
 
 ```{r}
 rsvm_best_res <- list(
-    rbf_main_res,
     rbf_ncorr_res,
     rbf_ncorq_res,
     rbf_ncoryj_res,
-    rbfsvm_yjrfe_res,
-    rbfsvm_yjrfe_bres
+    rbf_pca_res
+    
   )
 
 rsvm_best_names <- c(
-    "main",
     "ncorr",
     "ncorr.orq",
     "ncorr.yj",
-    "rfe.yj.race",
-    "rfe.yj.bayes"
+    "pca"
   )
 ```
 
@@ -1309,7 +1147,7 @@ rbf_posterior <-
     seed = 100,
     refresh = 0,
     chains = 5,
-    cores = 2
+    cores = 6
   )
 
 autoplot(rbf_posterior)
@@ -1328,9 +1166,9 @@ summary(rbf_preproc_diff)
 ## NCORR recipe
 
 ```{r knn norm}
-knn_ncorr_res <- readRDS(paste0(models_path, "knn_ncorr_race_p30.rds"))
+knn_ncorr_res <- read_wfset("models_mars_knn.rds", "ncorr_knn")
 
-plot_race(knn_ncorr_res)
+autoplot(knn_ncorr_res)
 ```
 
 ### Best models
@@ -1340,12 +1178,26 @@ knn_ncorr_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-## NCORQ recipe
+## NCORR + YJ
 
 ```{r}
-knn_ncorq_res <- readRDS(paste0(models_path, "knn_ncorq_race_p30.rds"))
+knn_ncoryj_res <- read_wfset("models_mars_knn.rds", "ncorryj_knn")
 
-plot_race(knn_ncorq_res)
+autoplot(knn_ncoryj_res)
+```
+
+### Best models
+
+```{r}
+show_best(knn_ncoryj_res)
+```
+
+## NCORR + ORQ recipe
+
+```{r}
+knn_ncorq_res <- read_wfset("models_mars_knn.rds", "ncorrorq_knn")
+
+autoplot(knn_ncorq_res)
 ```
 
 ### Best models
@@ -1355,32 +1207,20 @@ knn_ncorq_res %>%
   show_best("roc_auc")
 ```
 
-## NCORR + YJ
+
+## PCA
 
 ```{r}
-knn_ncoryj_res <- readRDS(paste0(models_path, "knn_ncoryj_race_p30.rds"))
+knn_pca_res <- read_wfset("models_mars_knn.rds", "pca_knn")
 
-plot_race(knn_ncoryj_res)
+autoplot(knn_pca_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(knn_ncoryj_res)
-```
-
-## RFE + YJ recipe
-
-```{r}
-knn_yjrfe_res <- readRDS(paste0(models_path, "knn_yjrfe_res_p30.rds"))
-
-plot_race(knn_yjrfe_res)
-```
-
-### Best models
-
-```{r}
-show_best(knn_yjrfe_res)
+knn_pca_res %>% 
+  show_best("roc_auc")
 ```
 
 ## Comparison of the preprocessors
@@ -1391,11 +1231,11 @@ show_best(knn_yjrfe_res)
 knn_best_res <- list(knn_ncorr_res,
                      knn_ncorq_res,
                      knn_ncoryj_res,
-                     knn_yjrfe_res)
+                     knn_pca_res)
 knn_best_names <- c("ncorr",
                     "ncorr.orq",
                     "ncorr.yj",
-                    "rfe.yj")
+                    "pca")
 ```
 
 
@@ -1438,13 +1278,8 @@ knn_prs %>%
 ```{r}
 knn_comp <-
   res_comp_table(
-    res_list = list(
-      knn_ncorr_res,
-      knn_ncoryj_res,
-      knn_ncorq_res,
-      knn_yjrfe_res
-    ),
-    c("ncorr", "ncorr.yj", "ncorr.orq", "rfe.yj")
+    res_list = knn_best_res,
+    knn_best_names
   )
 
 knn_posterior <-
@@ -1454,7 +1289,7 @@ knn_posterior <-
     seed = 100,
     refresh = 0,
     chains = 5,
-    cores = 2
+    cores = 6
   )
 
 autoplot(knn_posterior)
@@ -1470,109 +1305,41 @@ summary(knn_preproc_diff)
 
 # Random Forest (RF)
 
-## Main recipe
+## Base recipe
 
-```{r rf main}
-rf_main_res <- readRDS(paste0(models_path, "rf_main_race_p30.rds"))
+```{r rf base}
+rf_base_res <- read_wfset("models_xgb_rf_light.rds", "base_rf")
 
-plot_race(rf_main_res)
+autoplot(rf_base_res)
 ```
 
 ### Best models
 
 ```{r}
-rf_main_res %>% 
+rf_base_res %>% 
   show_best("roc_auc", n = 5)
 ```
 
-## NCORR recipe
+## Base + Boruta feature selection
 
 ```{r}
-rf_ncorr_res <- readRDS(paste0(models_path, "rf_ncorr_p20.rds"))
+rf_base_bor_res <- read_wfset("models_xgb_rf_light.rds", "base_boruta_rf")
 
-rf_ncorr_res %>% autoplot()
-```
-
-### Best models
-
-```{r}
-rf_ncorr_res %>% 
-  show_best("roc_auc", n = 5)
-```
-
-## NCORR + YJ
-
-```{r}
-rf_ncoryj_res <- readRDS(paste0(models_path, "rf_ncoryj_race_p30.rds"))
-
-plot_race(rf_ncoryj_res)
-```
-
-### Best models
-
-```{r}
-show_best(rf_ncoryj_res)
-```
-
-## RFE + main recipe
-
-```{r}
-rf_mainrfe_res <- readRDS(paste0(models_path, "rf_mainrfe_res_p30.rds"))
-
-plot_race(rf_mainrfe_res)
-```
-
-### Best models
-
-```{r}
-show_best(rf_mainrfe_res)
-```
-
-## Boruta feature selection
-
-main recipe
-
-```{r}
-rf_mainbor_res <- readRDS(paste0(models_path, "rf_mainbor_p30.rds"))
-
-autoplot(rf_mainbor_res)
+autoplot(rf_base_bor_res)
 ```
 
 ```{r}
-show_best(rf_mainbor_res)
+show_best(rf_base_bor_res)
 ```
-
-yj transform and decorr
-
-```{r}
-rf_yjbor_res <- readRDS(paste0(models_path, "rf_yjbor_p30.rds"))
-
-autoplot(rf_yjbor_res)
-```
-
-```{r}
-show_best(rf_yjbor_res)
-```
-
 
 ## Comparison of preprocessors
 
 ### ROCs overlapped
 
 ```{r}
-rf_best_res <- list(rf_main_res,
-                rf_mainrfe_res,
-                rf_ncorr_res,
-                rf_ncoryj_res,
-                rf_mainbor_res,
-                rf_yjbor_res)
+rf_best_res <- list(rf_base_res, rf_base_bor_res)
   
-rf_best_names <- c("main", 
-             "main.rfe", 
-             "ncorr", 
-             "ncorr.yj",
-             "main.boruta",
-             "ncorr.yj.bor")
+rf_best_names <- c("base", "boruta")
 ```
 
 
@@ -1589,7 +1356,7 @@ rf_rocs %>%
   geom_abline(lty = 3) + 
   coord_equal() + 
   scale_color_brewer(palette="Set1") +
-  ggtitle("RF")
+  ggtitle("Random Forest, ROC curves")
 ```
 
 ### PR curves overlapped
@@ -1607,7 +1374,7 @@ rf_prs %>%
   geom_abline(lty = 3) + 
   coord_equal(ylim=c(0, 1)) + 
   scale_color_brewer(palette="Set1") +
-  ggtitle("RF, PR curves")
+  ggtitle("Random Forest, PR curves")
 ```
 
 ### Distributions
@@ -1645,153 +1412,120 @@ summary(rf_preproc_diff)
 BT are sensitive to hyper-parameters that's why, Bayesian grid search
 should be preferable.
 
-## Main recipe + win-loss search
+## Base recipe
 
-```{r xgb main}
-# win-loss search was used here
-xgb_main_wl <- readRDS(paste0(models_path, "xgb_main_race_p30.rds"))
+space search followed by the Bayesian optimization
 
-plot_race(xgb_main_wl)
+```{r, fig.width=8, fig.height=6}
+bt_base_res <- read_wfset("models_xgb_rf_light.rds", "base_bt_light")
+
+autoplot(bt_base_res)
 ```
 
 ### Best models
 
 ```{r}
-xgb_main_wl %>% 
+bt_base_res %>% 
   show_best(metric = "roc_auc")
 ```
 
-## NCORR + Bayes search
+
+## Base recipe + Bayesian optimization
 
 Bayesian search
 
-```{r}
-xgb_ncorr_bres <- readRDS(paste0(models_path, "xgb_ncorr_bres_p30_test.rds"))
+```{r, fig.width=8, fig.height=6}
+bt_base_bres <- readRDS(paste0(models_path, "base_bt_bres_light.rds"))
 
-xgb_ncorr_bres %>% 
+bt_base_bres %>% 
   autoplot()
 ```
 
 ### Best models
 
 ```{r}
-xgb_ncorr_bres %>% 
-  show_best(metric = "roc_auc", n = 5) 
+bt_base_bres %>% 
+  show_best(metric = "roc_auc") 
 ```
 
 >Shrinkage (learning rate) is a gradient boosting regularization procedure that helps modify the update rule, which is aided by a parameter known as the learning rate. The use of learning rates below 0.1 produces improvements that are significant in the generalization of a model.
 
-## RFE + main recipe + Bayesian search
+## Base recipe + Boruta feature selection
 
 ```{r}
-xgb_mainrfe_bayes <- readRDS(paste0(models_path, "bt_mainrfe_bres_p30.rds"))
+bt_base_bor_res <- read_wfset("models_xgb_rf_light.rds", "base_boruta_bt_light")
 
-autoplot(xgb_mainrfe_bayes)
+autoplot(bt_base_bor_res)
 ```
 
 ### Best models
 
 ```{r}
-show_best(xgb_mainrfe_bayes)
+show_best(bt_base_bor_res)
 ```
 
-### Predictors that remained
+## Base recipe + Boruta + Bayesian search
 
-```{r}
-rfe_model <- rand_forest(mode = "classification") %>%
-  set_engine("ranger", num.threads = 8, importance = "impurity")
+```{r, fig.width=10}
+bt_base_bor_bres <- readRDS(paste0(models_path, "base_bt_boruta_bres_light.rds"))
 
-recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>%
-  step_normalize(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_select_vip(
-    all_numeric_predictors(),
-    outcome = "resistance",
-    model = rfe_model,
-    threshold = .9
-  ) %>% prep() %>% juice() %>% colnames()
-```
-
-## Main recipe + Boruta + Bayesian search
-
-```{r}
-xgb_main_bor_bres <- readRDS(paste0(models_path, "bt_mainbor_bres_p30.rds"))
-
-autoplot(xgb_main_bor_bres)
+autoplot(bt_base_bor_bres)
 ```
 
 ```{r}
-show_best(xgb_main_bor_bres)
+show_best(bt_base_bor_bres)
 ```
-
-## Boruta + YJ-transform + Bayesian search
-
-```{r}
-xgb_yjbor_bres <- readRDS(paste0(models_path, "xgb_yjbor_bres_p30.rds"))
-
-autoplot(xgb_yjbor_bres)
-```
-
-```{r}
-show_best(xgb_yjbor_bres)
-```
-
 
 ## Comparison of the preprocessors
 
 ### ROCs
 
 ```{r}
-xgb_best_res <- list(
-    xgb_main_wl,
-    xgb_ncorr_bres,
-    xgb_mainrfe_bayes,
-    xgb_main_bor_bres,
-    xgb_yjbor_bres
+bt_best_res <- list(
+    bt_base_res,
+    bt_base_bres,
+    bt_base_bor_res,
+    bt_base_bor_bres
   )
 
-xgb_best_names <- c(
-    "main",
-    "ncorr.bayes",
-    "main.rfe.bayes",
-    "main.bor.bayes",
-    "ncorr.yj.bor"
+bt_best_names <- c(
+    "base",
+    "base.bayes",
+    "base.bor",
+    "base.bor.bayes"
   )
 
-xgb_rocs <-
-  map2_dfr(xgb_best_res,
-  xgb_best_names,
+bt_rocs <-
+  map2_dfr(bt_best_res,
+  bt_best_names,
   function(x, y)
     make_roc(x, y))
 
-xgb_rocs %>% 
+bt_rocs %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
   scale_color_brewer(palette="Set1") +
-  ggtitle("XGB, ROC curves")
+  ggtitle("GBT, ROC curves")
 ```
 
 ### PR curves overlapped
 
 ```{r}
-xgb_prs <-
-  map2_dfr(xgb_best_res,
-           xgb_best_names,
+bt_prs <-
+  map2_dfr(bt_best_res,
+           bt_best_names,
            function(x, y)
              make_pr(x, y))
 
-xgb_prs %>% 
+bt_prs %>% 
   ggplot(aes(x = recall, y = precision, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal(ylim=c(0, 1)) + 
   scale_color_brewer(palette="Set1") +
-  ggtitle("XGB, PR curves")
+  ggtitle("GBT, PR curves")
 ```
 
 ### Posterior distributions
@@ -1799,15 +1533,15 @@ xgb_prs %>%
 I have excluded models tuned with win-loss approach, since their performance was significantly worse
 
 ```{r}
-xgb_comp <-
+bt_comp <-
   res_comp_table(
-    res_list = xgb_best_res,
-    mod_names = xgb_best_names
+    res_list = bt_best_res,
+    mod_names = bt_best_names
   )
 
-xgb_posterior <-
+bt_posterior <-
   perf_mod(
-    xgb_comp,
+    bt_comp,
     iter = 4000,
     seed = 100,
     refresh = 0,
@@ -1815,120 +1549,155 @@ xgb_posterior <-
     cores = 4
   )
 
-autoplot(xgb_posterior)
+autoplot(bt_posterior)
 ```
 
 ### Estimating the differences
 
 ```{r}
-xgb_preproc_diff <- contrast_models(xgb_posterior, seed = 100) 
+bt_preproc_diff <- contrast_models(bt_posterior, seed = 100) 
 
-summary(xgb_preproc_diff) 
+summary(bt_preproc_diff) 
 ```
 
-# Multilayer perceptron (MLP NNET)
+# Multilayer perceptron (MLP)
 
 aka feed-forward neural network
 
-## NCORQ recipe
+## NCORR recipe
 
-Applying ORQ-normalization improves MLP (nnet) performance
 
-```{r mlp orq}
-# win-loss here
-mlp_ncorq_wl <- readRDS(paste0(models_path, "mlp_nnet_ncorq_race_p30.rds"))
+```{r mlp ncorr}
+mlp_ncor_res <- read_wfset("models_svm_mlp.rds", "ncorr_mlp_nnet")
 
-plot_race(mlp_ncorq_wl)
+autoplot(mlp_ncor_res)
 ```
 
 ### Best models
 
 ```{r}
-mlp_ncorq_wl %>% 
+mlp_ncor_res %>% 
   show_best("roc_auc")
 ```
 
 ### Predictors that remained
 
 ```{r}
+mlp_cor_threshold <- mlp_ncor_res %>% select_best("roc_auc") %>% pull(corr_tune)
+
 recipe(resistance ~ ., data = df_train) %>%
-     update_role(strain, new_role = "ID") %>% 
-     step_nzv(all_predictors()) %>%
-     step_orderNorm(all_numeric_predictors()) %>%
-     step_dummy(all_nominal_predictors()) %>%
-     step_corr(all_predictors(), threshold = 0.5860753) %>%
-     step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>%  colnames()
-```
-
-## PCA + YJ recipe
-
-```{r}
-mlp_pca <- readRDS(paste0(models_path, "mlp_nnet_pcayj_p20.rds"))
-
-mlp_pca %>% autoplot()
-```
-
-### Best models
-
-```{r}
-mlp_pca %>% show_best("roc_auc")
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(all_predictors(), threshold = mlp_cor_threshold) %>% 
+  prep() %>% 
+  juice() %>% 
+  colnames()
 ```
 
 ## NCORR + YJ recipe
 
 ```{r}
-mlp_ncoryj_res <- readRDS(paste0(models_path, "mlp_ncoryj_p20_test.rds"))
+mlp_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_mlp_nnet")
 
 mlp_ncoryj_res %>% autoplot()
 ```
 
-### Best ones
+### Best models
 
 ```{r}
 mlp_ncoryj_res %>% 
   show_best("roc_auc")
 ```
 
-## Keras + PCA + YJ
+## NCORR + ORQ
 
 ```{r}
-mlpk_pca <- readRDS(paste0(models_path, "mlp_keras_pcayj_race_p30.rds"))
+mlp_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_mlp_nnet")
 
-mlpk_pca %>% plot_race()
+mlp_ncorq_res %>% autoplot()
 ```
 
 ### Best models
 
 ```{r}
-mlpk_pca %>% show_best("roc_auc")
+mlp_ncorq_res %>% show_best(metric = "roc_auc")
 ```
 
-## RFE + YJ recipe
+## PCA
 
 ```{r}
-mlp_yjrfe_wl <- readRDS(paste0(models_path, "mlp_yjrfe_res_p30.rds"))
+mlp_pca_res <- read_wfset("models_svm_mlp.rds", "pca_mlp_nnet")
 
-plot_race(mlp_yjrfe_wl)
-```
-
-### Best models
-
-```{r}
-show_best(mlp_yjrfe_wl)
-```
-
-## Bag MLP + RFE + YJ recipe
-
-```{r}
-mlp_bag_yjrfe_wl <- readRDS(paste0(models_path, "bag_mlp_yjrfe_res_p30.rds"))
-
-plot_race(mlp_bag_yjrfe_wl)
+mlp_pca_res %>% autoplot()
 ```
 
 ### Best models
 
 ```{r}
-show_best(mlp_bag_yjrfe_wl)
+mlp_pca_res %>% show_best("roc_auc")
+```
+
+
+# Bag MLP
+
+## NCORR
+
+```{r}
+mlp_bag_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_bag_mlp")
+
+autoplot(mlp_bag_ncorr_res)
+```
+
+### Best models
+
+```{r}
+show_best(mlp_bag_ncorr_res)
+```
+
+## NCORR + YJ
+
+```{r}
+mlp_bag_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_bag_mlp")
+
+autoplot(mlp_bag_ncoryj_res)
+```
+
+### Best models
+
+```{r}
+show_best(mlp_bag_ncoryj_res, metric = "roc_auc")
+```
+
+## NCORR + ORQ
+
+```{r}
+mlp_bag_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_bag_mlp")
+
+autoplot(mlp_bag_ncorq_res)
+```
+
+### Best models
+
+```{r}
+show_best(mlp_bag_ncorq_res, metric = "roc_auc")
+```
+
+## PCA
+
+```{r}
+mlp_bag_pca_res <- read_wfset("models_svm_mlp.rds", "pca_bag_mlp")
+
+autoplot(mlp_bag_ncoryj_res)
+```
+
+### Best models
+
+```{r}
+show_best(mlp_bag_pca_res, metric = "roc_auc")
 ```
 
 ## Comparison of the preprocessors
@@ -1937,19 +1706,25 @@ show_best(mlp_bag_yjrfe_wl)
 
 ```{r}
 mlp_best_res <- list(
+    mlp_ncor_res,
     mlp_ncoryj_res,
-    mlp_pca,
-    mlp_ncorq_wl,
-    mlp_bag_yjrfe_wl,
-    mlp_yjrfe_wl
+    mlp_ncorq_res,
+    mlp_pca_res,
+    mlp_bag_ncorr_res,
+    mlp_bag_ncoryj_res,
+    mlp_bag_ncorq_res,
+    mlp_pca_res
   )
 
 mlp_best_names <- c(
+    "ncorr",
     "ncorr.yj",
-    "pca.yj",
     "ncorr.orq",
-    "bag.rfe.yj.race",
-    "rfe.yj.race"
+    "pca",
+    "bag.ncorr",
+    "bag.ncorr.yj",
+    "bag.ncorr.orq",
+    "bag.pca"
   )
 
 mlp_rocs <-
@@ -1964,7 +1739,7 @@ mlp_rocs %>%
   geom_abline(lty = 3) + 
   coord_equal() + 
   scale_color_brewer(palette="Set1") +
-  ggtitle("MLP/FFNN, ROC curves")
+  ggtitle("MLP, ROC curves")
 ```
 
 ### PR curves overlapped
@@ -1982,7 +1757,7 @@ mlp_prs %>%
   geom_abline(lty = 3) + 
   coord_equal(ylim=c(0, 1)) + 
   scale_color_brewer(palette="Set1") +
-  ggtitle("MLP/FFNN, PR curves")
+  ggtitle("MLP, PR curves")
 ```
 
 ### Posterior distributions
@@ -2001,7 +1776,7 @@ mlp_posterior <-
     seed = 100,
     refresh = 0,
     chains = 5,
-    cores = 2
+    cores = 6
   )
 
 autoplot(mlp_posterior)
@@ -2015,129 +1790,28 @@ mlp_preproc_diff <- contrast_models(mlp_posterior, seed = 100)
 summary(mlp_preproc_diff)
 ```
 
-# Models stacking
-
-For successful stacking, you need the same set of predictors in every
-candidate model.
-
-Models with NOCORR recipe were among the best
-
-Models must be trained using the same set of features!
-
-Each model in the same stack must have same resampling method!
-
-## Make a BRES stack
-
-```{r stacking, eval=FALSE}
-library(stacks)
-
-# no corr set
-ncorr_stack_bres <-
-  stacks() %>% 
-  add_candidates(rf_ncorr_bres) %>%
-  add_candidates(xgb_ncorr_bres_long) %>% 
-  add_candidates(nnet_ncorr_bres)
-
-as_tibble(ncorr_stack_bres)
-```
-
-Evaluating the stack
-
-```{r, eval=FALSE}
-ncorr_stack_bres %>% 
-  blend_predictions(penalty = seq(0.01, 0.4, 0.01)) %>% 
-  autoplot()
-```
-
-Let's choose penalty
-
-```{r, eval=FALSE}
-ncorr_stack_model <- 
-  ncorr_stack_bres %>% 
-  blend_predictions(penalty = 0.03)
-```
-
-```{r, eval=FALSE}
-autoplot(ncorr_stack_model, type = "weights")
-```
-
-```{r, eval=FALSE}
-ncorr_stack_model <- 
-  ncorr_stack_model %>% 
-  fit_members()
-
-ncorr_stack_model
-```
-
-```{r, eval=FALSE}
-data_pred <- df_test %>% 
-  bind_cols(predict(ncorr_stack_model, ., type = "class"))
-
-npv(data_pred, truth = resistance, .pred_class)
-```
-
-```{r, eval=FALSE}
-roc_curve(data = data_pred, truth = resistance, .pred_HR_nnet_ncorr_bres_1_18) %>% 
-  autoplot()
-```
-
-```{r, eval=FALSE}
-yardstick::kap(data_pred, truth = resistance, .pred_HR)
-```
 
 # Comparison of models
-
-## List of winners
-
-The best model + preprocessor combinations:
-
--   LRL: ncorr+yj
-
--   MARS: bag+rfe+yj
-
--   lSVM: any ncorr; rfe are probably less overfitted
-
--   pSVM: any ncorr; rfe are probably less overfitted
-
--   rbfSVM: main (likely is overfitted); rfe bayes or any ncorr
-
--   kNN: rfe yj
-
--   RF: main or ncorr, but rfe is not overfitted
-
--   XGB: ncorr bayes or boruta + yj; the rest are very close to each other
-
--   MLP: ncorr yj and orq; the rest are very close to each other
 
 ## ROCs
 
 ```{r comparison1}
 # you will need these two objects later
 best_resamples_list <- list(
-    lr_ncoryj_res,
-    lr_ncorr_res,
-    lsvm_ncoryj_res,
-    psvm_ncoryj_res,
-    rbf_ncoryj_res,
-    knn_yjrfe_res,
-    rf_ncoryj_res,
-    xgb_ncorr_bres,
-    xgb_yjbor_bres,
-    mlp_pca,
-    mlp_bag_yjrfe_wl
+    lr_base_orq_res,
+    lsvm_ncorr_res,
+    psvm_ncorq_res,
+    mlp_bag_ncorq_res,
+    rf_base_res,
+    bt_base_bres
   )
 best_resamples_names <- c(
-    "LR yj",
-    "LR norm",
-    "SVM lin",
-    "SVM poly",
-    "SVM rbf",
-    "kNN",
+    "LLR",
+    "SVM linear",
+    "SVM polynomial",
+    "MLP",
     "RF",
-    "XGB, ncorr",
-    "XGB, yj+boruta",
-    "MLP, pca.yj",
-    "MLP, bag.ncorr.yj"
+    "GBT"
   )
 
 # calculate rocs
@@ -2152,9 +1826,8 @@ roc_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_viridis_d(direction = 1, option = "B") +
-  #scale_color_brewer(palette="Set1") +
-  ggtitle("All the best models")
+  scale_color_brewer(palette="Set2") +
+  ggtitle("The best models, ROC curves")
 
 ```
 
@@ -2178,8 +1851,7 @@ mod_posterior <-
   )
 
 autoplot(mod_posterior) + 
-  scale_color_brewer(palette = "Set3") +
-  theme_dark()
+  scale_color_brewer(palette = "Set2")
 ```
 
 ## Difference estimates
@@ -2190,27 +1862,33 @@ mod_diff <- contrast_models(mod_posterior, seed = 100)
 summary(mod_diff)
 ```
 
-Insignificant differences in mean AUCs:
+### Insignificant differences in mean AUCs:
 
 ```{r}
 summary(mod_diff) %>% filter(lower < 0, upper > 0)
 ```
+### Significant differences in mean AUCs:
 
-LR is insignificantly better than XGBs and SVMs
+```{r}
+summary(mod_diff) %>% filter(lower < 0, upper < 0)
+```
+
+```{r}
+summary(mod_diff) %>% filter(lower > 0, upper > 0)
+```
+
 
 ## Top models
+
+### ROC curves
 
 ```{r comparison2}
 # calculate rocs
 top_models <- list(
-    lr_ncoryj_res,
-    psvm_ncoryj_res,
-    lsvm_ncoryj_res,
-    mlp_bag_yjrfe_wl,
-    xgb_ncorr_bres,
-    xgb_yjbor_bres)
+    lr_base_res,
+    bt_base_bres)
 
-top_names <- c("LR", "pSVM", "lSVM", "MLP", "XGB ncorr", "XGB yj boruta")
+top_names <- c("LR", "GBT")
 
 roc3_df <-
   map2_dfr(top_models,
@@ -2227,17 +1905,15 @@ roc3_df %>%
 
 ```
 
-Based on ROC shape I would choose XGB for the final fit - the XGB model
-reaches sensitivity = 1.0 earlier than other and that's what I need
-(find all HRs)
+### PR curves
 
 ```{r}
-pr3_df <-
+pr_top_df <-
   map2_dfr(top_models,
            top_names,
            function(x, y)
              make_pr(x, y))
-pr3_df %>% 
+pr_top_df %>% 
   ggplot(aes(x = recall, y = precision, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
@@ -2246,7 +1922,7 @@ pr3_df %>%
   ggtitle("PR curves, top models")
 ```
 
-
+### Difference estimates
 
 ```{r}
 mod_comparison <- res_comp_table(top_models,
@@ -2263,7 +1939,7 @@ mod_posterior <-
   )
 
 autoplot(mod_posterior) + 
-  scale_color_brewer(palette = "Set3")
+  scale_color_brewer(palette = "Set1")
 ```
 
 
@@ -2273,6 +1949,7 @@ mod_diff <- contrast_models(mod_posterior, seed = 100)
 summary(mod_diff)
 ```
 
+GBT is significantly better by 0.014 mean AUC
 
 # Final fit
 
@@ -2324,22 +2001,16 @@ update_corr_treshold <- function(base_recipe = yj_recipe, step_no, corr_threshol
   return(base_recipe)
 }
 
-# required by 1
-main_rfe_recipe <- main_recipe %>%
-  step_select_vip(
-    all_numeric_predictors(),
-    outcome = "resistance",
-    model = rfe_model,
-    threshold = .9
-  )
-
 # best models
+#top_models <- list(lr_base_res, gbt_base_bres)
 best_models <- map(top_models, ~select_best(., "roc_auc"))
 ```
 
 ## LR final
 
 ```{r lr ff}
+set.seed(800)
+
 # LR specs
 lr_spec_blank <- logistic_reg(
   penalty = tune(),
@@ -2355,229 +2026,67 @@ lr_spec_tuned <-
     engine = "glmnet",
     mode = "classification"
   )
-# LR last fit and metrics
-yj_recipe_tuned_lr <-
-  update_corr_treshold(step_no = 6, corr_threshold = best_models[[1]]$corr_tune)
 
+# LR last fit and metrics
 lr_final <-
   run_last_fit("LR",
                lr_spec_blank,
                lr_spec_tuned,
-               recipe = yj_recipe_tuned_lr,
+               recipe = base_recipe,
                return_fit = TRUE)
 
 lr_final[[1]]
 ```
 
-## MLP final
-
-```{r mlp ff}
-# MLP specs
-mlp_spec_blank <-
-  mlp(hidden_units = tune(),
-      penalty = tune(),
-      epochs = tune()) %>%
-  set_mode("classification") %>%
-  set_engine("nnet", num.threads = 4)
-
-mlp_spec_tuned <-
-  mlp(hidden_units = best_models[[4]]$hidden_units,
-      penalty = best_models[[4]]$penalty,
-      epochs = best_models[[4]]$epochs) %>%
-  set_mode("classification") %>%
-  set_engine("nnet", num.threads = 4)
-# MLP last fit and metrics
-yj_recipe_tuned_mlp <-
-  update_corr_treshold(step_no = 6, corr_threshold = best_models[[4]]$corr_tune)
-
-run_last_fit("MLP", mlp_spec_blank, mlp_spec_tuned, recipe = yj_recipe_tuned_mlp)
-```
 
 
-## pSVM final
+## GBT final
 
-```{r psvm ff}
-# polySVM specs /number 2/
-psvm_spec_blank <- svm_poly(
-  cost = tune(),
-  degree = tune(),
-  scale_factor = tune(),
-  margin = NULL
+```{r gbt ff}
+set.seed(300)
+
+library(bonsai)
+
+# GBT base specs /number 2/
+gbt_spec_blank <- boost_tree(
+      trees = tune(),
+      mtry = tune(),
+      min_n = tune(),
+      tree_depth = tune(),
+      learn_rate = tune(),
+      loss_reduction = tune()) %>%
+      set_engine("lightgbm", num.threads = 8) %>%
+      set_mode("classification") %>% translate()
+
+gbt_spec_tuned <- boost_tree(
+  trees = best_models[[2]]$trees,
+  mtry = best_models[[2]]$mtry,
+  min_n = best_models[[2]]$min_n,
+  tree_depth = best_models[[2]]$tree_depth,
+  learn_rate = best_models[[2]]$learn_rate,
+  loss_reduction = best_models[[2]]$loss_reduction
 ) %>%
-  set_mode("classification") %>%
-  set_engine("kernlab", num.threads = 4)
+  set_engine("lightgbm", num.threads = 8) %>%
+  set_mode("classification")
 
-psvm_spec_tuned <- svm_poly(
-  cost = best_models[[2]]$cost,
-  degree = best_models[[2]]$degree,
-  scale_factor = best_models[[2]]$scale_factor,
-  margin = NULL
-) %>%
-  set_mode("classification") %>%
-  set_engine("kernlab", num.threads = 4)
-# polySVM last fit and metrics
-yj_recipe_tuned_psvm <-
-  update_corr_treshold(step_no = 6, corr_threshold = best_models[[2]]$corr_tune)
-
-psvm_final <-
+# GBT base last fit and metrics
+gbt_base_final <-
   run_last_fit(
-    "polySVM",
-    psvm_spec_blank,
-    psvm_spec_tuned,
-    recipe = yj_recipe_tuned_psvm,
+    "GBT",
+    gbt_spec_blank,
+    gbt_spec_tuned,
+    recipe = base_recipe,
     return_fit = TRUE
   )
 
-psvm_final[[1]]
+gbt_base_final[[1]]
 ```
 
-
-## lSVM final
-
-```{r lsvm ff}
-# linSVM specs
-lsvm_spec_blank <- svm_linear(cost = tune()) %>%
-  set_mode("classification") %>%
-  set_engine("kernlab")
-
-lsvm_spec_tuned <- svm_linear(cost = best_models[[3]]$cost) %>%
-  set_mode("classification") %>%
-  set_engine("kernlab")
-# linSVM last fit and metrics
-yj_recipe_tuned_lsvm <-
-  update_corr_treshold(step_no = 6, corr_threshold = best_models[[3]]$corr_tune)
-
-run_last_fit("linSVM", lsvm_spec_blank, lsvm_spec_tuned, recipe = yj_recipe_tuned_lsvm)
-```
-
-
-## XGB ncorr final
-
-```{r xgb1 ff}
-best_learn_rate_xgb <-
-  xgb_ncorr_bres %>% 
-  show_best('roc_auc', n = 10) %>% 
-  filter(learn_rate < 0.1) %>% 
-  select(
-    mtry,
-    min_n,
-    tree_depth,
-    learn_rate,
-    loss_reduction,
-    sample_size,
-    stop_iter,
-    corr_tune,
-    .config
-  )
-
-# XGB ncorr specs /number 5/
-xgb_spec_blank <- boost_tree(
-  trees = 50,
-  mtry = tune(),
-  min_n = tune(),
-  tree_depth = tune(),
-  learn_rate = tune(),
-  loss_reduction = tune(),
-  sample_size = tune(),
-  stop_iter = tune()
-) %>%
-  set_engine("xgboost", num.threads = 4) %>%
-  set_mode("classification")
-
-xgb_ncorr_spec_tuned <- boost_tree(
-  trees = 50,
-  mtry = best_models[[5]]$mtry,
-  min_n = best_models[[5]]$min_n,
-  tree_depth = best_models[[5]]$tree_depth,
-  learn_rate = best_models[[5]]$learn_rate,
-  loss_reduction = best_models[[5]]$loss_reduction,
-  sample_size = best_models[[5]]$sample_size,
-  stop_iter = best_models[[5]]$stop_iter
-) %>%
-  set_engine("xgboost", num.threads = 4) %>%
-  set_mode("classification")
-
-# xgb_ncorr_spec_tuned <- boost_tree(
-#   trees = 50,
-#   mtry = best_learn_rate_xgb$mtry,
-#   min_n = best_learn_rate_xgb$min_n,
-#   tree_depth = best_learn_rate_xgb$tree_depth,
-#   learn_rate = best_learn_rate_xgb$learn_rate,
-#   loss_reduction = best_learn_rate_xgb$loss_reduction,
-#   sample_size = best_learn_rate_xgb$sample_size,
-#   stop_iter = best_learn_rate_xgb$stop_iter
-# ) %>%
-#   set_engine("xgboost", num.threads = 4) %>%
-#   set_mode("classification")
-
-# XGB nocorr last fit and metrics
-ncorr_recipe_tuned_xgb <-
-  update_corr_treshold(
-    base_recipe = ncorr_recipe,
-    step_no = 4,
-    corr_threshold = best_models[[5]]$corr_tune
-  )
-
-# ncorr_recipe_tuned_xgb <-
-#   update_corr_treshold(
-#     base_recipe = ncorr_recipe,
-#     step_no = 4,
-#     corr_threshold = best_learn_rate_xgb$corr_tune
-#   )
-
-xgb_ncorr_final <-
-  run_last_fit(
-    "XGB.ncorr",
-    xgb_spec_blank,
-    xgb_ncorr_spec_tuned,
-    recipe = ncorr_recipe_tuned_xgb,
-    return_fit = TRUE
-  )
-
-xgb_ncorr_final[[1]]
-```
-
-
-## XGB YJ Boruta final
-
-```{r xgb2 ff}
-# XGB yjbor specs /number 6/
-xgb_yjbor_spec_tuned <- boost_tree(
-  trees = 50,
-  mtry = best_models[[6]]$mtry,
-  min_n = best_models[[6]]$min_n,
-  tree_depth = best_models[[6]]$tree_depth,
-  learn_rate = best_models[[6]]$learn_rate,
-  loss_reduction = best_models[[6]]$loss_reduction,
-  sample_size = best_models[[6]]$sample_size,
-  stop_iter = best_models[[6]]$stop_iter
-) %>%
-  set_engine("xgboost", num.threads = 4) %>%
-  set_mode("classification")
-
-ncoryj_bor_recipe_tuned_xgb <-
-  update_corr_treshold(
-    base_recipe = yj_boruta_recipe,
-    step_no = 6,
-    corr_threshold = best_models[[6]]$corr_tune
-  )
-
-# XGB yjbor last fit and metrics
-xgb_yjbor_final <- run_last_fit(
-  "XGB.yjbor",
-  xgb_spec_blank,
-  xgb_yjbor_spec_tuned,
-  recipe = ncoryj_bor_recipe_tuned_xgb,
-  return_fit = TRUE
-)
-
-xgb_yjbor_final[[1]]
-```
 
 ## ROC
 
 ```{r ff roc}
-mod_labels <- c("XGB ncorr", "LLR")
+mod_labels <- c("GBT", "LR")
 
 make_final_roc <- function(fit_obj, title=""){
   fit_obj %>%   
@@ -2593,7 +2102,7 @@ make_final_pr <- function(fit_obj, title=""){
   autoplot() + ggtitle(title)
 }
 
-rocs_final <- map2(list(xgb_yjbor_final[[2]], lr_final[[2]]), mod_labels, ~make_final_roc(.x, .y))
+rocs_final <- map2(list(gbt_base_final[[2]], lr_final[[2]]), mod_labels, ~make_final_roc(.x, .y))
 
 library(patchwork)
 
@@ -2610,7 +2119,7 @@ make_final_pr <- function(fit_obj, title=""){
   autoplot() + ggtitle(title)
 }
 
-prs_final <- map2(list(xgb_ncorr_final[[2]], lr_final[[2]]), mod_labels, ~make_final_pr(.x, .y))
+prs_final <- map2(list(gbt_base_final[[2]], lr_final[[2]]), mod_labels, ~make_final_pr(.x, .y))
 
 (prs_final[[1]] | prs_final[[2]])
 ```
@@ -2628,7 +2137,7 @@ make_cm <- function(fit_obj, title="") {
   autoplot(type = "heatmap") + ggtitle(title)
 }
 
-conf_mat_final <- map2(list(xgb_ncorr_final[[2]], lr_final[[2]]), mod_labels, ~make_cm(.x, .y))
+conf_mat_final <- map2(list(gbt_base_final[[2]], lr_final[[2]]), mod_labels, ~make_cm(.x, .y))
 
 (conf_mat_final[[1]] | conf_mat_final[[2]])
 ```
@@ -2647,7 +2156,7 @@ get_metrics <- function(fit_obj, label="") {
   mutate(model = label)
 }
 
-bind_rows(get_metrics(xgb_ncorr_final[[2]], "XGB ncorr"),
+bind_rows(get_metrics(gbt_base_final[[2]], "GBT"),
           get_metrics(lr_final[[2]], "LLR")) %>%
   pivot_wider(names_from = model, values_from = .estimate)
 ```
@@ -2718,19 +2227,19 @@ senspec_plot <- function(fit_obj, title="") {
 }
 ```
 
-XGB
+### GTB
 
 ```{r}
-senspec_plot(xgb_ncorr_final[[2]], "XGB ncorr")
+senspec_plot(gbt_base_final[[2]], "GBT")
 ```
 
-LR
+### LLR
 
 ```{r}
 senspec_plot(lr_final[[2]], "LLR")
 ```
 
-j-index and the probability threshold
+### j-index and the probability threshold
 
 ```{r}
 lr_final[[2]] %>%
@@ -2764,13 +2273,13 @@ optimize_prediction <- function(fit.obj){
   return(optimized)
 }
 
-cm_optimized_xgb <- optimize_prediction(xgb_ncorr_final[[2]]) %>% 
+cm_optimized_xgb <- optimize_prediction(gbt_base_final[[2]]) %>% 
   conf_mat(truth = resistance, estimate = .pred) %>% 
-  autoplot(type = "heatmap") + ggtitle("XGB ncorr")
+  autoplot(type = "heatmap") + ggtitle("GBT")
 
 cm_optimized_lr <- optimize_prediction(lr_final[[2]]) %>% 
   conf_mat(truth = resistance, estimate = .pred) %>% 
-  autoplot(type = "heatmap") + ggtitle("LLR")
+  autoplot(type = "heatmap") + ggtitle("LR")
 
 (cm_optimized_xgb | cm_optimized_lr)
 ```
@@ -2786,8 +2295,7 @@ get_metrics2 <- function(fit.obj, label){
 }
 
 bind_rows(
-  get_metrics2(xgb_yjbor_final[[2]], "XGB yjbor"),
-  get_metrics2(xgb_ncorr_final[[2]], "XGB ncorr"),
+  get_metrics2(gbt_base_final[[2]], "GBT"),
   get_metrics2(lr_final[[2]], "LLR")
 ) %>% 
   pivot_wider(names_from = model, values_from = .estimate) %>% 
@@ -2796,13 +2304,13 @@ bind_rows(
 
 # Post-modelling analysis
 
-## Features used by the best model
+## Features used by the best model (LR)
 
 ### How many predictors were removed
 
 Overall, we have `r ncol(df_train) - 2` predictors.
 
-#### Predictors left after applying `step_nzv()`
+#### Predictors left after the first `step_nzv()`
 
 ```{r n nzv}
 # NB: strain and resistance are still there
@@ -2815,14 +2323,17 @@ recipe(resistance ~ ., data = df_train) %>%
 ```
 
 
-#### Predictors left after applying both `step_nzv()` and `step_corr()`
+#### Predictors left after the first and the second `step_nzv()`
 
 ```{r n corr}
 # NB: strain and resistance are still there
-yj_recipe_tuned_lr %>% prep() %>% juice() %>% ncol()
+recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>% prep() %>% juice() %>% ncol()
 ```
-
-Correlation threshold in the best LLR is `r best_models[[1]]$corr_tune`
 
 ### Features importance
 
@@ -2839,7 +2350,7 @@ lr_coeff_df <- lr_final[[2]] %>%
 lr_coeff_df
 ```
 
-Just 19 features plus Intercept are used by the model.
+Just 34 features plus Intercept are used by the model.
 
 On the `odds.ratio` column: 
 
@@ -2848,7 +2359,7 @@ On the `odds.ratio` column:
 - apparently, nonHR is outcome 1 here and HR is outcome 0, because increase in `n.beta.lac` decreases chances of outcome 1.
 
 
-### Predictors increasing the risk of HR:
+### Predictors decreasing the risk of HR:
 
 ```{r feat pos}
 lr_coeff_df %>% 
@@ -2856,7 +2367,7 @@ lr_coeff_df %>%
   select(term)
 ```
 
-### Predictors decreasing the risk of HR
+### Predictors increasing the risk of HR
 
 ```{r feat neg}
 lr_coeff_df %>% 
@@ -2866,13 +2377,16 @@ lr_coeff_df %>%
 
 ### Plot
 
-```{r}
+```{r, fig.width=8, fig.height=6}
 lr_coeff_df %>% 
-  mutate(effect = if_else(estimate < 0, "positive", "negative")) %>% 
-  ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio)) +
+  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>% 
+  filter(term != "(Intercept)") %>% 
+  ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
   geom_col(aes(fill=effect)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 6)) +
-  xlab("")
+  scale_fill_brewer(palette="Paired") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 12)) +
+  xlab("") +
+  coord_flip()
 ```
 
 # Minimal set of predictors chosen by Boruta
@@ -2884,17 +2398,10 @@ Here we use the same pre-processing as before: yj_recipe with tuned corr. thresh
 ```{r min feat set}
 set.seed(42)
 
-ncoryj_recipe_tuned_xgb <-
-  update_corr_treshold(
-    base_recipe = yj_recipe,
-    step_no = 6,
-    corr_threshold = best_models[[6]]$corr_tune
-  )
+df_train_bor <-
+  base_recipe %>% prep() %>% juice() %>% select(-strain)
 
-df_train_yj <-
-  ncoryj_recipe_tuned_xgb %>% prep() %>% juice() %>% select(-strain)
-
-bor_pred_selection <- Boruta::Boruta(resistance ~., data = df_train_yj, maxRuns=200)
+bor_pred_selection <- Boruta::Boruta(resistance ~., data = df_train_bor, maxRuns=300)
 
 bor_pred_selection
 ```
@@ -2903,17 +2410,17 @@ bor_pred_selection
 plot(bor_pred_selection)
 ```
 
-```{r min feat boxplot, fig.width=10}
+```{r min feat boxplot}
 minimal_pred <- bor_pred_selection$ImpHistory %>%
   as_tibble() %>%
-  pivot_longer(cols = 1:77,
+  pivot_longer(cols = 1:104,
                names_to = "pred",
                values_to = "value") %>%
   group_by(pred) %>%
   mutate(median = median(value)) 
 
 minimal_pred %>% 
-  filter(median > 9.4) %>%
+  filter(median > 9) %>%
   ggplot(aes(reorder(pred, median), value)) +
   geom_boxplot(notch = T) +
   geom_violin(alpha = 0.1) +
@@ -2926,43 +2433,33 @@ minimal_pred %>%
   ylab("Z-score")
 ```
 
+Top 5 predictors: 
+
 ```{r}
-minimal_pred_best <- minimal_pred %>% filter(median > 11.5) %>% select(-median)
+minimal_pred_best <- minimal_pred %>% filter(pred == "IS21" |
+                                             pred == "ISAS1" |
+                                             pred == "TEM.beta.lactamase" |
+                                             pred == "n.TEM.1" |
+                                             pred == "IS6") %>% select(-median)
 
 kruskal.test(minimal_pred_best$value, minimal_pred_best$pred)
 ```
 
-```{r}
-minimal_pred_best <- minimal_pred %>% filter(median > 13.5) %>% select(-median)
-
-kruskal.test(minimal_pred_best$value, minimal_pred_best$pred)
-```
-
-n.TEM.1 and IS6 differ non-significantly
-
-n.rep.plasmid.TEM and min_distance_is_gene differ significantly
-
-
-Why to choose the top 3?
-
-Their 'boxes' overlap.
-
-## An RF model with the top 3 predictors
+## A BT model with the top 5 predictors
 
 ```{r}
-minimal_pred %>% distinct(pred, .keep_all = T) %>% arrange(-median)
+minimal_pred_best %>% distinct(pred, .keep_all = F) 
 ```
 
 ```{r min recipe}
 top_predictors <- 
-  minimal_pred %>% 
+  minimal_pred_best %>% 
   #filter(median > 10) %>% 
-  distinct(pred, .keep_all = T) %>% 
-  arrange(-median) %>% 
-  head(n = 3) %>% 
+  distinct(pred, .keep_all = F) %>% 
   pull(pred)
 
-data_strain_min <- data_strain %>% select(resistance, all_of(top_predictors))
+data_strain_min <- data_strain %>% 
+  select(resistance, all_of(top_predictors))
 
 set.seed(124)
 
@@ -2973,29 +2470,40 @@ df_test_min <- testing(data_split_min)
 
 cv_folds_min <- vfold_cv(df_train_min, strata = "resistance", v = 10, repeats = 10)
 
-min_set_recipe <- recipe(resistance ~ ., data = df_train_min) %>% 
-  step_YeoJohnson(all_numeric_predictors()) %>% 
+base_min_pred_recipe <- recipe(resistance ~ ., data = df_train_min) %>%
+  step_nzv(all_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
   step_smote(resistance, over_ratio = 1, seed = 100)
 
-rf_spec <-
-  rand_forest(mtry = tune(), min_n = tune()) %>%
-  set_engine('ranger', num.threads = 6) %>%
-  set_mode('classification')
+lgb_spec <- boost_tree(
+  mtry = tune(),
+  trees = tune(),
+  min_n = tune(),
+  tree_depth = tune(),
+  learn_rate = tune(),
+  loss_reduction = tune(),
+  sample_size = tune(),
+  stop_iter = tune(),
+  mode = "classification"
+) %>% 
+  set_engine(engine = "lightgbm", num.threads = 8) %>% 
+  translate()
 
 min_pred_wf <- workflow() %>% 
-  add_model(rf_spec) %>% 
-  add_recipe(min_set_recipe)
+  add_model(lgb_spec) %>% 
+  add_recipe(base_min_pred_recipe)
 
 param_set <- extract_parameter_set_dials(min_pred_wf) %>%
   finalize(x = df_train_min %>% select(-resistance))
 ```
 
 
-If you need to train this model again run this chunk:
+If you want to train this model again run this chunk:
 
 ```{r rf min3 train, eval=FALSE}
-rf_min_res <- min_pred_wf %>%
+lgb_min_res <- min_pred_wf %>%
   tune_grid(
     param_info = param_set,
     grid = 20,
@@ -3005,206 +2513,84 @@ rf_min_res <- min_pred_wf %>%
     metrics = cls_metrics
   )
 
-saveRDS(rf_min_res, paste0(models_path, "rf_min3_res.rds"))
+saveRDS(lgb_min_res, paste0(models_path, "lgb_min5_res.rds"))
 ```
 
-By default this chunk is used:
+By default this code is used:
 
 ```{r rf min3 res}
-rf_min_res <- readRDS(paste0(models_path, "rf_min3_res.rds"))
-autoplot(rf_min_res)
+lgb_min_res <- readRDS(paste0(models_path, "lgb_min5_res.rds"))
+
+autoplot(lgb_min_res)
 ```
 
 
 ```{r}
-show_best(rf_min_res, metric= "roc_auc")
-```
-
-## An XGB model with the top 3 predictors
-
-same top 3 predictors from Boruta selection
-
-```{r xgb min3}
-xgb_min3_bres <- readRDS(paste0(models_path, "xgb_min3_yj_bres_p30.rds"))
-
-autoplot(xgb_min3_bres)
-```
-
-```{r}
-show_best(xgb_min3_bres)
+show_best(lgb_min_res, metric= "roc_auc")
 ```
 
 ## ROCs
 
-```{r min3 rocs}
-top_models <- list(
-    lr_ncoryj_res,
-    rf_min_res,
-    xgb_min3_bres)
-
-top_names <- c("LR", "RF top 3", "XGB top 3")
-
-roc_min_df <-
-  map2_dfr(top_models,
-           top_names,
-           function(x, y)
-             make_roc(x, y))
-roc_min_df %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = -1, option = "H")+
-  scale_color_brewer(palette = "Set1") +
-  ggtitle("")
+```{r gbt min roc}
+autoplot(make_roc(lgb_min_res, "")) +
+  ggtitle("GBT, min 5")
 ```
-
-## Distribution comparison
-
-```{r}
-mod_comparison <- res_comp_table(top_models,
-                                 top_names)
-
-mod_posterior <-
-  perf_mod(
-    mod_comparison,
-    iter = 2000,
-    seed = 100,
-    refresh = 0,
-    chains = 5,
-    cores = 8
-  )
-
-autoplot(mod_posterior) + 
-  scale_color_brewer(palette = "Set1") 
-```
-
-
-```{r}
-mod_diff <- contrast_models(mod_posterior, seed = 100) 
-
-summary(mod_diff)
-```
-
 
 ## Test set
 
 ### RF min 3
 
 ```{r rf min3 test}
-rf_best_top3 <- select_best(rf_min_res, metric = "roc_auc")
+lgb_best_top5 <- select_best(lgb_min_res, metric = "roc_auc")
 
-rf_min_tuned <-
-  rand_forest(mtry = rf_best_top3$mtry, 
-              min_n = rf_best_top3$min_n) %>%
-  set_engine('ranger', num.threads = 2) %>%
-  set_mode('classification')
+lgb_min_tuned <- boost_tree(
+  mtry = lgb_best_top5$mtry,
+  trees = lgb_best_top5$trees,
+  min_n = lgb_best_top5$min_n,
+  tree_depth = lgb_best_top5$tree_depth,
+  learn_rate = lgb_best_top5$learn_rate,
+  loss_reduction = lgb_best_top5$loss_reduction,
+  sample_size = lgb_best_top5$sample_size,
+  stop_iter = lgb_best_top5$stop_iter,
+  mode = "classification"
+) %>% 
+  set_engine(engine = "lightgbm", num.threads = 8) %>% 
+  translate()
 
-rf_min_final <- run_last_fit(
-  "RF top 3",
-  rf_spec,
-  rf_min_tuned,
-  recipe = min_set_recipe,
+lgb_min_final <- run_last_fit(
+  "LGB top 5",
+  lgb_spec,
+  lgb_min_tuned,
+  recipe = base_min_pred_recipe,
   train_test_split = data_split_min,
   return_fit = TRUE
 )
 
-rf_min_final[[1]]
+lgb_min_final[[1]]
 ```
 
 #### Final ROC
 
 ```{r}
-make_final_roc(rf_min_final[[2]], "RF top 3")
+make_final_roc(lgb_min_final[[2]], "LGB top 5")
 ```
 
 #### Final confusion matrix
 
 ```{r}
-make_cm(rf_min_final[[2]])
+make_cm(lgb_min_final[[2]])
 ```
 
 #### Final metrix
 
 ```{r}
-get_metrics(rf_min_final[[2]], "RF top 3") %>% pivot_wider(names_from = model, values_from = .estimate)
+get_metrics(lgb_min_final[[2]], "LGB top 5") %>% pivot_wider(names_from = model, values_from = .estimate)
 ```
 
 #### Final sensitivity/specificity plot
 
 ```{r}
-senspec_plot(rf_min_final[[2]], "RF top 3")
-```
-
-This one lacks high sensitivity.
-
-### XGB min 3
-
-```{r xgb min3 test}
-boost_tree_xgboost_spec <-
-  boost_tree(
-    tree_depth = tune(),
-    trees = tune(),
-    learn_rate = tune(),
-    min_n = tune(),
-    loss_reduction = tune(),
-    sample_size = tune(),
-    stop_iter = tune()
-  ) %>%
-  set_engine('xgboost', num.threads = 4) %>%
-  set_mode('classification')
-
-
-
-xgb_best_top3 <- select_best(xgb_min3_bres, metric = "roc_auc")
-
-xgb_min_tuned <-
-  boost_tree(
-    trees = 50,
-    min_n = xgb_best_top3$min_n,
-    tree_depth = xgb_best_top3$tree_depth,
-    learn_rate = xgb_best_top3$learn_rate,
-    loss_reduction = xgb_best_top3$loss_reduction,
-    sample_size = xgb_best_top3$sample_size,
-    stop_iter = xgb_best_top3$stop_iter
-  ) %>%
-  set_engine('xgboost', num.threads = 2) %>%
-  set_mode('classification')
-
-xgb_min_final <- run_last_fit(
-  "XGB top 3",
-  boost_tree_xgboost_spec,
-  xgb_min_tuned,
-  recipe = min_set_recipe,
-  train_test_split = data_split_min,
-  return_fit = TRUE
-)
-
-xgb_min_final[[1]]
-```
-
-#### Final ROC
-
-```{r}
-make_final_roc(xgb_min_final[[2]], "xgb top 3")
-```
-
-#### Final confusion matrix
-
-```{r}
-make_cm(xgb_min_final[[2]])
-```
-
-#### Final metrix
-
-```{r}
-get_metrics(xgb_min_final[[2]], "xgb top 3") %>% pivot_wider(names_from = model, values_from = .estimate)
-```
-
-#### Final sensitivity/specificity plot
-
-```{r}
-senspec_plot(xgb_min_final[[2]], "xgb top 3")
+senspec_plot(lgb_min_final[[2]], "LGB top 5")
 ```
 
 ## DALEX

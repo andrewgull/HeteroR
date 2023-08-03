@@ -86,3 +86,11 @@ plot_validation_results <- function(dat, components) {
     scale_color_brewer(palette = "Set1") + 
     scale_fill_brewer(palette = "Set1")
 }
+
+# to read workflowsets file and return the required workflow by ID
+read_wfset <- function(wf_file, wf_id, models_path="/mnt/data/andrei/Data/HeteroR/results/models/scheme12/"){
+  readRDS(paste0(models_path, wf_file)) %>% 
+    filter(wflow_id == wf_id) %>% 
+    pull(result) %>% 
+    pluck(1)
+} 
