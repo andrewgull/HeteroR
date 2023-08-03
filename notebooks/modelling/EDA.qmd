@@ -367,11 +367,12 @@ pcayj_recipe <-
   step_pca(all_numeric_predictors(), num_comp = 4) %>% 
   step_normalize(all_numeric_predictors())
 
-pcayj_recipe %>% 
+Fig_6A <- pcayj_recipe %>% 
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("PC1", "PC2", "PC3", "PC4")) +
   ggtitle("Principal Component Analysis")
+Fig_6A
 ```
 
 ### Explained variance percentage
@@ -436,11 +437,12 @@ kpcayj_recipe <-
   step_kpca_poly(all_numeric_predictors(), num_comp = 9) %>% 
   step_normalize(all_numeric_predictors())
 
-kpcayj_recipe %>% 
+Fig_6B <- kpcayj_recipe %>% 
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4")) +
   ggtitle("Kernel Principal Component Analysis")
+Fig_6B
 ```
 
 ## ICA - Independent Component Analysis
@@ -553,11 +555,12 @@ umapu_recipe <- orq_recipe %>%
     neighbors = 25
   )
 
-umapuyj_recipe %>%
+Fig_6C <- umapuyj_recipe %>%
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP unsupervised")
+Fig_6C
 ```
 
 ### Supervised
@@ -590,12 +593,24 @@ umaps_recipe <- orq_recipe %>%
     neighbors = 25
   )
 
-umaps_recipe %>%
+Fig_6D <- umaps_recipe %>%
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP supervised")
+Fig_6D
 ```
+
+Fig_6
+
+```{r,fig.height=10, fig.width=10}
+Fig_6 <- ggarrange(Fig_6A, Fig_6B, Fig_6C, Fig_6D,
+                    labels = c("A", "B", "C", "D"),
+                    ncol = 2, nrow = 2, common.legend = TRUE)
+Fig_6
+```
+
+
 
 ### With added FP and FN
 
@@ -822,14 +837,16 @@ ggplot(data_strain, aes(n.beta.lac)) +
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
 ```{r}
-ggplot(data_strain, aes(n.beta.lac.4)) +
+Fig_3A <- ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
   xlab("N beta-lact > 4") +
   ylab("proportion of strains") +
   scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
   theme(legend.title=element_blank())
+Fig_3A
 ```
+
 
 Now the chance of being HR is higher than the chance of being nonHR
 
@@ -1083,11 +1100,19 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
 As proportion:
 
 ```{r}
-ggplot(data_strain, aes(TEM.beta.lactamase)) +
+Fig_3B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("TEM beta-lactamase") +
   ylab("proportion")
+Fig_3B
+```
+
+```{r}
+Fig_3 <- ggarrange(Fig_3A , Fig_3B ,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1, common.legend = TRUE)
+Fig_3
 ```
 
 ### Other TEM columns
@@ -1703,7 +1728,7 @@ facet_names <- c("n.rep.chrom" = "chromosome",
                  "n.rep.plasmid" = "plasmids",
                  "n.rep.total" = "total")
 
-ggplot(rep_count, aes(resistance, n.rep)) +
+Fig_4A <-  ggplot(rep_count, aes(resistance, n.rep)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1713,6 +1738,7 @@ ggplot(rep_count, aes(resistance, n.rep)) +
   ylab("n repeats") +
   xlab("") +
   guides(fill = "none")
+Fig_4A
 ```
 
 ```{r}
@@ -1752,7 +1778,7 @@ facet_names <- c("med.AR.len.chrom" = "chromosome",
                  "med.AR.len.plasmid" = "plasmids",
                  "med.AR.len" = "total")
 
-ar_len %>% 
+Fig_4B <- ar_len %>% 
   filter(ar.len > 0) %>% 
   ggplot(aes(resistance, ar.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
@@ -1764,6 +1790,7 @@ ar_len %>%
   ylab("avg AR length") +
   xlab("") +
   guides(fill = "none")
+Fig_4B
 ```
 
 ```{r}
@@ -1788,7 +1815,7 @@ facet_names <- c("min.dist.oriC.chrom" = "chromosome",
                  "min.dist.oriC.plasmid" = "plasmids",
                  "min.dist.oriC" = "both")
 
-ggplot(min_ori, aes(resistance, dist)) +
+Fig_4C <- ggplot(min_ori, aes(resistance, dist)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1798,7 +1825,18 @@ ggplot(min_ori, aes(resistance, dist)) +
   ylab("min dist oriC") +
   xlab("") +
   guides(fill = "none")
+Fig_4C
 ```
+
+Fig4 
+
+```{r,fig.height=10, fig.width=6}
+Fig_4 <- ggarrange(Fig_4A, Fig_4B, Fig_4C,
+                    labels = c("A", "B", "C"),
+                    ncol = 1, nrow = 3)
+Fig_4
+```
+
 
 ```{r}
 min_ori %>% 
@@ -2104,11 +2142,10 @@ data_strain %>%
   guides(fill = "none")
 ```
 
-
 ### IS max length
 
 ```{r}
-data_strain %>% 
+Fig_5A <- data_strain %>% 
   ggplot(aes(resistance, max.is.len)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2117,6 +2154,7 @@ data_strain %>%
   coord_trans(y="sqrt") +
   ylab("max IS length") +
   guides(fill="none")
+Fig_5A
 ```
 
 ```{r}
@@ -2132,7 +2170,7 @@ kruskal.test(data_strain$max.is.len, data_strain$resistance)
 ### IS copies count
 
 ```{r}
-data_strain %>% 
+Fig_5C <- data_strain %>% 
   ggplot(aes(resistance, n.is.tot)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2141,6 +2179,7 @@ data_strain %>%
   coord_trans(y="sqrt") +
   ylab("IS copy number") +
   guides(fill="none")
+Fig_5C
 ```
 
 ```{r}
@@ -2156,7 +2195,7 @@ kruskal.test(data_strain$n.is.tot, data_strain$resistance)
 ### Total family number
 
 ```{r}
-data_strain %>% 
+Fig_5B <- data_strain %>% 
   ggplot(aes(resistance, n.is.fam)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2164,6 +2203,7 @@ data_strain %>%
   scale_fill_brewer(palette = "Pastel1") +
   ylab("IS families") +
   guides(fill="none")
+Fig_5B
 ```
 
 ```{r}
@@ -2185,7 +2225,7 @@ exp(coef(isfam_pois_fit))
 ### min IS distance to the gene
 
 ```{r}
-data_strain %>% 
+Fig_5D <- data_strain %>% 
   ggplot(aes(resistance, min_distance_is_gene)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2193,7 +2233,16 @@ data_strain %>%
   scale_fill_brewer(palette = "Pastel1") +
   ylab("min distance") +
   guides(fill="none")
+Fig_5D
 ```
+
+```{r,fig.height=8, fig.width=9}
+Fig_5 <- ggarrange(Fig_5A, Fig_5B, Fig_5C,Fig_5D,
+                    labels = c("A", "B", "C", "D"),
+                    ncol = 2, nrow = 2)
+Fig_5
+```
+
 
 ```{r}
 data_strain %>% 
