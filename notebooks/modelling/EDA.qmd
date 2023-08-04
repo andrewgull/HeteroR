@@ -840,11 +840,12 @@ When number of BL genes is greater than 3, quite likely that the strain is HR or
 Fig_3A <- ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
-  xlab("N beta-lact > 4") +
+  xlab("N beta-lactamase") +
   ylab("proportion of strains") +
-  scale_x_discrete(breaks = c(0, 1), labels = c("no" = "No", "yes" = "Yes"))+
+  scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme(legend.title=element_blank())
 Fig_3A
+
 ```
 
 
@@ -1109,7 +1110,7 @@ Fig_3B
 ```
 
 ```{r}
-Fig_3 <- ggarrange(Fig_3A , Fig_3B ,
+Fig_3 <- ggarrange(Fig_3A , Fig_3B + ylab("") ,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE)
 Fig_3
