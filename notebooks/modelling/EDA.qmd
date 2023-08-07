@@ -2171,7 +2171,7 @@ kruskal.test(data_strain$max.is.len, data_strain$resistance)
 ### IS copies count
 
 ```{r}
-Fig_5C <- data_strain %>% 
+Fig_5D <- data_strain %>% 
   ggplot(aes(resistance, n.is.tot)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2180,7 +2180,7 @@ Fig_5C <- data_strain %>%
   coord_trans(y="sqrt") +
   ylab("IS copy number") +
   guides(fill="none")
-Fig_5C
+Fig_5D
 ```
 
 ```{r}
@@ -2196,7 +2196,7 @@ kruskal.test(data_strain$n.is.tot, data_strain$resistance)
 ### Total family number
 
 ```{r}
-Fig_5B <- data_strain %>% 
+Fig_5C <- data_strain %>% 
   ggplot(aes(resistance, n.is.fam)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2204,7 +2204,7 @@ Fig_5B <- data_strain %>%
   scale_fill_brewer(palette = "Pastel1") +
   ylab("IS families") +
   guides(fill="none")
-Fig_5B
+Fig_5C
 ```
 
 ```{r}
@@ -2226,7 +2226,7 @@ exp(coef(isfam_pois_fit))
 ### min IS distance to the gene
 
 ```{r}
-Fig_5D <- data_strain %>% 
+Fig_5B <- data_strain %>% 
   ggplot(aes(resistance, min_distance_is_gene)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2234,7 +2234,7 @@ Fig_5D <- data_strain %>%
   scale_fill_brewer(palette = "Pastel1") +
   ylab("min distance") +
   guides(fill="none")
-Fig_5D
+Fig_5B
 ```
 
 ```{r,fig.height=8, fig.width=9}
