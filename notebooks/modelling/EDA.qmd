@@ -1,4 +1,4 @@
----
+F---
 title: "Exploratory Data Analysis of Pip/Tazo HR strains"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
@@ -610,8 +610,6 @@ Fig_6 <- ggarrange(Fig_6A, Fig_6B, Fig_6C, Fig_6D,
 Fig_6
 ```
 
-
-
 ### With added FP and FN
 
 They come from modelling of course (the last fit + extract predictions)
@@ -847,7 +845,6 @@ Fig_3A <- ggplot(data_strain, aes(n.beta.lac.4)) +
 Fig_3A
 
 ```
-
 
 Now the chance of being HR is higher than the chance of being nonHR
 
@@ -1112,7 +1109,7 @@ Fig_3B
 ```{r}
 Fig_3 <- ggarrange(Fig_3A , Fig_3B + ylab("") ,
                     labels = c("A", "B"),
-                    ncol = 2, nrow = 1, common.legend = TRUE)
+                    ncol = 2, nrow = 1, common.legend = TRUE,legend = "bottom")
 Fig_3
 ```
 
@@ -1829,7 +1826,7 @@ Fig_4C <- ggplot(min_ori, aes(resistance, dist)) +
 Fig_4C
 ```
 
-Fig4 
+Fig4
 
 ```{r,fig.height=10, fig.width=6}
 Fig_4 <- ggarrange(Fig_4A, Fig_4B, Fig_4C,
@@ -1837,7 +1834,6 @@ Fig_4 <- ggarrange(Fig_4A, Fig_4B, Fig_4C,
                     ncol = 1, nrow = 3)
 Fig_4
 ```
-
 
 ```{r}
 min_ori %>% 
@@ -2243,7 +2239,6 @@ Fig_5 <- ggarrange(Fig_5A, Fig_5B, Fig_5C,Fig_5D,
                     ncol = 2, nrow = 2)
 Fig_5
 ```
-
 
 ```{r}
 data_strain %>% 
