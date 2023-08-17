@@ -1730,7 +1730,7 @@ Fig_4A <-  ggplot(rep_count, aes(resistance, n.rep)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   ylab("n repeats") +
@@ -1782,7 +1782,7 @@ Fig_4B <- ar_len %>%
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   #coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   ylab("avg AR length") +
@@ -1817,7 +1817,7 @@ Fig_4C <- ggplot(min_ori, aes(resistance, dist)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   ylab("min dist oriC") +
