@@ -1,0 +1,1518 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-07-10"
+---
+
+```{r}
+library(tidymodels)
+library(workflowsets)
+library(bonsai)
+library(themis)
+library(colino)
+library(bestNormalize)
+library(baguette)
+library(lightgbm)
+library(tidyposterior)
+library(ggplot2)
+source("functions.R")
+```
+
+f# data - from run_models 
+
+```{r}
+data_strain <- readr::read_csv("data/features_strain.csv",
+                               na = c("NA", "-Inf"),
+                               show_col_types = FALSE)
+
+hr_testing <- readr::read_csv("data/heteroresistance_testing_gr12.csv",
+                              show_col_types = FALSE)
+
+data_strain <- data_strain %>%
+  left_join(hr_testing, by = "strain")
+
+data_strain <- data_strain %>%
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>%
+  filter(resistance != "R", strain != "DA63310") %>%
+  mutate(
+    resistance = factor(resistance, levels = c("HR", "nonHR")),
+    chrom.status = factor(chrom.status)
+  )
+
+data_strain$N50 <- NULL
+data_strain[is.na(data_strain)] <- 0
+
+#### SPLIT ####
+# same seed number as in modelling.Rmd
+set.seed(124)
+
+# splitting proportion should be the same
+data_split <- initial_split(data_strain,
+                            prop = 0.8,
+                            strata = resistance)
+
+df_train <- training(data_split)
+df_test <- testing(data_split)
+
+cv_folds <- vfold_cv(df_train,
+                     strata = "resistance",
+                     v = 10,
+                     repeats =10)
+
+# metrics for imbalanced classes
+imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
+
+
+cores = 8
+```
+
+# recipies 
+
+```{r}
+base_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>%
+  step_pca(all_predictors(), num_comp = tune()) %>%
+  step_normalize(all_numeric_predictors())
+
+base_yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+base_orq_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100)
+
+ncorr_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
+
+
+ncorr_yj_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
+
+
+ncorr_orq_recipe <- recipe(resistance ~ ., data = df_train) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_orderNorm(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+  step_corr(all_predictors(), threshold = tune("corr_tune"))
+
+
+base_boruta_recipe <- base_recipe %>%
+  step_select_boruta(all_predictors(), outcome = "resistance")
+
+```
+
+# models 
+
+```{r}
+lr1 <- logistic_reg(
+        penalty = tune(),
+        mixture = 1) %>%
+      set_engine("glmnet")
+
+mars <- mars(
+      mode = "classification",
+      engine = "earth",
+      num_terms = tune(),
+      prod_degree = tune(),
+      prune_method = "backward") %>%
+      translate()
+
+lsvm <- svm_linear(
+        cost = tune()) %>% # margin - for regression only
+      set_mode("classification") %>%
+      set_engine("kernlab")  # default
+
+rf <- rand_forest(
+      mtry = tune(),
+      min_n = tune(),
+      trees = 1000) %>%
+      set_engine("ranger", num.threads = cores) %>%
+      set_mode("classification")
+
+bt <- boost_tree(
+      trees = 50,
+      mtry = tune(),
+      min_n = tune(),
+      tree_depth = tune(),
+      learn_rate = tune(),
+      loss_reduction = tune(),
+      sample_size = tune(),
+      stop_iter = tune()) %>%
+      set_engine("lightgbm", num.threads = cores) %>%
+      set_mode("classification")
+
+bt_light <- boost_tree(
+      trees = tune(),
+      mtry = tune(),
+      min_n = tune(),
+      tree_depth = tune(),
+      learn_rate = tune(),
+      loss_reduction = tune()) %>%
+      set_engine("lightgbm", num.threads = cores) %>%
+      set_mode("classification") %>% translate()
+
+knn <- nearest_neighbor(
+      neighbors = tune(),
+      weight_func = tune(),
+      dist_power = tune()) %>%
+      set_engine("kknn") %>%
+      set_mode("classification")
+
+psvm <- svm_poly(
+      cost = tune(),
+      degree = tune(),
+      scale_factor = tune(),
+      margin = NULL) %>% # regression only
+      set_mode("classification") %>%
+      set_engine("kernlab", num.threads = cores)
+
+rbfsvm <- svm_rbf(
+      cost = tune(),
+      rbf_sigma = tune(),
+      margin = tune(),
+      mode = "classification"
+    ) %>%
+      set_engine("kernlab", num.threads = cores)
+
+mlp_nnet <-
+      mlp(hidden_units = tune(),
+          penalty = tune(),
+          epochs = tune()) %>%
+      set_mode("classification") %>%
+      set_engine("nnet", num.threads = cores)
+
+bag_mars <- bag_mars(
+      mode = "classification",
+      num_terms = tune(),
+      prod_degree = tune(),
+      prune_method = tune(),
+      engine = "earth"
+    )
+    
+bag_mlp <- bag_mlp(
+      hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune()) %>%
+      set_engine("nnet", num.threads = cores) %>%
+      set_mode("classification") %>%
+      translate()
+
+
+```
+
+#LLR 
+
+## workflow set
+
+```{r}
+read_models_llr <- function() {
+  file_path <-
+    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_llr.rds"
+  
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding rith building the workflowset of the models.")
+    models_llr <-
+      workflow_set(
+        preproc = list(
+          base = base_recipe,
+          baseyj = base_yj_recipe,
+          baseorq = base_orq_recipe,
+          pca = pca_recipe
+        ),
+        
+        models = list(LLR = lr1),
+        cross = TRUE
+      )
+    set.seed(124)
+    models_llr <-
+      models_llr %>%
+      workflow_map(
+        "tune_grid",
+        resamples = cv_folds,
+        grid = 30,
+        metrics = imbalanced_metrics,
+        verbose = TRUE,
+        control = control_grid(save_pred = TRUE,
+                               save_workflow = TRUE)
+      )
+    saveRDS(object = models_llr, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_llr.rds")
+  } else {
+    models_llr <- readRDS(file_path)
+  }
+  
+  return(models_llr)
+}
+
+models_llr <- read_models_llr()
+```
+
+```{r}
+autoplot(models_llr, select_best= TRUE)
+```
+
+## base_LLR
+
+```{r}
+autoplot(models_llr$result[[1]])
+```
+
+## baseyj_LLR
+
+```{r}
+autoplot(models_llr$result[[2]])
+```
+
+## baseorq_LLR 
+
+```{r}
+autoplot(models_llr$result[[3]])
+```
+
+## pca_LLR
+
+```{r}
+autoplot(models_llr$result[[4]])
+```
+
+## Compare workflows
+
+### ROCs overlapped
+
+```{r}
+lr_best_res <- list(
+    models_llr$result[[1]],
+    models_llr$result[[2]],
+    models_llr$result[[3]],
+    models_llr$result[[4]]
+  )
+
+lr_best_names <-
+  c(
+    "base_LLR",
+    "baseyj_LLR",
+    "baseorq_LLR",
+    "pca_LLR"
+  )
+
+
+LLR_rocs <-
+  map2_dfr(lr_best_res,
+  lr_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+LLR_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("LR")
+```
+
+### PR-curves overlapped
+
+```{r lr compare pr}
+lr_prs <-
+  map2_dfr(lr_best_res,
+  lr_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+lr_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("LR")
+```
+
+
+# SVM MLP
+
+```{r}
+read_models_svm_mlp <- function() {
+  file_path <-
+    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_svm_mlp.rds"
+  
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding rith building the workflowset of the models.")
+models_svm_mlp <- 
+   workflow_set(
+      preproc = list(ncorr = ncorr_recipe, ncorryj = ncorr_yj_recipe, base_orq =ncorr_orq_recipe , pca = pca_recipe ),
+      
+      models = list(lsvm = lsvm, 
+                    psvm = psvm, 
+                    rbfsvm = rbfsvm,
+                    mlp_nnet = mlp_nnet,
+                    bag_mlp = bag_mlp ),
+      cross = TRUE
+   )
+set.seed(124)
+models_svm_mlp <-
+  models_svm_mlp %>%
+  workflow_map(
+    "tune_grid",
+    resamples = cv_folds,
+    grid = 30,
+    metrics = imbalanced_metrics,
+    verbose = TRUE,
+      control = control_grid(save_pred = TRUE,
+                             save_workflow = TRUE)
+  )
+
+models_svm_mlp 
+saveRDS(object = models_svm_mlp, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_svm_mlp.rds")
+  } else {
+    models_svm_mlp <- readRDS(file_path)
+  }
+  
+  return(models_svm_mlp)
+}
+
+models_svm_mlp <- read_models_svm_mlp()
+```
+
+
+```{r}
+autoplot(models_svm_mlp, select_best= TRUE)
+```
+
+## ncorr_lsvm  
+
+```{r}
+autoplot(models_svm_mlp$result[[1]])
+```
+
+## ncorryj_lsvm  
+
+```{r}
+autoplot(models_svm_mlp$result[[6]])
+```
+
+## ncorrorq_lsvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[11]])
+```
+
+## pca_lsvm
+
+```{r}
+autoplot(models_svm_mlp$result[[16]])
+```
+
+## Compare lsvm
+
+### ROCs overlapped
+
+```{r}
+lsvm_best_res <- list(
+    models_svm_mlp$result[[1]],
+    models_svm_mlp$result[[6]],
+    models_svm_mlp$result[[11]],
+    models_svm_mlp$result[[16]]
+  )
+
+lsvm_best_names <-
+  c(
+    "ncorr_lsvm",
+    "ncorryj_lsvm",
+    "ncorrorq_lsvm",
+    "pca_lsvm"
+  )
+
+
+lsvm_rocs <-
+  map2_dfr(lsvm_best_res,
+  lsvm_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+lsvm_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("lsvm")
+```
+
+### PR-curves overlapped
+
+```{r lr compare pr}
+lsvm_prs <-
+  map2_dfr(lsvm_best_res,
+  lr_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+lsvm_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("lsvm")
+```
+
+
+## ncorr_psvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[2]])
+```
+
+
+## ncorryj_psvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[7]])
+```
+
+## ncorrorq_psvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[12]])
+```
+
+## pca_psvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[17]])
+```
+
+## Compare psvm
+
+### ROCs overlapped
+
+```{r}
+psvm_best_res <- list(
+    models_svm_mlp$result[[2]],
+    models_svm_mlp$result[[7]],
+    models_svm_mlp$result[[12]],
+    models_svm_mlp$result[[17]]
+  )
+
+psvm_best_names <-
+  c(
+    "ncorr_psvm",
+    "ncorryj_psvm",
+    "ncorrorq_psvm",
+    "pca_psvm"
+  )
+
+
+psvm_rocs <-
+  map2_dfr(psvm_best_res,
+  psvm_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+psvm_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("psvm")
+```
+
+### PR-curves overlapped
+
+```{r}
+psvm_prs <-
+  map2_dfr(psvm_best_res,
+  psvm_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+psvm_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("psvm")
+```
+
+## ncorr_rbfsvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[3]])
+```
+
+## ncorryj_rbfsvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[8]])
+```
+
+## ncorrorq_rbfsvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[13]])
+```
+
+## pca_rbfsvm 
+
+```{r}
+autoplot(models_svm_mlp$result[[18]])
+```
+
+## Compare rbfsvm
+
+### ROCs overlapped
+
+```{r}
+rbfsvm_best_res <- list(
+    models_svm_mlp$result[[3]],
+    models_svm_mlp$result[[8]],
+    models_svm_mlp$result[[13]],
+    models_svm_mlp$result[[18]]
+  )
+
+rbfsvm_best_names <-
+  c(
+    "ncorr_rbfsvm",
+    "ncorryj_rbfsvm",
+    "ncorrorq_rbfsvm",
+    "pca_rbfsvm"
+  )
+
+
+rbfsvm_rocs <-
+  map2_dfr(rbfsvm_best_res,
+  rbfsvm_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+rbfsvm_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("rbfsvm")
+```
+
+### PR-curves overlapped
+
+```{r}
+rbfsvm_prs <-
+  map2_dfr(rbfsvm_best_res,
+  rbfsvm_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+rbfsvm_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("rbfsvm")
+```
+
+## ncorr_mlp_nnet 
+
+```{r}
+autoplot(models_svm_mlp$result[[4]])
+```
+
+## ncorryj_mlp_nnet 
+
+```{r}
+autoplot(models_svm_mlp$result[[9]])
+```
+
+## ncorrorq_mlp_nnet 
+
+```{r}
+autoplot(models_svm_mlp$result[[14]])
+```
+
+## pca_mlp_nnet 
+
+```{r}
+autoplot(models_svm_mlp$result[[19]])
+```
+
+## Compare mlp_nnet
+
+### ROCs overlapped
+
+```{r}
+mlp_nnet_best_res <- list(
+    models_svm_mlp$result[[4]],
+    models_svm_mlp$result[[9]],
+    models_svm_mlp$result[[14]],
+    models_svm_mlp$result[[19]]
+  )
+
+mlp_nnet_best_names <-
+  c(
+    "ncorr_mlp_nnet",
+    "ncorryj_mlp_nnet",
+    "ncorrorq_mlp_nnet",
+    "pca_mlp_nnet"
+  )
+
+
+mlp_nnet_rocs <-
+  map2_dfr(mlp_nnet_best_res,
+  mlp_nnet_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+mlp_nnet_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("mlp_nnet")
+```
+
+### PR-curves overlapped
+
+```{r}
+mlp_nnet_prs <-
+  map2_dfr(mlp_nnet_best_res,
+  mlp_nnet_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+mlp_nnet_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("mlp_nnet")
+```
+
+## ncorr_bag_mlp 
+
+```{r}
+autoplot(models_svm_mlp$result[[5]])
+```
+
+## ncorryj_bag_mlp 
+
+```{r}
+autoplot(models_svm_mlp$result[[10]])
+```
+
+## ncorrorq_bag_mlp 
+
+```{r}
+autoplot(models_svm_mlp$result[[15]])
+```
+
+## pca_bag_mlp 
+
+```{r}
+autoplot(models_svm_mlp$result[[20]])
+```
+
+## Compare bag_mlp
+
+### ROCs overlapped
+
+```{r}
+bag_mlp_best_res <- list(
+    models_svm_mlp$result[[5]],
+    models_svm_mlp$result[[10]],
+    models_svm_mlp$result[[15]],
+    models_svm_mlp$result[[20]]
+  )
+
+bag_mlp_best_names <-
+  c(
+    "ncorr_bag_mlp",
+    "ncorryj_bag_mlp",
+    "ncorrorq_bag_mlp",
+    "pca_bag_mlp"
+  )
+
+
+bag_mlp_rocs <-
+  map2_dfr(bag_mlp_best_res,
+  bag_mlp_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+bag_mlp_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("bag_mlp")
+```
+
+### PR-curves overlapped
+
+```{r}
+bag_mlp_prs <-
+  map2_dfr(bag_mlp_best_res,
+  bag_mlp_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+bag_mlp_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("bag_mlp")
+```
+
+# KNN MARS 
+
+```{r}
+read_models_mars_knn <- function() {
+  file_path <-
+    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_mars_knn.rds"
+  
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding rith building the workflowset of the models.")
+models_mars_knn <- 
+   workflow_set(
+      preproc = list(ncorr = ncorr_recipe, ncorryj = ncorr_yj_recipe, ncorrorq =ncorr_orq_recipe , pca = pca_recipe ),
+      
+      models = list( mars = mars,
+                    knn = knn,
+                    bag_mars = bag_mars),
+      cross = TRUE
+   )
+set.seed(124)
+models_mars_knn <-
+  models_mars_knn %>%
+  workflow_map(
+    "tune_grid",
+    resamples = cv_folds,
+    grid = 30,
+    metrics = imbalanced_metrics,
+    verbose = TRUE,
+      control = control_grid(save_pred = TRUE,
+                             save_workflow = TRUE)
+  )
+
+models_mars_knn 
+saveRDS(object = models_mars_knn, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_mars_knn.rds")
+  } else {
+    models_mars_knn <- readRDS(file_path)
+  }
+  
+  return(models_mars_knn)
+}
+
+models_mars_knn <- read_models_mars_knn()
+```
+
+
+```{r}
+autoplot(models_mars_knn, select_best= TRUE)
+```
+
+## ncorr_knn 
+
+```{r}
+autoplot(models_mars_knn$result[[2]])
+```
+
+## ncorryj_knn 
+
+```{r}
+autoplot(models_mars_knn$result[[5]])
+```
+
+## ncorrorq_knn 
+
+```{r}
+autoplot(models_mars_knn$result[[8]])
+```
+
+## pca_knn 
+
+```{r}
+autoplot(models_mars_knn$result[[11]])
+```
+
+## Compare knn 
+
+### ROCs overlapped
+
+```{r}
+knn_best_res <- list(
+    models_mars_knn$result[[2]],
+    models_mars_knn$result[[5]],
+    models_mars_knn$result[[8]],
+    models_mars_knn$result[[11]]
+  )
+
+knn_best_names <-
+  c(
+    "ncorr_knn",
+    "ncorryj_knn",
+    "ncorrorq_knn",
+    "pca_knn"
+  )
+
+
+knn_rocs <-
+  map2_dfr(knn_best_res,
+  knn_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+knn_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("knn")
+```
+
+### PR-curves overlapped
+
+```{r}
+knn_prs <-
+  map2_dfr(knn_best_res,
+  knn_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+knn_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("knn")
+```
+
+## ncorr_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[1]])
+```
+
+## ncorryj_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[4]])
+```
+
+## ncorrorq_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[7]])
+```
+
+## pca_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[10]])
+```
+
+## ncorr_bag_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[3]])
+```
+
+## ncorryj_bag_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[6]])
+```
+
+## ncorrorq_bag_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[9]])
+```
+
+## pca_bag_mars 
+
+```{r}
+autoplot(models_mars_knn$result[[12]])
+```
+
+## Compare mars 
+
+### ROCs overlapped
+
+```{r}
+mars_best_res <- list(
+    models_mars_knn$result[[1]],
+    models_mars_knn$result[[3]],
+    models_mars_knn$result[[4]],
+    models_mars_knn$result[[6]],
+    models_mars_knn$result[[7]],
+    models_mars_knn$result[[9]],
+    models_mars_knn$result[[10]],
+    models_mars_knn$result[[12]]
+  )
+
+mars_best_names <-
+  c(
+    "ncorr_mars",
+    "ncorr_bag_mars",
+    "ncorryj_mars",
+    "ncorryj_bag_mars",
+    "ncorrorq_mars",
+    "ncorrorq_bag_mars",
+    "pca_mars",
+    "pca_bag_mars"
+  )
+
+
+mars_rocs <-
+  map2_dfr(mars_best_res,
+  mars_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+mars_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("mars")
+```
+
+### PR-curves overlapped
+
+```{r}
+mars_prs <-
+  map2_dfr(mars_best_res,
+  mars_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+mars_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("mars")
+```
+
+# RF BT
+
+```{r,eval = FALSE}
+models_xgb_rf <- 
+   workflow_set(
+      preproc = list(base = base_recipe,
+                     base_boruta = base_boruta_recipe ), 
+      
+      models = list(rf = rf, bt = bt),
+      cross = TRUE
+   )
+```
+
+```{r,eval = FALSE}
+set.seed(124)
+models_xgb_rf <-
+  models_xgb_rf %>%
+  workflow_map(
+    "tune_bayes",
+    resamples = cv_folds,
+    initial = 30,
+    iter= 30,
+    metrics = metric_set(roc_auc),
+    verbose = TRUE,
+      control = control_bayes(no_improve =30,
+                             save_pred = TRUE,
+                             save_workflow = TRUE)
+  )
+```
+
+```{r,eval = FALSE,eval = FALSE}
+autoplot(models_xgb_rf, select_best= TRUE)
+```
+
+```{r, warning=FALSE,eval = FALSE}
+base_bt_wf <- workflow() %>%
+  add_model(bt) %>%
+  add_recipe(base_recipe)
+
+param_set_base_bt <- extract_parameter_set_dials(base_bt_wf) %>%
+    finalize(x = df_train %>% select(-resistance))
+
+base_bt_bres <- tune_bayes(base_bt_wf,  resamples = cv_folds, initial = models_xgb_rf$result[[2]],
+    iter= 30,
+    metrics = metric_set(roc_auc),
+    param_info = param_set_base_bt,
+      control = control_bayes(no_improve =30,
+                             save_pred = TRUE,
+                             verbose = FALSE,
+                             save_workflow = TRUE))
+                            
+                            
+                            
+```
+
+
+```{r,eval = FALSE}
+show_best(base_bt_bres)
+```
+
+
+
+# RF BT light 
+
+```{r}
+read_models_xgb_rf_light <- function() {
+  file_path <-
+    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_xgb_rf_light.rds"
+  
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding rith building the workflowset of the models.")
+models_xgb_rf_light <- 
+   workflow_set(
+      preproc = list(base = base_recipe,
+                     base_boruta = base_boruta_recipe ), 
+      
+      models = list(rf = rf, bt_light = bt_light),
+      cross = TRUE
+   )
+set.seed(124)
+models_xgb_rf_light <-
+  models_xgb_rf_light %>%
+ workflow_map(
+    "tune_grid",
+    resamples = cv_folds,
+    grid = 30,
+    metrics = imbalanced_metrics,
+    verbose = TRUE,
+      control = control_grid(save_pred = TRUE,
+                             save_workflow = TRUE)
+  )
+
+saveRDS(object = models_xgb_rf_light, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_xgb_rf_light.rds")
+  } else {
+    models_xgb_rf_light <- readRDS(file_path)
+  }
+  
+  return(models_xgb_rf_light)
+}
+
+models_xgb_rf_light <- read_models_xgb_rf_light()
+```
+
+```{r}
+autoplot(models_xgb_rf_light, select_best= TRUE)
+#rank_results(models_xgb_rf_light) %>%  select(wflow_id) %>%  unique()
+```
+
+## base_rf 
+
+```{r} 
+autoplot(models_xgb_rf_light$result[[1]])
+```
+
+## base_boruta_rf 
+
+```{r} 
+autoplot(models_xgb_rf_light$result[[3]])
+```
+
+## base_bt_light 
+
+```{r} 
+autoplot(models_xgb_rf_light$result[[2]])
+```
+
+## base_boruta_bt_light 
+
+```{r}
+autoplot(models_xgb_rf_light$result[[4]])
+```
+
+## base_bt_bres 
+
+```{r}
+read_base_bt_bres_light <- function() {
+  file_path <-
+    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_bres_light.rds"
+  
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding with optimizing the models.")
+base_bt_light_wf <- workflow() %>%
+  add_model(bt_light) %>%
+  add_recipe(base_recipe)
+
+param_set_base_bt <- extract_parameter_set_dials(base_bt_light_wf) %>%
+    finalize(x = df_train %>% select(-resistance))
+
+base_bt_bres <- tune_bayes(base_bt_light_wf,  resamples = cv_folds, initial = models_xgb_rf_light$result[[2]],
+    iter= 30,
+    metrics = metric_set(roc_auc),
+    param_info = param_set_base_bt,
+      control = control_bayes(no_improve =30,
+                             save_pred = TRUE,
+                             verbose = FALSE,
+                             save_workflow = TRUE))
+                            
+  
+saveRDS(object = base_bt_bres, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_bres_light.rds")      
+  } else {
+    base_bt_bres_light <- readRDS(file_path)
+  }
+  
+  return(base_bt_bres_light)
+}
+
+base_bt_bres_light <- read_base_bt_bres_light()
+show_best(base_bt_bres_light)
+```
+
+```{r}
+autoplot(base_bt_bres_light)
+```
+
+## base_boruta_bt_bres_light
+
+```{r}
+read_base_boruta_bt_bres_light <- function() {
+  file_path <-
+    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_boruta_bres_light.rds"
+  
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding with optimizing the models.")
+base_bt_boruta_light_wf <- workflow() %>%
+  add_model(bt_light) %>%
+  add_recipe(base_boruta_recipe)
+
+param_set_base_bt_boruta <- extract_parameter_set_dials(base_bt_boruta_light_wf) %>%
+    finalize(x = df_train %>% select(-resistance))
+
+base_bt_boruta_bres_light <- tune_bayes(base_bt_boruta_light_wf,  resamples = cv_folds, initial = models_xgb_rf_light$result[[4]],
+    iter= 30,
+    metrics = metric_set(roc_auc),
+    param_info = param_set_base_bt_boruta,
+      control = control_bayes(no_improve =30,
+                             save_pred = TRUE,
+                             verbose = FALSE,
+                             save_workflow = TRUE))
+                            
+  
+saveRDS(object = base_bt_boruta_bres_light, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_boruta_bres_light.rds")      
+  } else {
+    base_bt_boruta_bres_light <- readRDS(file_path)
+  }
+  
+  return(base_bt_boruta_bres_light)
+}
+
+base_bt_boruta_bres_light <- read_base_boruta_bt_bres_light()
+show_best(base_bt_boruta_bres_light)
+```
+
+```{r}
+autoplot(base_bt_boruta_bres_light)
+```
+
+## Compare rf bt 
+
+### ROCs overlapped
+
+```{r}
+rf_bt_res <- list(
+    models_mars_knn$result[[1]],
+    models_mars_knn$result[[3]],
+    models_mars_knn$result[[4]],
+    models_mars_knn$result[[6]],
+    base_bt_bres_light,
+    base_bt_boruta_bres_light
+  )
+
+rf_bt_best_names <-
+  c(
+    "base_rf",
+    "base_bt_light",
+    "base_boruta_rf",
+    "base_boruta_bt_light",
+    "base_bt_bres_light",
+    "base_bt_boruta_bres_light"
+  )
+
+
+rf_bt_rocs <-
+  map2_dfr(rf_bt_res,
+  rf_bt_best_names,
+  function(x, y)
+    make_roc(x, y))
+
+rf_bt_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("rf_bt")
+```
+
+### PR-curves overlapped
+
+```{r}
+rf_bt_prs <-
+  map2_dfr(rf_bt_res,
+  rf_bt_best_names,
+  function(x, y)
+    make_pr(x, y))
+
+rf_bt_prs %>% 
+  ggplot(aes(x = recall, y = precision, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal(ylim=c(0, 1)) + 
+  scale_color_brewer(palette="Set1") +
+  ggtitle("rf_bt")
+```
+
+
+
+# BEST MODELS 
+
+```{r}
+best_models_res<- list(models_llr$result[[2]], # baseyj_LLR
+                   models_xgb_rf_light$result[[2]], # base_bt_light 
+                   models_svm_mlp$result[[15]], # ncorrorq_bag_mlp
+                   models_xgb_rf_light$result[[1]], ## base_rf
+                   models_svm_mlp$result[[6]], # ncorryj_lsvm  
+                   models_svm_mlp$result[[12]] # ncorrorq_psvm 
+                   
+
+  )
+
+best_models_names <-
+  c(
+    "LLR",
+    "GBT",
+    "MLP",
+    "RF",
+    "SVM linear",
+    "SVM polynomial"
+  )
+
+
+best_models_rocs <-
+  map2_dfr(best_models_res,
+  best_models_names,
+  function(x, y)
+    make_roc(x, y))
+
+Fig_7A <- best_models_rocs %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+  geom_path(lwd = 0.5, alpha = 0.8) +
+  geom_abline(lty = 3) + 
+  coord_equal() + 
+  #scale_color_viridis_d(direction = 1, option = "B")
+  scale_color_brewer(palette="Set1") +
+  ggtitle("The best models, ROC curves")
+Fig_7A
+```
+
+## Distribution comparison
+
+```{r}
+mod_comparison <- res_comp_table(best_models_res,
+                                 best_models_names)
+
+mod_posterior <-
+  perf_mod(
+    mod_comparison,
+    iter = 2000,
+    seed = 100,
+    refresh = 0,
+    chains = 5,
+    cores = 8
+  )
+
+Fig_7B <- autoplot(mod_posterior) + 
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("Distribution comparison")
+Fig_7B
+```
+
+# Fig 7AB
+
+```{r}
+Fig_7AB <- ggarrange(Fig_7A, Fig_7B,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1, common.legend = TRUE,
+                    legend = "bottom")
+Fig_7AB
+```
+
+
+# LR final 
+
+```{r lr ff}
+lr_baseyj_res <-models_llr$result[[2]]
+
+best_perf_hyp <- lr_baseyj_res %>% show_best(n=20 )
+
+# LR specs
+lr_spec_blank <- logistic_reg(
+  penalty = tune(),
+  mixture = 1,
+  engine = "glmnet",
+  mode = "classification"
+)
+
+lr_spec_tuned <-
+  logistic_reg(
+    penalty = best_perf_hyp$penalty[1],
+    mixture = 1,
+    engine = "glmnet",
+    mode = "classification"
+  )
+# LR last fit and metrics
+yj_recipe_tuned_lr <-
+  update_corr_treshold(step_no = 6, corr_threshold = best_perf_hyp$corr_tune[1])
+
+lr_final <-
+  run_last_fit("LR",
+               lr_spec_blank,
+               lr_spec_tuned,
+               recipe = yj_recipe_tuned_lr,
+               return_fit = TRUE)
+
+lr_final[[1]]
+```
+
+```{r}
+Fig_7C <- senspec_plot(lr_final[[2]], "LLR")+
+  theme(legend.position = "bottom")
+Fig_7C
+```
+### Features importance
+
+Non-zero LLR coefficients:
+
+```{r lr coeff}
+lr_coeff_df <- lr_final[[2]] %>%
+  extract_fit_parsnip() %>% tidy() %>% 
+  filter(estimate != 0) %>% 
+  arrange(-abs(estimate)) %>% 
+  mutate(odds.ratio = 1/exp(estimate)) %>% 
+  select(-penalty)
+
+lr_coeff_df
+```
+
+Just 34 features plus Intercept are used by the model.
+
+On the `odds.ratio` column: 
+
+- units in which predictors are measured have been transformed
+
+- apparently, nonHR is outcome 1 here and HR is outcome 0, because increase in `n.beta.lac` decreases chances of outcome 1.
+
+
+### Predictors decreasing the risk of HR:
+### Predictors decreasing the risk of HR:
+
+```{r feat pos}
+lr_coeff_df %>% 
+  filter(odds.ratio < 1.0) %>% 
+  select(term)
+```
+
+### Predictors increasing the risk of HR
+
+```{r feat neg}
+lr_coeff_df %>% 
+  filter(odds.ratio >= 1.0) %>% 
+  select(term)
+```
+
+### Plot
+
+```{r}
+#{r, fig.width=8, fig.height=6}
+Fig_7D <- lr_coeff_df %>% 
+  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>% 
+  filter(term != "(Intercept)") %>% 
+  ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
+  geom_col(aes(fill=effect)) +
+  scale_fill_brewer(palette="Paired") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 12), legend.position = "bottom") +
+  xlab("") +
+  coord_flip()
+Fig_7D
+```
+
+```{r}
+Fig_7CD <- ggarrange(Fig_7C, Fig_7D,
+                    labels = c("C", "D"),
+                    ncol = 2, nrow = 1)
+Fig_7CD
+```
+
+
+

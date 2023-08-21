@@ -1821,14 +1821,14 @@ roc_df <-
   function(x, y)
     make_roc(x, y))
 
-roc_df %>% 
+Fig_7A <- roc_df %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_brewer(palette="Set2") +
-  ggtitle("The best models, ROC curves")
+  scale_color_brewer(palette="Set2") 
 
+Fig_7A
 ```
 
 ## Posterior probability distribution
@@ -1850,8 +1850,18 @@ mod_posterior <-
     cores = 8
   )
 
-autoplot(mod_posterior) + 
-  scale_color_brewer(palette = "Set2")
+Fig_7B <- autoplot(mod_posterior) + 
+  scale_color_brewer(palette = "Set2") + 
+  theme(plot.margin = margin(t = 23, r = 15, b = 23, l = 15, unit = "pt"))
+Fig_7B
+```
+
+```{r}
+Fig_7AB <- ggarrange(Fig_7A, Fig_7B,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1, common.legend = TRUE,
+                    legend = "bottom")
+Fig_7AB
 ```
 
 ## Difference estimates
@@ -2212,7 +2222,7 @@ senspec_plot <- function(fit_obj, title="") {
     geom_line(size = 1) +
     #theme_minimal() +
     #scale_color_viridis_d(end = 0.9) +
-    scale_color_brewer(palette = "Set1") +
+    scale_color_brewer(palette = "Set1", guide = guide_legend(title = NULL) ) +
     scale_alpha_manual(values = c(.4, 1), guide = "none") +
     geom_vline(
       xintercept = max_j_index_threshold,
@@ -2236,7 +2246,8 @@ senspec_plot(gbt_base_final[[2]], "GBT")
 ### LLR
 
 ```{r}
-senspec_plot(lr_final[[2]], "LLR")
+Fig_7C <- senspec_plot(lr_final[[2]], "") + theme(legend.position = "left")
+Fig_7C
 ```
 
 ### j-index and the probability threshold
@@ -2378,16 +2389,25 @@ lr_coeff_df %>%
 ### Plot
 
 ```{r, fig.width=8, fig.height=6}
-lr_coeff_df %>% 
+Fig_7D <- lr_coeff_df %>% 
   mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>% 
   filter(term != "(Intercept)") %>% 
   ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
   geom_col(aes(fill=effect)) +
-  scale_fill_brewer(palette="Paired") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 12)) +
-  xlab("") +
-  coord_flip()
+  scale_fill_brewer(palette="Paired", guide = guide_legend(title = NULL)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 8),legend.position = "bottom") +
+  xlab("") + coord_flip()
+Fig_7D 
 ```
+
+```{r,fig.width=7, fig.height=10}
+Fig_7CD <- ggarrange(Fig_7C, Fig_7D,
+                    labels = c("C", "D"),
+                    ncol = 1, nrow = 2)
+Fig_7CD
+```
+
+
 
 # Minimal set of predictors chosen by Boruta
 
