@@ -12,7 +12,7 @@ format:
     df-print: paged
     standalone: true
     code-fold: true
-editor: visual
+editor: source
 ---
 
 ```{r, include=F}
