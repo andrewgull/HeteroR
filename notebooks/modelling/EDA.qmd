@@ -1,4 +1,4 @@
-F---
+---
 title: "Exploratory Data Analysis of Pip/Tazo HR strains"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
@@ -12,7 +12,7 @@ format:
     df-print: paged
     standalone: true
     code-fold: true
-editor: visual
+editor: source
 ---
 
 ```{r, message=FALSE, warning=FALSE}
