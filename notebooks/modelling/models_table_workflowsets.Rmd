@@ -25,14 +25,19 @@ models_path <- "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/"
 rfe_model <- rand_forest(mode = "classification") %>%
   set_engine("ranger", num.threads = 8, importance = "impurity")
 
-#function to get
-get_j_index <- function(res){res %>%   show_best("j_index",n =40) %>% filter(.config == (
+#function to get j index
+get_j_index <- function(res){res %>% show_best("j_index",n =40) %>% filter(.config == (
     res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
 )) %>%  select(mean) %>% as.character()}
+
+get_j_index_SE <- function(res){res %>% show_best("j_index",n =40) %>% filter(.config == (
+    res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
+)) %>%  select(std_err) %>% as.character()}
+
 ```
 FROM modeling
 
-
+mars_NCORRORQ
 # Read and process data
 
 The data sets are the same as in EDA
@@ -198,9 +203,11 @@ best_perf_hyp <- lr_base %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(lr_base)
+
+j_index_SE <- get_j_index_SE(lr_base)
 
 my_mod <-  logistic_reg(
         penalty =  best_perf_hyp$penalty[1],
@@ -222,16 +229,14 @@ trained_mod <- final_model %>%
   extract_workflow() %>% 
   pull_workflow_fit()
 
-coefs <- coef(trained_mod$fit, s =  best_perf_hyp$penalty[1])
-
-
+coefs <- coef(trained_mod$fit, s = best_perf_hyp$penalty[1])
 
 predictors_to_remove <- c("(Intercept)","resistance", "strain")
 
 coefficients <- coefs%>% row.names()
 n_predictors <- coefficients[coefs@i] %>% discard(~ .x %in% predictors_to_remove) %>% length 
 
-final_tibble <- tibble(Model = "LR", Preprocessing= "BASE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = NA, n_predictors =  n_predictors)
+final_tibble <- tibble(Model = "LR", Preprocessing= "BASE", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE, Correlation = NA, n_predictors =  n_predictors)
 
 final_tibble
 ```
@@ -245,9 +250,11 @@ best_perf_hyp <- lr_baseyj_res %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(lr_baseyj_res)
+
+j_index_SE <- get_j_index_SE(lr_baseyj_res)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -277,7 +284,7 @@ coefs <- coef(trained_mod$fit, s = best_perf_hyp$penalty[1])
 coefficients <- coefs %>% row.names()
 n_predictors <- coefficients[coefs@i] %>% discard(~ .x %in% predictors_to_remove) %>% length 
 
-tmp_tibble <- tibble(Model = "LR", Preprocessing= "BASE_yj", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "LR", Preprocessing= "BASE_yj", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE= j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -293,9 +300,13 @@ best_perf_hyp <- baseorq_LLR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(baseorq_LLR)
+
+j_index_SE <- get_j_index_SE(baseorq_LLR)
+
+j_index_SE <- get_j_index_SE(lr_base)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -326,7 +337,7 @@ coefs <- coef(trained_mod$fit, s = best_perf_hyp$penalty[1])
 coefficients <- coefs%>% row.names()
 n_predictors <- coefficients[coefs@i] %>% discard(~ .x %in% predictors_to_remove) %>% length 
 
-tmp_tibble <- tibble(Model = "LR", Preprocessing= "BASE_orq", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "LR", Preprocessing= "BASE_orq", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -342,9 +353,12 @@ best_perf_hyp <- pca_LLR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(pca_LLR)
+
+j_index_SE <- get_j_index_SE(pca_LLR)
+
 
 corr_tune <- NA
 
@@ -384,7 +398,7 @@ coefs <- coef(trained_mod$fit, s = best_perf_hyp$penalty[1])
 coefficients <- coefs%>% row.names()
 n_predictors <- coefficients[coefs@i] %>% discard(~ .x %in% predictors_to_remove) %>% length
 
-tmp_tibble <- tibble(Model = "LR", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "LR", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -406,9 +420,12 @@ best_perf_hyp <- lsvm_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(lsvm_NCORR)
+
+j_index_SE <- get_j_index_SE(lsvm_NCORR)
+
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -423,7 +440,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -439,9 +456,11 @@ best_perf_hyp <- lsvm_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(lsvm_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(lsvm_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -459,7 +478,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -475,9 +494,11 @@ best_perf_hyp <- lsvm_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(lsvm_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(lsvm_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -495,7 +516,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -511,9 +532,11 @@ best_perf_hyp <- lsvm_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(lsvm_pca)
+
+j_index_SE <- get_j_index_SE(lsvm_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -530,7 +553,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "lSVM", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -548,9 +571,11 @@ best_perf_hyp <- psvm_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(psvm_NCORR)
+
+j_index_SE <- get_j_index_SE(psvm_NCORR)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -563,7 +588,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames()  %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
-tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -579,9 +604,11 @@ best_perf_hyp <- psvm_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(psvm_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(psvm_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -599,7 +626,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -615,9 +642,11 @@ best_perf_hyp <- psvm_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(psvm_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(psvm_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -635,7 +664,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -651,9 +680,11 @@ best_perf_hyp <- psvm_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(psvm_pca)
+
+j_index_SE <- get_j_index_SE(psvm_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -670,7 +701,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "pSVM", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -688,9 +719,11 @@ best_perf_hyp <- rbfsvm_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(rbfsvm_NCORR)
+
+j_index_SE <- get_j_index_SE(rbfsvm_NCORR)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -703,7 +736,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames()  %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
-tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -719,9 +752,11 @@ best_perf_hyp <- rbfsvm_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(rbfsvm_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(rbfsvm_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -739,7 +774,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -755,9 +790,11 @@ best_perf_hyp <- rbfsvm_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(rbfsvm_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(rbfsvm_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -775,7 +812,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -791,9 +828,11 @@ best_perf_hyp <- rbfsvm_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(rbfsvm_pca)
+
+j_index_SE <- get_j_index_SE(rbfsvm_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -810,7 +849,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "rbfSVM", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -828,9 +867,11 @@ best_perf_hyp <- mlp_nnet_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mlp_nnet_NCORR)
+
+j_index_SE <- get_j_index_SE(mlp_nnet_NCORR)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -843,7 +884,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames()  %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
-tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -859,9 +900,11 @@ best_perf_hyp <- mlp_nnet_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mlp_nnet_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(mlp_nnet_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -879,7 +922,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -895,9 +938,11 @@ best_perf_hyp <- mlp_nnet_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mlp_nnet_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(mlp_nnet_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -915,7 +960,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -931,9 +976,11 @@ best_perf_hyp <- mlp_nnet_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mlp_nnet_pca)
+
+j_index_SE <- get_j_index_SE(mlp_nnet_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -950,7 +997,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MLP_nnet", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -968,9 +1015,11 @@ best_perf_hyp <- bag_mlp_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mlp_NCORR)
+
+j_index_SE <- get_j_index_SE(bag_mlp_NCORR)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -983,7 +1032,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
   step_smote(resistance, over_ratio = 1, seed = 100) %>% 
   step_corr(all_predictors(), threshold = corr_tune) %>% prep() %>% juice() %>% colnames()  %>% discard(~ .x %in% predictors_to_remove) %>% length()
 
-tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -999,9 +1048,11 @@ best_perf_hyp <- bag_mlp_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mlp_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(bag_mlp_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1019,7 +1070,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1035,9 +1086,11 @@ best_perf_hyp <- bag_mlp_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mlp_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(bag_mlp_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1055,7 +1108,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1071,9 +1124,11 @@ best_perf_hyp <- bag_mlp_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mlp_pca)
+
+j_index_SE <- get_j_index_SE(bag_mlp_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1090,7 +1145,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MLP", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1112,9 +1167,11 @@ best_perf_hyp <- mars_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mars_NCORR)
+
+j_index_SE <- get_j_index_SE(mars_NCORR)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1129,7 +1186,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "MARS", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MARS", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1145,9 +1202,11 @@ best_perf_hyp <- mars_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mars_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(mars_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1165,7 +1224,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "MARS", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MARS", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1181,9 +1240,11 @@ best_perf_hyp <- mars_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mars_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(mars_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1201,7 +1262,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "MARS", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MARS", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE= j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1217,9 +1278,11 @@ best_perf_hyp <- mars_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(mars_pca)
+
+j_index_SE <- get_j_index_SE(mars_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1236,7 +1299,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "MARS", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "MARS", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1254,9 +1317,11 @@ best_perf_hyp <- bag_mars_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mars_NCORR)
+
+j_index_SE <- get_j_index_SE(bag_mars_NCORR)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1271,7 +1336,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1287,9 +1352,11 @@ best_perf_hyp <- bag_mars_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mars_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(bag_mars_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1307,7 +1374,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1323,9 +1390,11 @@ best_perf_hyp <- bag_mars_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mars_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(bag_mars_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1343,7 +1412,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1359,9 +1428,11 @@ best_perf_hyp <- bag_mars_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bag_mars_pca)
+
+j_index_SE <- get_j_index_SE(bag_mars_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1378,7 +1449,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BAG_MARS", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1396,9 +1467,11 @@ best_perf_hyp <- knn_NCORR %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(knn_NCORR)
+
+j_index_SE <- get_j_index_SE(knn_NCORR)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1413,7 +1486,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "KNN", Preprocessing= "NCORR", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "KNN", Preprocessing= "NCORR", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1429,9 +1502,11 @@ best_perf_hyp <- knn_NCORR_YJ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(knn_NCORR_YJ)
+
+j_index_SE <- get_j_index_SE(knn_NCORR_YJ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1449,7 +1524,7 @@ n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "KNN", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "KNN", Preprocessing= "NCORR_YJ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1465,9 +1540,11 @@ best_perf_hyp <- knn_NCORRORQ %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(knn_NCORRORQ)
+
+j_index_SE <- get_j_index_SE(knn_NCORRORQ)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1485,7 +1562,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "KNN", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "KNN", Preprocessing= "NCORRORQ", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1501,9 +1578,11 @@ best_perf_hyp <- knn_pca %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(knn_pca)
+
+j_index_SE <- get_j_index_SE(knn_pca)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1520,7 +1599,7 @@ n_predictors <- recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "KNN", Preprocessing= "PCA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "KNN", Preprocessing= "PCA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1542,9 +1621,11 @@ best_perf_hyp <- rf_base %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(rf_base)
+
+j_index_SE <- get_j_index_SE(rf_base)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1558,7 +1639,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "RF", Preprocessing= "BASE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "RF", Preprocessing= "BASE", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1574,9 +1655,11 @@ best_perf_hyp <- rf_base_boruta %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(rf_base_boruta)
+
+j_index_SE <- get_j_index_SE(rf_base_boruta)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1591,7 +1674,7 @@ n_predictors <-    recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "RF", Preprocessing= "BASE_BORUTA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "RF", Preprocessing= "BASE_BORUTA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1609,9 +1692,11 @@ best_perf_hyp <- bt_base %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bt_base)
+
+j_index_SE <- get_j_index_SE(bt_base)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1625,7 +1710,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BT", Preprocessing= "BASE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BT", Preprocessing= "BASE", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1641,9 +1726,11 @@ best_perf_hyp <- base_bt_bres %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-NA
+
+j_index_SE <- NA
 
 get_j_index <- function(res){res %>%   show_best("j_index",n =40) %>% filter(.config == (
     res %>% show_best("roc_auc", n = 1) %>% select(.config) %>%  as.character()
@@ -1661,7 +1748,7 @@ n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BT_bres", Preprocessing= "BASE", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BT_bres", Preprocessing= "BASE", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1678,9 +1765,11 @@ best_perf_hyp <- bt_base_boruta %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <-get_j_index(bt_base_boruta)
+
+j_index_SE <- get_j_index_SE(bt_base_boruta)
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1695,7 +1784,7 @@ n_predictors <-    recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BT", Preprocessing= "BASE_BORUTA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BT", Preprocessing= "BASE_BORUTA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index, j_index_SE=j_index_SE,Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 
@@ -1711,9 +1800,11 @@ best_perf_hyp <- bt_base_boruta_bres %>% show_best(n=20 )
 
 mean_auc <- best_perf_hyp$mean[1]
 
-st_error <- best_perf_hyp$std_err[1]
+AUC_SE <- best_perf_hyp$std_err[1]
 
 mean_j_index <- NA
+
+j_index_SE <- NA
 
 corr_tune <-best_perf_hyp$corr_tune[1]
 
@@ -1728,7 +1819,7 @@ n_predictors <-    recipe(resistance ~ ., data = df_train) %>%
 
  
 
-tmp_tibble <- tibble(Model = "BT_bres", Preprocessing= "BASE_BORUTA", mean_AUC = mean_auc, st_error = st_error, mean_j_index = mean_j_index, Correlation = corr_tune, n_predictors =  n_predictors)
+tmp_tibble <- tibble(Model = "BT_bres", Preprocessing= "BASE_BORUTA", mean_AUC = mean_auc, AUC_SE = AUC_SE, mean_j_index = mean_j_index,j_index_SE=j_index_SE, Correlation = corr_tune, n_predictors =  n_predictors)
 
 final_tibble <- bind_rows(final_tibble,tmp_tibble)
 

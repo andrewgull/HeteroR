@@ -1821,14 +1821,14 @@ roc_df <-
   function(x, y)
     make_roc(x, y))
 
-Fig_7A <- roc_df %>% 
+Fig_9A <- roc_df %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
   scale_color_brewer(palette="Set2") 
 
-Fig_7A
+Fig_9A
 ```
 
 ## Posterior probability distribution
@@ -1850,18 +1850,18 @@ mod_posterior <-
     cores = 8
   )
 
-Fig_7B <- autoplot(mod_posterior) + 
+Fig_9B <- autoplot(mod_posterior) + 
   scale_color_brewer(palette = "Set2") + 
   theme(plot.margin = margin(t = 23, r = 15, b = 23, l = 15, unit = "pt"))
-Fig_7B
+Fig_9B
 ```
 
 ```{r}
-Fig_7AB <- ggarrange(Fig_7A, Fig_7B,
+Fig_9AB <- ggarrange(Fig_9A, Fig_9B,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE,
                     legend = "bottom")
-Fig_7AB
+Fig_9AB
 ```
 
 ## Difference estimates
@@ -2246,8 +2246,8 @@ senspec_plot(gbt_base_final[[2]], "GBT")
 ### LLR
 
 ```{r}
-Fig_7C <- senspec_plot(lr_final[[2]], "") + theme(legend.position = "left")
-Fig_7C
+Fig_9C <- senspec_plot(lr_final[[2]], "") + theme(legend.position = "left")
+Fig_9C
 ```
 
 ### j-index and the probability threshold
@@ -2389,7 +2389,7 @@ lr_coeff_df %>%
 ### Plot
 
 ```{r, fig.width=8, fig.height=6}
-Fig_7D <- lr_coeff_df %>% 
+Fig_9D <- lr_coeff_df %>% 
   mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>% 
   filter(term != "(Intercept)") %>% 
   ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
@@ -2397,14 +2397,14 @@ Fig_7D <- lr_coeff_df %>%
   scale_fill_brewer(palette="Paired", guide = guide_legend(title = NULL)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 8),legend.position = "bottom") +
   xlab("") + coord_flip()
-Fig_7D 
+Fig_9D 
 ```
 
 ```{r,fig.width=7, fig.height=10}
-Fig_7CD <- ggarrange(Fig_7C, Fig_7D,
+Fig_9CD <- ggarrange(Fig_9C, Fig_9D,
                     labels = c("C", "D"),
                     ncol = 1, nrow = 2)
-Fig_7CD
+Fig_9CD
 ```
 
 

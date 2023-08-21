@@ -367,12 +367,12 @@ pcayj_recipe <-
   step_pca(all_numeric_predictors(), num_comp = 4) %>% 
   step_normalize(all_numeric_predictors())
 
-Fig_6A <- pcayj_recipe %>% 
+Fig_8A <- pcayj_recipe %>% 
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("PC1", "PC2", "PC3", "PC4")) +
   ggtitle("Principal Component Analysis")
-Fig_6A
+Fig_8A
 ```
 
 ### Explained variance percentage
@@ -437,12 +437,12 @@ kpcayj_recipe <-
   step_kpca_poly(all_numeric_predictors(), num_comp = 9) %>% 
   step_normalize(all_numeric_predictors())
 
-Fig_6B <- kpcayj_recipe %>% 
+Fig_8B <- kpcayj_recipe %>% 
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4")) +
   ggtitle("Kernel Principal Component Analysis")
-Fig_6B
+Fig_8B
 ```
 
 ## ICA - Independent Component Analysis
@@ -555,12 +555,12 @@ umapu_recipe <- orq_recipe %>%
     neighbors = 25
   )
 
-Fig_6C <- umapuyj_recipe %>%
+Fig_8C <- umapuyj_recipe %>%
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP unsupervised")
-Fig_6C
+Fig_8C
 ```
 
 ### Supervised
@@ -593,21 +593,21 @@ umaps_recipe <- orq_recipe %>%
     neighbors = 25
   )
 
-Fig_6D <- umaps_recipe %>%
+Fig_8D <- umaps_recipe %>%
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP supervised")
-Fig_6D
+Fig_8D
 ```
 
-Fig_6
+Fig_8
 
 ```{r,fig.height=10, fig.width=10}
-Fig_6 <- ggarrange(Fig_6A, Fig_6B, Fig_6C, Fig_6D,
+Fig_8 <- ggarrange(Fig_8A, Fig_8B, Fig_8C, Fig_8D,
                     labels = c("A", "B", "C", "D"),
                     ncol = 2, nrow = 2, common.legend = TRUE)
-Fig_6
+Fig_8
 ```
 
 ### With added FP and FN
@@ -627,7 +627,7 @@ umap2_postEDA[is.na(umap2_postEDA)] <- "COR"
 umap2_postEDA %>% 
   ggplot(aes(UMAP1, UMAP2)) +
   geom_point(aes(color = resistance, shape = prediction), alpha = 0.6, size = 2) +
-  scale_color_brewer(palette = "Set1") +
+  scale_color_brewer(palette = "Pastel1") +
   ggtitle("Supervised UMAP (HR12)")
 
 # save for the shiny app
@@ -680,7 +680,7 @@ data_umap_groups$template %>%
     ggplot(aes(x = .panel_x, y = .panel_y, color = hr.group, fill = hr.group)) +
     geom_point(alpha = 0.4, size = 1, aes(shape = hr.group)) +
     facet_matrix(vars(-hr.group), layer.diag = 2) + 
-    scale_color_brewer(palette = "Set1", direction = 1) + 
+    scale_color_brewer(palette = "Pastel1", direction = 1) + 
     scale_shape_manual(values = c(21, 24, 22, 3)) +
     theme_bw() +
     ggtitle("(un)Supervised UMAP (HR groups)")
@@ -697,7 +697,7 @@ data_umap_groups$template %>%
     ggplot(aes(x = .panel_x, y = .panel_y, color = hr.group, fill = hr.group)) +
     geom_point(alpha = 0.5, size = 2, aes(shape = hr.group)) +
     facet_matrix(vars(-hr.group), layer.diag = 2) + 
-    scale_color_brewer(palette = "Set1", direction = 1) + 
+    scale_color_brewer(palette = "Pastel1", direction = 1) + 
     scale_shape_manual(values = c(21, 24, 22, 20)) +
     theme_bw() +
     ggtitle("(un)Supervised UMAP (HR groups)")
@@ -838,7 +838,7 @@ When number of BL genes is greater than 3, quite likely that the strain is HR or
 Fig_3A <- ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
-  xlab("N beta-lactamase") +
+  xlab("n β-lactamases") +
   ylab("proportion of strains") +
   scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme(legend.title=element_blank())
@@ -889,12 +889,13 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
 As a proportion
 
 ```{r}
-ggplot(data_strain, aes(n.beta.lac.plasmid)) +
+Fig_5A <- ggplot(data_strain, aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   scale_x_continuous(breaks = c(0,1,2,3,4,5,6)) +
-  xlab("n beta-lactamases on plasmids") +
-  ylab("n strains")
+  xlab("n β-lactamases on plasmids") +
+  ylab("proportion")
+Fig_5A
 ```
 
 Starting from 4 bl genes (on plasmids), it seems to be a very good predictor.
@@ -971,11 +972,12 @@ ggplot(data_strain, aes(n.beta.lac.plus)) +
 As proportion
 
 ```{r}
-ggplot(data_strain, aes(n.beta.lac.plus)) +
+Fig_5C <-  ggplot(data_strain, aes(n.beta.lac.plus)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("n beta-lactamases on plus strand") +
   ylab("proportion") 
+Fig_5C
 ```
 
 #### On plasmids
@@ -1031,7 +1033,7 @@ bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>%
   summarize(sum=sum(n))
 
 
-ggplot(bl_type_count_tidy, aes(gene, sum))+
+Fig_5B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   geom_col(aes(fill=resistance), position = "fill", alpha = 1) + 
   # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
   scale_fill_brewer(palette = "Set1", name = "") +
@@ -1039,6 +1041,27 @@ ggplot(bl_type_count_tidy, aes(gene, sum))+
   ylab("proportion")+
   scale_x_discrete(labels = c("ampC", "non-ampC"))
   
+Fig_5B
+```
+
+
+
+
+```{r}
+
+
+legend <- get_legend(Fig_5A)
+empty_plot_with_legend <- ggplot() + 
+  theme_void() +
+  annotation_custom(grob = legend, xmin = -0.7, xmax = Inf, ymin = 0.2, ymax = Inf)
+
+
+Fig_5 <- ggarrange(Fig_5A + theme(legend.position = "none"), 
+                   Fig_5B + theme(legend.position = "none"), 
+                   Fig_5C + theme(legend.position = "none"), 
+                   empty_plot_with_legend,
+                   ncol = 2, nrow = 2, labels = c("A", "B", "C", ""))
+Fig_5
 ```
 
 Among strains having only ampC beta-lactamases, the majority is non-HR
@@ -1101,7 +1124,7 @@ As proportion:
 Fig_3B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("TEM beta-lactamase") +
+  xlab("TEM β-lactamases") +
   ylab("proportion")
 Fig_3B
 ```
@@ -1128,7 +1151,7 @@ data_strain %>%
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y="sqrt") +
   ylab("") +
   guides(fill="none")
@@ -1143,7 +1166,7 @@ data_strain %>%
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y="sqrt") +
   ylab("") +
   guides(fill="none")
@@ -1158,7 +1181,7 @@ data_strain %>%
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y="sqrt") +
   ylab("") +
   guides(fill="none")
@@ -1236,7 +1259,7 @@ data_strain %>%
   geom_jitter(alpha = 0.2,
               width = 0.15,
               height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
   ylab("n") +
   xlab("") +
@@ -1270,7 +1293,7 @@ data_strain %>%
   geom_jitter(alpha = 0.2,
               width = 0.15,
               height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
   ylab("n") +
   xlab("") +
@@ -1299,7 +1322,7 @@ Per strain, doesn't depend on beta-lactamase presence or absence
 ### Box plot
 
 ```{r}
-data_strain %>%
+Fig_6A <- data_strain %>%
   ggplot(aes(resistance, n.plasmids)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
@@ -1311,11 +1334,12 @@ data_strain %>%
   geom_jitter(alpha = 0.2,
               width = 0.15,
               height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
   ylab("n") +
   xlab("") +
   guides(fill = "none")
+Fig_6A
 ```
 
 ### Medians
@@ -1408,7 +1432,7 @@ exp(coef(pois_fit))
 ## Plasmid copy number
 
 ```{r}
-data_strain %>%
+Fig_6B <- data_strain %>%
   ggplot(aes(resistance, n.c.plasmids)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
@@ -1420,13 +1444,23 @@ data_strain %>%
   geom_jitter(alpha = 0.2,
               width = 0.15,
               height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
   ylab("n") +
   xlab("") +
   guides(fill = "none") 
   #coord_trans(y="sqrt")
+
+Fig_6B
 ```
+
+```{r}
+Fig_6 <- ggarrange(Fig_6A, Fig_6B,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1)
+Fig_6
+```
+
 
 #### Poisson model for count data
 
@@ -1545,7 +1579,7 @@ med_rep_len %>%
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   ylab("avg repeat length") +
@@ -1570,7 +1604,7 @@ data_strain %>%
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   ylab("med repeat length") +
   xlab("") +
@@ -1586,7 +1620,7 @@ data_strain %>%
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   ylab("med repeat length") +
   xlab("") +
@@ -1602,7 +1636,7 @@ data_strain %>%
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   ylab("med repeat length") +
   xlab("") +
@@ -1639,7 +1673,7 @@ med_rep_len %>%
     height = 0.1,
     size = 0.8
   ) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "log") +
   #scale_y_continuous(trans = "pseudo_log") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
@@ -1655,7 +1689,7 @@ med_rep_len %>%
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   ylab("median repeat length") +
   xlab("") +
@@ -1679,7 +1713,7 @@ ggplot(max_rep_len, aes(resistance, max.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   ylab("max repeat length") +
@@ -1706,7 +1740,7 @@ ggplot(max_rep_len %>% filter(location == "max.rep.len.plasmid"), aes(resistance
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   ylab("max repeat length") +
   xlab("") +
@@ -1744,7 +1778,7 @@ ggplot(rep_count %>% filter(location == "n.rep.plasmid"), aes(resistance, n.rep)
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt")+
   ylab("n repeats") +
   xlab("") +
@@ -1877,7 +1911,7 @@ p1 <- ggplot(data_strain, aes(resistance, n.rep.total.ampC))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("total")+
   ylab("N")+ xlab("") +
   guides(fill="none") +
@@ -1887,7 +1921,7 @@ p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.ampC))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("chromosomal")+
   ylab("") + xlab("") +
   guides(fill="none") +
@@ -1897,7 +1931,7 @@ p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.ampC))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("plasmid")+
   ylab("") + xlab("") + 
   guides(fill="none") +
@@ -1926,7 +1960,7 @@ ggplot(data_strain %>% filter(med.rep.len.ampC > 0), aes(resistance, med.rep.len
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   coord_trans(y="sqrt") +
   ggtitle("ampC-type BL: median repeat length")+
   ylab("length")+
@@ -1940,7 +1974,7 @@ ggplot(data_strain %>% filter(med.AR.len.ampC > 0), aes(resistance, med.AR.len.a
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   coord_trans(y="sqrt") +
   ggtitle("ampC-type BL: median AR size")+
   ylab("AR size")+
@@ -1962,7 +1996,7 @@ p1 <- ggplot(data_strain, aes(resistance, n.rep.total.TEM))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("total")+
   ylab("N")+ xlab("") +
   guides(fill="none") +
@@ -1972,7 +2006,7 @@ p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.TEM))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("chromosomal")+
   ylab("") + xlab("") +
   guides(fill="none") +
@@ -1982,7 +2016,7 @@ p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.TEM))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("plasmid")+
   ylab("") + xlab("") + 
   guides(fill="none") +
@@ -1999,7 +2033,7 @@ ggplot(data_strain %>% filter(med.rep.len.TEM > 0), aes(resistance, med.rep.len.
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   coord_trans(y="sqrt") +
   ggtitle("TEM C-type BL: median repeat length")+
   ylab("length")+
@@ -2013,7 +2047,7 @@ ggplot(data_strain %>% filter(med.AR.len.TEM > 0), aes(resistance, med.AR.len.TE
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   coord_trans(y="sqrt") +
   ggtitle("TEM-type BL: median AR size")+
   ylab("AR size")+
@@ -2035,7 +2069,7 @@ p1 <- ggplot(data_strain, aes(resistance, n.rep.total.CTX))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("total")+
   ylab("N")+ xlab("") +
   guides(fill="none") +
@@ -2045,7 +2079,7 @@ p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.CTX))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("chromosomal")+
   ylab("") + xlab("") +
   guides(fill="none") +
@@ -2055,7 +2089,7 @@ p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.CTX))+
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   ggtitle("plasmid")+
   ylab("") + xlab("") + 
   guides(fill="none") +
@@ -2072,7 +2106,7 @@ ggplot(data_strain %>% filter(med.rep.len.CTX > 0), aes(resistance, med.rep.len.
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   coord_trans(y="sqrt") +
   ggtitle("CTX C-type BL: median repeat length")+
   ylab("length")+
@@ -2086,7 +2120,7 @@ ggplot(data_strain %>% filter(med.AR.len.CTX > 0), aes(resistance, med.AR.len.CT
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Set1")+
+  scale_fill_brewer(palette = "Pastel1")+
   coord_trans(y="sqrt") +
   ggtitle("CTX-type BL: median AR size")+
   ylab("AR size")+
@@ -2132,7 +2166,7 @@ data_strain %>%
   geom_jitter(alpha = 0.2,
               width = 0.15,
               height = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Pastel1") +
   ggtitle("ISAS1 count") +
   ylab("n") +
   xlab("") +
@@ -2142,7 +2176,7 @@ data_strain %>%
 ### IS max length
 
 ```{r}
-Fig_5A <- data_strain %>% 
+Fig_7A <- data_strain %>% 
   ggplot(aes(resistance, max.is.len)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2150,8 +2184,9 @@ Fig_5A <- data_strain %>%
   scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y="sqrt") +
   ylab("max IS length") +
+  xlab("") +
   guides(fill="none")
-Fig_5A
+Fig_7A
 ```
 
 ```{r}
@@ -2167,7 +2202,7 @@ kruskal.test(data_strain$max.is.len, data_strain$resistance)
 ### IS copies count
 
 ```{r}
-Fig_5D <- data_strain %>% 
+Fig_7D <- data_strain %>% 
   ggplot(aes(resistance, n.is.tot)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
@@ -2175,8 +2210,9 @@ Fig_5D <- data_strain %>%
   scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y="sqrt") +
   ylab("IS copy number") +
+  xlab("") +
   guides(fill="none")
-Fig_5D
+Fig_7D
 ```
 
 ```{r}
@@ -2192,15 +2228,16 @@ kruskal.test(data_strain$n.is.tot, data_strain$resistance)
 ### Total family number
 
 ```{r}
-Fig_5C <- data_strain %>% 
+Fig_7C <- data_strain %>% 
   ggplot(aes(resistance, n.is.fam)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1") +
   ylab("IS families") +
+  xlab("") +
   guides(fill="none")
-Fig_5C
+Fig_7C
 ```
 
 ```{r}
@@ -2222,22 +2259,23 @@ exp(coef(isfam_pois_fit))
 ### min IS distance to the gene
 
 ```{r}
-Fig_5B <- data_strain %>% 
+Fig_7B <- data_strain %>% 
   ggplot(aes(resistance, min_distance_is_gene)) +
   geom_violin(aes(fill=resistance), alpha=0.7)+
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1") +
   ylab("min distance") +
+  xlab("") +
   guides(fill="none")
-Fig_5B
+Fig_7B
 ```
 
 ```{r,fig.height=8, fig.width=9}
-Fig_5 <- ggarrange(Fig_5A, Fig_5B, Fig_5C,Fig_5D,
+Fig_7 <- ggarrange(Fig_7A, Fig_7B, Fig_7C,Fig_7D,
                     labels = c("A", "B", "C", "D"),
                     ncol = 2, nrow = 2)
-Fig_5
+Fig_7
 ```
 
 ```{r}
