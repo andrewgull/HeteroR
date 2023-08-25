@@ -1825,11 +1825,38 @@ Fig_4B <- ar_len %>%
 Fig_4B
 ```
 
+### Medians
+
 ```{r}
 ar_len %>% 
   group_by(location, resistance) %>%
   summarise(median = median(ar.len))
 ```
+
+### Kruskal-Wallis test: total
+
+```{r}
+ar_len_kw <- function(loc, ar_df = ar_len){
+  df <- ar_df %>% filter(location == loc)
+  return(kruskal.test(df$ar.len, df$resistance))
+}
+
+ar_len_kw("med.AR.len")
+```
+
+### Kruskal-Wallis test: plasmids
+
+```{r}
+ar_len_kw("med.AR.len.plasmid")
+```
+
+
+### Kruskal-Wallis test: chromosomes
+
+```{r}
+ar_len_kw("med.AR.len.chrom")
+```
+
 
 ## Distance to oriC
 
