@@ -1811,7 +1811,7 @@ facet_names <- c("med.AR.len.chrom" = "chromosome",
                  "med.AR.len" = "total")
 
 Fig_4B <- ar_len %>% 
-  filter(ar.len > 0) %>% 
+  #filter(ar.len > 0) %>% 
   ggplot(aes(resistance, ar.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
