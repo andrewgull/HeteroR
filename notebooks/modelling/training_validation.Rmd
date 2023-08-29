@@ -1,7 +1,7 @@
 ---
-title: "Untitled"
+title: "tuning and validation of models using workflowsets"
 output: html_document
-date: "2023-07-10"
+date:  "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 ---
 
 ```{r}
@@ -317,61 +317,6 @@ autoplot(models_llr$result[[3]])
 autoplot(models_llr$result[[4]])
 ```
 
-## Compare workflows
-
-### ROCs overlapped
-
-```{r}
-lr_best_res <- list(
-    models_llr$result[[1]],
-    models_llr$result[[2]],
-    models_llr$result[[3]],
-    models_llr$result[[4]]
-  )
-
-lr_best_names <-
-  c(
-    "base_LLR",
-    "baseyj_LLR",
-    "baseorq_LLR",
-    "pca_LLR"
-  )
-
-
-LLR_rocs <-
-  map2_dfr(lr_best_res,
-  lr_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-LLR_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("LR")
-```
-
-### PR-curves overlapped
-
-```{r lr compare pr}
-lr_prs <-
-  map2_dfr(lr_best_res,
-  lr_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-lr_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("LR")
-```
-
 
 # SVM MLP
 
@@ -447,68 +392,11 @@ autoplot(models_svm_mlp$result[[11]])
 autoplot(models_svm_mlp$result[[16]])
 ```
 
-## Compare lsvm
-
-### ROCs overlapped
-
-```{r}
-lsvm_best_res <- list(
-    models_svm_mlp$result[[1]],
-    models_svm_mlp$result[[6]],
-    models_svm_mlp$result[[11]],
-    models_svm_mlp$result[[16]]
-  )
-
-lsvm_best_names <-
-  c(
-    "ncorr_lsvm",
-    "ncorryj_lsvm",
-    "ncorrorq_lsvm",
-    "pca_lsvm"
-  )
-
-
-lsvm_rocs <-
-  map2_dfr(lsvm_best_res,
-  lsvm_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-lsvm_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("lsvm")
-```
-
-### PR-curves overlapped
-
-```{r lr compare pr}
-lsvm_prs <-
-  map2_dfr(lsvm_best_res,
-  lr_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-lsvm_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("lsvm")
-```
-
-
 ## ncorr_psvm 
 
 ```{r}
 autoplot(models_svm_mlp$result[[2]])
 ```
-
 
 ## ncorryj_psvm 
 
@@ -526,61 +414,6 @@ autoplot(models_svm_mlp$result[[12]])
 
 ```{r}
 autoplot(models_svm_mlp$result[[17]])
-```
-
-## Compare psvm
-
-### ROCs overlapped
-
-```{r}
-psvm_best_res <- list(
-    models_svm_mlp$result[[2]],
-    models_svm_mlp$result[[7]],
-    models_svm_mlp$result[[12]],
-    models_svm_mlp$result[[17]]
-  )
-
-psvm_best_names <-
-  c(
-    "ncorr_psvm",
-    "ncorryj_psvm",
-    "ncorrorq_psvm",
-    "pca_psvm"
-  )
-
-
-psvm_rocs <-
-  map2_dfr(psvm_best_res,
-  psvm_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-psvm_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("psvm")
-```
-
-### PR-curves overlapped
-
-```{r}
-psvm_prs <-
-  map2_dfr(psvm_best_res,
-  psvm_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-psvm_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("psvm")
 ```
 
 ## ncorr_rbfsvm 
@@ -607,61 +440,6 @@ autoplot(models_svm_mlp$result[[13]])
 autoplot(models_svm_mlp$result[[18]])
 ```
 
-## Compare rbfsvm
-
-### ROCs overlapped
-
-```{r}
-rbfsvm_best_res <- list(
-    models_svm_mlp$result[[3]],
-    models_svm_mlp$result[[8]],
-    models_svm_mlp$result[[13]],
-    models_svm_mlp$result[[18]]
-  )
-
-rbfsvm_best_names <-
-  c(
-    "ncorr_rbfsvm",
-    "ncorryj_rbfsvm",
-    "ncorrorq_rbfsvm",
-    "pca_rbfsvm"
-  )
-
-
-rbfsvm_rocs <-
-  map2_dfr(rbfsvm_best_res,
-  rbfsvm_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-rbfsvm_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("rbfsvm")
-```
-
-### PR-curves overlapped
-
-```{r}
-rbfsvm_prs <-
-  map2_dfr(rbfsvm_best_res,
-  rbfsvm_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-rbfsvm_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("rbfsvm")
-```
-
 ## ncorr_mlp_nnet 
 
 ```{r}
@@ -686,61 +464,6 @@ autoplot(models_svm_mlp$result[[14]])
 autoplot(models_svm_mlp$result[[19]])
 ```
 
-## Compare mlp_nnet
-
-### ROCs overlapped
-
-```{r}
-mlp_nnet_best_res <- list(
-    models_svm_mlp$result[[4]],
-    models_svm_mlp$result[[9]],
-    models_svm_mlp$result[[14]],
-    models_svm_mlp$result[[19]]
-  )
-
-mlp_nnet_best_names <-
-  c(
-    "ncorr_mlp_nnet",
-    "ncorryj_mlp_nnet",
-    "ncorrorq_mlp_nnet",
-    "pca_mlp_nnet"
-  )
-
-
-mlp_nnet_rocs <-
-  map2_dfr(mlp_nnet_best_res,
-  mlp_nnet_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-mlp_nnet_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("mlp_nnet")
-```
-
-### PR-curves overlapped
-
-```{r}
-mlp_nnet_prs <-
-  map2_dfr(mlp_nnet_best_res,
-  mlp_nnet_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-mlp_nnet_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("mlp_nnet")
-```
-
 ## ncorr_bag_mlp 
 
 ```{r}
@@ -763,61 +486,6 @@ autoplot(models_svm_mlp$result[[15]])
 
 ```{r}
 autoplot(models_svm_mlp$result[[20]])
-```
-
-## Compare bag_mlp
-
-### ROCs overlapped
-
-```{r}
-bag_mlp_best_res <- list(
-    models_svm_mlp$result[[5]],
-    models_svm_mlp$result[[10]],
-    models_svm_mlp$result[[15]],
-    models_svm_mlp$result[[20]]
-  )
-
-bag_mlp_best_names <-
-  c(
-    "ncorr_bag_mlp",
-    "ncorryj_bag_mlp",
-    "ncorrorq_bag_mlp",
-    "pca_bag_mlp"
-  )
-
-
-bag_mlp_rocs <-
-  map2_dfr(bag_mlp_best_res,
-  bag_mlp_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-bag_mlp_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("bag_mlp")
-```
-
-### PR-curves overlapped
-
-```{r}
-bag_mlp_prs <-
-  map2_dfr(bag_mlp_best_res,
-  bag_mlp_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-bag_mlp_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("bag_mlp")
 ```
 
 # KNN MARS 
@@ -892,61 +560,6 @@ autoplot(models_mars_knn$result[[8]])
 autoplot(models_mars_knn$result[[11]])
 ```
 
-## Compare knn 
-
-### ROCs overlapped
-
-```{r}
-knn_best_res <- list(
-    models_mars_knn$result[[2]],
-    models_mars_knn$result[[5]],
-    models_mars_knn$result[[8]],
-    models_mars_knn$result[[11]]
-  )
-
-knn_best_names <-
-  c(
-    "ncorr_knn",
-    "ncorryj_knn",
-    "ncorrorq_knn",
-    "pca_knn"
-  )
-
-
-knn_rocs <-
-  map2_dfr(knn_best_res,
-  knn_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-knn_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("knn")
-```
-
-### PR-curves overlapped
-
-```{r}
-knn_prs <-
-  map2_dfr(knn_best_res,
-  knn_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-knn_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("knn")
-```
-
 ## ncorr_mars 
 
 ```{r}
@@ -993,69 +606,6 @@ autoplot(models_mars_knn$result[[9]])
 
 ```{r}
 autoplot(models_mars_knn$result[[12]])
-```
-
-## Compare mars 
-
-### ROCs overlapped
-
-```{r}
-mars_best_res <- list(
-    models_mars_knn$result[[1]],
-    models_mars_knn$result[[3]],
-    models_mars_knn$result[[4]],
-    models_mars_knn$result[[6]],
-    models_mars_knn$result[[7]],
-    models_mars_knn$result[[9]],
-    models_mars_knn$result[[10]],
-    models_mars_knn$result[[12]]
-  )
-
-mars_best_names <-
-  c(
-    "ncorr_mars",
-    "ncorr_bag_mars",
-    "ncorryj_mars",
-    "ncorryj_bag_mars",
-    "ncorrorq_mars",
-    "ncorrorq_bag_mars",
-    "pca_mars",
-    "pca_bag_mars"
-  )
-
-
-mars_rocs <-
-  map2_dfr(mars_best_res,
-  mars_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-mars_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("mars")
-```
-
-### PR-curves overlapped
-
-```{r}
-mars_prs <-
-  map2_dfr(mars_best_res,
-  mars_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-mars_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("mars")
 ```
 
 # RF BT
@@ -1117,8 +667,6 @@ base_bt_bres <- tune_bayes(base_bt_wf,  resamples = cv_folds, initial = models_x
 ```{r,eval = FALSE}
 show_best(base_bt_bres)
 ```
-
-
 
 # RF BT light 
 
@@ -1272,64 +820,5 @@ show_best(base_bt_boruta_bres_light)
 
 ```{r}
 autoplot(base_bt_boruta_bres_light)
-```
-
-## Compare rf bt 
-
-### ROCs overlapped
-
-```{r}
-rf_bt_res <- list(
-    models_mars_knn$result[[1]],
-    models_mars_knn$result[[3]],
-    models_mars_knn$result[[4]],
-    models_mars_knn$result[[6]],
-    base_bt_bres_light,
-    base_bt_boruta_bres_light
-  )
-
-rf_bt_best_names <-
-  c(
-    "base_rf",
-    "base_bt_light",
-    "base_boruta_rf",
-    "base_boruta_bt_light",
-    "base_bt_bres_light",
-    "base_bt_boruta_bres_light"
-  )
-
-
-rf_bt_rocs <-
-  map2_dfr(rf_bt_res,
-  rf_bt_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-rf_bt_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  #scale_color_viridis_d(direction = 1, option = "B")
-  scale_color_brewer(palette="Set1") +
-  ggtitle("rf_bt")
-```
-
-### PR-curves overlapped
-
-```{r}
-rf_bt_prs <-
-  map2_dfr(rf_bt_res,
-  rf_bt_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-rf_bt_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("rf_bt")
 ```
 
