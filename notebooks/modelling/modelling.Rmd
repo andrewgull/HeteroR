@@ -44,19 +44,10 @@ The data sets are the same as in EDA
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
   filter(strain != "DA63310")
 
-# TWO SCHEMES
 hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
   filter(!is.na(strain)) %>% 
   rename("resistance" = Gr12 )
 
-hr_testing13 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr13)) %>% 
-  filter(!is.na(strain)) %>% 
-  rename("resistance" = Gr13 )
-
-# created during EDA
-hr_testing <- read_csv("data/heteroresistance_testing_gr123.csv") 
-
-# USE HR 1+2
 data_strain <- data_strain %>% 
   left_join(hr_testing12, by = "strain")
 
