@@ -1,5 +1,6 @@
 ---
-title: "tuning and validation of models using workflowsets"
+title: "Training and validation of models using workflowsets"
+author: "by M.R."
 output: html_document
 date:  "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 ---
@@ -18,7 +19,7 @@ library(ggplot2)
 source("functions.R")
 ```
 
-f# data - from run_models 
+# data 
 
 ```{r}
 data_strain <- readr::read_csv("data/features_strain.csv",

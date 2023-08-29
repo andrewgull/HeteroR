@@ -201,7 +201,7 @@ data_strain <-
 
 #write_csv(rgi, "data/rgi_all.csv")
 
-rgi <- read_csv("data/rgi_all.csv", show_col_types = F)
+rgi <- read_csv("data/rgi_all.csv.gz", show_col_types = F)
 
 stay <- c("antibiotic target replacement", "antibiotic target protection", "antibiotic inactivation")
 
