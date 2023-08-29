@@ -405,7 +405,7 @@ final_tibble <- bind_rows(final_tibble,tmp_tibble)
 final_tibble
 
 ## ncorryj_lsvm
-lsvm_NCORR_YJ <-models_svm_mlp$result[[7]]
+lsvm_NCORR_YJ <-models_svm_mlp$result[[6]]
 
 best_perf_hyp <- lsvm_NCORR_YJ %>% show_best(n=20 )
 
@@ -556,7 +556,7 @@ final_tibble <- bind_rows(final_tibble,tmp_tibble)
 final_tibble
 
 ## ncorryj_psvm
-psvm_NCORR_YJ <-models_svm_mlp$result[[6]]
+psvm_NCORR_YJ <-models_svm_mlp$result[[7]]
 
 best_perf_hyp <- psvm_NCORR_YJ %>% show_best(n=20 )
 
