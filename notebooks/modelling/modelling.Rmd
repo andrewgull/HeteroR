@@ -187,10 +187,7 @@ From [here](https://www.tmwr.org/grid-search.html):
 > also be used to estimate transformations that encourage more symmetric
 > distributions
 
-**NB:** As comparison in EDA notebook showed, OQ-normalization works
-better than Yeo-Johnson transformation.
-
-Borrowed from 'Tidy modeling with R': Chapter 13.2 'Evaluating the grid'
+The following code chunk is borrowed from 'Tidy modeling with R': Chapter 13.2 'Evaluating the grid'
 
 ```{r pca+yj recipe}
 pca_recipe <- recipe(resistance ~ ., data = df_train) %>%
