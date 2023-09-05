@@ -26,7 +26,7 @@ data_strain <- readr::read_csv("data/features_strain.csv",
                                na = c("NA", "-Inf"),
                                show_col_types = FALSE)
 
-hr_testing <- readr::read_csv("data/heteroresistance_testing_gr12.csv",
+hr_testing <- readr::read_csv("data/heteroresistance_testing.csv",
                               show_col_types = FALSE)
 
 data_strain <- data_strain %>%
