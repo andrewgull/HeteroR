@@ -75,28 +75,8 @@ data <- read_csv("data/features.csv")
 
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
   
-# TWO SCHEMES IN TWO FILES
-hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
-  filter(!is.na(strain)) %>% 
-  rename("resistance" = Gr12 )
-
-hr_testing13 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr13)) %>% 
-  filter(!is.na(strain)) %>% 
-  rename("resistance" = Gr13 )
-
-# THIS ONE YOU MAKE YOURSELF
-hr_testing <- left_join(hr_testing12, hr_testing13, by = "strain") %>% 
-  mutate(resistance = case_when(resistance.x == "HR" | resistance.y == "HR" ~ "HR",
-                              resistance.x == "R" | resistance.y == "R" ~ "R",
-                              is.na(resistance.x) & resistance.y == "nonHR" ~ "nonHR", # NA only in resistance.x which is Gr12
-                              resistance.x == "nonHR" & resistance.y == "nonHR" ~ "nonHR")) %>% 
-  select(strain, resistance)
-
-# WRITE IT
-#write_csv(hr_testing, "data/heteroresistance_testing_gr123.csv")
-#write_csv(hr_testing12, "data/heteroresistance_testing_gr12.csv")
-#write_csv(hr_testing13, "data/heteroresistance_testing_gr13.csv")
-
+# HR testing labels
+hr_testing <- read_csv("data/heteroresistance_testing.csv") 
 ```
 
 **NB**: Some strains are in HR labels data; some are on Argos, and some are assembled.
@@ -126,30 +106,7 @@ setdiff(hr_testing$strain, strains_assembled)
 
 The same 12 strains, which means the rest were sequenced and assembled.
 
-Classes in `hr_testing12`
-
-```{r}
-hr_testing12 %>% 
-  group_by(resistance) %>% 
-  count()
-```
-
-Classes in `hr_testing13`
-
-```{r}
-hr_testing13 %>% 
-  group_by(resistance) %>% 
-  count()
-```
-
-NAs in HR12 and HR13
-
-```{r}
-left_join(hr_testing12, hr_testing13, by = "strain") %>% 
-  filter(is.na(resistance.x), is.na(resistance.y))
-```
-
-Classes in `hr_testing` (I+II+III)
+Classes in `hr_testing`
 
 ```{r}
 hr_testing %>% 
@@ -166,7 +123,7 @@ Look at target class distribution in the data set you're working with (521 strai
 ```{r}
 # consider different classification schemes
 data_strain <- data_strain %>% 
-  left_join(hr_testing12, by = "strain")
+  left_join(hr_testing, by = "strain")
 
 data_strain %>% 
   group_by(resistance) %>% 
@@ -372,6 +329,7 @@ Fig_8A <- pcayj_recipe %>%
   juice() %>% 
   plot_validation_results(c("PC1", "PC2", "PC3", "PC4")) +
   ggtitle("Principal Component Analysis")
+
 Fig_8A
 ```
 
@@ -442,6 +400,7 @@ Fig_8B <- kpcayj_recipe %>%
   juice() %>% 
   plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4")) +
   ggtitle("Kernel Principal Component Analysis")
+
 Fig_8B
 ```
 
@@ -531,7 +490,6 @@ pls_recipe %>%
 ### Unsupervised
 
 ```{r, message=FALSE, warning=FALSE, fig.width=8}
-
 umapuyj_recipe <- 
   recipe(resistance ~ ., data = data_strain) %>%
   update_role(strain, new_role = "ID") %>%
@@ -560,6 +518,7 @@ Fig_8C <- umapuyj_recipe %>%
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP unsupervised")
+
 Fig_8C
 ```
 
@@ -598,6 +557,7 @@ Fig_8D <- umaps_recipe %>%
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP supervised")
+
 Fig_8D
 ```
 
@@ -908,7 +868,7 @@ Classic bar plot
 ggplot(data_strain, aes(n.beta.lac.chrom)) +
   geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5, 6)) +
   xlab("n beta-lactamases on chromosome") +
   ylab("n strains")
 ```
@@ -919,7 +879,7 @@ As proportion:
 ggplot(data_strain, aes(n.beta.lac.chrom)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  scale_x_continuous(breaks = c(0,1,2,3,4,5)) +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5, 6)) +
   xlab("n beta-lactamases on chromosome") +
   ylab("proportion")
 ```
@@ -1048,8 +1008,6 @@ Fig_5B
 
 
 ```{r}
-
-
 legend <- get_legend(Fig_5A)
 empty_plot_with_legend <- ggplot() + 
   theme_void() +
