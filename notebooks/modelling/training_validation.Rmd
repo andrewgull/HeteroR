@@ -318,6 +318,10 @@ autoplot(models_llr$result[[3]])
 autoplot(models_llr$result[[4]])
 ```
 
+remove models object 
+```{r}
+rm(models_llr)
+```
 
 # SVM MLP
 
@@ -489,6 +493,11 @@ autoplot(models_svm_mlp$result[[15]])
 autoplot(models_svm_mlp$result[[20]])
 ```
 
+remove models object 
+```{r}
+rm(models_svm_mlp)
+```
+
 # KNN MARS 
 
 ```{r}
@@ -607,6 +616,11 @@ autoplot(models_mars_knn$result[[9]])
 
 ```{r}
 autoplot(models_mars_knn$result[[12]])
+```
+
+remove models object 
+```{r}
+rm(models_mars_knn)
 ```
 
 # RF BT
@@ -739,6 +753,7 @@ autoplot(models_xgb_rf_light$result[[2]])
 autoplot(models_xgb_rf_light$result[[4]])
 ```
 
+
 ## base_bt_bres 
 
 ```{r}
@@ -823,3 +838,9 @@ show_best(base_bt_boruta_bres_light)
 autoplot(base_bt_boruta_bres_light)
 ```
 
+remove models object 
+```{r}
+rm(base_bt_bres_light) 
+rm(models_xgb_rf_light) # this has to be removed here as it is used for bayesian optimization
+rm(base_bt_boruta_bres_light)
+```
