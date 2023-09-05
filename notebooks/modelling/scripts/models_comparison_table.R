@@ -15,7 +15,7 @@ library(colino)
 
 # path for models
 models_path <-
-  "~/Data/HeteroR/results/models/scheme12/"
+  "~/HeteroR/results/models/scheme12/"
 
 rfe_model <- rand_forest(mode = "classification") %>%
   set_engine("ranger", num.threads = 8, importance = "impurity")
@@ -172,7 +172,7 @@ lr_en <- logistic_reg(penalty = tune(),
 
 #LR
 models_llr <-
-  readRDS("~/Data/HeteroR/results/models/scheme12/models_llr.rds")
+  readRDS(paste0(models_path,"models_llr.rds"))
 
 predictors_to_remove <- c("(Intercept)", "resistance", "strain")
 
@@ -376,7 +376,7 @@ final_tibble <-
 
 # lSVM
 models_svm_mlp <-
-  readRDS("~/Data/HeteroR/results/models/scheme12/models_svm_mlp.rds")
+  readRDS(paste0(models_path,"models_svm_mlp.rds"))
 
 ## ncorr_lsvm
 
@@ -515,7 +515,7 @@ final_tibble <-
 
 # MARS
 models_mars_knn <-
-  readRDS("~/Data/HeteroR/results/models/scheme12/models_mars_knn.rds")
+  readRDS(paste0(models_path,"models_mars_knn.rds"))
 
 ## ncorr_mars
 
@@ -595,9 +595,8 @@ final_tibble <-
 
 # RF
 models_rf_bt <-
-  readRDS(
-    "~/Data/HeteroR/results/models/scheme12/models_xgb_rf_light.rds"
-  )
+  readRDS(paste0(models_path,"models_xgb_rf_light.rds"))
+
 
 ## base_rf
 
@@ -622,7 +621,8 @@ final_tibble <-
 
 ## base_bt_bres
 base_bt_bres <-
-  readRDS("~/Data/HeteroR/results/models/scheme12/base_bt_bres_light.rds")
+  readRDS(paste0(models_path,"base_bt_bres_light.rds"))
+
 
 final_tibble <-
   bind_rows(final_tibble, new_model_row(base_bt_bres, "BT_bres", "BASE"))
@@ -637,9 +637,8 @@ final_tibble <-
 
 ## base_boruta_bt_bres
 bt_base_boruta_bres <-
-  readRDS(
-    "~/Data/HeteroR/results/models/scheme12/base_bt_boruta_bres_light.rds"
-  )
+  readRDS(paste0(models_path,"base_bt_boruta_bres_light.rds"))
+
 
 final_tibble <-
   bind_rows(final_tibble,
