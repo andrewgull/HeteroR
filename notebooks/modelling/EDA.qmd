@@ -145,7 +145,6 @@ On the fully tested data set I will start from classification 1+2+3, because it 
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R", strain != "DA63310") %>% 
@@ -1205,7 +1204,7 @@ fig
 ### Plot
 
 ```{r}
-data_strain %>% 
+Fig_3B <- data_strain %>% 
     ggplot(aes(resistance, coverage)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
@@ -1219,9 +1218,11 @@ data_strain %>%
               height = 0.1) +
   scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
-  ylab("n") +
+  ylab("Nanopore reads coverage") +
   xlab("") +
   guides(fill = "none")
+
+Fig_3B
 ```
 
 ### KW test
@@ -1239,8 +1240,9 @@ data_strain %>% group_by(resistance) %>% summarise(median=median(coverage))
 ## Sequencing reads lengths
 
 ```{r}
-data_strain %>% 
-    ggplot(aes(resistance, read.max.len)) +
+Fig_3A <-
+  data_strain %>%
+  ggplot(aes(resistance, read.max.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
     aes(fill = resistance),
@@ -1253,10 +1255,27 @@ data_strain %>%
               height = 0.1) +
   scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
-  ylab("n") +
+  ylab("longest Nanopore read") +
   xlab("") +
   guides(fill = "none")
+
+Fig_3A
 ```
+
+### KW test
+
+```{r}
+kruskal.test(data_strain$read.max.len, data_strain$resistance)
+```
+
+### Fig 3A & 3B
+
+```{r, fig.height=8, fig.width=5}
+ggarrange(Fig_3A, Fig_3B, 
+          labels = c("A", "B"),
+                    ncol = 1, nrow = 2)
+```
+
 
 ## Read length vs Coverage
 
