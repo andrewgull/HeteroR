@@ -130,8 +130,6 @@ data_strain %>%
   count()
 ```
 
-On the fully tested data set I will start from classification 1+2+3, because it performed the best during previous attempts with 483 strains tested
-
 ## Some additional features and filtering
 
 1.  Add BL genes counts as ordered factor and as binary features (if BL \> 3)
