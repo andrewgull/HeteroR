@@ -25,6 +25,7 @@ library(readr)
 library(themis) # smote
 library(ggforce) # for plot_validation_results()
 library(embed) # for umap and PCA variants
+library(scales)
 source("functions.R")
 ```
 
@@ -162,6 +163,13 @@ skim(data_strain) %>%
 ```
 
 ## Circularity in tested strains
+
+```{r}
+data_strain %>% 
+  group_by(resistance, chrom.status) %>% 
+  count()
+```
+
 
 ```{r}
 data_strain %>% 
@@ -558,14 +566,7 @@ Fig_8D <- umaps_recipe %>%
 Fig_8D
 ```
 
-Fig_8
 
-```{r,fig.height=10, fig.width=10}
-Fig_8 <- ggarrange(Fig_8A, Fig_8B, Fig_8C, Fig_8D,
-                    labels = c("A", "B", "C", "D"),
-                    ncol = 2, nrow = 2, common.legend = TRUE)
-Fig_8
-```
 
 ### With added FP and FN
 
@@ -689,6 +690,15 @@ umap3d <- umap3d %>%
 
 umap3d
 
+```
+
+## Fig_8
+
+```{r,fig.height=10, fig.width=10}
+Fig_8 <- ggarrange(Fig_8A, Fig_8B, Fig_8C, Fig_8D,
+                    labels = c("A", "B", "C", "D"),
+                    ncol = 2, nrow = 2, common.legend = TRUE)
+Fig_8
 ```
 
 ## RG counts distribution
@@ -846,13 +856,15 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
 As a proportion
 
 ```{r}
-Fig_5A <- ggplot(data_strain, aes(n.beta.lac.plasmid)) +
+Fig_6A <- data_strain %>% 
+  ggplot(aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   scale_x_continuous(breaks = c(0,1,2,3,4,5,6)) +
   xlab("n β-lactamases on plasmids") +
   ylab("proportion")
-Fig_5A
+
+Fig_6A
 ```
 
 Starting from 4 bl genes (on plasmids), it seems to be a very good predictor.
@@ -928,13 +940,14 @@ ggplot(data_strain, aes(n.beta.lac.plus)) +
 
 As proportion
 
-```{r}
-Fig_5C <-  ggplot(data_strain, aes(n.beta.lac.plus)) +
+```{r, eval=FALSE}
+Fig_6C <-  ggplot(data_strain, aes(n.beta.lac.plus)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("n beta-lactamases on plus strand") +
   ylab("proportion") 
-Fig_5C
+
+Fig_6C
 ```
 
 #### On plasmids
@@ -990,7 +1003,7 @@ bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>%
   summarize(sum=sum(n))
 
 
-Fig_5B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
+Fig_6B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   geom_col(aes(fill=resistance), position = "fill", alpha = 1) + 
   # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
   scale_fill_brewer(palette = "Set1", name = "") +
@@ -998,25 +1011,25 @@ Fig_5B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   ylab("proportion")+
   scale_x_discrete(labels = c("ampC", "non-ampC"))
   
-Fig_5B
+Fig_6B
 ```
 
 
 
 
-```{r}
-legend <- get_legend(Fig_5A)
-empty_plot_with_legend <- ggplot() + 
+```{r, fig.height=8, fig.width=6}
+legend <- get_legend(Fig_6A)
+
+empty_plot_with_legend <- 
+  ggplot() + 
   theme_void() +
   annotation_custom(grob = legend, xmin = -0.7, xmax = Inf, ymin = 0.2, ymax = Inf)
 
-
-Fig_5 <- ggarrange(Fig_5A + theme(legend.position = "none"), 
-                   Fig_5B + theme(legend.position = "none"), 
-                   Fig_5C + theme(legend.position = "none"), 
-                   empty_plot_with_legend,
-                   ncol = 2, nrow = 2, labels = c("A", "B", "C", ""))
-Fig_5
+Fig_6 <- ggarrange(Fig_6A + theme(legend.position = "bottom"), 
+                   Fig_6B + theme(legend.position = "none"),
+                   #empty_plot_with_legend,
+                   ncol = 1, nrow = 2, labels = c("A", "B"))
+Fig_6
 ```
 
 Among strains having only ampC beta-lactamases, the majority is non-HR
@@ -1678,16 +1691,29 @@ max_rep_len <- data_strain %>%
   select(resistance, max.rep.len.chrom, max.rep.len.plasmid, max.rep.len) %>% 
   gather("location", "max.len", 2:4)
 
-max_rep_len$max.len <- if_else(max_rep_len$max.len == 0, 1, max_rep_len$max.len)
+#max_rep_len$max.len <- if_else(max_rep_len$max.len == 0, 1, max_rep_len$max.len)
 
 facet_names <- c("max.rep.len.chrom" = "chromosome",
                  "max.rep.len.plasmid" = "plasmids",
                  "max.rep.len" = "total")
 
-ggplot(max_rep_len, aes(resistance, max.len)) +
+max_rep_len %>%
+  filter(max.len > 0) %>%
+  ggplot(aes(resistance, max.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T,
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    alpha = 0.2,
+    width = 0.05,
+    height = 0.1,
+    size = 0.8
+  ) +
   scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
@@ -1705,7 +1731,7 @@ max_rep_len %>%
 
 ```{r}
 max_rep_len %>% 
-  filter(location == "max.rep.len.plasmid") %>% 
+  filter(location == "max.rep.len.plasmid", max.len > 0) %>% 
   group_by(resistance) %>% 
   summarise(median = median(max.len))
 ```
@@ -1729,32 +1755,60 @@ rep_count <- data_strain %>%
   select(resistance, n.rep.chrom, n.rep.plasmid, n.rep.total) %>% 
   gather("location", "n.rep", 2:4)
 
-rep_count$n.rep <- if_else(rep_count$n.rep == 0, 1, rep_count$n.rep) 
+#rep_count$n.rep <- if_else(rep_count$n.rep == 0, 1, rep_count$n.rep) 
 
 facet_names <- c("n.rep.chrom" = "chromosome",
                  "n.rep.plasmid" = "plasmids",
                  "n.rep.total" = "total")
 
-Fig_4A <-  ggplot(rep_count, aes(resistance, n.rep)) +
+Fig_5A <-
+  rep_count %>% 
+  #filter(n.rep > 0) %>% 
+  ggplot(aes(resistance, n.rep)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T,
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    alpha = 0.2,
+    width = 0.05,
+    height = 0.1,
+    size = 0.8
+  ) +
   scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
+  #coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   ylab("n repeats") +
   xlab("") +
   guides(fill = "none")
-Fig_4A
+
+Fig_5A
 ```
 
 ```{r}
-ggplot(rep_count %>% filter(location == "n.rep.plasmid"), aes(resistance, n.rep)) +
+rep_count %>% 
+  filter(location == "n.rep.plasmid") %>%
+  ggplot(aes(resistance, n.rep)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T,
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    alpha = 0.2,
+    width = 0.05,
+    height = 0.1,
+    size = 0.8
+  ) +
   scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt")+
+  #coord_trans(y = "sqrt") +
   ylab("n repeats") +
   xlab("") +
   guides(fill = "none")
@@ -1785,19 +1839,22 @@ facet_names <- c("med.AR.len.chrom" = "chromosome",
                  "med.AR.len.plasmid" = "plasmids",
                  "med.AR.len" = "total")
 
-Fig_4B <- ar_len %>% 
+Fig_5B <- ar_len %>% 
   filter(ar.len > 0) %>% 
   ggplot(aes(resistance, ar.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
   scale_fill_brewer(palette = "Pastel1") +
-  #coord_trans(y = "sqrt") +
+  scale_y_continuous(labels = label_log(base=10), breaks = c(1, 10000, 100000)) +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
-  ylab("avg AR length") +
+  theme(panel.grid.minor = element_line(size=0)) +
+  ylab("median AR length") +
   xlab("") +
   guides(fill = "none")
-Fig_4B
+  
+
+Fig_5B
 ```
 
 ### Medians
@@ -1837,7 +1894,7 @@ ar_len_kw("med.AR.len.chrom")
 
 ### Min distance on chromnomsome, on plasmids, both
 
-```{r}
+```{r, eval=FALSE}
 min_ori <- data_strain %>% 
   select(resistance, min.dist.oriC.chrom, min.dist.oriC.plasmid, min.dist.oriC) %>% 
   gather("location", "dist", 2:4)
@@ -1859,16 +1916,17 @@ Fig_4C <- ggplot(min_ori, aes(resistance, dist)) +
   ylab("min dist oriC") +
   xlab("") +
   guides(fill = "none")
+
 Fig_4C
 ```
 
-Fig4
+Fig 5
 
-```{r,fig.height=10, fig.width=6}
-Fig_4 <- ggarrange(Fig_4A, Fig_4B, Fig_4C,
-                    labels = c("A", "B", "C"),
-                    ncol = 1, nrow = 3)
-Fig_4
+```{r,fig.height=8, fig.width=6}
+Fig_5 <- ggarrange(Fig_5A, Fig_5B,
+                    labels = c("A", "B"),
+                    ncol = 1, nrow = 2)
+Fig_5
 ```
 
 ```{r}
