@@ -2377,14 +2377,23 @@ lr_coeff_df %>%
 ### Plot
 
 ```{r, fig.width=8, fig.height=6}
-Fig_9D <- lr_coeff_df %>% 
-  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>% 
-  filter(term != "(Intercept)") %>% 
+Fig_9D <- lr_coeff_df %>%
+  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>%
+  filter(term != "(Intercept)") %>%
   ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
-  geom_col(aes(fill=effect)) +
-  scale_fill_brewer(palette="Paired", guide = guide_legend(title = NULL)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.9, hjust=0.9, size = 8),legend.position = "bottom") +
+  geom_col(aes(fill = effect)) +
+  scale_fill_brewer(palette = "Paired", guide = guide_legend(title = NULL)) +
+  theme(
+    axis.text.x = element_text(
+      angle = 90,
+      vjust = 0.9,
+      hjust = 0.9,
+      size = 8
+    ),
+    legend.position = "bottom"
+  ) +
   xlab("") + coord_flip()
+
 Fig_9D 
 ```
 
