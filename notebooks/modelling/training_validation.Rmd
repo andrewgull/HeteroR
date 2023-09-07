@@ -65,7 +65,7 @@ cv_folds <- vfold_cv(df_train,
 imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
 
 
-cores = 8
+cores <- 8
 ```
 
 # recipies 
@@ -251,10 +251,10 @@ bag_mlp <- bag_mlp(
 ```{r}
 read_models_llr <- function() {
   file_path <-
-    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_llr.rds"
+    "~/Data/HeteroR/results/models/scheme12/models_llr.rds"
   
   if (!file.exists(file_path)) {
-    print("File does not exist. Proceeding rith building the workflowset of the models.")
+    print("File does not exist. Proceeding with building the workflowset of the models.")
     models_llr <-
       workflow_set(
         preproc = list(
@@ -279,7 +279,7 @@ read_models_llr <- function() {
         control = control_grid(save_pred = TRUE,
                                save_workflow = TRUE)
       )
-    saveRDS(object = models_llr, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_llr.rds")
+    saveRDS(object = models_llr, file =  "~/Data/HeteroR/results/models/scheme12/models_llr.rds")
   } else {
     models_llr <- readRDS(file_path)
   }
