@@ -228,7 +228,7 @@ mlp_nnet <-
       set_mode("classification") %>%
       set_engine("nnet", num.threads = cores)
 
-bag_mars <- bag_mars(
+mars_bag <- bag_mars(
       mode = "classification",
       num_terms = tune(),
       prod_degree = tune(),
@@ -236,7 +236,7 @@ bag_mars <- bag_mars(
       engine = "earth"
     )
     
-bag_mlp <- bag_mlp(
+mlp_bag <- bag_mlp(
       hidden_units = tune(),
       penalty = tune(),
       epochs = tune()) %>%
@@ -247,12 +247,12 @@ bag_mlp <- bag_mlp(
 
 ```
 
-# LLR 
+# A function to read or run workflowsets
 
 ```{r}
 get_models_set <- function(file_path, model_specs_list, recipes_list) {
   if (!file.exists(file_path)) {
-    print("File does not exist. Proceeding with building the workflowset of the models.")
+    print("File does not exist. Proceeding with training and validation.")
     models_set <-
       workflow_set(
         preproc = recipes_list,
@@ -273,12 +273,18 @@ get_models_set <- function(file_path, model_specs_list, recipes_list) {
       )
     saveRDS(object = models_set, file =  file_path)
   } else {
-    models_llr <- readRDS(file_path)
+    print("File exists.  It will be loaded into memory.")
+    models_set <- readRDS(file_path)
   }
   
   return(models_set)
 }
+```
 
+
+# LLR 
+
+```{r}
 models_llr <-
   get_models_set(
     file_path = "~/Data/HeteroR/results/models/scheme12/models_llr.rds",
@@ -296,7 +302,7 @@ models_llr <-
 autoplot(models_llr, select_best= TRUE)
 ```
 
-```{r, fig.width=6, fig.height=8}
+```{r, fig.width=10, fig.height=8}
 autoplots <- map(models_llr$result, ~autoplot(.x))
 
 ggpubr::ggarrange(
@@ -313,49 +319,23 @@ remove models object to save memory
 rm(models_llr)
 ```
 
-# SVM and MLP
+# SVM
 
-test
+Linear, polynomial and radial-basis function
 
 ```{r}
-get_models_set <- function(file_path, model_specs_list, recipes_list) {
-  if (!file.exists(file_path)) {
-    print("File does not exist. Proceeding with building the workflowset of the models.")
-    models_set <-
-      workflow_set(
-        preproc = recipes_list,
-        models = model_specs_list,
-        cross = TRUE
-      )
-    set.seed(124)
-    models_set <-
-      models_set %>%
-      workflow_map(
-        "tune_grid",
-        resamples = cv_folds,
-        grid = 30,
-        metrics = imbalanced_metrics,
-        verbose = TRUE,
-        control = control_grid(save_pred = TRUE,
-                               save_workflow = TRUE)
-      )
-    saveRDS(object = models_set, file =  file_path)
-  } else {
-    models_llr <- readRDS(file_path)
-  }
-  
-  return(models_set)
-}
-
-
-models_lsvm <-
+models_svm <-
   get_models_set(
-    file_path = "~/Data/HeteroR/results/models/scheme12/models_lsvm.rds",
-    model_specs_list = list(linSVM = lsvm),
+    file_path = "~/Data/HeteroR/results/models/scheme12/models_svm.rds",
+    model_specs_list = list(
+      linSVM = lsvm,
+      polySVM = psvm,
+      rbfSVM = rbfsvm
+    ),
     recipes_list = list(
       ncorr = ncorr_recipe,
       ncorryj = ncorr_yj_recipe,
-      base_orq = ncorr_orq_recipe ,
+      base_orq = ncorr_orq_recipe,
       pca = pca_recipe
     )
   )
@@ -363,385 +343,143 @@ models_lsvm <-
 
 
 ```{r}
-read_models_svm_mlp <- function(file_path, model_specs_list) {
-
-  if (!file.exists(file_path)) {
-    print("File does not exist. Proceeding rith building the workflowset of the models.")
-    models_svm_mlp <-
-      workflow_set(
-        preproc = list(
-          ncorr = ncorr_recipe,
-          ncorryj = ncorr_yj_recipe,
-          base_orq = ncorr_orq_recipe ,
-          pca = pca_recipe
-        ),
-        
-        models = model_specs_list,
-        cross = TRUE
-      )
-    set.seed(124)
-    models_svm_mlp <-
-      models_svm_mlp %>%
-      workflow_map(
-        "tune_grid",
-        resamples = cv_folds,
-        grid = 30,
-        metrics = imbalanced_metrics,
-        verbose = TRUE,
-        control = control_grid(save_pred = TRUE,
-                               save_workflow = TRUE)
-      )
-    saveRDS(object = models_svm_mlp, file = file_path)
-  } else {
-    models_svm_mlp <- readRDS(file_path)
-  }
-  
-  return(models_svm_mlp)
-}
-
-models_svm_mlp <-
-  read_models_svm_mlp(
-    file_path = "~/Data/HeteroR/results/models/scheme12/models_svm_mlp.rds",
-    model_specs_list = list(
-      lsvm = lsvm,
-      psvm = psvm,
-      rbfsvm = rbfsvm,
-      mlp_nnet = mlp_nnet,
-      bag_mlp = bag_mlp
-    )
-  )
+autoplot(models_svm, select_best= TRUE)
 ```
 
-
-```{r}
-autoplot(models_svm_mlp, select_best= TRUE)
-```
-
-```{r, fig.width=6, fig.height=8}
-autoplots <- map(models_svm_mlp$result, ~autoplot(.x))
+```{r, fig.width=10, fig.height=8}
+autoplots <- map(models_svm$result, ~autoplot(.x))
 
 ggpubr::ggarrange(
   plotlist =  autoplots,
   ncol = 2,
   nrow = 2,
-  labels = c("", "", "", ""), font.label = list(size=12)
+  labels = c("no_corr", "no_corr+YJ", "no_corr+ORQ", "PCA"), font.label = list(size=12)
 )
 ```
 
-
-## ncorr_lsvm  
-
+remove the object to free memory
 ```{r}
-autoplot(models_svm_mlp$result[[1]])
+rm(models_svm)
 ```
 
-## ncorryj_lsvm  
+
+# MLP
 
 ```{r}
-autoplot(models_svm_mlp$result[[6]])
+models_mlp <- get_models_set(
+  file_path = "~/Data/HeteroR/results/models/scheme12/models_mlp.rds",
+  model_specs_list = list(MLP = mlp_nnet,
+                          MLP_BAG = mlp_bag),
+  recipes_list = list(
+    ncorr = ncorr_recipe,
+    ncorryj = ncorr_yj_recipe,
+    base_orq = ncorr_orq_recipe,
+    pca = pca_recipe
+  )
+)
 ```
-
-## ncorrorq_lsvm 
 
 ```{r}
-autoplot(models_svm_mlp$result[[11]])
+autoplot(models_mlp, select_best = TRUE)
 ```
 
-## pca_lsvm
-
-```{r}
-autoplot(models_svm_mlp$result[[16]])
-```
-
-## ncorr_psvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[2]])
-```
-
-## ncorryj_psvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[7]])
-```
-
-## ncorrorq_psvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[12]])
-```
-
-## pca_psvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[17]])
-```
-
-## ncorr_rbfsvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[3]])
-```
-
-## ncorryj_rbfsvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[8]])
-```
-
-## ncorrorq_rbfsvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[13]])
-```
-
-## pca_rbfsvm 
-
-```{r}
-autoplot(models_svm_mlp$result[[18]])
-```
-
-## ncorr_mlp_nnet 
-
-```{r}
-autoplot(models_svm_mlp$result[[4]])
-```
-
-## ncorryj_mlp_nnet 
-
-```{r}
-autoplot(models_svm_mlp$result[[9]])
-```
-
-## ncorrorq_mlp_nnet 
-
-```{r}
-autoplot(models_svm_mlp$result[[14]])
-```
-
-## pca_mlp_nnet 
-
-```{r}
-autoplot(models_svm_mlp$result[[19]])
-```
-
-## ncorr_bag_mlp 
-
-```{r}
-autoplot(models_svm_mlp$result[[5]])
-```
-
-## ncorryj_bag_mlp 
-
-```{r}
-autoplot(models_svm_mlp$result[[10]])
-```
-
-## ncorrorq_bag_mlp 
-
-```{r}
-autoplot(models_svm_mlp$result[[15]])
-```
-
-## pca_bag_mlp 
-
-```{r}
-autoplot(models_svm_mlp$result[[20]])
-```
 
 remove models object 
+
 ```{r}
 rm(models_svm_mlp)
 ```
 
-# KNN MARS 
+# KNN
 
 ```{r}
-read_models_mars_knn <- function() {
-  file_path <-
-    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_mars_knn.rds"
-  
-  if (!file.exists(file_path)) {
-    print("File does not exist. Proceeding rith building the workflowset of the models.")
-models_mars_knn <- 
-   workflow_set(
-      preproc = list(ncorr = ncorr_recipe, ncorryj = ncorr_yj_recipe, ncorrorq =ncorr_orq_recipe , pca = pca_recipe ),
-      
-      models = list( mars = mars,
-                    knn = knn,
-                    bag_mars = bag_mars),
-      cross = TRUE
-   )
-set.seed(124)
-models_mars_knn <-
-  models_mars_knn %>%
-  workflow_map(
-    "tune_grid",
-    resamples = cv_folds,
-    grid = 30,
-    metrics = imbalanced_metrics,
-    verbose = TRUE,
-      control = control_grid(save_pred = TRUE,
-                             save_workflow = TRUE)
+models_knn <- get_models_set(
+  file_path = "~/Data/HeteroR/results/models/scheme12/models_knn.rds",
+  model_specs_list = list(kNN = knn),
+  recipes_list = list(
+    ncorr = ncorr_recipe,
+    ncorryj = ncorr_yj_recipe,
+    ncorrorq = ncorr_orq_recipe ,
+    pca = pca_recipe
   )
-
-models_mars_knn 
-saveRDS(object = models_mars_knn, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_mars_knn.rds")
-  } else {
-    models_mars_knn <- readRDS(file_path)
-  }
-  
-  return(models_mars_knn)
-}
-
-models_mars_knn <- read_models_mars_knn()
+)
 ```
 
 
 ```{r}
-autoplot(models_mars_knn, select_best= TRUE)
+autoplot(models_knn, select_best= TRUE)
 ```
 
-## ncorr_knn 
+remove to free memory
 
 ```{r}
-autoplot(models_mars_knn$result[[2]])
+rm(models_knn)
 ```
 
-## ncorryj_knn 
+# MARS
 
 ```{r}
-autoplot(models_mars_knn$result[[5]])
+models_mars <- get_models_set(
+  file_path = "~/Data/HeteroR/results/models/scheme12/models_mars.rds",
+  model_specs_list = list(MARS = mars,
+                          MARS_BAG = mars_bag),
+  recipes_list = list(
+    ncorr = ncorr_recipe,
+    ncorryj = ncorr_yj_recipe,
+    ncorrorq = ncorr_orq_recipe ,
+    pca = pca_recipe
+  )
+)
 ```
 
-## ncorrorq_knn 
 
 ```{r}
-autoplot(models_mars_knn$result[[8]])
-```
-
-## pca_knn 
-
-```{r}
-autoplot(models_mars_knn$result[[11]])
-```
-
-## ncorr_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[1]])
-```
-
-## ncorryj_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[4]])
-```
-
-## ncorrorq_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[7]])
-```
-
-## pca_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[10]])
-```
-
-## ncorr_bag_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[3]])
-```
-
-## ncorryj_bag_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[6]])
-```
-
-## ncorrorq_bag_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[9]])
-```
-
-## pca_bag_mars 
-
-```{r}
-autoplot(models_mars_knn$result[[12]])
+autoplot(models_mars, select_best= TRUE)
 ```
 
 remove models object 
+
 ```{r}
-rm(models_mars_knn)
+rm(models_mars)
 ```
 
-# RF BT
+# RF
 
-```{r,eval = FALSE}
-models_xgb_rf <- 
-   workflow_set(
-      preproc = list(base = base_recipe,
-                     base_boruta = base_boruta_recipe ), 
-      
-      models = list(rf = rf, bt = bt),
-      cross = TRUE
-   )
+```{r}
+models_rf <- get_models_set(
+  file_path = "~/Data/HeteroR/results/models/scheme12/models_rf.rds",
+  model_specs_list = list(RF = rf),
+  recipes_list = list(base = base_recipe,
+                      base_boruta = base_boruta_recipe)
+)
 ```
 
-```{r,eval = FALSE}
-set.seed(124)
-models_xgb_rf <-
-  models_xgb_rf %>%
-  workflow_map(
-    "tune_bayes",
-    resamples = cv_folds,
-    initial = 30,
-    iter= 30,
-    metrics = metric_set(roc_auc),
-    verbose = TRUE,
-      control = control_bayes(no_improve =30,
-                             save_pred = TRUE,
-                             save_workflow = TRUE)
-  )
-```
-
-```{r,eval = FALSE,eval = FALSE}
-autoplot(models_xgb_rf, select_best= TRUE)
-```
-
-```{r, warning=FALSE,eval = FALSE}
-base_bt_wf <- workflow() %>%
-  add_model(bt) %>%
-  add_recipe(base_recipe)
-
-param_set_base_bt <- extract_parameter_set_dials(base_bt_wf) %>%
-    finalize(x = df_train %>% select(-resistance))
-
-base_bt_bres <- tune_bayes(base_bt_wf,  resamples = cv_folds, initial = models_xgb_rf$result[[2]],
-    iter= 30,
-    metrics = metric_set(roc_auc),
-    param_info = param_set_base_bt,
-      control = control_bayes(no_improve =30,
-                             save_pred = TRUE,
-                             verbose = FALSE,
-                             save_workflow = TRUE))
-                            
-                            
-                            
+```{r}
+autoplot(models_rf, select_best = TRUE)
 ```
 
 
-```{r,eval = FALSE}
-show_best(base_bt_bres)
+# BT
+
+Use LightGBM
+
+```{r}
+models_rf <- get_models_set(
+  file_path = "~/Data/HeteroR/results/models/scheme12/models_bt.rds",
+  model_specs_list = list(BT = bt_light),
+  recipes_list = list(base = base_recipe,
+                      base_boruta = base_boruta_recipe)
+)
+```
+
+
+```{r}
+autoplot(models_bt, select_best = TRUE)
 ```
 
 # RF BT light 
 
-```{r}
+```{r, eval=F}
 read_models_xgb_rf_light <- function() {
   file_path <-
     "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_xgb_rf_light.rds"
@@ -780,39 +518,17 @@ saveRDS(object = models_xgb_rf_light, file =  "/mnt/data/andrei/Data/HeteroR/res
 models_xgb_rf_light <- read_models_xgb_rf_light()
 ```
 
-```{r}
+```{r, eval=F}
 autoplot(models_xgb_rf_light, select_best= TRUE)
 #rank_results(models_xgb_rf_light) %>%  select(wflow_id) %>%  unique()
-```
-
-## base_rf 
-
-```{r} 
-autoplot(models_xgb_rf_light$result[[1]])
-```
-
-## base_boruta_rf 
-
-```{r} 
-autoplot(models_xgb_rf_light$result[[3]])
-```
-
-## base_bt_light 
-
-```{r} 
-autoplot(models_xgb_rf_light$result[[2]])
-```
-
-## base_boruta_bt_light 
-
-```{r}
-autoplot(models_xgb_rf_light$result[[4]])
 ```
 
 
 ## base_bt_bres 
 
-```{r}
+The following code uses Bayesian optimization on toop of the previous grid search
+
+```{r, eval=F}
 read_base_bt_bres_light <- function() {
   file_path <-
     "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_bres_light.rds"
@@ -848,13 +564,13 @@ base_bt_bres_light <- read_base_bt_bres_light()
 show_best(base_bt_bres_light)
 ```
 
-```{r}
+```{r, eval=F}
 autoplot(base_bt_bres_light)
 ```
 
 ## base_boruta_bt_bres_light
 
-```{r}
+```{r, eval=F}
 read_base_boruta_bt_bres_light <- function() {
   file_path <-
     "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_boruta_bres_light.rds"
@@ -890,12 +606,12 @@ base_bt_boruta_bres_light <- read_base_boruta_bt_bres_light()
 show_best(base_bt_boruta_bres_light)
 ```
 
-```{r}
+```{r, eval=F}
 autoplot(base_bt_boruta_bres_light)
 ```
 
 remove models object 
-```{r}
+```{r, eval=F}
 rm(base_bt_bres_light) 
 rm(models_xgb_rf_light) # this has to be removed here as it is used for bayesian optimization
 rm(base_bt_boruta_bres_light)
