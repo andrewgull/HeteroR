@@ -19,7 +19,7 @@ library(ggplot2)
 source("functions.R")
 ```
 
-# data 
+# Data 
 
 ```{r}
 data_strain <- readr::read_csv("data/features_strain.csv",
@@ -43,6 +43,9 @@ data_strain <- data_strain %>%
 
 data_strain$N50 <- NULL
 data_strain[is.na(data_strain)] <- 0
+data_strain <- data_strain %>% 
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
 
 #### SPLIT ####
 # same seed number as in modelling.Rmd
@@ -68,7 +71,7 @@ imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
 cores <- 8
 ```
 
-# recipies 
+# Recipies 
 
 ```{r}
 base_recipe <- recipe(resistance ~ ., data = df_train) %>%
@@ -145,7 +148,7 @@ base_boruta_recipe <- base_recipe %>%
 
 ```
 
-# models 
+# Model specs 
 
 ```{r}
 lr1 <- logistic_reg(
@@ -244,32 +247,21 @@ bag_mlp <- bag_mlp(
 
 ```
 
-#LLR 
-
-## workflow set
+# LLR 
 
 ```{r}
-read_models_llr <- function() {
-  file_path <-
-    "~/Data/HeteroR/results/models/scheme12/models_llr.rds"
-  
+get_models_set <- function(file_path, model_specs_list, recipes_list) {
   if (!file.exists(file_path)) {
     print("File does not exist. Proceeding with building the workflowset of the models.")
-    models_llr <-
+    models_set <-
       workflow_set(
-        preproc = list(
-          base = base_recipe,
-          baseyj = base_yj_recipe,
-          baseorq = base_orq_recipe,
-          pca = pca_recipe
-        ),
-        
-        models = list(LLR = lr1),
+        preproc = recipes_list,
+        models = model_specs_list,
         cross = TRUE
       )
     set.seed(124)
-    models_llr <-
-      models_llr %>%
+    models_set <-
+      models_set %>%
       workflow_map(
         "tune_grid",
         resamples = cv_folds,
@@ -279,85 +271,127 @@ read_models_llr <- function() {
         control = control_grid(save_pred = TRUE,
                                save_workflow = TRUE)
       )
-    saveRDS(object = models_llr, file =  "~/Data/HeteroR/results/models/scheme12/models_llr.rds")
+    saveRDS(object = models_set, file =  file_path)
   } else {
     models_llr <- readRDS(file_path)
   }
   
-  return(models_llr)
+  return(models_set)
 }
 
-models_llr <- read_models_llr()
+models_llr <-
+  get_models_set(
+    file_path = "~/Data/HeteroR/results/models/scheme12/models_llr.rds",
+    model_spec = list(LLR = lr1),
+    recipes_list = list(
+      base = base_recipe,
+      baseyj = base_yj_recipe,
+      baseorq = base_orq_recipe,
+      pca = pca_recipe
+    )
+  )
 ```
 
 ```{r}
 autoplot(models_llr, select_best= TRUE)
 ```
 
-## base_LLR
+```{r, fig.width=6, fig.height=8}
+autoplots <- map(models_llr$result, ~autoplot(.x))
 
-```{r}
-autoplot(models_llr$result[[1]])
+ggpubr::ggarrange(
+  plotlist =  autoplots,
+  ncol = 2,
+  nrow = 2,
+  labels = c("Base", "Base+YJ", "Base+ORQ", "PCA"), font.label = list(size=12)
+)
 ```
 
-## baseyj_LLR
+remove models object to save memory
 
-```{r}
-autoplot(models_llr$result[[2]])
-```
-
-## baseorq_LLR 
-
-```{r}
-autoplot(models_llr$result[[3]])
-```
-
-## pca_LLR
-
-```{r}
-autoplot(models_llr$result[[4]])
-```
-
-remove models object 
 ```{r}
 rm(models_llr)
 ```
 
-# SVM MLP
+# SVM and MLP
+
+test
 
 ```{r}
-read_models_svm_mlp <- function() {
-  file_path <-
-    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_svm_mlp.rds"
+get_models_set <- function(file_path, model_specs_list, recipes_list) {
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding with building the workflowset of the models.")
+    models_set <-
+      workflow_set(
+        preproc = recipes_list,
+        models = model_specs_list,
+        cross = TRUE
+      )
+    set.seed(124)
+    models_set <-
+      models_set %>%
+      workflow_map(
+        "tune_grid",
+        resamples = cv_folds,
+        grid = 30,
+        metrics = imbalanced_metrics,
+        verbose = TRUE,
+        control = control_grid(save_pred = TRUE,
+                               save_workflow = TRUE)
+      )
+    saveRDS(object = models_set, file =  file_path)
+  } else {
+    models_llr <- readRDS(file_path)
+  }
   
+  return(models_set)
+}
+
+
+models_lsvm <-
+  get_models_set(
+    file_path = "~/Data/HeteroR/results/models/scheme12/models_lsvm.rds",
+    model_specs_list = list(linSVM = lsvm),
+    recipes_list = list(
+      ncorr = ncorr_recipe,
+      ncorryj = ncorr_yj_recipe,
+      base_orq = ncorr_orq_recipe ,
+      pca = pca_recipe
+    )
+  )
+```
+
+
+```{r}
+read_models_svm_mlp <- function(file_path, model_specs_list) {
+
   if (!file.exists(file_path)) {
     print("File does not exist. Proceeding rith building the workflowset of the models.")
-models_svm_mlp <- 
-   workflow_set(
-      preproc = list(ncorr = ncorr_recipe, ncorryj = ncorr_yj_recipe, base_orq =ncorr_orq_recipe , pca = pca_recipe ),
-      
-      models = list(lsvm = lsvm, 
-                    psvm = psvm, 
-                    rbfsvm = rbfsvm,
-                    mlp_nnet = mlp_nnet,
-                    bag_mlp = bag_mlp ),
-      cross = TRUE
-   )
-set.seed(124)
-models_svm_mlp <-
-  models_svm_mlp %>%
-  workflow_map(
-    "tune_grid",
-    resamples = cv_folds,
-    grid = 30,
-    metrics = imbalanced_metrics,
-    verbose = TRUE,
-      control = control_grid(save_pred = TRUE,
-                             save_workflow = TRUE)
-  )
-
-models_svm_mlp 
-saveRDS(object = models_svm_mlp, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_svm_mlp.rds")
+    models_svm_mlp <-
+      workflow_set(
+        preproc = list(
+          ncorr = ncorr_recipe,
+          ncorryj = ncorr_yj_recipe,
+          base_orq = ncorr_orq_recipe ,
+          pca = pca_recipe
+        ),
+        
+        models = model_specs_list,
+        cross = TRUE
+      )
+    set.seed(124)
+    models_svm_mlp <-
+      models_svm_mlp %>%
+      workflow_map(
+        "tune_grid",
+        resamples = cv_folds,
+        grid = 30,
+        metrics = imbalanced_metrics,
+        verbose = TRUE,
+        control = control_grid(save_pred = TRUE,
+                               save_workflow = TRUE)
+      )
+    saveRDS(object = models_svm_mlp, file = file_path)
   } else {
     models_svm_mlp <- readRDS(file_path)
   }
@@ -365,13 +399,35 @@ saveRDS(object = models_svm_mlp, file =  "/mnt/data/andrei/Data/HeteroR/results/
   return(models_svm_mlp)
 }
 
-models_svm_mlp <- read_models_svm_mlp()
+models_svm_mlp <-
+  read_models_svm_mlp(
+    file_path = "~/Data/HeteroR/results/models/scheme12/models_svm_mlp.rds",
+    model_specs_list = list(
+      lsvm = lsvm,
+      psvm = psvm,
+      rbfsvm = rbfsvm,
+      mlp_nnet = mlp_nnet,
+      bag_mlp = bag_mlp
+    )
+  )
 ```
 
 
 ```{r}
 autoplot(models_svm_mlp, select_best= TRUE)
 ```
+
+```{r, fig.width=6, fig.height=8}
+autoplots <- map(models_svm_mlp$result, ~autoplot(.x))
+
+ggpubr::ggarrange(
+  plotlist =  autoplots,
+  ncol = 2,
+  nrow = 2,
+  labels = c("", "", "", ""), font.label = list(size=12)
+)
+```
+
 
 ## ncorr_lsvm  
 
