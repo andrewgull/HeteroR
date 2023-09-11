@@ -18,5 +18,5 @@ notebooks/unicycler_crash/
 notebooks/regulon_db/
 notebooks/sequencing_files/
 notebooks/rgi_output/
-notebooks/modelling/data/
+notebooks/modelling/data/*.gz
 notebooks/EDA_app/data/
