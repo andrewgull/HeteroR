@@ -346,14 +346,14 @@ models_svm <-
 autoplot(models_svm, select_best= TRUE)
 ```
 
-```{r, fig.width=10, fig.height=8}
+```{r, fig.width=10, fig.height=14, eval=F}
 autoplots <- map(models_svm$result, ~autoplot(.x))
 
 ggpubr::ggarrange(
   plotlist =  autoplots,
   ncol = 2,
-  nrow = 2,
-  labels = c("no_corr", "no_corr+YJ", "no_corr+ORQ", "PCA"), font.label = list(size=12)
+  nrow = 6
+  #labels = c("no_corr", "no_corr+YJ", "no_corr+ORQ", "PCA"), font.label = list(size=12)
 )
 ```
 
