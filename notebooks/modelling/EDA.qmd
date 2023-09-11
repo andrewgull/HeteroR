@@ -602,7 +602,7 @@ The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes hims
 
 Non-supervised
 
-```{r}
+```{r, eval=F}
 
 hr_groups <- left_join(hr_testing12, hr_testing13, by = "strain") %>% 
   mutate(hr.group = case_when(resistance.x == "HR" & resistance.y == "HR" ~ "group_1",
@@ -614,7 +614,7 @@ hr_groups <- left_join(hr_testing12, hr_testing13, by = "strain") %>%
 hr_groups
 ```
 
-```{r, warning=FALSE, fig.width=9, fig.height=9}
+```{r, warning=FALSE, fig.width=9, fig.height=9, eval=F}
 data_groups <- data_strain %>% 
   select(-resistance) %>% 
   left_join(hr_groups, by = "strain")
@@ -648,7 +648,7 @@ data_umap_groups$template %>%
 
 to better see clustering of HRs
 
-```{r, fig.width=10}
+```{r, fig.width=10, eval=F}
 data_umap_groups$template %>% 
   filter(hr.group != "nonHR") %>% 
     select(-c(strain, UMAP4, UMAP5, UMAP6)) %>% 
@@ -802,14 +802,14 @@ ggplot(data_strain, aes(n.beta.lac)) +
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
 ```{r}
-Fig_3A <- ggplot(data_strain, aes(n.beta.lac.4)) +
+Fig_4A <- ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
   xlab("n β-lactamases") +
   ylab("proportion of strains") +
   scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme(legend.title=element_blank())
-Fig_3A
+Fig_4A
 
 ```
 
@@ -862,7 +862,8 @@ Fig_6A <- data_strain %>%
   scale_fill_brewer(palette = "Set1", name = "") +
   scale_x_continuous(breaks = c(0,1,2,3,4,5,6)) +
   xlab("n β-lactamases on plasmids") +
-  ylab("proportion")
+  ylab("proportion of strains")+
+  theme(legend.position = "none")
 
 Fig_6A
 ```
@@ -1008,8 +1009,9 @@ Fig_6B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("") +
-  ylab("proportion")+
-  scale_x_discrete(labels = c("ampC", "non-ampC"))
+  ylab("")+
+  scale_x_discrete(labels = c("ampC", "non-ampC"))+
+  theme(legend.position = "none")
   
 Fig_6B
 ```
@@ -1028,7 +1030,7 @@ empty_plot_with_legend <-
 Fig_6 <- ggarrange(Fig_6A + theme(legend.position = "bottom"), 
                    Fig_6B + theme(legend.position = "none"),
                    #empty_plot_with_legend,
-                   ncol = 1, nrow = 2, labels = c("A", "B"))
+                   ncol = 2, nrow = 1, labels = c("A", "B"))
 Fig_6
 ```
 
@@ -1089,19 +1091,19 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
 As proportion:
 
 ```{r}
-Fig_3B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
+Fig_4B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("TEM β-lactamases") +
   ylab("proportion")
-Fig_3B
+Fig_4B
 ```
 
 ```{r}
-Fig_3 <- ggarrange(Fig_3A , Fig_3B + ylab("") ,
-                    labels = c("A", "B"),
+Fig_4 <- ggarrange(Fig_4A , Fig_4B + ylab("") ,
+                    labels = c("C", "D"),
                     ncol = 2, nrow = 1, common.legend = TRUE,legend = "bottom")
-Fig_3
+Fig_4
 ```
 
 ### Other TEM columns
@@ -1449,7 +1451,11 @@ Fig_6 <- ggarrange(Fig_6A, Fig_6B,
 Fig_6
 ```
 
-
+```{r,fig.width=8,fig.height=6}
+Fig_4_6 <- ggarrange(Fig_6, Fig_4,
+                    ncol = 1, nrow = 2)
+Fig_4_6
+```
 #### Poisson model for count data
 
 ```{r}
@@ -1737,12 +1743,25 @@ max_rep_len %>%
 ```
 
 ```{r}
-ggplot(max_rep_len %>% filter(location == "max.rep.len.plasmid"), aes(resistance, max.len)) +
+max_rep_len %>% filter(location == "max.rep.len.plasmid",
+                       max.len > 0) %>%
+  ggplot(aes(resistance, max.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T,
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    alpha = 0.2,
+    width = 0.05,
+    height = 0.1,
+    size = 0.8
+  ) +
   scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
+coord_trans(y = "sqrt") +
   ylab("max repeat length") +
   xlab("") +
   guides(fill = "none")
