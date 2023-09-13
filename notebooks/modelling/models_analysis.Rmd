@@ -45,7 +45,7 @@ The data sets are the same as in EDA
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
   filter(strain != "DA63310")
 
-hr_testing <- read_csv("data/heteroresistance_testing_gr12.csv") %>% 
+hr_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
   filter(!is.na(strain))
 
 data_strain <- data_strain %>% 
@@ -696,8 +696,8 @@ summary(mars_preproc_diff)
 
 ```{r}
 # models in this file
-readRDS(paste0(models_path, "models_svm_mlp.rds")) %>% 
-  filter(grepl("lsvm", wflow_id)) %>% 
+readRDS(paste0(models_path, "models_svm.rds")) %>% 
+  filter(grepl("linSVM", wflow_id)) %>% 
   pull(wflow_id)
 ```
 
@@ -705,7 +705,7 @@ readRDS(paste0(models_path, "models_svm_mlp.rds")) %>%
 ## NCORR recipe
 
 ```{r lsvm norm}
-lsvm_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_lsvm")
+lsvm_ncorr_res <- read_wfset("models_svm.rds", "ncorr_linSVM")
 
 autoplot(lsvm_ncorr_res)
 ```
@@ -721,7 +721,7 @@ lsvm_ncorr_res %>%
 ## NCORR + YJ recipe
 
 ```{r}
-lsvm_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_lsvm")
+lsvm_ncoryj_res <- read_wfset("models_svm.rds", "ncorryj_linSVM")
 
 autoplot(lsvm_ncoryj_res)
 ```
@@ -736,7 +736,7 @@ lsvm_ncoryj_res %>%
 ## NCORR + ORQ recipe
 
 ```{r}
-lsvm_ncorq_res <-  read_wfset("models_svm_mlp.rds", "ncorrorq_lsvm")
+lsvm_ncorq_res <-  read_wfset("models_svm.rds", "ncorrorq_linSVM")
 
 autoplot(lsvm_ncorq_res)
 ```
