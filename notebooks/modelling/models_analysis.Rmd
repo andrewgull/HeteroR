@@ -361,7 +361,7 @@ lr_base_res %>%
 ## Base + YJ recipe
 
 ```{r lr yj, fig.height=6, fig.width=6}
-lr_base_yj_res <- read_wfset("models_llr.rds", "baseyj_LLR")
+lr_base_yj_res <- read_wfset("models_llr.rds", "base_yj_LLR")
 
 autoplot(lr_base_yj_res)
 ```
@@ -381,7 +381,7 @@ The same model is the best
 ## Base + ORQ recipe
 
 ```{r lr orq}
-lr_base_orq_res <- read_wfset("models_llr.rds", "baseorq_LLR")
+lr_base_orq_res <- read_wfset("models_llr.rds", "base_orq_LLR")
 
 lr_base_orq_res %>% autoplot()
 ```
@@ -422,8 +422,8 @@ lr_best_res <- list(lr_base_res,
 
 lr_best_names <-
   c("base",
-    "base.yj",
-    "base.orq",
+    "base_yj",
+    "base_orq",
     "pca")
 ```
 
@@ -511,7 +511,7 @@ Base, YJ and ORQ pre-processing recipes don't differ significantly in ROC AUC, b
 ## NCORR recipe
 
 ```{r mars norm}
-mars_ncorr_res <- read_wfset("models_mars_knn.rds", "ncorr_mars")
+mars_ncorr_res <- read_wfset("models_mars.rds", "ncorr_MARS")
 
 autoplot(mars_ncorr_res)
 ```
@@ -526,7 +526,7 @@ mars_ncorr_res %>%
 ## NCORR + YJ recipe
 
 ```{r}
-mars_ncoryj_res <- read_wfset("models_mars_knn.rds", "ncorryj_mars")
+mars_ncoryj_res <- read_wfset("models_mars.rds", "ncorr_yj_MARS")
 
 autoplot(mars_ncoryj_res)
 ```
@@ -541,7 +541,7 @@ mars_ncoryj_res %>%
 ## NCORR + ORQ recipe
 
 ```{r}
-mars_ncorq_res <- read_wfset("models_mars_knn.rds", "ncorrorq_mars")
+mars_ncorq_res <- read_wfset("models_mars.rds", "ncorr_orq_MARS")
 
 autoplot(mars_ncorq_res)
 ```
@@ -555,7 +555,7 @@ mars_ncorq_res %>% show_best("roc_auc", n = 5)
 ## PCA
 
 ```{r}
-mars_pca_res <- read_wfset("models_mars_knn.rds", "pca_mars")
+mars_pca_res <- read_wfset("models_mars.rds", "pca_MARS")
 
 autoplot(mars_pca_res)
 ```
@@ -570,7 +570,7 @@ show_best(mars_pca_res, metric = "roc_auc")
 ## NCORR + YJ recipe
 
 ```{r}
-mars_bag_ncoryj_res <- read_wfset("models_mars_knn.rds", "ncorryj_bag_mars")
+mars_bag_ncoryj_res <- read_wfset("models_mars.rds", "ncorr_yj_MARS_BAG")
 
 autoplot(mars_bag_ncoryj_res)
 ```
@@ -584,7 +584,7 @@ show_best(mars_bag_ncoryj_res)
 ## NCORR + ORQ recipe
 
 ```{r}
-mars_bag_ncorq_res <- read_wfset("models_mars_knn.rds", "ncorrorq_bag_mars")
+mars_bag_ncorq_res <- read_wfset("models_mars.rds", "ncorr_orq_MARS_BAG")
 
 autoplot(mars_bag_ncorq_res)
 ```
@@ -596,7 +596,7 @@ show_best(mars_bag_ncorq_res, "roc_auc")
 ## PCA
 
 ```{r}
-mars_bag_pca_res <- read_wfset("models_mars_knn.rds", "pca_bag_mars")
+mars_bag_pca_res <- read_wfset("models_mars.rds", "pca_MARS_BAG")
 
 autoplot(mars_bag_pca_res)
 ```
@@ -623,12 +623,12 @@ mars_best_res <- list(
   
 mars_best_names <- c(
     "ncorr",
-    "ncorr.yj",
-    "ncorr.orq",
+    "ncorr_yj",
+    "ncorr_orq",
     "pca",
-    "bag.yj",
-    "bag.orq",
-    "bag.pca"
+    "ncorr_yj_bag",
+    "ncorr_orq_bag",
+    "pca_bag"
   )
 
 mars_rocs <-
@@ -666,7 +666,7 @@ mars_prs %>%
 
 ## Comparison of the preprocessing steps
 
-```{r}
+```{r, eval=FALSE}
 mars_comp <-
   res_comp_table(
     res_list = mars_best_res,
@@ -686,13 +686,13 @@ mars_posterior <-
 autoplot(mars_posterior)
 ```
 
-```{r}
+```{r, eval=FALSE}
 mars_preproc_diff <- contrast_models(mars_posterior, seed = 100) 
 
 summary(mars_preproc_diff)
 ```
 
-# Linear support vector machines (lSVM)
+# Linear support vector machines (linSVM)
 
 ```{r}
 # models in this file
@@ -721,7 +721,7 @@ lsvm_ncorr_res %>%
 ## NCORR + YJ recipe
 
 ```{r}
-lsvm_ncoryj_res <- read_wfset("models_svm.rds", "ncorryj_linSVM")
+lsvm_ncoryj_res <- read_wfset("models_svm.rds", "ncorr_yj_linSVM")
 
 autoplot(lsvm_ncoryj_res)
 ```
@@ -736,7 +736,7 @@ lsvm_ncoryj_res %>%
 ## NCORR + ORQ recipe
 
 ```{r}
-lsvm_ncorq_res <-  read_wfset("models_svm.rds", "ncorrorq_linSVM")
+lsvm_ncorq_res <-  read_wfset("models_svm.rds", "ncorr_orq_linSVM")
 
 autoplot(lsvm_ncorq_res)
 ```
@@ -750,7 +750,7 @@ lsvm_ncorq_res %>% show_best("roc_auc")
 ## PCA
 
 ```{r}
-lsvm_pca_res <-  read_wfset("models_svm_mlp.rds", "pca_lsvm")
+lsvm_pca_res <-  read_wfset("models_svm.rds", "pca_linSVM")
 
 autoplot(lsvm_pca_res)
 ```
@@ -775,8 +775,8 @@ lsvm_best_res <- list(
   )
   lsvm_best_names <- c(
     "ncorr",
-    "ncorr.yj",
-    "ncorr.orq",
+    "ncorr_yj",
+    "ncorr_orq",
     "pca"
   )
 ```
@@ -846,12 +846,12 @@ lsvm_preproc_diff <- contrast_models(lsvm_posterior, seed = 100)
 summary(lsvm_preproc_diff)
 ```
 
-# Polynomial support vector machines (pSVM)
+# Polynomial support vector machines (polySVM)
 
 ## NCORR recipe
 
 ```{r psvm norm}
-psvm_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_psvm")
+psvm_ncorr_res <- read_wfset("models_svm.rds", "ncorr_polySVM")
 
 autoplot(psvm_ncorr_res)
 ```
@@ -867,7 +867,7 @@ psvm_ncorr_res %>%
 ## NCORR + YJ
 
 ```{r}
-psvm_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_psvm")
+psvm_ncoryj_res <- read_wfset("models_svm.rds", "ncorr_yj_polySVM")
 
 autoplot(psvm_ncoryj_res)
 ```
@@ -882,7 +882,7 @@ show_best(psvm_ncoryj_res, metric = "roc_auc")
 ## NCORR + ORQ recipe
 
 ```{r}
-psvm_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_psvm")
+psvm_ncorq_res <- read_wfset("models_svm.rds", "ncorr_orq_polySVM")
 
 autoplot(psvm_ncorq_res)
 ```
@@ -897,7 +897,7 @@ psvm_ncorq_res %>%
 ## PCA 
 
 ```{r}
-psvm_pca_res <- read_wfset("models_svm_mlp.rds", "pca_psvm")
+psvm_pca_res <- read_wfset("models_svm.rds", "pca_polySVM")
 
 autoplot(psvm_pca_res)
 ```
@@ -923,8 +923,8 @@ psvm_best_res <- list(
 
 psvm_best_names <- c(
     "ncorr",
-    "ncorr.orq",
-    "ncorr.yj",
+    "ncorr_orq",
+    "ncorr_yj",
     "pca"
   )
 ```
@@ -978,9 +978,9 @@ psvm_comp <-
     ),
     mod_names = c(
       "ncorr",
-      "ncorr.orq",
-      "ncorr.yj",
-      "pca.yj"
+      "ncorr_orq",
+      "ncorr_yj",
+      "pca_yj"
     )
   )
 
@@ -1009,8 +1009,8 @@ summary(psvm_preproc_diff)
 
 ## NCORR recipe
 
-```{r}
-rbf_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_rbfsvm")
+```{r, fig.width=8}
+rbf_ncorr_res <- read_wfset("models_svm.rds", "ncorr_rbfSVM")
 
 autoplot(rbf_ncorr_res)
 ```
@@ -1023,8 +1023,8 @@ show_best(rbf_ncorr_res, metric = "roc_auc")
 
 ## NCORR + YJ recipe
 
-```{r}
-rbf_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_rbfsvm")
+```{r, fig.width=8}
+rbf_ncoryj_res <- read_wfset("models_svm.rds", "ncorr_yj_rbfSVM")
 
 autoplot(rbf_ncoryj_res)
 ```
@@ -1037,8 +1037,8 @@ show_best(rbf_ncoryj_res, metric = "roc_auc")
 
 ## NCORR + ORQ recipe
 
-```{r}
-rbf_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_rbfsvm")
+```{r, fig.width=8}
+rbf_ncorq_res <- read_wfset("models_svm.rds", "ncorr_orq_rbfSVM")
 
 autoplot(rbf_ncorq_res)
 ```
@@ -1051,8 +1051,8 @@ show_best(rbf_ncorq_res, metric = "roc_auc")
 
 ## PCA
 
-```{r}
-rbf_pca_res <- read_wfset("models_svm_mlp.rds", "pca_rbfsvm")
+```{r, fig.width=8}
+rbf_pca_res <- read_wfset("models_svm.rds", "pca_rbfSVM")
 
 autoplot(rbf_pca_res)
 ```
@@ -1078,8 +1078,8 @@ rsvm_best_res <- list(
 
 rsvm_best_names <- c(
     "ncorr",
-    "ncorr.orq",
-    "ncorr.yj",
+    "ncorr_orq",
+    "ncorr_yj",
     "pca"
   )
 ```
@@ -1153,8 +1153,8 @@ summary(rbf_preproc_diff)
 
 ## NCORR recipe
 
-```{r knn norm}
-knn_ncorr_res <- read_wfset("models_mars_knn.rds", "ncorr_knn")
+```{r knn norm, fig.width=8}
+knn_ncorr_res <- read_wfset("models_knn.rds", "ncorr_kNN")
 
 autoplot(knn_ncorr_res)
 ```
@@ -1168,8 +1168,8 @@ knn_ncorr_res %>%
 
 ## NCORR + YJ
 
-```{r}
-knn_ncoryj_res <- read_wfset("models_mars_knn.rds", "ncorryj_knn")
+```{r, fig.width=8}
+knn_ncoryj_res <- read_wfset("models_knn.rds", "ncorr_yj_kNN")
 
 autoplot(knn_ncoryj_res)
 ```
@@ -1182,8 +1182,8 @@ show_best(knn_ncoryj_res)
 
 ## NCORR + ORQ recipe
 
-```{r}
-knn_ncorq_res <- read_wfset("models_mars_knn.rds", "ncorrorq_knn")
+```{r, fig.width=8}
+knn_ncorq_res <- read_wfset("models_knn.rds", "ncorr_orq_kNN")
 
 autoplot(knn_ncorq_res)
 ```
@@ -1198,8 +1198,8 @@ knn_ncorq_res %>%
 
 ## PCA
 
-```{r}
-knn_pca_res <- read_wfset("models_mars_knn.rds", "pca_knn")
+```{r, fig.width=8}
+knn_pca_res <- read_wfset("models_knn.rds", "pca_kNN")
 
 autoplot(knn_pca_res)
 ```
@@ -1221,8 +1221,8 @@ knn_best_res <- list(knn_ncorr_res,
                      knn_ncoryj_res,
                      knn_pca_res)
 knn_best_names <- c("ncorr",
-                    "ncorr.orq",
-                    "ncorr.yj",
+                    "ncorr_orq",
+                    "ncorr_yj",
                     "pca")
 ```
 
@@ -1296,7 +1296,7 @@ summary(knn_preproc_diff)
 ## Base recipe
 
 ```{r rf base}
-rf_base_res <- read_wfset("models_xgb_rf_light.rds", "base_rf")
+rf_base_res <- read_wfset("models_rf.rds", "base_RF")
 
 autoplot(rf_base_res)
 ```
@@ -1311,7 +1311,7 @@ rf_base_res %>%
 ## Base + Boruta feature selection
 
 ```{r}
-rf_base_bor_res <- read_wfset("models_xgb_rf_light.rds", "base_boruta_rf")
+rf_base_bor_res <- read_wfset("models_rf.rds", "base_boruta_RF")
 
 autoplot(rf_base_bor_res)
 ```
@@ -1404,8 +1404,8 @@ should be preferable.
 
 space search followed by the Bayesian optimization
 
-```{r, fig.width=8, fig.height=6}
-bt_base_res <- read_wfset("models_xgb_rf_light.rds", "base_bt_light")
+```{r, fig.width=10, fig.height=6}
+bt_base_res <- read_wfset("models_bt.rds", "base_BT")
 
 autoplot(bt_base_res)
 ```
@@ -1440,8 +1440,8 @@ bt_base_bres %>%
 
 ## Base recipe + Boruta feature selection
 
-```{r}
-bt_base_bor_res <- read_wfset("models_xgb_rf_light.rds", "base_boruta_bt_light")
+```{r, fig.width=10, fig.height=6}
+bt_base_bor_res <- read_wfset("models_bt.rds", "base_boruta_BT")
 
 autoplot(bt_base_bor_res)
 ```
@@ -1471,16 +1471,16 @@ show_best(bt_base_bor_bres)
 ```{r}
 bt_best_res <- list(
     bt_base_res,
-    bt_base_bres,
-    bt_base_bor_res,
-    bt_base_bor_bres
+    #bt_base_bres,
+    bt_base_bor_res
+    #bt_base_bor_bres
   )
 
 bt_best_names <- c(
     "base",
-    "base.bayes",
-    "base.bor",
-    "base.bor.bayes"
+    #"base_bayes",
+    "base_bor"
+    #"base_bor_bayes"
   )
 
 bt_rocs <-
@@ -1518,8 +1518,6 @@ bt_prs %>%
 
 ### Posterior distributions
 
-I have excluded models tuned with win-loss approach, since their performance was significantly worse
-
 ```{r}
 bt_comp <-
   res_comp_table(
@@ -1555,8 +1553,8 @@ aka feed-forward neural network
 ## NCORR recipe
 
 
-```{r mlp ncorr}
-mlp_ncor_res <- read_wfset("models_svm_mlp.rds", "ncorr_mlp_nnet")
+```{r mlp ncorr, fig.width=8}
+mlp_ncor_res <- read_wfset("models_mlp.rds", "ncorr_MLP")
 
 autoplot(mlp_ncor_res)
 ```
@@ -1568,28 +1566,10 @@ mlp_ncor_res %>%
   show_best("roc_auc")
 ```
 
-### Predictors that remained
-
-```{r}
-mlp_cor_threshold <- mlp_ncor_res %>% select_best("roc_auc") %>% pull(corr_tune)
-
-recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>%
-  step_normalize(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_nzv(all_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>% 
-  step_corr(all_predictors(), threshold = mlp_cor_threshold) %>% 
-  prep() %>% 
-  juice() %>% 
-  colnames()
-```
-
 ## NCORR + YJ recipe
 
-```{r}
-mlp_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_mlp_nnet")
+```{r, fig.width=8}
+mlp_ncoryj_res <- read_wfset("models_mlp.rds", "ncorr_yj_MLP")
 
 mlp_ncoryj_res %>% autoplot()
 ```
@@ -1603,8 +1583,8 @@ mlp_ncoryj_res %>%
 
 ## NCORR + ORQ
 
-```{r}
-mlp_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_mlp_nnet")
+```{r, fig.width=8}
+mlp_ncorq_res <- read_wfset("models_mlp.rds", "ncorr_orq_MLP")
 
 mlp_ncorq_res %>% autoplot()
 ```
@@ -1617,8 +1597,8 @@ mlp_ncorq_res %>% show_best(metric = "roc_auc")
 
 ## PCA
 
-```{r}
-mlp_pca_res <- read_wfset("models_svm_mlp.rds", "pca_mlp_nnet")
+```{r, fig.width=8}
+mlp_pca_res <- read_wfset("models_mlp.rds", "pca_MLP")
 
 mlp_pca_res %>% autoplot()
 ```
@@ -1634,8 +1614,8 @@ mlp_pca_res %>% show_best("roc_auc")
 
 ## NCORR
 
-```{r}
-mlp_bag_ncorr_res <- read_wfset("models_svm_mlp.rds", "ncorr_bag_mlp")
+```{r, fig.width=8}
+mlp_bag_ncorr_res <- read_wfset("models_mlp.rds", "ncorr_MLP_BAG")
 
 autoplot(mlp_bag_ncorr_res)
 ```
@@ -1648,8 +1628,8 @@ show_best(mlp_bag_ncorr_res)
 
 ## NCORR + YJ
 
-```{r}
-mlp_bag_ncoryj_res <- read_wfset("models_svm_mlp.rds", "ncorryj_bag_mlp")
+```{r, fig.width=8}
+mlp_bag_ncoryj_res <- read_wfset("models_mlp.rds", "ncorr_yj_MLP_BAG")
 
 autoplot(mlp_bag_ncoryj_res)
 ```
@@ -1662,8 +1642,8 @@ show_best(mlp_bag_ncoryj_res, metric = "roc_auc")
 
 ## NCORR + ORQ
 
-```{r}
-mlp_bag_ncorq_res <- read_wfset("models_svm_mlp.rds", "ncorrorq_bag_mlp")
+```{r, fig.width=8}
+mlp_bag_ncorq_res <- read_wfset("models_mlp.rds", "ncorr_orq_MLP_BAG")
 
 autoplot(mlp_bag_ncorq_res)
 ```
@@ -1676,8 +1656,8 @@ show_best(mlp_bag_ncorq_res, metric = "roc_auc")
 
 ## PCA
 
-```{r}
-mlp_bag_pca_res <- read_wfset("models_svm_mlp.rds", "pca_bag_mlp")
+```{r, fig.width=8}
+mlp_bag_pca_res <- read_wfset("models_mlp.rds", "pca_MLP_BAG")
 
 autoplot(mlp_bag_ncoryj_res)
 ```
@@ -1706,13 +1686,13 @@ mlp_best_res <- list(
 
 mlp_best_names <- c(
     "ncorr",
-    "ncorr.yj",
-    "ncorr.orq",
+    "ncorr_yj",
+    "ncorr_orq",
     "pca",
-    "bag.ncorr",
-    "bag.ncorr.yj",
-    "bag.ncorr.orq",
-    "bag.pca"
+    "bag_ncorr",
+    "bag_ncorr_yj",
+    "bag_ncorr_orq",
+    "bag_pca"
   )
 
 mlp_rocs <-
