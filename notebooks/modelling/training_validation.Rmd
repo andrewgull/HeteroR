@@ -479,142 +479,58 @@ models_bt <- get_models_set(
 autoplot(models_bt, select_best = TRUE)
 ```
 
-# RF BT light 
-
-```{r, eval=F}
-read_models_xgb_rf_light <- function() {
-  file_path <-
-    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_xgb_rf_light.rds"
-  
-  if (!file.exists(file_path)) {
-    print("File does not exist. Proceeding rith building the workflowset of the models.")
-models_xgb_rf_light <- 
-   workflow_set(
-      preproc = list(base = base_recipe,
-                     base_boruta = base_boruta_recipe ), 
-      
-      models = list(rf = rf, bt_light = bt_light),
-      cross = TRUE
-   )
-set.seed(124)
-models_xgb_rf_light <-
-  models_xgb_rf_light %>%
- workflow_map(
-    "tune_grid",
-    resamples = cv_folds,
-    grid = 30,
-    metrics = imbalanced_metrics,
-    verbose = TRUE,
-      control = control_grid(save_pred = TRUE,
-                             save_workflow = TRUE)
-  )
-
-saveRDS(object = models_xgb_rf_light, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/models_xgb_rf_light.rds")
-  } else {
-    models_xgb_rf_light <- readRDS(file_path)
-  }
-  
-  return(models_xgb_rf_light)
-}
-
-models_xgb_rf_light <- read_models_xgb_rf_light()
-```
-
-
-```{r, eval=F}
-autoplot(models_xgb_rf_light, select_best= TRUE)
-```
-
-
-## base_bt_bres 
+## Bayesian optimisation 
 
 The following code uses Bayesian optimization on top of the previous grid search
 
+```{r}
+models_bt
+```
+
+
 ```{r, eval=F}
-read_base_bt_bres_light <- function() {
-  file_path <-
-    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_bres_light.rds"
-  
+get_bt_bres <- function(file_path) {
+ 
   if (!file.exists(file_path)) {
     print("File does not exist. Proceeding with optimizing the models.")
-base_bt_light_wf <- workflow() %>%
-  add_model(bt_light) %>%
-  add_recipe(base_recipe)
-
-param_set_base_bt <- extract_parameter_set_dials(base_bt_light_wf) %>%
-    finalize(x = df_train %>% select(-resistance))
-
-base_bt_bres <- tune_bayes(base_bt_light_wf,  resamples = cv_folds, initial = models_xgb_rf_light$result[[2]],
-    iter= 30,
-    metrics = metric_set(roc_auc),
-    param_info = param_set_base_bt,
-      control = control_bayes(no_improve =30,
-                             save_pred = TRUE,
-                             verbose = FALSE,
-                             save_workflow = TRUE))
-                            
-  
-saveRDS(object = base_bt_bres, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_bres_light.rds")      
+    
+    base_bt_light_wf <- workflow() %>%
+      add_model(bt_light) %>%
+      add_recipe(base_recipe)
+    
+    param_set_base_bt <-
+      extract_parameter_set_dials(base_bt_light_wf) %>%
+      finalize(x = df_train %>% select(-resistance))
+    
+    base_bt_bres <-
+      tune_bayes(
+        base_bt_light_wf,
+        resamples = cv_folds,
+        initial = models_bt$result[[1]],
+        iter = 30,
+        metrics = metric_set(roc_auc),
+        param_info = param_set_base_bt,
+        control = control_bayes(
+          no_improve = 30,
+          save_pred = TRUE,
+          verbose = FALSE,
+          save_workflow = TRUE
+        )
+      )
+    saveRDS(object = base_bt_bres, file = file_path)
   } else {
-    base_bt_bres_light <- readRDS(file_path)
+    base_bt_bres <- readRDS(file_path)
   }
-  
-  return(base_bt_bres_light)
+  return(base_bt_bres)
 }
 
-base_bt_bres_light <- read_base_bt_bres_light()
-show_best(base_bt_bres_light)
+base_bt_bres <- get_bt_bres(file_path="~Data/HeteroR/results/models/scheme12/models_bt_bres.rds")
+
+show_best(base_bt_bres)
 ```
 
 ```{r, eval=F}
-autoplot(base_bt_bres_light)
+autoplot(base_bt_bres)
 ```
 
-## base_boruta_bt_bres_light
 
-```{r, eval=F}
-read_base_boruta_bt_bres_light <- function() {
-  file_path <-
-    "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_boruta_bres_light.rds"
-  
-  if (!file.exists(file_path)) {
-    print("File does not exist. Proceeding with optimizing the models.")
-base_bt_boruta_light_wf <- workflow() %>%
-  add_model(bt_light) %>%
-  add_recipe(base_boruta_recipe)
-
-param_set_base_bt_boruta <- extract_parameter_set_dials(base_bt_boruta_light_wf) %>%
-    finalize(x = df_train %>% select(-resistance))
-
-base_bt_boruta_bres_light <- tune_bayes(base_bt_boruta_light_wf,  resamples = cv_folds, initial = models_xgb_rf_light$result[[4]],
-    iter= 30,
-    metrics = metric_set(roc_auc),
-    param_info = param_set_base_bt_boruta,
-      control = control_bayes(no_improve =30,
-                             save_pred = TRUE,
-                             verbose = FALSE,
-                             save_workflow = TRUE))
-                            
-  
-saveRDS(object = base_bt_boruta_bres_light, file =  "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/base_bt_boruta_bres_light.rds")      
-  } else {
-    base_bt_boruta_bres_light <- readRDS(file_path)
-  }
-  
-  return(base_bt_boruta_bres_light)
-}
-
-base_bt_boruta_bres_light <- read_base_boruta_bt_bres_light()
-show_best(base_bt_boruta_bres_light)
-```
-
-```{r, eval=F}
-autoplot(base_bt_boruta_bres_light)
-```
-
-remove models object 
-```{r, eval=F}
-rm(base_bt_bres_light) 
-rm(models_xgb_rf_light) # this has to be removed here as it is used for bayesian optimization
-rm(base_bt_boruta_bres_light)
-```
