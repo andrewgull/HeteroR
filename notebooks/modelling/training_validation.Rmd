@@ -387,7 +387,7 @@ autoplot(models_mlp, select_best = TRUE)
 remove models object 
 
 ```{r}
-rm(models_svm_mlp)
+rm(models_mlp)
 ```
 
 # KNN
@@ -432,6 +432,7 @@ models_mars <- get_models_set(
 )
 ```
 
+Multiple issues: "glm.fit: fitted probabilities numerically 0 or 1 occurred"
 
 ```{r}
 autoplot(models_mars, select_best= TRUE)
@@ -464,7 +465,7 @@ autoplot(models_rf, select_best = TRUE)
 Use LightGBM
 
 ```{r}
-models_rf <- get_models_set(
+models_bt <- get_models_set(
   file_path = "~/Data/HeteroR/results/models/scheme12/models_bt.rds",
   model_specs_list = list(BT = bt_light),
   recipes_list = list(base = base_recipe,
