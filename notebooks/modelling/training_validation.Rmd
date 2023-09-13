@@ -291,8 +291,8 @@ models_llr <-
     model_spec = list(LLR = lr1),
     recipes_list = list(
       base = base_recipe,
-      baseyj = base_yj_recipe,
-      baseorq = base_orq_recipe,
+      base_yj = base_yj_recipe,
+      base_orq = base_orq_recipe,
       pca = pca_recipe
     )
   )
@@ -334,8 +334,8 @@ models_svm <-
     ),
     recipes_list = list(
       ncorr = ncorr_recipe,
-      ncorryj = ncorr_yj_recipe,
-      base_orq = ncorr_orq_recipe,
+      ncorr_yj = ncorr_yj_recipe,
+      ncorr_orq = ncorr_orq_recipe,
       pca = pca_recipe
     )
   )
@@ -358,6 +358,7 @@ ggpubr::ggarrange(
 ```
 
 remove the object to free memory
+
 ```{r}
 rm(models_svm)
 ```
@@ -372,8 +373,8 @@ models_mlp <- get_models_set(
                           MLP_BAG = mlp_bag),
   recipes_list = list(
     ncorr = ncorr_recipe,
-    ncorryj = ncorr_yj_recipe,
-    base_orq = ncorr_orq_recipe,
+    ncorr_yj = ncorr_yj_recipe,
+    ncorr_orq = ncorr_orq_recipe,
     pca = pca_recipe
   )
 )
@@ -398,8 +399,8 @@ models_knn <- get_models_set(
   model_specs_list = list(kNN = knn),
   recipes_list = list(
     ncorr = ncorr_recipe,
-    ncorryj = ncorr_yj_recipe,
-    ncorrorq = ncorr_orq_recipe ,
+    ncorr_yj = ncorr_yj_recipe,
+    ncorr_orq = ncorr_orq_recipe ,
     pca = pca_recipe
   )
 )
@@ -425,8 +426,8 @@ models_mars <- get_models_set(
                           MARS_BAG = mars_bag),
   recipes_list = list(
     ncorr = ncorr_recipe,
-    ncorryj = ncorr_yj_recipe,
-    ncorrorq = ncorr_orq_recipe ,
+    ncorr_yj = ncorr_yj_recipe,
+    ncorr_orq = ncorr_orq_recipe ,
     pca = pca_recipe
   )
 )
@@ -519,15 +520,15 @@ saveRDS(object = models_xgb_rf_light, file =  "/mnt/data/andrei/Data/HeteroR/res
 models_xgb_rf_light <- read_models_xgb_rf_light()
 ```
 
+
 ```{r, eval=F}
 autoplot(models_xgb_rf_light, select_best= TRUE)
-#rank_results(models_xgb_rf_light) %>%  select(wflow_id) %>%  unique()
 ```
 
 
 ## base_bt_bres 
 
-The following code uses Bayesian optimization on toop of the previous grid search
+The following code uses Bayesian optimization on top of the previous grid search
 
 ```{r, eval=F}
 read_base_bt_bres_light <- function() {
