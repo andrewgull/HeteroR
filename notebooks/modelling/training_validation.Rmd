@@ -177,7 +177,7 @@ rf <- rand_forest(
       set_mode("classification")
 
 bt <- boost_tree(
-      trees = 50,
+      trees = tune(),
       mtry = tune(),
       min_n = tune(),
       tree_depth = tune(),
@@ -185,16 +185,6 @@ bt <- boost_tree(
       loss_reduction = tune(),
       sample_size = tune(),
       stop_iter = tune()) %>%
-      set_engine("lightgbm", num.threads = cores) %>%
-      set_mode("classification")
-
-bt_light <- boost_tree(
-      trees = tune(),
-      mtry = tune(),
-      min_n = tune(),
-      tree_depth = tune(),
-      learn_rate = tune(),
-      loss_reduction = tune()) %>%
       set_engine("lightgbm", num.threads = cores) %>%
       set_mode("classification") %>% translate()
 
@@ -524,7 +514,7 @@ get_bt_bres <- function(file_path) {
   return(base_bt_bres)
 }
 
-base_bt_bres <- get_bt_bres(file_path="~Data/HeteroR/results/models/scheme12/models_bt_bres.rds")
+base_bt_bres <- get_bt_bres(file_path="~/Data/HeteroR/results/models/scheme12/models_bt_bres.rds")
 
 show_best(base_bt_bres)
 ```
