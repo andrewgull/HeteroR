@@ -1422,8 +1422,8 @@ bt_base_res %>%
 
 Bayesian search
 
-```{r, fig.width=8, fig.height=6}
-bt_base_bres <- readRDS(paste0(models_path, "base_bt_bres_light.rds"))
+```{r, fig.width=10, fig.height=6}
+bt_base_bres <- readRDS(paste0(models_path, "models_bt_bres.rds"))
 
 bt_base_bres %>% 
   autoplot()
@@ -1454,13 +1454,13 @@ show_best(bt_base_bor_res)
 
 ## Base recipe + Boruta + Bayesian search
 
-```{r, fig.width=10}
+```{r, fig.width=10, eval=FALSE}
 bt_base_bor_bres <- readRDS(paste0(models_path, "base_bt_boruta_bres_light.rds"))
 
 autoplot(bt_base_bor_bres)
 ```
 
-```{r}
+```{r, eval=FALSE}
 show_best(bt_base_bor_bres)
 ```
 
@@ -1471,14 +1471,14 @@ show_best(bt_base_bor_bres)
 ```{r}
 bt_best_res <- list(
     bt_base_res,
-    #bt_base_bres,
+    bt_base_bres,
     bt_base_bor_res
     #bt_base_bor_bres
   )
 
 bt_best_names <- c(
     "base",
-    #"base_bayes",
+    "base_bayes",
     "base_bor"
     #"base_bor_bayes"
   )
@@ -1767,11 +1767,11 @@ summary(mlp_preproc_diff)
 # you will need these two objects later
 best_resamples_list <- list(
     lr_base_orq_res,
-    lsvm_ncorr_res,
-    psvm_ncorq_res,
+    lsvm_ncoryj_res,
+    psvm_ncoryj_res,
     mlp_bag_ncorq_res,
     rf_base_res,
-    bt_base_bres
+    bt_base_res
   )
 best_resamples_names <- c(
     "LLR",
@@ -1818,13 +1818,20 @@ mod_posterior <-
     cores = 8
   )
 
-Fig_9B <- autoplot(mod_posterior) + 
-  scale_color_brewer(palette = "Set2") + 
-  theme(plot.margin = margin(t = 23, r = 15, b = 23, l = 15, unit = "pt"))
+Fig_9B <- autoplot(mod_posterior) +
+  scale_color_brewer(palette = "Set2") +
+  theme(plot.margin = margin(
+    t = 23,
+    r = 15,
+    b = 23,
+    l = 15,
+    unit = "pt"
+  ))
+
 Fig_9B
 ```
 
-```{r}
+```{r, fig.width=8}
 Fig_9AB <- ggarrange(Fig_9A, Fig_9B,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE,
@@ -1845,6 +1852,7 @@ summary(mod_diff)
 ```{r}
 summary(mod_diff) %>% filter(lower < 0, upper > 0)
 ```
+
 ### Significant differences in mean AUCs:
 
 ```{r}
@@ -1863,10 +1871,11 @@ summary(mod_diff) %>% filter(lower > 0, upper > 0)
 ```{r comparison2}
 # calculate rocs
 top_models <- list(
-    lr_base_res,
-    bt_base_bres)
+    lr_base_orq_res,
+    bt_base_res,
+    psvm_ncoryj_res)
 
-top_names <- c("LR", "GBT")
+top_names <- c("LR", "GBT", "SVM polynomial")
 
 roc3_df <-
   map2_dfr(top_models,
@@ -1927,7 +1936,7 @@ mod_diff <- contrast_models(mod_posterior, seed = 100)
 summary(mod_diff)
 ```
 
-GBT is significantly better by 0.014 mean AUC
+LR and pSVM look preferably
 
 # Final fit
 
@@ -1970,7 +1979,7 @@ run_last_fit <-
     }
   }
 
-# required by 4 models + 1 if it's ncorr
+# required by models with ncorr recipes
 update_corr_treshold <- function(base_recipe = yj_recipe, step_no, corr_threshold) {
   # update step_corr threshold
   base_recipe$steps[[step_no]] <-
@@ -2060,11 +2069,52 @@ gbt_base_final <-
 gbt_base_final[[1]]
 ```
 
+## pSVM final
+
+```{r}
+set.seed(100)
+
+psvm_spec_blank <- svm_poly(
+  cost = tune(),
+  degree = tune(),
+  scale_factor = tune(),
+  margin = NULL
+) %>% 
+  set_mode("classification") %>%
+  set_engine("kernlab", num.threads = 4)
+
+psvm_spec_tuned <- svm_poly(
+  cost = best_models[[3]]$cost,
+  degree = best_models[[3]]$degree,
+  scale_factor = best_models[[3]]$scale_factor
+) %>% 
+  set_mode("classification") %>%
+  set_engine("kernlab", num.threads = 4)
+
+corr_threshold_tuned <-best_models[[3]]$corr_tune
+
+ncorr_yj_recipe_tuned <-
+  update_corr_treshold(base_recipe = ncorr_yj_recipe,
+                       step_no = 8,
+                       corr_threshold = corr_threshold_tuned)
+
+psvm_ncoryj_final <-
+  run_last_fit(
+    "pSVM",
+    psvm_spec_blank,
+    psvm_spec_tuned,
+    recipe = ncorr_yj_recipe_tuned,
+    return_fit = TRUE
+  )
+
+psvm_ncoryj_final[[1]]
+```
+
 
 ## ROC
 
 ```{r ff roc}
-mod_labels <- c("GBT", "LR")
+mod_labels <- c("LR", "GBT")
 
 make_final_roc <- function(fit_obj, title=""){
   fit_obj %>%   
@@ -2073,23 +2123,33 @@ make_final_roc <- function(fit_obj, title=""){
   autoplot() + ggtitle(title)
 }
 
-make_final_pr <- function(fit_obj, title=""){
-  fit_obj %>%   
-  collect_predictions() %>% 
-  pr_curve(resistance, .pred_HR) %>% 
-  autoplot() + ggtitle(title)
-}
-
-rocs_final <- map2(list(gbt_base_final[[2]], lr_final[[2]]), mod_labels, ~make_final_roc(.x, .y))
+rocs_final <-
+  map2(list(lr_final[[2]], gbt_base_final[[2]]),
+       mod_labels,
+       ~ make_final_roc(.x, .y))
 
 library(patchwork)
 
 (rocs_final[[1]] | rocs_final[[2]])
 ```
 
+```{r}
+mod_labels <- c("LR", "pSVM")
+
+rocs_final <-
+  map2(list(lr_final[[2]], psvm_ncoryj_final[[2]]),
+       mod_labels,
+       ~ make_final_roc(.x, .y))
+
+(rocs_final[[1]] | rocs_final[[2]])
+```
+
+
 ## PR
 
 ```{r}
+mod_labels <- c("LR", "GBT")
+
 make_final_pr <- function(fit_obj, title=""){
   fit_obj %>%   
   collect_predictions() %>% 
@@ -2097,7 +2157,21 @@ make_final_pr <- function(fit_obj, title=""){
   autoplot() + ggtitle(title)
 }
 
-prs_final <- map2(list(gbt_base_final[[2]], lr_final[[2]]), mod_labels, ~make_final_pr(.x, .y))
+prs_final <-
+  map2(list(lr_final[[2]], gbt_base_final[[2]]),
+       mod_labels,
+       ~ make_final_pr(.x, .y))
+
+(prs_final[[1]] | prs_final[[2]])
+```
+
+```{r}
+mod_labels <- c("LR", "pSVM")
+
+prs_final <-
+  map2(list(lr_final[[2]], psvm_ncoryj_final[[2]]),
+       mod_labels,
+       ~ make_final_pr(.x, .y))
 
 (prs_final[[1]] | prs_final[[2]])
 ```
@@ -2108,6 +2182,8 @@ prs_final <- map2(list(gbt_base_final[[2]], lr_final[[2]]), mod_labels, ~make_fi
 Probability cut-off = 0.5
 
 ```{r ff cm}
+mod_labels <- c("LR", "GBT")
+
 make_cm <- function(fit_obj, title="") {
   fit_obj %>%
   collect_predictions() %>%
@@ -2115,7 +2191,7 @@ make_cm <- function(fit_obj, title="") {
   autoplot(type = "heatmap") + ggtitle(title)
 }
 
-conf_mat_final <- map2(list(gbt_base_final[[2]], lr_final[[2]]), mod_labels, ~make_cm(.x, .y))
+conf_mat_final <- map2(list(lr_final[[2]], gbt_base_final[[2]]), mod_labels, ~make_cm(.x, .y))
 
 (conf_mat_final[[1]] | conf_mat_final[[2]])
 ```
@@ -2215,6 +2291,7 @@ senspec_plot(gbt_base_final[[2]], "GBT")
 
 ```{r}
 Fig_9C <- senspec_plot(lr_final[[2]], "") + theme(legend.position = "left")
+
 Fig_9C
 ```
 
@@ -2329,7 +2406,7 @@ lr_coeff_df <- lr_final[[2]] %>%
 lr_coeff_df
 ```
 
-Just 34 features plus Intercept are used by the model.
+Just 32 features plus Intercept are used by the model.
 
 On the `odds.ratio` column: 
 
@@ -2430,11 +2507,10 @@ minimal_pred %>%
   ylab("Z-score")
 ```
 
-Top 5 predictors: 
+Top 4 predictors: 
 
 ```{r}
-minimal_pred_best <- minimal_pred %>% filter(pred == "IS21" |
-                                             pred == "ISAS1" |
+minimal_pred_best <- minimal_pred %>% filter(pred == "n.rep.plasmid.TEM" |
                                              pred == "TEM.beta.lactamase" |
                                              pred == "n.TEM.1" |
                                              pred == "IS6") %>% select(-median)
@@ -2442,7 +2518,7 @@ minimal_pred_best <- minimal_pred %>% filter(pred == "IS21" |
 kruskal.test(minimal_pred_best$value, minimal_pred_best$pred)
 ```
 
-## A BT model with the top 5 predictors
+## A BT model with the top 4 predictors
 
 ```{r}
 minimal_pred_best %>% distinct(pred, .keep_all = F) 
@@ -2510,12 +2586,12 @@ lgb_min_res <- min_pred_wf %>%
     metrics = cls_metrics
   )
 
-saveRDS(lgb_min_res, paste0(models_path, "lgb_min5_res.rds"))
+saveRDS(lgb_min_res, paste0(models_path, "lgb_min_res.rds"))
 ```
 
 By default this code is used:
 
-```{r rf min3 res}
+```{r rf min3 res, fig.width=8}
 lgb_min_res <- readRDS(paste0(models_path, "lgb_min5_res.rds"))
 
 autoplot(lgb_min_res)
@@ -2530,12 +2606,12 @@ show_best(lgb_min_res, metric= "roc_auc")
 
 ```{r gbt min roc}
 autoplot(make_roc(lgb_min_res, "")) +
-  ggtitle("GBT, min 5")
+  ggtitle("GBT, min set of predictors")
 ```
 
 ## Test set
 
-### RF min 3
+### GBT min 3
 
 ```{r rf min3 test}
 lgb_best_top5 <- select_best(lgb_min_res, metric = "roc_auc")
@@ -2569,7 +2645,7 @@ lgb_min_final[[1]]
 #### Final ROC
 
 ```{r}
-make_final_roc(lgb_min_final[[2]], "LGB top 5")
+make_final_roc(lgb_min_final[[2]], "LGB top 4")
 ```
 
 #### Final confusion matrix
@@ -2581,13 +2657,13 @@ make_cm(lgb_min_final[[2]])
 #### Final metrix
 
 ```{r}
-get_metrics(lgb_min_final[[2]], "LGB top 5") %>% pivot_wider(names_from = model, values_from = .estimate)
+get_metrics(lgb_min_final[[2]], "LGB top 4") %>% pivot_wider(names_from = model, values_from = .estimate)
 ```
 
 #### Final sensitivity/specificity plot
 
 ```{r}
-senspec_plot(lgb_min_final[[2]], "LGB top 5")
+senspec_plot(lgb_min_final[[2]], "LGB top 4")
 ```
 
 ## DALEX
