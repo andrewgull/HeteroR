@@ -2461,6 +2461,70 @@ Fig_9CD <- ggarrange(Fig_9C, Fig_9D,
 Fig_9CD
 ```
 
+## Analysis of misclassified strains
+
+Extract predictions using the final model fit and adjusted probability cut-off
+
+```{r}
+optimize_prediction(lr_final[[2]])
+```
+
+My probability threshold is 0.27, these strains are predicted as HR
+
+```{r}
+optimize_prediction(lr_final[[2]]) %>% filter(.pred_HR >= 0.27)
+```
+
+### False positives v True positives
+
+```{r}
+false_positives <- optimize_prediction(lr_final[[2]]) %>%
+  mutate(strain = df_test$strain) %>%
+  filter(.pred == "HR", resistance == "nonHR") %>%
+  select(strain, resistance, .pred, .pred_HR) %>%
+  mutate(type = "FP")
+
+true_positives <- optimize_prediction(lr_final[[2]]) %>%
+  mutate(strain = df_test$strain) %>%
+  filter(.pred == "HR", resistance == "HR") %>%
+  select(strain, resistance, .pred, .pred_HR) %>%
+  mutate(type = "TP")
+
+fp_tp <- bind_rows(false_positives, true_positives) %>% 
+  left_join(df_test, by="strain")
+```
+
+```{r, fig.width=8, fig.height=10}
+# features increasing HR prob
+predictors_positive <- lr_coeff_df %>% 
+  filter(odds.ratio >= 1.0) %>% 
+  select(term) %>% 
+  unlist()
+
+get_plot <- function(var_name){
+  ggplot(fp_tp, aes(type, .data[[var_name]])) +
+    geom_boxplot() +
+    geom_violin(alpha=0.1) +
+    xlab("")
+}
+
+plot_list <- map(predictors_positive, ~get_plot(.))
+
+ggarrange(plotlist = plot_list, ncol=3, nrow=5)
+```
+
+With raw probabilities
+
+```{r, fig.width=8, fig.height=10}
+get_scatterplot <- function(var_name){
+  ggplot(fp_tp, aes(.pred_HR, .data[[var_name]])) +
+   geom_point(aes(color=type))
+}
+
+plot_list <- map(predictors_positive, ~get_scatterplot(.))
+
+ggarrange(plotlist = plot_list, ncol=3, nrow=5)
+```
 
 
 # Minimal set of predictors chosen by Boruta
@@ -2666,6 +2730,42 @@ get_metrics(lgb_min_final[[2]], "LGB top 4") %>% pivot_wider(names_from = model,
 senspec_plot(lgb_min_final[[2]], "LGB top 4")
 ```
 
+
+## AMR types and false predictions
+
+```{r, eval=FALSE}
+# this is for Dan
+amr_types_strain <- read_csv("data/amr_types_strain.csv")
+
+prediction_all_data %>%  
+  left_join(amr_types_strain, by="strain") %>% 
+  write.csv(file="data/amr_types_prediction_prob.csv", row.names = F)
+```
+
+```{r, eval=FALSE}
+# amr_type_pred <- read_csv("data/amr_types_prediction_prob.csv")
+
+amr_type_pred %>% 
+  filter(.pred_class != .true_class) %>% 
+  pivot_longer(cols = colnames(amr_type_pred)[5:25],
+               names_to = "AMR.gene",
+               values_to = "n") %>% 
+  ggplot(aes(strain, AMR.gene, fill=n)) +
+  geom_tile() +
+  scale_fill_gradient(low="white", high="blue") 
+```
+
+```{r, eval=FALSE}
+amr_type_pred %>% 
+  filter(.pred_class == .true_class) %>% 
+  pivot_longer(cols = colnames(amr_type_pred)[5:25],
+               names_to = "AMR.gene",
+               values_to = "n") %>% 
+  ggplot(aes(strain, AMR.gene, fill=n)) +
+  geom_tile() +
+  scale_fill_gradient(low="white", high="blue") 
+```
+
 ## DALEX
 
 You can choose for instance false positives and look what influenced
@@ -2717,82 +2817,4 @@ data_strain_proc %>%
   mutate(label = if_else(strain == "DA62984", "DA62984", resistance)) %>% 
   ggplot(aes(label, n.TEM.1)) +
   geom_jitter(aes(color=resistance))
-```
-
-## Extracting predictions
-
-Using the final model fit and adjusted probability cut-off
-
-That final recipe:
-
-```{r, eval=FALSE}
-final_recipe <- last_wf %>% fit(df_train) %>% extract_recipe()
-
-final_recipe
-```
-
-The final model fit
-
-```{r, eval=FALSE}
-final_mod_fit <- last_wf %>% fit(df_train) %>% extract_fit_parsnip()
-```
-
-```{r, eval=FALSE}
-data_strain_proc <- final_recipe %>%
-  bake(new_data = data_strain) %>% 
-  select(-c(strain, resistance))
-
-data_strain_proc
-```
-
-```{r, eval=FALSE}
-# I tested this code on df_test and it gives the same confusion matrix as the code above in section 'Final fit' and 'Confusion matrix with prob=0.5'
-# So it's the right way to apply predict() to the entire data set to identify false predictions
-
-prediction_all_data <-
-  predict(final_mod_fit, new_data = data_strain_proc, type = "prob") %>%
-  select(.pred_HR) %>%
-  mutate(
-    .pred_class = if_else(.pred_HR >= max_j_index_threshold, "HR", "nonHR"),
-    .true_class = data_strain$resistance,
-    strain = data_strain$strain
-  ) %>%
-  rename(.prob_HR = .pred_HR)
-
-prediction_all_data
-```
-
-## AMR types and false predictions
-
-```{r, eval=FALSE}
-# this is for Dan
-amr_types_strain <- read_csv("data/amr_types_strain.csv")
-
-prediction_all_data %>%  
-  left_join(amr_types_strain, by="strain") %>% 
-  write.csv(file="data/amr_types_prediction_prob.csv", row.names = F)
-```
-
-```{r, eval=FALSE}
-# amr_type_pred <- read_csv("data/amr_types_prediction_prob.csv")
-
-amr_type_pred %>% 
-  filter(.pred_class != .true_class) %>% 
-  pivot_longer(cols = colnames(amr_type_pred)[5:25],
-               names_to = "AMR.gene",
-               values_to = "n") %>% 
-  ggplot(aes(strain, AMR.gene, fill=n)) +
-  geom_tile() +
-  scale_fill_gradient(low="white", high="blue") 
-```
-
-```{r, eval=FALSE}
-amr_type_pred %>% 
-  filter(.pred_class == .true_class) %>% 
-  pivot_longer(cols = colnames(amr_type_pred)[5:25],
-               names_to = "AMR.gene",
-               values_to = "n") %>% 
-  ggplot(aes(strain, AMR.gene, fill=n)) +
-  geom_tile() +
-  scale_fill_gradient(low="white", high="blue") 
 ```
