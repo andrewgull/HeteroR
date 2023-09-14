@@ -2494,6 +2494,8 @@ fp_tp <- bind_rows(false_positives, true_positives) %>%
   left_join(df_test, by="strain")
 ```
 
+#### Positive predictors
+
 ```{r, fig.width=8, fig.height=10}
 # features increasing HR prob
 predictors_positive <- lr_coeff_df %>% 
@@ -2523,9 +2525,31 @@ get_scatterplot <- function(var_name){
 
 plot_list <- map(predictors_positive, ~get_scatterplot(.))
 
-ggarrange(plotlist = plot_list, ncol=3, nrow=5)
+ggarrange(plotlist = plot_list, ncol=3, nrow=5, common.legend = T)
 ```
 
+#### Negative predictors
+
+```{r, fig.width=8, fig.height=10}
+predictors_negative <- lr_coeff_df %>%
+  filter(odds.ratio < 1.0) %>%
+  select(term) %>% 
+  filter(term != "(Intercept)") %>% 
+  unlist()
+
+plot_list <- map(predictors_negative, ~get_plot(.))
+
+ggarrange(plotlist = plot_list, ncol=4, nrow=5)
+```
+
+
+With raw probabilities
+
+```{r, fig.width=8, fig.height=10}
+plot_list <- map(predictors_negative, ~get_scatterplot(.))
+
+ggarrange(plotlist = plot_list, ncol=4, nrow=5, common.legend = T)
+```
 
 # Minimal set of predictors chosen by Boruta
 
