@@ -395,8 +395,9 @@ kpcayj_recipe <-
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson(all_numeric_predictors())  %>%
-  step_normalize(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
   step_kpca_poly(all_numeric_predictors(), num_comp = 9) %>% 
   step_normalize(all_numeric_predictors())
 
@@ -420,6 +421,7 @@ ica_recipe <-
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson(all_numeric_predictors())  %>%
   step_normalize(all_numeric_predictors()) %>% 
   step_ica(all_numeric_predictors(), num_comp = 5) %>% 
@@ -448,6 +450,7 @@ isomap_recipe <-
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson(all_numeric_predictors())  %>%
   step_normalize(all_numeric_predictors()) %>% 
   step_isomap(all_numeric_predictors(), num_terms = 5, neighbors = 10) %>% 
@@ -476,6 +479,7 @@ pls_recipe <-
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson(all_numeric_predictors())  %>%
   step_normalize(all_numeric_predictors()) %>% 
   step_pls(all_numeric_predictors(), num_comp = 4, outcome = "resistance") %>% 
@@ -495,11 +499,12 @@ pls_recipe %>%
 ### Unsupervised
 
 ```{r, message=FALSE, warning=FALSE, fig.width=8}
-umapuyj_recipe <- 
+umap_yj_recipe <- 
   recipe(resistance ~ ., data = data_strain) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson(all_numeric_predictors())  %>%
   step_normalize(all_numeric_predictors()) %>% 
     step_umap(
@@ -518,7 +523,7 @@ umapu_recipe <- orq_recipe %>%
     neighbors = 25
   )
 
-Fig_8C <- umapuyj_recipe %>%
+Fig_8C <- umap_yj_recipe %>%
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
@@ -532,11 +537,12 @@ Fig_8C
 Supervised UMAP look really promising. HR clusters are more compact and some of them are more distant from non-HR ones.
 
 ```{r, message=FALSE, warning=FALSE, fig.width=8}
-umapsyj_recipe <- 
+umap_sup_yj_recipe <- 
   recipe(resistance ~ ., data = data_strain) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
   step_YeoJohnson(all_numeric_predictors())  %>%
   step_normalize(all_numeric_predictors()) %>% 
     step_umap(
@@ -557,7 +563,7 @@ umaps_recipe <- orq_recipe %>%
     neighbors = 25
   )
 
-Fig_8D <- umaps_recipe %>%
+Fig_8D <- umap_sup_yj_recipe %>%
   prep() %>% 
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
@@ -572,8 +578,7 @@ Fig_8D
 
 They come from modelling of course (the last fit + extract predictions)
 
-```{r, fig.width=10, fig.height = 8}
-#| eval: false
+```{r, fig.width=10, fig.height = 8, eval=FALSE}
 
 # to add falsely and correctly identified by the final fit
 # go to modelling -> extract predictions, that table is there
@@ -602,7 +607,7 @@ The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes hims
 
 Non-supervised
 
-```{r}
+```{r, eval=F}
 
 hr_groups <- left_join(hr_testing12, hr_testing13, by = "strain") %>% 
   mutate(hr.group = case_when(resistance.x == "HR" & resistance.y == "HR" ~ "group_1",
@@ -614,7 +619,7 @@ hr_groups <- left_join(hr_testing12, hr_testing13, by = "strain") %>%
 hr_groups
 ```
 
-```{r, warning=FALSE, fig.width=9, fig.height=9}
+```{r, warning=FALSE, fig.width=9, fig.height=9, eval=F}
 data_groups <- data_strain %>% 
   select(-resistance) %>% 
   left_join(hr_groups, by = "strain")
@@ -648,7 +653,7 @@ data_umap_groups$template %>%
 
 to better see clustering of HRs
 
-```{r, fig.width=10}
+```{r, fig.width=10, eval=FALSE}
 data_umap_groups$template %>% 
   filter(hr.group != "nonHR") %>% 
     select(-c(strain, UMAP4, UMAP5, UMAP6)) %>% 
