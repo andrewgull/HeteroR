@@ -47,9 +47,8 @@ data_strain <-
 # HR testing lables
 hr_testing12 <-
   read_csv("data/heteroresistance_testing.csv",
-           col_select = c(strain, Gr12)) %>%
-  filter(!is.na(strain)) %>%
-  dplyr::rename("resistance" = Gr12)
+           col_select = c(strain, resistance)) %>%
+  filter(!is.na(strain))
 
 data_strain <- data_strain %>%
   left_join(hr_testing12, by = "strain")
@@ -375,34 +374,34 @@ final_tibble <-
 
 
 # lSVM
-models_svm_mlp <-
-  readRDS(paste0(models_path,"models_svm_mlp.rds"))
+models_svm <-
+  readRDS(paste0(models_path,"models_svm.rds"))
 
 ## ncorr_lsvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[1]], "lSVM", "NCORR"))
+            new_model_row(models_svm$result[[1]], "lSVM", "NCORR"))
 
 
 ## ncorryj_lsvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[6]], "lSVM", "NCORR_YJ"))
+            new_model_row(models_svm$result[[4]], "lSVM", "NCORR_YJ"))
 
 ## ncorrorq_lsvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[11]], "lSVM", "NCORRORQ"))
+            new_model_row(models_svm$result[[7]], "lSVM", "NCORRORQ"))
 
 
 ## pca_lsvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[16]], "lSVM", "PCA"))
+            new_model_row(models_svm$result[[10]], "lSVM", "PCA"))
 
 # pSVM
 
@@ -410,25 +409,25 @@ final_tibble <-
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[2]], "pSVM", "NCORR"))
+            new_model_row(models_svm$result[[2]], "pSVM", "NCORR"))
 
 ## ncorryj_psvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[7]], "pSVM", "NCORR_YJ"))
+            new_model_row(models_svm$result[[5]], "pSVM", "NCORR_YJ"))
 
 ## ncorrorq_psvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[12]], "pSVM", "NCORRORQ"))
+            new_model_row(models_svm$result[[8]], "pSVM", "NCORRORQ"))
 
 ## pca_psvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[17]], "pSVM", "PCA"))
+            new_model_row(models_svm$result[[11]], "pSVM", "PCA"))
 
 
 # rbfSVM
@@ -437,53 +436,57 @@ final_tibble <-
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[3]], "rbfSVM", "NCORR"))
+            new_model_row(models_svm$result[[3]], "rbfSVM", "NCORR"))
 
-## ncorryj_psvm
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[8]], "rbfSVM", "NCORR_YJ"))
-
-## ncorrorq_psvm
+## ncorryj_rbfsvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[13]], "rbfSVM", "NCORRORQ"))
+            new_model_row(models_svm$result[[6]], "rbfSVM", "NCORR_YJ"))
 
-## pca_psvm
+## ncorrorq_rbfsvm
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[18]], "rbfSVM", "PCA"))
+            new_model_row(models_svm$result[[9]], "rbfSVM", "NCORRORQ"))
+
+## pca_rbfsvm
+
+final_tibble <-
+  bind_rows(final_tibble,
+            new_model_row(models_svm$result[[12]], "rbfSVM", "PCA"))
 
 
 # MLP_nnet
+
+models_mlp <-
+  readRDS(paste0(models_path,"models_mlp.rds"))
+
 
 ## ncorr_mlp_nnet
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[4]], "MLP_nnet", "NCORR"))
+            new_model_row(models_mlp$result[[1]], "MLP_nnet", "NCORR"))
 
 
 ## ncorryj_mlp_nnet
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[9]], "MLP_nnet", "NCORR_YJ"))
+            new_model_row(models_mlp$result[[3]], "MLP_nnet", "NCORR_YJ"))
 
 ## ncorrorq_mlp_nnet
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[14]], "MLP_nnet", "NCORRORQ"))
+            new_model_row(models_mlp$result[[5]], "MLP_nnet", "NCORRORQ"))
 
 ## pca_mlp_nnet
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[19]], "MLP_nnet", "PCA"))
+            new_model_row(models_mlp$result[[7]], "MLP_nnet", "PCA"))
 
 # BAG_MLP
 
@@ -491,55 +494,55 @@ final_tibble <-
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[5]], "BAG_MLP", "NCORR"))
+            new_model_row(models_mlp$result[[2]], "BAG_MLP", "NCORR"))
 
 ## ncorryj_bag_mlp
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[10]], "BAG_MLP", "NCORR_YJ"))
+            new_model_row(models_mlp$result[[4]], "BAG_MLP", "NCORR_YJ"))
 
 ## ncorrorq_bag_mlp
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[15]], "BAG_MLP", "NCORRORQ"))
+            new_model_row(models_mlp$result[[6]], "BAG_MLP", "NCORRORQ"))
 
 ## pca_bag_mlp
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_svm_mlp$result[[20]], "BAG_MLP", "PCA"))
+            new_model_row(models_mlp$result[[8]], "BAG_MLP", "PCA"))
 
 
 
 # MARS
-models_mars_knn <-
-  readRDS(paste0(models_path,"models_mars_knn.rds"))
+models_mars <-
+  readRDS(paste0(models_path,"models_mars.rds"))
 
 ## ncorr_mars
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[1]], "MARS", "NCORR"))
+            new_model_row(models_mars$result[[1]], "MARS", "NCORR"))
 
 ## ncorryj_mars
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[4]], "MARS", "NCORR_YJ"))
+            new_model_row(models_mars$result[[3]], "MARS", "NCORR_YJ"))
 
 ## ncorrorq_mars
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[7]], "MARS", "NCORRORQ"))
+            new_model_row(models_mars$result[[5]], "MARS", "NCORRORQ"))
 
 ## pca_mars
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[10]], "MARS", "PCA"))
+            new_model_row(models_mars$result[[7]], "MARS", "PCA"))
 
 # BAG MARS
 
@@ -547,81 +550,87 @@ final_tibble <-
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[3]], "BAG_MARS", "NCORR"))
+            new_model_row(models_mars$result[[2]], "BAG_MARS", "NCORR"))
 
 ## ncorryj_bag_mars
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[6]], "BAG_MARS", "NCORR_YJ"))
+            new_model_row(models_mars$result[[4]], "BAG_MARS", "NCORR_YJ"))
 
 ## ncorrorq_bag_mars
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[9]], "BAG_MARS", "NCORRORQ"))
+            new_model_row(models_mars$result[[6]], "BAG_MARS", "NCORRORQ"))
 
 ## pca_bag_mars
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[12]], "BAG_MARS", "PCA"))
+            new_model_row(models_mars$result[[8]], "BAG_MARS", "PCA"))
 
 # KNN
+
+models_knn <-
+  readRDS(paste0(models_path,"models_knn.rds"))
 
 ## ncorr_knn
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[2]], "KNN", "NCORR"))
+            new_model_row(models_knn$result[[1]], "KNN", "NCORR"))
 
 ## ncorryj_knn
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[5]], "KNN", "NCORR_YJ"))
+            new_model_row(models_knn$result[[2]], "KNN", "NCORR_YJ"))
 
 ## ncorrorq_knn
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[8]], "KNN", "NCORRORQ"))
+            new_model_row(models_knn$result[[3]], "KNN", "NCORRORQ"))
 
 ## pca_knn
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_mars_knn$result[[11]], "KNN", "PCA"))
+            new_model_row(models_knn$result[[4]], "KNN", "PCA"))
 
 # RF
-models_rf_bt <-
-  readRDS(paste0(models_path,"models_xgb_rf_light.rds"))
+models_rf <-
+  readRDS(paste0(models_path,"models_rf.rds"))
 
 
 ## base_rf
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_rf_bt$result[[1]], "RF", "BASE"))
+            new_model_row(models_rf$result[[1]], "RF", "BASE"))
 
 
 ## base_boruta_rf
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_rf_bt$result[[3]], "RF", "BASE_BORUTA"))
+            new_model_row(models_rf$result[[2]], "RF", "BASE_BORUTA"))
 
 # BT
+
+models_bt <-
+  readRDS(paste0(models_path,"models_bt.rds"))
 
 ## base_bt
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_rf_bt$result[[2]], "BT", "BASE"))
+            new_model_row(models_bt$result[[1]], "BT", "BASE"))
 
 ## base_bt_bres
 base_bt_bres <-
-  readRDS(paste0(models_path,"base_bt_bres_light.rds"))
+  readRDS(paste0(models_path,"models_bt_bres.rds"))
 
 
 final_tibble <-
@@ -632,17 +641,17 @@ final_tibble <-
 
 final_tibble <-
   bind_rows(final_tibble,
-            new_model_row(models_rf_bt$result[[4]], "BT", "BASE_BORUTA"))
+            new_model_row(models_bt$result[[2]], "BT", "BASE_BORUTA"))
 
 
 ## base_boruta_bt_bres
-bt_base_boruta_bres <-
-  readRDS(paste0(models_path,"base_bt_boruta_bres_light.rds"))
-
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(bt_base_boruta_bres, "BT_bres", "BASE_BORUTA"))
+# bt_base_boruta_bres <-
+#   readRDS(paste0(models_path,"base_bt_boruta_bres.rds"))
+# 
+# 
+# final_tibble <-
+#   bind_rows(final_tibble,
+#             new_model_row(bt_base_boruta_bres, "BT_bres", "BASE_BORUTA"))
 
 # save
 write_csv(final_tibble, "data/model_comparison_table.csv")
