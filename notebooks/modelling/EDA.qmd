@@ -782,13 +782,14 @@ Low coverage, incomplete assembly, susceptible, no repeats.
 #### Proportion
 
 ```{r}
-ggplot(data_strain, aes(n.beta.lac)) +
+Fig_6A <- ggplot(data_strain, aes(n.beta.lac)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette = "Set1") +
   xlab("n beta-lactamases") +
   ylab("proportion") +
   theme(legend.title = element_blank()) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6))
+Fig_6A
 ```
 
 **OBS!**
@@ -802,16 +803,24 @@ ggplot(data_strain, aes(n.beta.lac)) +
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
 ```{r}
-Fig_4A <- ggplot(data_strain, aes(n.beta.lac.4)) +
-  geom_bar(aes(fill = resistance), position = "fill") +
+Fig_6B <- ggplot(data_strain, aes(n.beta.lac.4)) +
+  geom_bar(aes(fill = resistance), position = "fill",width = 0.3) +
   scale_fill_brewer(palette="Set1") +
   xlab("n β-lactamases") +
   ylab("proportion of strains") +
   scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme(legend.title=element_blank())
-Fig_4A
+Fig_6B
 
 ```
+
+```{r}
+Fig_6 <- ggarrange(Fig_6A , Fig_6B + ylab("") ,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1, common.legend = TRUE,legend = "bottom")
+Fig_6
+```
+
 
 Now the chance of being HR is higher than the chance of being nonHR
 
@@ -856,16 +865,16 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
 As a proportion
 
 ```{r}
-Fig_6A <- data_strain %>% 
+Fig_7A <- data_strain %>% 
   ggplot(aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   scale_x_continuous(breaks = c(0,1,2,3,4,5,6)) +
   xlab("n β-lactamases on plasmids") +
-  ylab("proportion of strains")+
+  ylab("proportion")+
   theme(legend.position = "none")
 
-Fig_6A
+Fig_7A
 ```
 
 Starting from 4 bl genes (on plasmids), it seems to be a very good predictor.
@@ -942,13 +951,13 @@ ggplot(data_strain, aes(n.beta.lac.plus)) +
 As proportion
 
 ```{r, eval=FALSE}
-Fig_6C <-  ggplot(data_strain, aes(n.beta.lac.plus)) +
+  ggplot(data_strain, aes(n.beta.lac.plus)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("n beta-lactamases on plus strand") +
   ylab("proportion") 
 
-Fig_6C
+
 ```
 
 #### On plasmids
@@ -1004,7 +1013,7 @@ bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>%
   summarize(sum=sum(n))
 
 
-Fig_6B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
+Fig_7B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   geom_col(aes(fill=resistance), position = "fill", alpha = 1) + 
   # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
   scale_fill_brewer(palette = "Set1", name = "") +
@@ -1013,26 +1022,12 @@ Fig_6B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   scale_x_discrete(labels = c("ampC", "non-ampC"))+
   theme(legend.position = "none")
   
-Fig_6B
+Fig_7B
 ```
 
 
 
 
-```{r, fig.height=8, fig.width=6}
-legend <- get_legend(Fig_6A)
-
-empty_plot_with_legend <- 
-  ggplot() + 
-  theme_void() +
-  annotation_custom(grob = legend, xmin = -0.7, xmax = Inf, ymin = 0.2, ymax = Inf)
-
-Fig_6 <- ggarrange(Fig_6A + theme(legend.position = "bottom"), 
-                   Fig_6B + theme(legend.position = "none"),
-                   #empty_plot_with_legend,
-                   ncol = 2, nrow = 1, labels = c("A", "B"))
-Fig_6
-```
 
 Among strains having only ampC beta-lactamases, the majority is non-HR
 
@@ -1061,11 +1056,12 @@ ggplot(data_strain, aes(ampC.type.beta.lactamase)) +
 ### non-ampC bar plot
 
 ```{r}
-ggplot(bl_type_count, aes(non.ampC)) +
+Fig_7B <- ggplot(bl_type_count, aes(non.ampC)) +
   geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("n non-ampC beta-lactamases") +
   ylab("n strains") 
+Fig_7B 
 ```
 
 As proportion
@@ -1091,13 +1087,29 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
 As proportion:
 
 ```{r}
-Fig_4B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
+Fig_7C <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("TEM β-lactamases") +
   ylab("proportion")
-Fig_4B
+Fig_7C
 ```
+
+```{r}
+library(cowplot)
+
+legend_plot <- get_legend(Fig_7B)    
+# Arrange the plots and the extracted legend
+Fig_7 <- ggarrange(Fig_7A+ theme(legend.position = "none"), Fig_7B+ theme(legend.position = "none"), Fig_7C+ theme(legend.position = "none"), legend_plot,
+                   labels = c("A", "B", "C"),
+                   ncol = 2, nrow = 2)
+
+
+
+Fig_7
+```
+
+
 
 ```{r}
 Fig_4 <- ggarrange(Fig_4A , Fig_4B + ylab("") ,
@@ -1312,7 +1324,7 @@ Per strain, doesn't depend on beta-lactamase presence or absence
 ### Box plot
 
 ```{r}
-Fig_6A <- data_strain %>%
+Fig_8A <-  data_strain %>%
   ggplot(aes(resistance, n.plasmids)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
@@ -1326,10 +1338,11 @@ Fig_6A <- data_strain %>%
               height = 0.1) +
   scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
-  ylab("n") +
+  ylab("number of plasmids") +
   xlab("") +
   guides(fill = "none")
-Fig_6A
+
+Fig_8A 
 ```
 
 ### Medians
@@ -1422,7 +1435,7 @@ exp(coef(pois_fit))
 ## Plasmid copy number
 
 ```{r}
-Fig_6B <- data_strain %>%
+Fig_8B <-  data_strain %>%
   ggplot(aes(resistance, n.c.plasmids)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
@@ -1436,26 +1449,23 @@ Fig_6B <- data_strain %>%
               height = 0.1) +
   scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
-  ylab("n") +
+  ylab("plasmid copy number") +
   xlab("") +
   guides(fill = "none") 
   #coord_trans(y="sqrt")
+Fig_8B
 
-Fig_6B
 ```
+
 
 ```{r}
-Fig_6 <- ggarrange(Fig_6A, Fig_6B,
+Fig_8 <- ggarrange(Fig_8A , Fig_8B ,
                     labels = c("A", "B"),
-                    ncol = 2, nrow = 1)
-Fig_6
+                    ncol = 2, nrow = 1, common.legend = TRUE,legend = "bottom")
+Fig_8
 ```
 
-```{r,fig.width=8,fig.height=6}
-Fig_4_6 <- ggarrange(Fig_6, Fig_4,
-                    ncol = 1, nrow = 2)
-Fig_4_6
-```
+
 #### Poisson model for count data
 
 ```{r}
@@ -1948,7 +1958,7 @@ Fig_5 <- ggarrange(Fig_5A, Fig_5B,
 Fig_5
 ```
 
-```{r}
+```{r,eval = FALSE}
 min_ori %>% 
   group_by(location, resistance) %>% 
   summarise(median = median(dist))
