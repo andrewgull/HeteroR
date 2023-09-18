@@ -380,9 +380,9 @@ if (!require(learntidymodels, quietly = TRUE))
   devtools::install_github("tidymodels/learntidymodels")
 
 data_pca %>%
-  plot_top_loadings(component_number <= 11, n = 5) + 
+  plot_top_loadings(component_number <= 6, n = 5) + 
   scale_fill_brewer(palette = "Paired") +
-  ggtitle("Principal Component Analysis")
+  ggtitle("Principal Components Decomposition")
 ```
 
 ## Polynomial k-basis PCA
@@ -573,129 +573,11 @@ Fig_8D
 ```
 
 
-
-### With added FP and FN
-
-They come from modelling of course (the last fit + extract predictions)
-
-```{r, fig.width=10, fig.height = 8, eval=FALSE}
-
-# to add falsely and correctly identified by the final fit
-# go to modelling -> extract predictions, that table is there
-
-umap2_postEDA <- left_join(data_umap_sup$template, pred_df, by = "strain")
-
-umap2_postEDA[is.na(umap2_postEDA)] <- "COR"
-
-umap2_postEDA %>% 
-  ggplot(aes(UMAP1, UMAP2)) +
-  geom_point(aes(color = resistance, shape = prediction), alpha = 0.6, size = 2) +
-  scale_color_brewer(palette = "Pastel1") +
-  ggtitle("Supervised UMAP (HR12)")
-
-# save for the shiny app
-#write.csv(umap2_postEDA, "EDA_app/data/data_umap12_postEDA.csv", row.names = F)
-```
-
 ### On 'captured variance'
 
 The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes himself:
 
 > As a non-linear manifold learning technique that ultimately works with metric spaces at its heart rather than feature based data UMAP doesn't really have a notion of explained variance the way algorithms like PCA do. A colleague is working on developing some alternative measures of how well an embedding has performed, but that is still preliminary work and we don't have any published code for that yet -- ultimately UMAP remains a research project with additional features and utilities still being developed.
-
-## UMAP on separate HR groups
-
-Non-supervised
-
-```{r, eval=F}
-
-hr_groups <- left_join(hr_testing12, hr_testing13, by = "strain") %>% 
-  mutate(hr.group = case_when(resistance.x == "HR" & resistance.y == "HR" ~ "group_1",
-                              resistance.x == "HR" & resistance.y == "nonHR" ~ "group_2",
-                              resistance.x == "nonHR" & resistance.y == "HR" ~ "group_3",
-                              resistance.x == "nonHR" & resistance.y == "nonHR" ~ "nonHR")) %>% 
-  select(strain, hr.group)
-
-hr_groups
-```
-
-```{r, warning=FALSE, fig.width=9, fig.height=9, eval=F}
-data_groups <- data_strain %>% 
-  select(-resistance) %>% 
-  left_join(hr_groups, by = "strain")
-
-umap_groups_recipe <- recipe(hr.group ~., data = data_groups) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_orderNorm(all_numeric_predictors()) %>% 
-  step_normalize(all_predictors()) %>% 
-  step_umap(all_numeric_predictors(), 
-            #outcome = "hr.group", 
-            num_comp = 6, 
-            min_dist = 0.02, 
-            neighbors = 25)
-
-data_umap_groups <- prep(umap_groups_recipe, retain = TRUE)
-
-data_umap_groups$template %>% 
-    select(-strain) %>% 
-    ggplot(aes(x = .panel_x, y = .panel_y, color = hr.group, fill = hr.group)) +
-    geom_point(alpha = 0.4, size = 1, aes(shape = hr.group)) +
-    facet_matrix(vars(-hr.group), layer.diag = 2) + 
-    scale_color_brewer(palette = "Pastel1", direction = 1) + 
-    scale_shape_manual(values = c(21, 24, 22, 3)) +
-    theme_bw() +
-    ggtitle("(un)Supervised UMAP (HR groups)")
-```
-
-### Remove nonHR
-
-to better see clustering of HRs
-
-```{r, fig.width=10, eval=FALSE}
-data_umap_groups$template %>% 
-  filter(hr.group != "nonHR") %>% 
-    select(-c(strain, UMAP4, UMAP5, UMAP6)) %>% 
-    ggplot(aes(x = .panel_x, y = .panel_y, color = hr.group, fill = hr.group)) +
-    geom_point(alpha = 0.5, size = 2, aes(shape = hr.group)) +
-    facet_matrix(vars(-hr.group), layer.diag = 2) + 
-    scale_color_brewer(palette = "Pastel1", direction = 1) + 
-    scale_shape_manual(values = c(21, 24, 22, 20)) +
-    theme_bw() +
-    ggtitle("(un)Supervised UMAP (HR groups)")
-```
-
-groups 1,2 and 3 are very similar to each other
-
-### 3D version
-
-```{r, eval=FALSE}
-library(plotly)
-
-umap3d <-
-  plot_ly(
-    data_umap_groups$template,
-    x = ~ UMAP1,
-    y = ~ UMAP2,
-    z = ~ UMAP3,
-    color = ~ data_umap_groups$template$hr.group,
-    colors = c('#cf280c', '#1b56f7', '#FFC300', '#035a10')
-  )
-
-umap3d <- umap3d %>% 
-  add_markers(size = 2, text = ~ data_umap_groups$template$strain)
-
-umap3d <- umap3d %>% 
-  layout(scene = list(
-    xaxis = list(title = 'UMAP1'),
-    yaxis = list(title = 'UMAP2'),
-    zaxis = list(title = 'UMAP3')
-))
-
-umap3d
-
-```
 
 ## Fig_8
 
