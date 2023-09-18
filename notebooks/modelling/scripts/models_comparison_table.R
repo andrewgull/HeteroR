@@ -15,7 +15,7 @@ library(colino)
 
 # path for models
 models_path <-
-  "~/HeteroR/results/models/scheme12/"
+  "~/Data/HeteroR/results/models/scheme12/"
 
 rfe_model <- rand_forest(mode = "classification") %>%
   set_engine("ranger", num.threads = 8, importance = "impurity")
@@ -222,9 +222,6 @@ new_model_row <-
       "rbfSVM",
       "MLP_nnet",
       "BAG_MLP",
-      "MARS",
-      "BAG_MARS",
-      "KNN",
       "RF",
       "BT",
       "BT_bres"
@@ -513,91 +510,6 @@ final_tibble <-
 final_tibble <-
   bind_rows(final_tibble,
             new_model_row(models_mlp$result[[8]], "BAG_MLP", "PCA"))
-
-
-
-# MARS
-models_mars <-
-  readRDS(paste0(models_path,"models_mars.rds"))
-
-## ncorr_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[1]], "MARS", "NCORR"))
-
-## ncorryj_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[3]], "MARS", "NCORR_YJ"))
-
-## ncorrorq_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[5]], "MARS", "NCORRORQ"))
-
-## pca_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[7]], "MARS", "PCA"))
-
-# BAG MARS
-
-## ncorr_bag_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[2]], "BAG_MARS", "NCORR"))
-
-## ncorryj_bag_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[4]], "BAG_MARS", "NCORR_YJ"))
-
-## ncorrorq_bag_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[6]], "BAG_MARS", "NCORRORQ"))
-
-## pca_bag_mars
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_mars$result[[8]], "BAG_MARS", "PCA"))
-
-# KNN
-
-models_knn <-
-  readRDS(paste0(models_path,"models_knn.rds"))
-
-## ncorr_knn
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_knn$result[[1]], "KNN", "NCORR"))
-
-## ncorryj_knn
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_knn$result[[2]], "KNN", "NCORR_YJ"))
-
-## ncorrorq_knn
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_knn$result[[3]], "KNN", "NCORRORQ"))
-
-## pca_knn
-
-final_tibble <-
-  bind_rows(final_tibble,
-            new_model_row(models_knn$result[[4]], "KNN", "PCA"))
 
 # RF
 models_rf <-
