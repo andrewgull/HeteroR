@@ -510,7 +510,7 @@ Base, YJ and ORQ pre-processing recipes don't differ significantly in ROC AUC, b
 
 ## NCORR recipe
 
-```{r mars norm}
+```{r mars norm, eval=FALSE}
 mars_ncorr_res <- read_wfset("models_mars.rds", "ncorr_MARS")
 
 autoplot(mars_ncorr_res)
@@ -518,14 +518,14 @@ autoplot(mars_ncorr_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 mars_ncorr_res %>% 
   show_best(metric = "roc_auc")
 ```
 
 ## NCORR + YJ recipe
 
-```{r}
+```{r, eval=FALSE}
 mars_ncoryj_res <- read_wfset("models_mars.rds", "ncorr_yj_MARS")
 
 autoplot(mars_ncoryj_res)
@@ -533,14 +533,14 @@ autoplot(mars_ncoryj_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 mars_ncoryj_res %>% 
   show_best("roc_auc", n = 5)
 ```
 
 ## NCORR + ORQ recipe
 
-```{r}
+```{r, eval=FALSE}
 mars_ncorq_res <- read_wfset("models_mars.rds", "ncorr_orq_MARS")
 
 autoplot(mars_ncorq_res)
@@ -548,19 +548,19 @@ autoplot(mars_ncorq_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 mars_ncorq_res %>% show_best("roc_auc", n = 5)
 ```
 
 ## PCA
 
-```{r}
+```{r, eval=FALSE}
 mars_pca_res <- read_wfset("models_mars.rds", "pca_MARS")
 
 autoplot(mars_pca_res)
 ```
 
-```{r}
+```{r, eval=FALSE}
 show_best(mars_pca_res, metric = "roc_auc")
 ```
 
@@ -569,7 +569,7 @@ show_best(mars_pca_res, metric = "roc_auc")
 
 ## NCORR + YJ recipe
 
-```{r}
+```{r, eval=FALSE}
 mars_bag_ncoryj_res <- read_wfset("models_mars.rds", "ncorr_yj_MARS_BAG")
 
 autoplot(mars_bag_ncoryj_res)
@@ -577,31 +577,31 @@ autoplot(mars_bag_ncoryj_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 show_best(mars_bag_ncoryj_res)
 ```
 
 ## NCORR + ORQ recipe
 
-```{r}
+```{r, eval=FALSE}
 mars_bag_ncorq_res <- read_wfset("models_mars.rds", "ncorr_orq_MARS_BAG")
 
 autoplot(mars_bag_ncorq_res)
 ```
 
-```{r}
+```{r, eval=FALSE}
 show_best(mars_bag_ncorq_res, "roc_auc")
 ```
 
 ## PCA
 
-```{r}
+```{r, eval=FALSE}
 mars_bag_pca_res <- read_wfset("models_mars.rds", "pca_MARS_BAG")
 
 autoplot(mars_bag_pca_res)
 ```
 
-```{r}
+```{r, eval=FALSE}
 show_best(mars_bag_pca_res)
 ```
 
@@ -610,7 +610,7 @@ show_best(mars_bag_pca_res)
 
 ### ROCs overlapped
 
-```{r}
+```{r, eval=FALSE}
 mars_best_res <- list(
     mars_ncorr_res,
     mars_ncoryj_res,
@@ -647,7 +647,7 @@ mars_rocs %>%
 
 ### PR curves overlapped
 
-```{r}
+```{r, eval=FALSE}
 mars_prs <-
   map2_dfr(mars_best_res,
   mars_best_names,
@@ -1153,7 +1153,7 @@ summary(rbf_preproc_diff)
 
 ## NCORR recipe
 
-```{r knn norm, fig.width=8}
+```{r knn norm, fig.width=8, eval=FALSE}
 knn_ncorr_res <- read_wfset("models_knn.rds", "ncorr_kNN")
 
 autoplot(knn_ncorr_res)
@@ -1161,14 +1161,14 @@ autoplot(knn_ncorr_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 knn_ncorr_res %>% 
   show_best("roc_auc", n = 5)
 ```
 
 ## NCORR + YJ
 
-```{r, fig.width=8}
+```{r, fig.width=8, eval=FALSE}
 knn_ncoryj_res <- read_wfset("models_knn.rds", "ncorr_yj_kNN")
 
 autoplot(knn_ncoryj_res)
@@ -1176,13 +1176,13 @@ autoplot(knn_ncoryj_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 show_best(knn_ncoryj_res)
 ```
 
 ## NCORR + ORQ recipe
 
-```{r, fig.width=8}
+```{r, fig.width=8, eval=FALSE}
 knn_ncorq_res <- read_wfset("models_knn.rds", "ncorr_orq_kNN")
 
 autoplot(knn_ncorq_res)
@@ -1190,7 +1190,7 @@ autoplot(knn_ncorq_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 knn_ncorq_res %>% 
   show_best("roc_auc")
 ```
@@ -1198,7 +1198,7 @@ knn_ncorq_res %>%
 
 ## PCA
 
-```{r, fig.width=8}
+```{r, fig.width=8, eval=FALSE}
 knn_pca_res <- read_wfset("models_knn.rds", "pca_kNN")
 
 autoplot(knn_pca_res)
@@ -1206,7 +1206,7 @@ autoplot(knn_pca_res)
 
 ### Best models
 
-```{r}
+```{r, eval=FALSE}
 knn_pca_res %>% 
   show_best("roc_auc")
 ```
@@ -1215,7 +1215,7 @@ knn_pca_res %>%
 
 ### ROCs overlapped
 
-```{r}
+```{r, eval=FALSE}
 knn_best_res <- list(knn_ncorr_res,
                      knn_ncorq_res,
                      knn_ncoryj_res,
@@ -1227,7 +1227,7 @@ knn_best_names <- c("ncorr",
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 knn_rocs <-
   map2_dfr(knn_best_res,
            knn_best_names,
@@ -1245,7 +1245,7 @@ knn_rocs %>%
 
 ### PR curves overlapped
 
-```{r}
+```{r, eval=FALSE}
 knn_prs <-
   map2_dfr(knn_best_res,
            knn_best_names,
@@ -1263,7 +1263,7 @@ knn_prs %>%
 
 ### Posterior distributions
 
-```{r}
+```{r, eval=FALSE}
 knn_comp <-
   res_comp_table(
     res_list = knn_best_res,
@@ -1285,7 +1285,7 @@ autoplot(knn_posterior)
 
 ### Difference estimates
 
-```{r}
+```{r, eval=FALSE}
 knn_preproc_diff <- contrast_models(knn_posterior, seed = 100) 
 
 summary(knn_preproc_diff)
@@ -1761,22 +1761,26 @@ summary(mlp_preproc_diff)
 
 # Comparison of models
 
+One best from each group
+
 ## ROCs
 
 ```{r comparison1}
 # you will need these two objects later
 best_resamples_list <- list(
-    lr_base_orq_res,
-    lsvm_ncoryj_res,
-    psvm_ncoryj_res,
-    mlp_bag_ncorq_res,
+    lr_base_yj_res,
+    lsvm_ncorq_res,
+    psvm_ncorq_res,
+    rbf_ncorq_res,
+    mlp_bag_ncoryj_res,
     rf_base_res,
-    bt_base_res
+    bt_base_bres
   )
 best_resamples_names <- c(
     "LLR",
     "SVM linear",
     "SVM polynomial",
+    "SVM rbf",
     "MLP",
     "RF",
     "GBT"
@@ -1794,7 +1798,7 @@ Fig_9A <- roc_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_brewer(palette="Set2") 
+  scale_color_brewer(palette="Dark2") 
 
 Fig_9A
 ```
@@ -1805,6 +1809,8 @@ Collect AUCs of the best model (with the best mean AUC) from each
 resamples object
 
 ```{r}
+set.seed(125)
+
 mod_comparison <- res_comp_table(best_resamples_list,
                                  best_resamples_names)
 
@@ -1819,7 +1825,7 @@ mod_posterior <-
   )
 
 Fig_9B <- autoplot(mod_posterior) +
-  scale_color_brewer(palette = "Set2") +
+  scale_color_brewer(palette = "Dark2") +
   theme(plot.margin = margin(
     t = 23,
     r = 15,
@@ -1866,16 +1872,18 @@ summary(mod_diff) %>% filter(lower > 0, upper > 0)
 
 ## Top models
 
+LR is the simplest, MLP and GBT are significantly better in mean ROC AUC.
+
 ### ROC curves
 
 ```{r comparison2}
 # calculate rocs
 top_models <- list(
-    lr_base_orq_res,
-    bt_base_res,
-    psvm_ncoryj_res)
+    lr_base_yj_res,
+    bt_base_bres,
+    mlp_bag_ncoryj_res)
 
-top_names <- c("LR", "GBT", "SVM polynomial")
+top_names <- c("LR", "GBT", "MLP")
 
 roc3_df <-
   map2_dfr(top_models,
@@ -1936,8 +1944,6 @@ mod_diff <- contrast_models(mod_posterior, seed = 100)
 summary(mod_diff)
 ```
 
-LR and pSVM look preferably
-
 # Final fit
 
 > emulates the process where, after determining the best model, the
@@ -1980,7 +1986,7 @@ run_last_fit <-
   }
 
 # required by models with ncorr recipes
-update_corr_treshold <- function(base_recipe = yj_recipe, step_no, corr_threshold) {
+update_corr_treshold <- function(base_recipe, step_no, corr_threshold) {
   # update step_corr threshold
   base_recipe$steps[[step_no]] <-
    recipes::update(base_recipe$steps[[step_no]], threshold = corr_threshold)
@@ -2019,7 +2025,7 @@ lr_final <-
   run_last_fit("LR",
                lr_spec_blank,
                lr_spec_tuned,
-               recipe = base_recipe,
+               recipe = base_yj_recipe,
                return_fit = TRUE)
 
 lr_final[[1]]
@@ -2069,52 +2075,53 @@ gbt_base_final <-
 gbt_base_final[[1]]
 ```
 
-## pSVM final
+## MLP final
 
 ```{r}
 set.seed(100)
 
-psvm_spec_blank <- svm_poly(
-  cost = tune(),
-  degree = tune(),
-  scale_factor = tune(),
-  margin = NULL
+mlp_bag_spec <- bag_mlp(
+      hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune()) %>%
+      set_engine("nnet", num.threads = 8) %>%
+      set_mode("classification") %>%
+      translate()
+
+
+mlp_bag_tuned <- bag_mlp(
+  hidden_units = best_models[[3]]$hidden_units,
+  penalty = best_models[[3]]$penalty,
+  epochs = best_models[[3]]$epochs
 ) %>% 
   set_mode("classification") %>%
-  set_engine("kernlab", num.threads = 4)
+  set_engine("nnet", num.threads = 4)
 
-psvm_spec_tuned <- svm_poly(
-  cost = best_models[[3]]$cost,
-  degree = best_models[[3]]$degree,
-  scale_factor = best_models[[3]]$scale_factor
-) %>% 
-  set_mode("classification") %>%
-  set_engine("kernlab", num.threads = 4)
-
-corr_threshold_tuned <-best_models[[3]]$corr_tune
+corr_threshold_tuned <- best_models[[3]]$corr_tune
 
 ncorr_yj_recipe_tuned <-
   update_corr_treshold(base_recipe = ncorr_yj_recipe,
                        step_no = 8,
                        corr_threshold = corr_threshold_tuned)
 
-psvm_ncoryj_final <-
+mlp_bag_ncoryj_final <-
   run_last_fit(
-    "pSVM",
-    psvm_spec_blank,
-    psvm_spec_tuned,
+    "MLP",
+    mlp_bag_spec,
+    mlp_bag_tuned,
     recipe = ncorr_yj_recipe_tuned,
     return_fit = TRUE
   )
 
-psvm_ncoryj_final[[1]]
+mlp_bag_ncoryj_final[[1]]
 ```
 
 
-## ROC
+## ROCs
 
-```{r ff roc}
-mod_labels <- c("LR", "GBT")
+```{r ff roc, fig.width=9}
+mod_labels <- c("LR", "GBT", "MLP")
+mod_finals <- list(lr_final[[2]], gbt_base_final[[2]], mlp_bag_ncoryj_final[[2]])
 
 make_final_roc <- function(fit_obj, title=""){
   fit_obj %>%   
@@ -2123,31 +2130,18 @@ make_final_roc <- function(fit_obj, title=""){
   autoplot() + ggtitle(title)
 }
 
-rocs_final <-
-  map2(list(lr_final[[2]], gbt_base_final[[2]]),
-       mod_labels,
-       ~ make_final_roc(.x, .y))
+rocs_final <- map2(
+  mod_finals,
+  mod_labels,
+  ~ make_final_roc(.x, .y)
+)
 
-library(patchwork)
-
-(rocs_final[[1]] | rocs_final[[2]])
+ggarrange(plotlist = rocs_final, nrow=1, ncol = 3)
 ```
 
-```{r}
-mod_labels <- c("LR", "pSVM")
+## PRs
 
-rocs_final <-
-  map2(list(lr_final[[2]], psvm_ncoryj_final[[2]]),
-       mod_labels,
-       ~ make_final_roc(.x, .y))
-
-(rocs_final[[1]] | rocs_final[[2]])
-```
-
-
-## PR
-
-```{r}
+```{r pr, fig.width=9}
 mod_labels <- c("LR", "GBT")
 
 make_final_pr <- function(fit_obj, title=""){
@@ -2157,33 +2151,22 @@ make_final_pr <- function(fit_obj, title=""){
   autoplot() + ggtitle(title)
 }
 
-prs_final <-
-  map2(list(lr_final[[2]], gbt_base_final[[2]]),
-       mod_labels,
-       ~ make_final_pr(.x, .y))
+prs_final <-  map2(
+  mod_finals,
+  mod_labels,
+  ~ make_final_pr(.x, .y)
+)
 
-(prs_final[[1]] | prs_final[[2]])
+ggarrange(plotlist = prs_final,
+          ncol = 3,
+          nrow = 1)
 ```
-
-```{r}
-mod_labels <- c("LR", "pSVM")
-
-prs_final <-
-  map2(list(lr_final[[2]], psvm_ncoryj_final[[2]]),
-       mod_labels,
-       ~ make_final_pr(.x, .y))
-
-(prs_final[[1]] | prs_final[[2]])
-```
-
 
 ## Confusion Matrix
 
 Probability cut-off = 0.5
 
-```{r ff cm}
-mod_labels <- c("LR", "GBT")
-
+```{r ff cm, fig.width=9}
 make_cm <- function(fit_obj, title="") {
   fit_obj %>%
   collect_predictions() %>%
@@ -2191,9 +2174,14 @@ make_cm <- function(fit_obj, title="") {
   autoplot(type = "heatmap") + ggtitle(title)
 }
 
-conf_mat_final <- map2(list(lr_final[[2]], gbt_base_final[[2]]), mod_labels, ~make_cm(.x, .y))
+cm_final <-
+  map2(
+    mod_finals,
+    mod_labels,
+    ~ make_cm(.x, .y)
+  )
 
-(conf_mat_final[[1]] | conf_mat_final[[2]])
+ggarrange(plotlist = cm_final, ncol = 3, nrow = 1)
 ```
 
 
@@ -2210,8 +2198,10 @@ get_metrics <- function(fit_obj, label="") {
   mutate(model = label)
 }
 
-bind_rows(get_metrics(gbt_base_final[[2]], "GBT"),
-          get_metrics(lr_final[[2]], "LLR")) %>%
+map2_dfr(
+  mod_finals,
+  mod_labels,
+  ~ get_metrics(.x, .y)) %>%
   pivot_wider(names_from = model, values_from = .estimate)
 ```
 
@@ -2281,24 +2271,32 @@ senspec_plot <- function(fit_obj, title="") {
 }
 ```
 
-### GTB
 
-```{r}
-senspec_plot(gbt_base_final[[2]], "GBT")
+```{r, fig.height=9}
+senspec_plots <- map2(
+  mod_finals,
+  mod_labels,
+  ~ senspec_plot(.x, .y)
+)
+
+ggarrange(plotlist = senspec_plots,
+                  nrow = 3,
+                  ncol = 1,
+                  common.legend = T)
 ```
 
-### LLR
+
+### Fig_9C
 
 ```{r}
-Fig_9C <- senspec_plot(lr_final[[2]], "") + theme(legend.position = "left")
-
-Fig_9C
+Fig_9C <- senspec_plot(mlp_bag_ncoryj_final[[2]], "MLP")
 ```
+
 
 ### j-index and the probability threshold
 
 ```{r}
-lr_final[[2]] %>%
+mlp_bag_ncoryj_final[[2]] %>%
   get_threshold() %>%
   filter(.metric == "j_index") %>%
   filter(.estimate == max(.estimate)) %>%
@@ -2313,7 +2311,7 @@ order to have 100% sensitivity of the model
 (it will catch all HR cases, but there will be more false positives)
 
 
-```{r opt cm}
+```{r opt cm, fig.width=9}
 optimize_prediction <- function(fit.obj){
   j_index <- maxj(get_threshold(fit.obj))
   
@@ -2329,15 +2327,17 @@ optimize_prediction <- function(fit.obj){
   return(optimized)
 }
 
-cm_optimized_xgb <- optimize_prediction(gbt_base_final[[2]]) %>% 
-  conf_mat(truth = resistance, estimate = .pred) %>% 
-  autoplot(type = "heatmap") + ggtitle("GBT")
+cm_optimized_plots <- map2(
+  mod_finals,
+  mod_labels,
+  ~ optimize_prediction(.x) %>% conf_mat(truth = resistance, estimate = .pred) %>% 
+  autoplot(type = "heatmap") + ggtitle(.y)
+)
 
-cm_optimized_lr <- optimize_prediction(lr_final[[2]]) %>% 
-  conf_mat(truth = resistance, estimate = .pred) %>% 
-  autoplot(type = "heatmap") + ggtitle("LR")
-
-(cm_optimized_xgb | cm_optimized_lr)
+ggarrange(plotlist = cm_optimized_plots,
+          nrow = 1,
+          ncol = 3,
+          common.legend = F)
 ```
 
 ### Optimized performance
@@ -2350,12 +2350,11 @@ get_metrics2 <- function(fit.obj, label){
     mutate(model = label)
 }
 
-bind_rows(
-  get_metrics2(gbt_base_final[[2]], "GBT"),
-  get_metrics2(lr_final[[2]], "LLR")
-) %>% 
-  pivot_wider(names_from = model, values_from = .estimate) %>% 
-  select(-.estimator)
+map2_dfr(
+  mod_finals,
+  mod_labels,
+  ~ get_metrics2(.x, .y)) %>%
+  pivot_wider(names_from = model, values_from = .estimate)
 ```
 
 # Post-modelling analysis
