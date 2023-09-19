@@ -45,13 +45,13 @@ data_strain <-
   filter(strain != "DA63310")
 
 # HR testing lables
-hr_testing12 <-
+hr_testing <-
   read_csv("data/heteroresistance_testing.csv",
            col_select = c(strain, resistance)) %>%
   filter(!is.na(strain))
 
 data_strain <- data_strain %>%
-  left_join(hr_testing12, by = "strain")
+  left_join(hr_testing, by = "strain")
 
 data_strain %>%
   group_by(resistance) %>%
@@ -62,14 +62,14 @@ data_strain %>%
 strains <- data_strain$strain
 
 data_strain <- data_strain %>%
-  #mutate(n.beta.lac.3 = factor(ifelse(n.beta.lac > 3, "yes", "no"))) %>%
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
   relocate(n.beta.lac.4, .before = "n.plasmids") %>%
   filter(resistance != "R") %>%
   mutate(
     resistance = factor(resistance, levels = c("HR", "nonHR")),
-    chrom.status = factor(chrom.status)
-  )
+    chrom.status = factor(chrom.status)) %>% 
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
 
 data_strain$N50 <- NULL
 data_strain[is.na(data_strain)] <- 0
