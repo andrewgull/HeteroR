@@ -34,7 +34,7 @@ library(finetune) # for win-loss tuning
 source("functions.R")
 
 # path for models
-models_path <- "/mnt/data/andrei/Data/HeteroR/results/models/scheme12/"
+models_path <- "~/Data/HeteroR/results/models/scheme12/"
 ```
 
 # Read and process data
@@ -43,7 +43,9 @@ The data sets are the same as in EDA
 
 ```{r read data}
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
-  filter(strain != "DA63310")
+  filter(strain != "DA63310") %>%  
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
 
 hr_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
   filter(!is.na(strain))
@@ -322,6 +324,8 @@ There are two ways to tune hyper-parameters:
 
 Let's take a rule 'if there is more than 4 beta-lactamases, then the strain is HR' (from EDA)
 
+## Train data
+
 ```{r base rule}
 rule_pred <- 
   df_train %>% 
@@ -332,6 +336,18 @@ conf_mat(rule_pred, truth = resistance, estimate = pred)
 ```
 
 ```{r}
+conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
+  summary()
+```
+
+## Test
+
+```{r}
+rule_pred <- 
+  df_test %>% 
+  mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
+  select(pred, resistance)
+
 conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
   summary()
 ```
@@ -2142,8 +2158,6 @@ ggarrange(plotlist = rocs_final, nrow=1, ncol = 3)
 ## PRs
 
 ```{r pr, fig.width=9}
-mod_labels <- c("LR", "GBT")
-
 make_final_pr <- function(fit_obj, title=""){
   fit_obj %>%   
   collect_predictions() %>% 
