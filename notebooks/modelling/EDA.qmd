@@ -72,12 +72,26 @@ rsync ~/Data/HeteroR/results/tables/amr_types_strain.csv ./data
 Read features and classification labels
 
 ```{r, message=FALSE}
-data <- read_csv("data/features.csv")
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
+  filter(strain != "DA63310") %>% 
+  mutate(chrom.status = factor(chrom.status)) %>% 
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
 
-data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"))
-  
-# HR testing labels
-hr_testing <- read_csv("data/heteroresistance_testing.csv") 
+hr_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
+  filter(!is.na(strain), resistance != "R")
+
+data_strain <- data_strain %>% 
+  left_join(hr_testing, by = "strain") %>% 
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR"))) %>% 
+  filter(!is.na(resistance))
+
+# keep strains elsewhere
+strains <- data_strain$strain
+
+dim(data_strain)
 ```
 
 **NB**: Some strains are in HR labels data; some are on Argos, and some are assembled.
@@ -107,50 +121,15 @@ setdiff(hr_testing$strain, strains_assembled)
 
 The same 12 strains, which means the rest were sequenced and assembled.
 
-Classes in `hr_testing`
-
-```{r}
-hr_testing %>% 
-  group_by(resistance) %>% 
-  count()
-```
-
 We have very imbalanced target class with any classification scheme.
 
 Look at target class distribution in the data set you're working with (521 strains)
 
-## Choose the HR classification scheme
 
 ```{r}
-# consider different classification schemes
-data_strain <- data_strain %>% 
-  left_join(hr_testing, by = "strain")
-
 data_strain %>% 
   group_by(resistance) %>% 
   count()
-```
-
-## Some additional features and filtering
-
-1.  Add BL genes counts as ordered factor and as binary features (if BL \> 3)
-
-2.  Filter/Rename HR labels (we're not doing this)
-
-3.  Remove R strains
-
-```{r}
-# keep strains elsewhere
-strains <- data_strain$strain
-
-data_strain <- data_strain %>% 
-  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
-  filter(resistance != "R", strain != "DA63310") %>% 
-  mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
-         chrom.status = factor(chrom.status))
-  
-data_strain
 ```
 
 # Descriptive stats
@@ -515,13 +494,13 @@ umap_yj_recipe <-
   ) %>% 
   step_normalize(all_numeric_predictors())
 
-umapu_recipe <- orq_recipe %>%
-  step_umap(
-    all_numeric_predictors(),
-    num_comp = 10,
-    min_dist = 0.8,
-    neighbors = 25
-  )
+# umapu_recipe <- orq_recipe %>%
+#   step_umap(
+#     all_numeric_predictors(),
+#     num_comp = 10,
+#     min_dist = 0.8,
+#     neighbors = 25
+#   )
 
 Fig_8C <- umap_yj_recipe %>%
   prep() %>% 
@@ -549,19 +528,19 @@ umap_sup_yj_recipe <-
     all_numeric_predictors(),
     outcome = "resistance",
     num_comp = 10,
-    min_dist = 0.8,
+    min_dist = 0.4,
     neighbors = 25
   ) %>% 
   step_normalize(all_numeric_predictors())
 
-umaps_recipe <- orq_recipe %>%
-  step_umap(
-    all_numeric_predictors(),
-    outcome = "resistance",
-    num_comp = 10,
-    min_dist = 0.8,
-    neighbors = 25
-  )
+# umaps_recipe <- orq_recipe %>%
+#   step_umap(
+#     all_numeric_predictors(),
+#     outcome = "resistance",
+#     num_comp = 10,
+#     min_dist = 0.99,
+#     neighbors = 10
+#   )
 
 Fig_8D <- umap_sup_yj_recipe %>%
   prep() %>% 
@@ -570,6 +549,17 @@ Fig_8D <- umap_sup_yj_recipe %>%
   ggtitle("UMAP supervised")
 
 Fig_8D
+```
+
+#### nonHR strains in HR cluster
+
+In this small red cluster of HRs, two strains are nonHR. Find their names.
+
+```{r}
+umap_sup_yj_recipe %>%
+  prep() %>% juice() %>% 
+  select(UMAP02, UMAP04, strain, resistance) %>% 
+  filter(UMAP02 > 0.5, UMAP04 < 0, resistance == "nonHR")
 ```
 
 
@@ -1571,6 +1561,14 @@ med_rep_len %>%
   guides(fill = "none")
 ```
 
+```{r}
+med_rep_len %>% 
+  filter(location == "med.rep.len.plasmid") %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(med.len))
+```
+
+
 ## Maximum repeat length
 
 ```{r}
@@ -1703,10 +1701,19 @@ rep_count %>%
 
 ```{r}
 rep_count %>% 
+  filter(location == "n.rep.plasmid",
+         n.rep > 0) %>% 
+  group_by(resistance) %>% 
+  summarise(median = median(n.rep))
+```
+
+```{r}
+rep_count %>% 
   filter(location == "n.rep.plasmid") %>% 
   group_by(resistance) %>% 
   summarise(median = median(n.rep))
 ```
+
 
 ```{r}
 rep_count %>% 
