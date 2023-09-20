@@ -144,6 +144,12 @@ How many strains with annotated repeats we have?
 ```{r}
 # a new way of getting repeat data frame across all strains
 strains <- dir("/mnt/data/andrei/Data/HeteroR/results/direct_repeats")
+# read lab testing data and filter out not tested strains 
+lab_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
+  filter(resistance != "R")
+
+strains <- intersect(strains, lab_testing$strain)
+
 length(strains)
 ```
 
