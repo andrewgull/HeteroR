@@ -1203,7 +1203,7 @@ build_short_FMP <- function(x) {
       -max_diff_prev,
       -is_lower_than_next,
       -is_lower_than_prev
-    )
+      )
   
   if (!all(total_df$is_lower_than_neighbours)) {
     warning(paste0("Union by size of the strain ", x, " is not unique\n\n"))
@@ -2921,3 +2921,142 @@ write.csv(amr_types_strain, "/mnt/data/andrei/Data/HeteroR/results/tables/amr_ty
 ```{r, eval=TRUE}
 save.image(f = "/mnt/data/andrei/Data/HeteroR/notebooks/features.RData")
 ```
+
+
+```{r}
+load("/mnt/data/andrei/Data/HeteroR/notebooks/features.RData")
+```
+
+checking if there is correlation between % of DNA belonging to plasmids and coverage
+
+fo semplicity just check strains with circular chromosomes 
+
+tabe of Strain - size and plasmid cn
+```{r}
+assemblies_manual <-  rbind(df_UC_short_scaffold_all,df_UC_short_no_scaffold_all,df_FMP_short_all %>% rename(Length=max_length),df_FMP_all %>% rename(Status=chr,Strain = strain, Length=size), df_UC_all %>% rename(Status=chr,Strain = strain, Length=size) ) %>% select(-Status,-avg_depth)
+dim(assemblies_manual)
+```
+
+longest read is chromosome
+```{r}
+assemblies_manual <- assemblies_manual %>%
+  group_by(Strain) %>%
+  mutate(Type = ifelse(Length == max(Length), "chromosome", "plasmid")) %>%
+  ungroup() %>% mutate(real_size = Length*plasmids ) %>%  select(-plasmids)
+```
+
+adding plasmid sizes
+
+```{r}
+assemblies_aggregated <- assemblies_manual %>%
+  group_by(Strain, Type) %>%
+  summarise(real_size = sum(real_size),
+            Length = ifelse(Type == "plasmid", sum(Length), first(Length))) %>%
+  ungroup() %>%  unique() %>%  select(-Length) 
+
+chromosome_sizes <- assemblies_aggregated %>%
+  filter(Type == "chromosome") %>%
+  select(Strain, chromosome_size = real_size)
+
+assemblies_aggregated <- assemblies_aggregated %>%
+  left_join(chromosome_sizes, by = "Strain") %>%
+  mutate(percentage_plasmid = ifelse(Type == "plasmid", (real_size / chromosome_size) * 100, NA_real_)) %>%
+  select(-chromosome_size,-Type,-real_size )  %>% filter(!is.na(percentage_plasmid))
+assemblies_aggregated
+```
+
+```{r}
+inf_strains <-  assemblies_aggregated %>% filter(percentage_plasmid== Inf)  %>%  pull(Strain)
+inf_strains
+assemblies %>% filter(Strain %in% inf_strains)
+```
+
+ok lets try to understnad what is happening here 
+
+"DA63354" comes from df_UC_short_scaffold_all
+"DA68984" from df_UC_short_no_scaffold_all
+"DA63016" "DA63118" "DA63232" from df_FMP_short_all 
+
+starting from DA63354
+
+```{r}
+x <- "DA63354"
+
+  headers <-
+    df_UC_short_raw %>% filter(Strain == x)  %>% filter(Length > 1000)
+  print(paste0(x, " with ", headers %>% nrow(), " fragments"))
+  headers
+```
+
+ok, less that 18 so we do the combinatorial thingy 
+
+```{r}
+
+    seq_lengths_chr <-
+      all_combinations((headers  %>% filter(Strain == x) %>% select(Length))$Length)[find_closest_number(lapply(all_combinations((headers  %>% filter(Strain == x) %>% select(Length))$Length
+      ), sum), UC_size_median)]
+    #return(unlist(seq_lengths_chr))
+seq_lengths_chr
+```
+
+
+```{r}
+    chromosome_fragments <-
+      headers %>%  filter(Length %in% unlist(seq_lengths_chr)) %>% mutate(depth_times_length = avg_depth *
+                                                                            Length, Status = "plasmid")
+chromosome_fragments
+```
+
+```{r}
+    other_fragments <-
+      headers %>%  mutate(Status = "plasmid") %>%  filter(!Length %in% unlist(seq_lengths_chr)) %>% select(Strain, avg_depth, Length, Status)
+other_fragments
+```
+```{r}
+    # to build the chromosome sum lengths, and average depths normalizing by lengths
+    df <-
+      other_fragments %>% add_row(
+        Strain = x,
+        Status = "completed_by_hand",
+        Length = sum(chromosome_fragments$Length),
+        avg_depth = (
+          sum(chromosome_fragments$depth_times_length) / sum(chromosome_fragments$Length)
+        )
+      )   %>% arrange(desc(Length)) %>% # MANCAVA QUESTO
+      mutate(plasmids = round(avg_depth / avg_depth[1], 0))
+df
+
+
+```
+
+
+
+
+
+```{r}
+Hr_nonHR <- read_csv("data/heteroresistance_testing_gr12.csv")
+
+joined_data <- assemblies_aggregated %>%
+  inner_join(features_strain %>% select(strain, coverage), by = c("Strain" = "strain")) %>%
+  inner_join(Hr_nonHR, by = c("Strain" = "strain"))
+
+ggplot(joined_data, aes(x = coverage, y = percentage_plasmid, color = resistance)) +
+  geom_point() +
+  labs(x = "Coverage", y = "Percentage Plasmid") +
+  theme_minimal()
+```
+
+oghei 
+
+```{r}
+Hr_nonHR <- read_csv("data/heteroresistance_testing_gr12.csv")
+
+high_pp <- assemblies_aggregated %>% filter(percentage_plasmid > 10) %>% pull(Strain)
+
+Hr_nonHR %>% filter(strain %in% high_pp ) %>% pull(resistance) %>%  table
+```
+
+```{r}
+Hr_nonHR %>% pull(resistance) %>%  table
+```
+

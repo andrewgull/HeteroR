@@ -1357,6 +1357,15 @@ data_strain %>% group_by(resistance) %>% summarise(median=median(n.plasmids))
 summary(glm(n.plasmids ~ resistance, data=data_strain, family = "poisson"))
 ```
 
+n.plasmids ~ coverage
+
+```{r}
+summary(glm(n.plasmids ~ coverage, data=data_strain, family = "poisson"))
+
+```
+
+
+
 ### Bar plot - filtered version
 
 ```{r}
@@ -1793,7 +1802,7 @@ facet_names <- c("n.rep.chrom" = "chromosome",
 Fig_5A <-
   rep_count %>% 
   #filter(n.rep > 0) %>% 
-  ggplot(aes(resistance, n.rep)) +
+  ggplot(aes(resistance, log10(n.rep + 1))) +  # Add 1 to n.rep before log10
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
     aes(fill = resistance),
@@ -1809,12 +1818,10 @@ Fig_5A <-
     size = 0.8
   ) +
   scale_fill_brewer(palette = "Pastel1") +
-  #coord_trans(y = "sqrt") +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
-  ylab("n repeats") +
+  ylab("log10(n repeats + 1)") +  # Update label
   xlab("") +
   guides(fill = "none")
-
 Fig_5A
 ```
 
