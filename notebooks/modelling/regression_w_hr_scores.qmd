@@ -183,16 +183,14 @@ ncorr_yj_recipe <- recipe(total_score ~ ., data = df_train) %>%
   step_corr(all_predictors(), threshold = tune("corr_tune"))
 ```
 
-### LR and BT
+### LR
 
 ```{r}
 recipes_list <- list(base = base_recipe,
                      yj = base_yj_recipe,
-                     orq = base_orq_recipe,
-                     ncorr = ncorr_yj_recipe)
+                     orq = base_orq_recipe)
 
-models_list <- list(LR = lrl_spec,
-                    BT = bt_spec)
+models_list <- list(LR = lrl_spec)
 
 # WF set
 models_wf_set <-
@@ -201,10 +199,10 @@ models_wf_set <-
                cross = TRUE)
 
 # exclude ncorr_LR from consideration
-models_wf_set <- 
-   models_wf_set %>% 
-   anti_join(tibble(wflow_id = c("ncorr_LR")), 
-             by = "wflow_id")
+# models_wf_set <-
+#   models_wf_set %>%
+#   anti_join(tibble(wflow_id = c("ncorr_LR")),
+#             by = "wflow_id")
 
 set.seed(124)
 
