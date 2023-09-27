@@ -2419,7 +2419,7 @@ lr_coeff_df <- lr_final[[2]] %>%
 lr_coeff_df
 ```
 
-Just 32 features plus Intercept are used by the model.
+Just 42 features plus Intercept are used by the model.
 
 On the `odds.ratio` column: 
 
@@ -2564,6 +2564,63 @@ plot_list <- map(predictors_negative, ~get_scatterplot(.))
 ggarrange(plotlist = plot_list, ncol=4, nrow=5, common.legend = T)
 ```
 
+
+## Features used by the best model (MLP)
+
+You can choose for instance false positives and look what influenced
+their classification as HR
+
+```{r, eval=FALSE}
+# IT'S THE WAY TO GET MLP FIT OBJECT W/O MY BULKY FUNCTIONS for final fit
+mlp_best_param <- select_best(mlp_bag_ncoryj_res, "roc_auc")
+mlp_model_final <- finalize_model(mlp_bag_spec, mlp_best_param)
+
+# I need processed data
+df_train_proc <- ncorr_yj_recipe_tuned %>% prep() %>% juice()
+
+# fit the tuned model to the data
+mlp_fit <- fit(mlp_model_final, resistance ~ ., df_train_proc)
+
+# the same as three functions above
+fit_best(mlp_bag_ncoryj_res)
+```
+
+```{r, eval=FALSE}
+library(DALEXtra)
+
+explainer_final <- 
+  explain_tidymodels(
+    mlp_fit, 
+    data = df_train_proc, 
+    y = df_train_proc$resistance,
+    label = "MLP",
+    verbose = FALSE
+  )
+
+# to get an observation from the test set, you'll need processed test data
+obs_interest <- df_train_proc %>% 
+  filter(strain == "DA62886") 
+
+final_mod_breakdown <-
+  predict_parts(explainer = explainer_final, new_observation = obs_interest)
+
+final_mod_breakdown
+```
+
+Most of the predictors don't make any contributions at all.
+
+Also, `contribution` is *the probability of nonHR* (because the last
+line 'prediction' equals `1 - .prob_HR` )
+
+```{r, eval=FALSE}
+# look at nc.beta.lac.plasmid contribution
+data_strain_proc %>% 
+  mutate(label = if_else(strain == "DA62984", "DA62984", resistance)) %>% 
+  ggplot(aes(label, n.TEM.1)) +
+  geom_jitter(aes(color=resistance))
+```
+
+
 # Minimal set of predictors chosen by Boruta
 
 Four predictors were chosen by Boruta algorithms as being significantly more important than the rest
@@ -2588,7 +2645,7 @@ plot(bor_pred_selection)
 ```{r min feat boxplot}
 minimal_pred <- bor_pred_selection$ImpHistory %>%
   as_tibble() %>%
-  pivot_longer(cols = 1:104,
+  pivot_longer(cols = 1:92,
                names_to = "pred",
                values_to = "value") %>%
   group_by(pred) %>%
@@ -2611,10 +2668,14 @@ minimal_pred %>%
 Top 4 predictors: 
 
 ```{r}
-minimal_pred_best <- minimal_pred %>% filter(pred == "n.rep.plasmid.TEM" |
-                                             pred == "TEM.beta.lactamase" |
-                                             pred == "n.TEM.1" |
-                                             pred == "IS6") %>% select(-median)
+minimal_pred_best <- minimal_pred %>%
+  filter(
+    pred == "n.beta.lac" |
+    pred == "n.rep.plasmid.TEM" |
+      pred == "TEM.beta.lactamase" |
+      pred == "n.TEM.1" 
+  ) %>%
+  select(-median)
 
 kruskal.test(minimal_pred_best$value, minimal_pred_best$pred)
 ```
@@ -2693,7 +2754,7 @@ saveRDS(lgb_min_res, paste0(models_path, "lgb_min_res.rds"))
 By default this code is used:
 
 ```{r rf min3 res, fig.width=8}
-lgb_min_res <- readRDS(paste0(models_path, "lgb_min5_res.rds"))
+lgb_min_res <- readRDS(paste0(models_path, "lgb_min_res.rds"))
 
 autoplot(lgb_min_res)
 ```
@@ -2712,27 +2773,27 @@ autoplot(make_roc(lgb_min_res, "")) +
 
 ## Test set
 
-### GBT min 3
+### Training
 
-```{r rf min3 test}
-lgb_best_top5 <- select_best(lgb_min_res, metric = "roc_auc")
+```{r bt min test}
+lgb_best_top <- select_best(lgb_min_res, metric = "roc_auc")
 
 lgb_min_tuned <- boost_tree(
-  mtry = lgb_best_top5$mtry,
-  trees = lgb_best_top5$trees,
-  min_n = lgb_best_top5$min_n,
-  tree_depth = lgb_best_top5$tree_depth,
-  learn_rate = lgb_best_top5$learn_rate,
-  loss_reduction = lgb_best_top5$loss_reduction,
-  sample_size = lgb_best_top5$sample_size,
-  stop_iter = lgb_best_top5$stop_iter,
+  mtry = lgb_best_top$mtry,
+  trees = lgb_best_top$trees,
+  min_n = lgb_best_top$min_n,
+  tree_depth = lgb_best_top$tree_depth,
+  learn_rate = lgb_best_top$learn_rate,
+  loss_reduction = lgb_best_top$loss_reduction,
+  sample_size = lgb_best_top$sample_size,
+  stop_iter = lgb_best_top$stop_iter,
   mode = "classification"
 ) %>% 
   set_engine(engine = "lightgbm", num.threads = 8) %>% 
   translate()
 
 lgb_min_final <- run_last_fit(
-  "LGB top 5",
+  "LGB top predictors",
   lgb_spec,
   lgb_min_tuned,
   recipe = base_min_pred_recipe,
@@ -2746,7 +2807,7 @@ lgb_min_final[[1]]
 #### Final ROC
 
 ```{r}
-make_final_roc(lgb_min_final[[2]], "LGB top 4")
+make_final_roc(lgb_min_final[[2]], "LGB top pred")
 ```
 
 #### Final confusion matrix
@@ -2758,15 +2819,14 @@ make_cm(lgb_min_final[[2]])
 #### Final metrix
 
 ```{r}
-get_metrics(lgb_min_final[[2]], "LGB top 4") %>% pivot_wider(names_from = model, values_from = .estimate)
+get_metrics(lgb_min_final[[2]], "LGB top pred") %>% pivot_wider(names_from = model, values_from = .estimate)
 ```
 
 #### Final sensitivity/specificity plot
 
 ```{r}
-senspec_plot(lgb_min_final[[2]], "LGB top 4")
+senspec_plot(lgb_min_final[[2]], "LGB top pred")
 ```
-
 
 ## AMR types and false predictions
 
@@ -2803,55 +2863,3 @@ amr_type_pred %>%
   scale_fill_gradient(low="white", high="blue") 
 ```
 
-## DALEX
-
-You can choose for instance false positives and look what influenced
-their classification as HR
-
-```{r, eval=FALSE}
-false_positives <- 
-  prediction_all_data %>% 
-  filter(.pred_class == "HR", 
-         .true_class == "nonHR")
-
-false_positives
-```
-
-```{r, eval=FALSE}
-library(DALEXtra)
-
-explainer_final <- 
-  explain_tidymodels(
-    final_mod_fit, 
-    data = data_strain_proc, 
-    y = data_strain$resistance,
-    label = "LR",
-    verbose = FALSE
-  )
-
-data_strain_proc$strain <- data_strain$strain
-data_strain_proc$resistance <- data_strain$resistance
-
-obs_interest <- data_strain_proc %>% 
-  filter(strain == "DA62984") %>% 
-  select(-c(strain, resistance))
-
-
-final_mod_breakdown <-
-  predict_parts(explainer = explainer_final, new_observation = obs_interest)
-
-final_mod_breakdown
-```
-
-Most of the predictors don't make any contributions at all.
-
-Also, `contribution` is *the probability of nonHR* (because the last
-line 'prediction' equals `1 - .prob_HR` )
-
-```{r, eval=FALSE}
-# look at nc.beta.lac.plasmid contribution
-data_strain_proc %>% 
-  mutate(label = if_else(strain == "DA62984", "DA62984", resistance)) %>% 
-  ggplot(aes(label, n.TEM.1)) +
-  geom_jitter(aes(color=resistance))
-```
