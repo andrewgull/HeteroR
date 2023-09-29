@@ -1,0 +1,53 @@
+---
+title: "Poorly assembled strains"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
+  filter(strain != "DA63310") %>% 
+  mutate(chrom.status = factor(chrom.status)) %>% 
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
+
+hr_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
+  filter(!is.na(strain), resistance != "R")
+
+data_strain <- data_strain %>% 
+  left_join(hr_testing, by = "strain") %>% 
+  mutate(resistance = factor(resistance, levels = c("HR", "nonHR"))) %>% 
+  filter(!is.na(resistance))
+```
+
+```{r}
+data_strain %>% 
+  ggplot(aes(coverage)) +
+  geom_histogram(bins=50)
+```
+
+```{r}
+data_strain %>% 
+  select(contains("plasm"))
+```
+
+```{r}
+to_plot <- c("n.c.plasmids", "n.plasmids", "n.beta.lac.plasmid", "nc.beta.lac.plasmid", "n.rep.plasmid")
+
+get_splot <- function(col_name){
+  data_strain %>% 
+  ggplot(aes(coverage, .data[[col_name]])) +
+  geom_point(aes(color = resistance ))
+}
+
+plot_list <- map(to_plot, ~ get_splot(.))
+
+ggpubr::ggarrange(plot_list, nrow = 3, ncol = 2, common.legend = T)
+
+plot_list[[2]]
+```
+
