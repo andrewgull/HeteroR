@@ -35,19 +35,45 @@ data_strain %>%
   select(contains("plasm"))
 ```
 
-```{r}
-to_plot <- c("n.c.plasmids", "n.plasmids", "n.beta.lac.plasmid", "nc.beta.lac.plasmid", "n.rep.plasmid")
+```{r, fig.width=6, fig.height=8}
+library(ggpubr)
+
+to_plot <- c("n.c.plasmids", "n.plasmids", "n.beta.lac.plasmid", "nc.beta.lac.plasmid", "n.rep.plasmid", "read.max.len")
 
 get_splot <- function(col_name){
   data_strain %>% 
   ggplot(aes(coverage, .data[[col_name]])) +
-  geom_point(aes(color = resistance ))
+  geom_point(aes(color = chrom.status)) +
+    xlab("")
 }
 
 plot_list <- map(to_plot, ~ get_splot(.))
 
-ggpubr::ggarrange(plot_list, nrow = 3, ncol = 2, common.legend = T)
+ggarrange(plotlist = plot_list, nrow = 3, ncol = 2, common.legend = T)
+```
 
-plot_list[[2]]
+```{r}
+data_strain %>% 
+  filter(n.c.plasmids > 100 | n.rep.plasmid > 200) %>% 
+  select(strain, coverage, chrom.status, n.rep.plasmid, n.plasmids)
+```
+
+```{r}
+data_strain %>% 
+  arrange(coverage )
+```
+
+
+```{r, fig.width=6, fig.height=8}
+get_splot2 <- function(col_name){
+  data_strain %>% 
+  ggplot(aes(read.max.len, .data[[col_name]])) +
+  geom_point(aes(color = coverage)) +
+    xlab("")
+}
+
+plot_list2 <- map(to_plot, ~ get_splot2(.))
+
+ggarrange(plotlist = plot_list2, nrow = 3, ncol = 2, common.legend = T)
 ```
 
