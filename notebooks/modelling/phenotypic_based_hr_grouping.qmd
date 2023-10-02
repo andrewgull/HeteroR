@@ -1,0 +1,46 @@
+---
+title: "HR predicion: phenotype"
+author: "AG"
+format: html
+editor: source
+---
+
+## Intro
+
+HR grouping 1+2 (HR) & 3+4 (nonHR) is a grouping based on clinical breakpoint
+
+HR grouping 1+3 & 2+4 is a grouping based on phenotype.
+
+Here I will explore this phenotypic classification scheme.
+
+## Data
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
+  filter(strain != "DA63310") %>%  
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
+
+```
+
+
+```{r}
+hr_testing12 <- read_csv("data/heteroresistance_testing.csv", show_col_types = F) %>% 
+  rename("resistance12" = resistance)
+
+hr_testing13 <- read_csv("~/Data/HeteroR/notebooks/modelling/data/heteroresistance_testing_gr13.csv", show_col_types = F) %>% 
+  rename("resistance13" = resistance)
+
+hr_testing_both <- left_join(hr_testing12, hr_testing13, by="strain")
+
+hr_testing_both %>% 
+  mutate(same = resistance12 == resistance13) %>% 
+  filter(!same) %>% 
+  filter(strain %in% data_strain$strain)
+```
+
