@@ -49,23 +49,23 @@ testing_results <- testing_results %>%
   mutate(
     replicate_1_score = case_when(
       replicate_1 == "1" ~ 4,
-      replicate_1 == "2" ~ 2,
-      replicate_1 == "-" ~ 1,
-      is.na(replicate_1) ~ 0,
+      replicate_1 == "2" ~ 3,
+      replicate_1 == "-" ~ 2,
+      is.na(replicate_1) ~ 1,
       grepl("?", replicate_1) ~ 0
     ),
     replicate_2_score = case_when(
       replicate_2 == "1" ~ 4,
-      replicate_2 == "2" ~ 2,
-      replicate_2 == "-" ~ 1,
-      is.na(replicate_2) ~ 0,
+      replicate_2 == "2" ~ 3,
+      replicate_2 == "-" ~ 2,
+      is.na(replicate_2) ~ 1,
       grepl("?", replicate_2) ~ 0
     ),
     replicate_3_score = case_when(
       replicate_3 == "1" ~ 4,
-      replicate_3 == "2" ~ 2,
-      replicate_3 == "-" ~ 1,
-      is.na(replicate_3) ~ 0,
+      replicate_3 == "2" ~ 3,
+      replicate_3 == "-" ~ 2,
+      is.na(replicate_3) ~ 1,
       grepl("?", replicate_2) ~ 0
     )
   ) %>%
@@ -220,6 +220,26 @@ models_res_set <-
 
 autoplot(models_res_set, select_best=T)
 ```
+
+```{r}
+# this is done with 1-4 HR score scale
+lr_wf <- workflow(preprocessor = base_recipe, spec = lrl_spec)
+
+lr_res <- lr_wf %>% tune_grid(
+    grid = 20,
+    resamples = cv_folds,
+    control = control_grid(save_pred = TRUE,
+                           save_workflow = TRUE),
+    metrics = metric_set(mae, rsq)
+  ) 
+  
+lr_res %>% show_best(metric = "mae")
+```
+
+```{r}
+lr_res %>% show_best(metric = "rsq")
+```
+
 
 ### Rank models
 
