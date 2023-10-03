@@ -81,8 +81,8 @@ plot_validation_results <- function(dat, components) {
     # Create the scatterplot matrix
     ggplot(aes(x = .panel_x, y = .panel_y, color = resistance, fill = resistance)) +
     geom_point(alpha = 0.4, size = 1) +
-    geom_autodensity(alpha = .3) +
-    facet_matrix(vars(-resistance), layer.diag = 2) + 
+    ggforce::geom_autodensity(alpha = .3) +
+    ggforce::facet_matrix(vars(-resistance), layer.diag = 2) + 
     scale_color_brewer(palette = "Set1") + 
     scale_fill_brewer(palette = "Set1")
 }
