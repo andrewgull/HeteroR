@@ -15,7 +15,7 @@ library(colino)
 
 # path for models
 models_path <-
-  "~/HeteroR/results/models/scheme12/"
+  "~/HeteroR/results/models/scheme12/sept/"
 
 rfe_model <- rand_forest(mode = "classification") %>%
   set_engine("ranger", num.threads = 8, importance = "impurity")
@@ -263,7 +263,8 @@ new_model_row <-
       
       coefficients <- coefs %>% row.names()
       n_predictors <-
-        coefficients[coefs@i] %>% discard( ~ .x %in% predictors_to_remove) %>% length
+        #  coefficients %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length
+         coefficients[coefs@i+1 ] %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length
     } else if (model_name %in% models_except_LLR) {
       if (preprocessing_name == "NCORR") {
         n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
@@ -277,7 +278,7 @@ new_model_row <-
           prep() %>%
           juice() %>%
           colnames() %>%
-          discard(~ .x %in% predictors_to_remove) %>%
+          purrr::discard(~ .x %in% predictors_to_remove) %>%
           length()
       } else if (preprocessing_name == "NCORR_YJ") {
         n_predictors <-  recipe(resistance ~ ., data = df_train) %>%
@@ -290,7 +291,7 @@ new_model_row <-
           step_normalize(all_numeric_predictors()) %>%
           step_smote(resistance, over_ratio = 1, seed = 100) %>%
           step_corr(all_predictors(), threshold = corr_tune) %>%
-          prep() %>% juice() %>% colnames()  %>% discard( ~ .x %in% predictors_to_remove) %>% length()
+          prep() %>% juice() %>% colnames()  %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length()
       } else if (preprocessing_name == "NCORRORQ") {
         n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
           update_role(strain, new_role = "ID") %>%
@@ -302,7 +303,7 @@ new_model_row <-
           step_normalize(all_numeric_predictors()) %>%
           step_smote(resistance, over_ratio = 1, seed = 100) %>%
           step_corr(all_predictors(), threshold = corr_tune) %>%
-          prep() %>% juice() %>% colnames()  %>% discard( ~ .x %in% predictors_to_remove) %>% length()
+          prep() %>% juice() %>% colnames()  %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length()
       } else if (preprocessing_name == "PCA") {
         n_predictors <- recipe(resistance ~ ., data = df_train) %>%
           update_role(strain, new_role = "ID") %>%
@@ -313,7 +314,7 @@ new_model_row <-
           step_smote(resistance, over_ratio = 1, seed = 100) %>%
           step_pca(all_predictors(), num_comp = best_perf_hyp$num_comp[1]) %>%
           step_normalize(all_numeric_predictors()) %>%
-          prep() %>% juice() %>% colnames()  %>% discard( ~ .x %in% predictors_to_remove) %>% length()
+          prep() %>% juice() %>% colnames()  %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length()
       } else if (preprocessing_name == "BASE") {
         n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
           update_role(strain, new_role = "ID") %>%
@@ -321,7 +322,7 @@ new_model_row <-
           step_normalize(all_numeric_predictors()) %>%
           step_dummy(all_nominal_predictors()) %>%
           step_nzv(all_predictors()) %>%
-          step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames()  %>% discard( ~ .x %in% predictors_to_remove) %>% length()
+          step_smote(resistance, over_ratio = 1, seed = 100) %>% prep() %>% juice() %>% colnames()  %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length()
       }   else if (preprocessing_name == "BASE_BORUTA") {
         n_predictors <-    recipe(resistance ~ ., data = df_train) %>%
           update_role(strain, new_role = "ID") %>%
@@ -330,7 +331,7 @@ new_model_row <-
           step_dummy(all_nominal_predictors()) %>%
           step_nzv(all_predictors()) %>%
           step_smote(resistance, over_ratio = 1, seed = 100) %>%
-          step_select_boruta(all_predictors(), outcome = "resistance") %>% prep() %>% juice() %>% colnames()  %>% discard( ~ .x %in% predictors_to_remove) %>% length()
+          step_select_boruta(all_predictors(), outcome = "resistance") %>% prep() %>% juice() %>% colnames()  %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length()
         
       }
     }
@@ -655,3 +656,4 @@ final_tibble <-
 
 # save
 write_csv(final_tibble, "data/model_comparison_table.csv")
+

@@ -423,51 +423,6 @@ lr_pca_res %>%
   show_best("roc_auc", n = 5)
 ```
 
-looks like the n of components selcted is 1. lets check 
-
-```{r}
-my_rec <- recipe(resistance ~ ., data = df_train) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_YeoJohnson(all_numeric_predictors()) %>%
-  step_normalize(all_numeric_predictors()) %>%
-  step_smote(resistance, over_ratio = 1, seed = 100) %>%
-  step_pca(all_predictors(), num_comp = tune()) %>%
-  step_normalize(all_numeric_predictors())
-
-best_perf_hyp <- lr_pca_res %>% show_best(n = 20)
-
-    
-my_mod <-  logistic_reg(penalty =  best_perf_hyp$penalty[1],
-                              mixture = 1) %>%
-        set_engine("glmnet")
-      
-      my_wf <- workflow() %>%
-        add_model(my_mod) %>%
-        add_recipe(my_rec)
-      
-      best_params <- lr_pca_res %>%
-        select_best("roc_auc")
-      
-      final_model <- finalize_workflow(my_wf, best_params) %>%
-        last_fit(data_split)
-      
-      trained_mod <- final_model %>%
-        extract_workflow() %>%
-        pull_workflow_fit()
-      
-      coefs <- coef(trained_mod$fit, s = best_perf_hyp$penalty[1])
-      
-      coefficients <- coefs %>% row.names()
-      n_predictors <-
-        coefficients[coefs@i] %>% purrr::discard( ~ .x %in% predictors_to_remove) %>% length
-
-
-```
-
-
-
 
 ## Compare preprocessors
 
