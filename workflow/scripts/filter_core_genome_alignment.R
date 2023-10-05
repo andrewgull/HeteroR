@@ -31,7 +31,6 @@ if (length(setdiff(files, data_strain$strain)) > 0) {
   
   # remove
   clean_alignment <-  raw_alignment[!names(raw_alignment) %in% to_remove]
-  clean_alignment
   
   # save
   writeXStringSet(clean_alignment, file_alignment_clean)
