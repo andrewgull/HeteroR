@@ -4,30 +4,37 @@
 # libs
 library(Biostrings)
 
+# constants
+annotations_dir <- "~/Data/HeteroR/results/pangenome/annotations_db/"
+features_data <- "data/features_strain.csv"
+lab_testing_data <- "data/heteroresistance_testing.csv"
+file_alignment_raw <- "~/Data/HeteroR/results/pangenome/roary_results_gtr/core_gene_alignment.aln"
+file_alignment_clean <- "~/Data/HeteroR/results/pangenome/roary_results_gtr/core_gene_alignment_clean.aln"
+
 # find all the strains that were used for the alignment 
-files <- list.files("~/HeteroR/results/pangenome/annotations_db/")
+files <- list.files(annotations_dir)
 files <- files[grep("^DA", files)] 
 files <- gsub(".gff", "", files)
 
 # find list of strains that were used for modelling
-data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) 
+data_strain <- readr::read_csv(features_data, na = c("NA", "-Inf"), show_col_types = F) 
 
 # HR labels
-hr_testing12 <- read_csv("data/heteroresistance_testing.csv", col_select = c(strain, Gr12)) %>% 
-  filter(!is.na(strain)) %>% 
-  rename("resistance" = Gr12 )
+hr_testing <- readr::read_csv(lab_testing_data, show_col_types = F)
 
-data_strain <- data_strain %>% 
-  left_join(hr_testing12, by = "strain") %>% 
-  filter(resistance != "R", !is.na(resistance)) %>% pull(strain)
+data_strain <- dplyr::left_join(hr_testing, data_strain, by = "strain")
 
 # find strains to remove 
-to_remove <- paste0(files[!files %in% data_strain], "_genomic")
-raw_alignment <-readDNAStringSet("~/HeteroR/results/pangenome/roary_results_gtr/core_gene_alignment.aln")
-
-# remove
-clean_alignment <-  raw_alignment[!names(raw_alignment) %in% to_remove]
-clean_alignment
-
-# save
-writeXStringSet(clean_alignment, '~/HeteroR/results/pangenome/roary_results_gtr/core_gene_alignment_clean.aln')
+if (length(setdiff(files, data_strain$strain)) > 0) {
+  to_remove <- paste0(files[!files %in% data_strain$strain], "_genomic")
+  raw_alignment <-readDNAStringSet(file_alignment_raw)
+  
+  # remove
+  clean_alignment <-  raw_alignment[!names(raw_alignment) %in% to_remove]
+  clean_alignment
+  
+  # save
+  writeXStringSet(clean_alignment, file_alignment_clean)
+} else {
+  print("Nothing to remove from the alignment file")
+}
