@@ -55,14 +55,14 @@ ggarrange(plotlist = plot_list, nrow = 3, ncol = 2, common.legend = T)
 ```{r}
 data_strain %>% 
   filter(n.c.plasmids > 100 | n.rep.plasmid > 200) %>% 
-  select(strain, coverage, chrom.status, n.rep.plasmid, n.plasmids)
+  select(strain, coverage, chrom.status, n.rep.plasmid, n.c.plasmids) %>% 
+  arrange(-n.c.plasmids)
 ```
 
 ```{r}
 data_strain %>% 
   arrange(coverage )
 ```
-
 
 ```{r, fig.width=6, fig.height=8}
 get_splot2 <- function(col_name){
@@ -76,4 +76,3 @@ plot_list2 <- map(to_plot, ~ get_splot2(.))
 
 ggarrange(plotlist = plot_list2, nrow = 3, ncol = 2, common.legend = T)
 ```
-
