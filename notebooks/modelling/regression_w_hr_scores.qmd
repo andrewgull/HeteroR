@@ -276,3 +276,109 @@ rank_results(models_res_set, rank_metric = "ccc", select_best = TRUE) %>%
   select(rank, mean, model, wflow_id, .config)
 ```
 
+## Inferential analysis
+
+```{r}
+data_strain <- readr::read_csv("data/features_strain.csv",
+                               na = c("NA", "-Inf"),
+                               show_col_types = FALSE)
+
+hr_testing <- testing_results %>% select(strain, total_score)
+
+data_strain <- data_strain %>%
+  left_join(hr_testing, by = "strain")
+
+data_strain <- data_strain %>%
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
+  relocate(n.beta.lac.4, .before = "n.plasmids") %>%
+  filter(strain != "DA63310") %>%
+  mutate(chrom.status = factor(chrom.status))
+
+data_strain$N50 <- NULL
+data_strain[is.na(data_strain)] <- 0
+data_strain <- data_strain %>% 
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
+
+data_strain
+```
+
+### Poisson regression
+
+```{r}
+recipe_corr_yj <- recipe(total_score ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_corr(all_predictors(), threshold = 0.75)
+
+data_strain_proc <- recipe_corr_yj %>% prep() %>% juice()
+
+data_strain_proc
+```
+
+
+```{r}
+scores_fit <- glm(total_score ~ ., data = data_strain_proc[,-1], family = "poisson")
+
+summary(scores_fit)
+```
+
+```{r}
+t(exp(coef(scores_fit))) %>% 
+  as_tibble()
+```
+
+#### Diagnostics
+
+res.deviance / res. df - should not be a lot greater than 1.0
+
+```{r}
+641/468
+```
+
+More accurate testing of over-dispersion:
+
+```{r}
+library(qcc)
+
+qcc.overdispersion.test(data_strain_proc$total_score, type = "poisson")
+```
+
+Observed variance is too big - try to use 'quasipoisson' regression to account for it.
+
+### Quasipoisson
+
+```{r}
+scores_fit <- glm(total_score ~ ., data = data_strain_proc[,-1], family = "quasipoisson")
+
+summary(scores_fit)
+```
+
+### Zero-inflated Poisson regression
+
+```{r}
+library(pscl)
+
+recipe_corr_yj <- recipe(total_score ~ ., data = data_strain) %>%
+  update_role(strain, new_role = "ID") %>%
+  step_nzv(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  step_YeoJohnson(all_numeric_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_corr(all_predictors(), threshold = 0.75)
+
+data_strain_proc <- recipe_corr_yj %>% prep() %>% juice()
+
+score_fit_infl <- zeroinfl(total_score ~ coverage + read.max.len + n.c.plasmids + n.beta.lac + n.rep.tot.cen + IS1 + IS30 + ISAS1 + ampC.type.beta.lactamase, data = data_strain_proc, dist = "negbin")
+
+summary(score_fit_infl)
+```
+
+If you choose all predictors, the you get this message: *warning: the system is singular*.
+To check possible explanations look  [here](https://stackoverflow.com/questions/44134711/zeroinfl-system-is-computationally-singular-whereas-no-correlation-in-predicto)
+
