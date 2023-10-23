@@ -805,6 +805,12 @@ df_UC <-
   )
 ```
 
+checking if all chromosomes have count == 1
+```{r}
+df_UC_all %>% group_by(strain) %>%  filter(size == max(size)) %>%  ungroup() %>%  pull(plasmids) %>%  as.numeric() %>%  table
+```
+
+
 #### FMP read depth + plasmid count
 
 same as with UC
@@ -836,6 +842,12 @@ df_FMP <-
     plasmid.copy.number = sum(plasmids) - 1,
     n.plasmids = sum(plasmids >= 1) - 1
   )
+```
+
+checking if all chromosomes have count == 1
+
+```{r}
+df_FMP_all %>% group_by(strain) %>%  filter(size == max(size)) %>%  ungroup() %>%  pull(plasmids) %>%  table
 ```
 
 #### SHORT UC
@@ -1045,7 +1057,7 @@ get_cov_uc_header <- function(x) {
         avg_depth = (
           sum(chromosome_fragments$depth_times_length) / sum(chromosome_fragments$Length)
         )
-      )   %>%
+      )   %>% arrange(desc(Length)) %>% 
       mutate(plasmids = round(avg_depth / avg_depth[1], 0))
     
     return(df)
@@ -1057,6 +1069,13 @@ df_UC_short_no_scaffold_all <-
 
 df_UC_short_no_scaffold_all
 ```
+
+checking if all chromosomes have count == 1
+
+```{r}
+df_UC_short_no_scaffold_all %>% group_by(Strain) %>%  filter(Length == max(Length)) %>%  ungroup() %>%  pull(plasmids) %>%  table
+```
+
 
 ```{r}
 # df_UC_short_no_scaffold <-
@@ -1110,7 +1129,7 @@ short_UC_scaffold_plasmids_count <- function(x) {
         avg_depth = (
           sum(chromosome_fragments$depth_times_length) / sum(chromosome_fragments$Length)
         )
-      )   %>%
+      )   %>%  arrange(desc(Length)) %>% 
       mutate(plasmids = round(avg_depth / avg_depth[1], 0))
     return(df)
   }
@@ -1122,6 +1141,14 @@ df_UC_short_scaffold_all <-
 
 df_UC_short_scaffold_all
 ```
+
+
+checking if all chromosomes have count == 1
+
+```{r}
+df_UC_short_scaffold_all %>% group_by(Strain) %>%  filter(Length == max(Length)) %>%  ungroup() %>%  pull(plasmids) %>%  table
+```
+
 
 ```{r}
 # df_UC_short_scaffold <- df_UC_short_scaffold_all %>% 
@@ -1239,7 +1266,7 @@ build_short_FMP <- function(x) {
       avg_depth = (
         sum(chromosome_fragments$depth_times_length) / sum(chromosome_fragments$max_length)
       )
-    )   %>%
+    )   %>%  arrange(desc(max_length)) %>% 
     mutate(plasmids = round(avg_depth / avg_depth[1], 0))
   
   return(df)
@@ -1247,6 +1274,12 @@ build_short_FMP <- function(x) {
 
 
 df_FMP_short_all <- future_map_dfr(short_FMP, ~ build_short_FMP(.))
+```
+
+checking if all chromosomes have count == 1
+
+```{r}
+df_FMP_short_all %>% group_by(Strain) %>%  filter(max_length == max(max_length)) %>%  ungroup() %>%  pull(plasmids) %>%  table
 ```
 
 ```{r}
