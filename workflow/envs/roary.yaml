@@ -1,0 +1,5 @@
+name: roary-env
+channels:
+  - bioconda
+dependencies:
+  - roary=3.13.0
