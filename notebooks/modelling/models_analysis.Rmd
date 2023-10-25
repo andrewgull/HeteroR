@@ -43,7 +43,7 @@ The data sets are the same as in EDA
 
 ```{r read data}
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
-  filter(strain != "DA63310") %>%  
+    filter(!(strain %in% c("DA63310", "DA63246", "DA63068"))) %>%  
   select(-contains("oriC")) %>% 
   select(-contains("plus"))
 
@@ -1779,26 +1779,24 @@ summary(mlp_preproc_diff)
 
 One best from each group
 
+LR YJ
+MLP BAG
+GBT Bayes
+
 ## ROCs
 
 ```{r comparison1}
 # you will need these two objects later
 best_resamples_list <- list(
     lr_base_yj_res,
-    lsvm_ncorq_res,
-    psvm_ncorq_res,
-    rbf_ncorq_res,
     mlp_bag_ncoryj_res,
-    rf_base_res,
+    mlp_bag_pca_res,
     bt_base_bres
   )
 best_resamples_names <- c(
     "LLR",
-    "SVM linear",
-    "SVM polynomial",
-    "SVM rbf",
-    "MLP",
-    "RF",
+    "MLP BAG",
+    "MLP BAG PCA",
     "GBT"
   )
 
@@ -2059,7 +2057,7 @@ library(bonsai)
 # GBT base specs /number 2/
 gbt_spec_blank <- boost_tree(
       trees = tune(),
-      mtry = tune(),
+      #mtry = tune(),
       min_n = tune(),
       tree_depth = tune(),
       learn_rate = tune(),
@@ -2069,7 +2067,7 @@ gbt_spec_blank <- boost_tree(
 
 gbt_spec_tuned <- boost_tree(
   trees = best_models[[2]]$trees,
-  mtry = best_models[[2]]$mtry,
+  #mtry = best_models[[2]]$mtry,
   min_n = best_models[[2]]$min_n,
   tree_depth = best_models[[2]]$tree_depth,
   learn_rate = best_models[[2]]$learn_rate,
@@ -2303,14 +2301,14 @@ ggarrange(plotlist = senspec_plots,
 ### Fig_9C
 
 ```{r}
-Fig_9C <- senspec_plot(mlp_bag_ncoryj_final[[2]], "MLP")
+Fig_9C <- senspec_plot(lr_final[[2]], "LR")
 ```
 
 
 ### j-index and the probability threshold
 
 ```{r}
-mlp_bag_ncoryj_final[[2]] %>%
+lr_final[[2]] %>%
   get_threshold() %>%
   filter(.metric == "j_index") %>%
   filter(.estimate == max(.estimate)) %>%
@@ -2368,7 +2366,8 @@ map2_dfr(
   mod_finals,
   mod_labels,
   ~ get_metrics2(.x, .y)) %>%
-  pivot_wider(names_from = model, values_from = .estimate)
+  pivot_wider(names_from = model, values_from = .estimate) %>% 
+  select(-.estimator)
 ```
 
 # Post-modelling analysis
@@ -2419,7 +2418,7 @@ lr_coeff_df <- lr_final[[2]] %>%
 lr_coeff_df
 ```
 
-Just 42 features plus Intercept are used by the model.
+Just 44 features plus Intercept are used by the model.
 
 On the `odds.ratio` column: 
 
@@ -2462,7 +2461,8 @@ Fig_9D <- lr_coeff_df %>%
     ),
     legend.position = "bottom"
   ) +
-  xlab("") + coord_flip()
+  xlab("") +
+  coord_flip()
 
 Fig_9D 
 ```
@@ -2482,10 +2482,10 @@ Extract predictions using the final model fit and adjusted probability cut-off
 optimize_prediction(lr_final[[2]])
 ```
 
-My probability threshold is 0.27, these strains are predicted as HR
+My probability threshold is 0.25, these strains are predicted as HR
 
 ```{r}
-optimize_prediction(lr_final[[2]]) %>% filter(.pred_HR >= 0.27)
+optimize_prediction(lr_final[[2]]) %>% filter(.pred_HR >= 0.25)
 ```
 
 ### False positives v True positives
@@ -2503,8 +2503,14 @@ true_positives <- optimize_prediction(lr_final[[2]]) %>%
   select(strain, resistance, .pred, .pred_HR) %>%
   mutate(type = "TP")
 
+df_test_proc <-
+  base_yj_recipe %>% 
+  prep() %>% 
+  bake(new_data = df_test) %>% 
+  mutate(strain = df_test$strain)
+
 fp_tp <- bind_rows(false_positives, true_positives) %>% 
-  left_join(df_test, by="strain")
+  left_join(df_test_proc, by="strain")
 ```
 
 #### Positive predictors
@@ -2525,7 +2531,7 @@ get_plot <- function(var_name){
 
 plot_list <- map(predictors_positive, ~get_plot(.))
 
-ggarrange(plotlist = plot_list, ncol=3, nrow=5)
+ggarrange(plotlist = plot_list, ncol=3, nrow=7)
 ```
 
 With raw probabilities
@@ -2538,7 +2544,7 @@ get_scatterplot <- function(var_name){
 
 plot_list <- map(predictors_positive, ~get_scatterplot(.))
 
-ggarrange(plotlist = plot_list, ncol=3, nrow=5, common.legend = T)
+ggarrange(plotlist = plot_list, ncol=3, nrow=7, common.legend = T)
 ```
 
 #### Negative predictors
