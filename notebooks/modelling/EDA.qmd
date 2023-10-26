@@ -61,7 +61,7 @@ So, the results below will look different depending on the classification scheme
 
 Copy the most up to date version of features tables to `data/`
 
-```{bash}
+```{bash, eval=FALSE}
 #| eval: FALSE
 # should work but might need fixing because of changed absolute path
 rsync ~/Data/HeteroR/results/tables/features.csv ./data
@@ -75,7 +75,7 @@ Read features and classification labels
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
-  filter(strain != "DA63310") %>% 
+  filter(!(strain %in% c("DA63310", "DA63246", "DA63068"))) %>% 
   mutate(chrom.status = factor(chrom.status)) %>% 
   select(-contains("oriC")) %>% 
   select(-contains("plus"))
@@ -314,6 +314,8 @@ Fig_8A <- pcayj_recipe %>%
   plot_validation_results(c("PC1", "PC2", "PC3", "PC4")) +
   ggtitle("Principal Component Analysis")
 
+ggsave(file="images/manuscript/Fig_8A_PCA.png", plot=Fig_8A, width = 8, height=4, units = "in")
+
 Fig_8A
 ```
 
@@ -385,6 +387,8 @@ Fig_8B <- kpcayj_recipe %>%
   juice() %>% 
   plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4")) +
   ggtitle("Kernel Principal Component Analysis")
+
+ggsave(file="images/manuscript/Fig_8B_kPCA.png", plot=Fig_8B, width = 8, height=4, units = "in")
 
 Fig_8B
 ```
@@ -508,6 +512,8 @@ Fig_8C <- umap_yj_recipe %>%
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP unsupervised")
 
+ggsave(file="images/manuscript/Fig_8C_UMAPu.png", plot=Fig_8C, width = 8, height=4, units = "in")
+
 Fig_8C
 ```
 
@@ -548,6 +554,8 @@ Fig_8D <- umap_sup_yj_recipe %>%
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP supervised")
 
+ggsave(file="images/manuscript/Fig_8D_UMAPs.png", plot=Fig_8D, width = 8, height=4, units = "in")
+
 Fig_8D
 ```
 
@@ -575,6 +583,9 @@ The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes hims
 Fig_8 <- ggarrange(Fig_8A, Fig_8B, Fig_8C, Fig_8D,
                     labels = c("A", "B", "C", "D"),
                     ncol = 2, nrow = 2, common.legend = TRUE)
+
+ggsave(file="images/manuscript/Fig_8_dimred_all.png", plot=Fig_8, width = 8, height=8, units = "in")
+
 Fig_8
 ```
 
@@ -606,7 +617,7 @@ Same number as in the total data set.
 ### In strains with beta-lactamases genes only
 
 ```{r}
-betaL_n_genes <- data %>% 
+betaL_n_genes <- data_strain %>% 
   filter(grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   select(strain, record_id) %>% 
   distinct() %>% 
@@ -679,15 +690,17 @@ ggplot(data_strain, aes(n.beta.lac)) +
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
 ```{r}
-Fig_3A <- ggplot(data_strain, aes(n.beta.lac.4)) +
+Fig_4A <- ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill") +
   scale_fill_brewer(palette="Set1") +
   xlab("n β-lactamases") +
   ylab("proportion of strains") +
   scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme(legend.title=element_blank())
-Fig_3A
 
+ggsave(file="images/manuscript/n_BL_greater_4.png", plot=Fig_4A, width = 8, height=4, units = "in")
+
+Fig_4A
 ```
 
 Now the chance of being HR is higher than the chance of being nonHR
@@ -733,7 +746,7 @@ ggplot(data_strain, aes(n.beta.lac.plasmid)) +
 As a proportion
 
 ```{r}
-Fig_6A <- data_strain %>% 
+Fig_4B <- data_strain %>% 
   ggplot(aes(n.beta.lac.plasmid)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
@@ -741,7 +754,9 @@ Fig_6A <- data_strain %>%
   xlab("n β-lactamases on plasmids") +
   ylab("proportion")
 
-Fig_6A
+ggsave(file="images/manuscript/Fig_4B_plasmid_BL.png", plot=Fig_4B, width = 8, height=4, units = "in")
+
+Fig_4B
 ```
 
 Starting from 4 bl genes (on plasmids), it seems to be a very good predictor.
@@ -818,13 +833,11 @@ ggplot(data_strain, aes(n.beta.lac.plus)) +
 As proportion
 
 ```{r, eval=FALSE}
-Fig_6C <-  ggplot(data_strain, aes(n.beta.lac.plus)) +
+ggplot(data_strain, aes(n.beta.lac.plus)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("n beta-lactamases on plus strand") +
   ylab("proportion") 
-
-Fig_6C
 ```
 
 #### On plasmids
@@ -880,15 +893,16 @@ bl_type_count_tidy <- gather(bl_type_count, key = "gene", value = "n", 2:3) %>%
   summarize(sum=sum(n))
 
 
-Fig_6B <- ggplot(bl_type_count_tidy, aes(gene, sum))+
+Fig_6A <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   geom_col(aes(fill=resistance), position = "fill", alpha = 1) + 
-  # scale_fill_viridis_d(option = "inferno", begin = 0.2, end = 0.7) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("") +
   ylab("proportion")+
   scale_x_discrete(labels = c("ampC", "non-ampC"))
-  
-Fig_6B
+
+ggsave(file="images/manuscript/Fig_6A_ampC.png", plot=Fig_6A, width = 8, height=4, units = "in")
+
+Fig_6A
 ```
 
 
@@ -906,6 +920,9 @@ Fig_6 <- ggarrange(Fig_6A + theme(legend.position = "bottom"),
                    Fig_6B + theme(legend.position = "none"),
                    #empty_plot_with_legend,
                    ncol = 1, nrow = 2, labels = c("A", "B"))
+
+ggsave(file="images/manuscript/Fig_6_TEM+ampC.png", plot=Fig_6, width = 8, height=8, units = "in")
+
 Fig_6
 ```
 
@@ -966,19 +983,25 @@ ggplot(data_strain, aes(TEM.beta.lactamase)) +
 As proportion:
 
 ```{r}
-Fig_3B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
+Fig_6B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "") +
   xlab("TEM β-lactamases") +
   ylab("proportion")
-Fig_3B
+
+ggsave(file="images/manuscript/Fig_6B_TEM.png", plot=Fig_6B, width = 8, height=4, units = "in")
+
+Fig_6B
 ```
 
 ```{r}
-Fig_3 <- ggarrange(Fig_3A , Fig_3B + ylab("") ,
+Fig_4 <- ggarrange(Fig_4A , Fig_4B + ylab("") ,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE,legend = "bottom")
-Fig_3
+
+ggsave(file="images/manuscript/Fig_4_BL4+TEM.png", plot=Fig_4, width = 8, height=4, units = "in")
+
+Fig_4
 ```
 
 ### Other TEM columns
@@ -1106,9 +1129,11 @@ Fig_3B <- data_strain %>%
               height = 0.1) +
   scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
-  ylab("Nanopore reads coverage") +
+  ylab("coverage") +
   xlab("") +
   guides(fill = "none")
+
+ggsave(file="images/manuscript/Fig_3B_coverage.png", plot=Fig_3B, width = 8, height=4, units = "in")
 
 Fig_3B
 ```
@@ -1143,9 +1168,11 @@ Fig_3A <-
               height = 0.1) +
   scale_fill_brewer(palette = "Pastel1") +
   ggtitle("") +
-  ylab("longest Nanopore read") +
+  ylab("longest read, bp") +
   xlab("") +
   guides(fill = "none")
+
+ggsave(file="images/manuscript/Fig_3A_longest_read.png", plot=Fig_3A, width = 8, height=4, units = "in")
 
 Fig_3A
 ```
@@ -1159,9 +1186,13 @@ kruskal.test(data_strain$read.max.len, data_strain$resistance)
 ### Fig 3A & 3B
 
 ```{r, fig.height=8, fig.width=5}
-ggarrange(Fig_3A, Fig_3B, 
+Fig_3 <- ggarrange(Fig_3A, Fig_3B, 
           labels = c("A", "B"),
                     ncol = 1, nrow = 2)
+
+ggsave(file="images/manuscript/Fig_3_coverage+length.png", plot=Fig_3, width = 8, height=8, units = "in")
+
+Fig_3
 ```
 
 
@@ -1187,7 +1218,7 @@ Per strain, doesn't depend on beta-lactamase presence or absence
 ### Box plot
 
 ```{r}
-Fig_6A <- data_strain %>%
+data_strain %>%
   ggplot(aes(resistance, n.plasmids)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
@@ -1204,7 +1235,7 @@ Fig_6A <- data_strain %>%
   ylab("n") +
   xlab("") +
   guides(fill = "none")
-Fig_6A
+
 ```
 
 ### Medians
@@ -1297,7 +1328,7 @@ exp(coef(pois_fit))
 ## Plasmid copy number
 
 ```{r}
-Fig_6B <- data_strain %>%
+data_strain %>%
   ggplot(aes(resistance, n.c.plasmids)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
@@ -1314,9 +1345,6 @@ Fig_6B <- data_strain %>%
   ylab("n") +
   xlab("") +
   guides(fill = "none") 
-  #coord_trans(y="sqrt")
-
-Fig_6B
 ```
 
 ```{r}
@@ -1671,6 +1699,8 @@ Fig_5A <-
   xlab("") +
   guides(fill = "none")
 
+ggsave(file="images/manuscript/Fig_5A_repeats.png", plot=Fig_5A, width = 8, height=4, units = "in")
+
 Fig_5A
 ```
 
@@ -1747,8 +1777,20 @@ Fig_5B <- ar_len %>%
   xlab("") +
   guides(fill = "none")
   
+ggsave(file="images/manuscript/Fig_5B_AR.png", plot=Fig_5B, width = 8, height=4, units = "in")
 
 Fig_5B
+```
+
+
+```{r,fig.height=8, fig.width=6}
+Fig_5 <- ggarrange(Fig_5A, Fig_5B,
+                    labels = c("A", "B"),
+                    ncol = 1, nrow = 2)
+
+ggsave(file="images/manuscript/Fig_5_repeats+AR.png", plot=Fig_5, width = 8, height=8, units = "in")
+
+Fig_5
 ```
 
 ### Medians
@@ -1800,7 +1842,7 @@ facet_names <- c("min.dist.oriC.chrom" = "chromosome",
                  "min.dist.oriC.plasmid" = "plasmids",
                  "min.dist.oriC" = "both")
 
-Fig_4C <- ggplot(min_ori, aes(resistance, dist)) +
+ggplot(min_ori, aes(resistance, dist)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1810,18 +1852,8 @@ Fig_4C <- ggplot(min_ori, aes(resistance, dist)) +
   ylab("min dist oriC") +
   xlab("") +
   guides(fill = "none")
-
-Fig_4C
 ```
 
-Fig 5
-
-```{r,fig.height=8, fig.width=6}
-Fig_5 <- ggarrange(Fig_5A, Fig_5B,
-                    labels = c("A", "B"),
-                    ncol = 1, nrow = 2)
-Fig_5
-```
 
 ```{r}
 min_ori %>% 
@@ -2140,6 +2172,9 @@ Fig_7A <- data_strain %>%
   ylab("max IS length") +
   xlab("") +
   guides(fill="none")
+
+ggsave(file="images/manuscript/Fig_7A_IS.png", plot=Fig_7A, width = 8, height=4, units = "in")
+
 Fig_7A
 ```
 
@@ -2163,9 +2198,12 @@ Fig_7D <- data_strain %>%
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y="sqrt") +
-  ylab("IS copy number") +
+  ylab("copy number") +
   xlab("") +
   guides(fill="none")
+
+ggsave(file="images/manuscript/Fig_7D_IS-copies.png", plot=Fig_7D, width = 8, height=4, units = "in")
+
 Fig_7D
 ```
 
@@ -2188,9 +2226,12 @@ Fig_7C <- data_strain %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1") +
-  ylab("IS families") +
+  ylab("n") +
   xlab("") +
   guides(fill="none")
+
+ggsave(file="images/manuscript/Fig_7C_IS-fam.png", plot=Fig_7C, width = 8, height=4, units = "in")
+
 Fig_7C
 ```
 
@@ -2219,16 +2260,22 @@ Fig_7B <- data_strain %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1") +
-  ylab("min distance") +
+  ylab("min distance, bp") +
   xlab("") +
   guides(fill="none")
+
+ggsave(file="images/manuscript/Fig_7B_IS-dist.png", plot=Fig_7B, width = 8, height=4, units = "in")
+
 Fig_7B
 ```
 
 ```{r,fig.height=8, fig.width=9}
-Fig_7 <- ggarrange(Fig_7A, Fig_7B, Fig_7C,Fig_7D,
+Fig_7 <- ggarrange(Fig_7A, Fig_7B, Fig_7C, Fig_7D,
                     labels = c("A", "B", "C", "D"),
                     ncol = 2, nrow = 2)
+
+ggsave(file="images/manuscript/Fig_7_IS-all.png", plot=Fig_7, width = 8, height=8, units = "in")
+
 Fig_7
 ```
 
