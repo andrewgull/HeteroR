@@ -39,10 +39,9 @@ get_j_index_SE <-
 # Read and process data
 
 # The data sets are the same as in EDA
-
 data_strain <-
   read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>%
-  filter(strain != "DA63310")
+  filter(!(strain %in% c("DA63310", "DA63246", "DA63068")))
 
 # HR testing lables
 hr_testing <-
@@ -231,9 +230,9 @@ new_model_row <-
       #select preprocessing
       if (preprocessing_name == "BASE") {
         my_rec = base_recipe
-      } else if (preprocessing_name == "BASE_yj") {
+      } else if (preprocessing_name == "BASE_YJ") {
         my_rec = base_yj_recipe
-      } else if (preprocessing_name == "BASE_orq") {
+      } else if (preprocessing_name == "BASE_ORQ") {
         my_rec = base_orq_recipe
       } else if (preprocessing_name == "PCA") {
         my_rec = pca_recipe
@@ -288,7 +287,7 @@ new_model_row <-
           step_smote(resistance, over_ratio = 1, seed = 100) %>%
           step_corr(all_predictors(), threshold = corr_tune) %>%
           prep() %>% juice() %>% colnames()  %>% discard( ~ .x %in% predictors_to_remove) %>% length()
-      } else if (preprocessing_name == "NCORRORQ") {
+      } else if (preprocessing_name == "NCORR_ORQ") {
         n_predictors <-   recipe(resistance ~ ., data = df_train) %>%
           update_role(strain, new_role = "ID") %>%
           step_nzv(all_predictors()) %>%
