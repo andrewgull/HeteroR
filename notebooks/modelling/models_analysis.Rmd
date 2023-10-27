@@ -324,7 +324,7 @@ There are two ways to tune hyper-parameters:
 
 Let's take a rule 'if there is more than 4 beta-lactamases, then the strain is HR' (from EDA)
 
-## Train data
+## Performance on Train data
 
 ```{r base rule}
 rule_pred <- 
@@ -340,11 +340,23 @@ conf_mat(rule_pred, truth = resistance, estimate = pred) %>%
   summary()
 ```
 
-## Test
+## performance on Test
 
 ```{r}
 rule_pred <- 
   df_test %>% 
+  mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
+  select(pred, resistance)
+
+conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
+  summary()
+```
+
+## performance on full data set
+
+```{r}
+rule_pred <- 
+  data_strain %>% 
   mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
   select(pred, resistance)
 
@@ -1790,13 +1802,11 @@ GBT Bayes
 best_resamples_list <- list(
     lr_base_yj_res,
     mlp_bag_ncoryj_res,
-    mlp_bag_pca_res,
     bt_base_bres
   )
 best_resamples_names <- c(
     "LLR",
     "MLP BAG",
-    "MLP BAG PCA",
     "GBT"
   )
 
@@ -1813,6 +1823,8 @@ Fig_9A <- roc_df %>%
   geom_abline(lty = 3) + 
   coord_equal() + 
   scale_color_brewer(palette="Dark2") 
+
+ggsave(file="images/manuscript/Fig_9A_ROCs.png", plot=Fig_9A, width = 8, height=4, units = "in")
 
 Fig_9A
 ```
@@ -1848,6 +1860,8 @@ Fig_9B <- autoplot(mod_posterior) +
     unit = "pt"
   ))
 
+ggsave(file="images/manuscript/Fig_9B_posterior.png", plot=Fig_9B, width = 8, height=4, units = "in")
+
 Fig_9B
 ```
 
@@ -1856,6 +1870,9 @@ Fig_9AB <- ggarrange(Fig_9A, Fig_9B,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE,
                     legend = "bottom")
+
+ggsave(file="images/manuscript/Fig_9AB.png", plot=Fig_9AB, width = 8, height=4, units = "in")
+
 Fig_9AB
 ```
 
@@ -2009,7 +2026,6 @@ update_corr_treshold <- function(base_recipe, step_no, corr_threshold) {
 }
 
 # best models
-#top_models <- list(lr_base_res, gbt_base_bres)
 best_models <- map(top_models, ~select_best(., "roc_auc"))
 ```
 
@@ -2301,7 +2317,11 @@ ggarrange(plotlist = senspec_plots,
 ### Fig_9C
 
 ```{r}
-Fig_9C <- senspec_plot(lr_final[[2]], "LR")
+Fig_9C <- senspec_plot(lr_final[[2]], "")
+
+ggsave(file="images/manuscript/Fig_9C_prob_cutoff.png", plot=Fig_9C, width = 8, height=4, units = "in")
+
+Fig_9C
 ```
 
 
@@ -2325,14 +2345,14 @@ order to have 100% sensitivity of the model
 
 ```{r opt cm, fig.width=9}
 optimize_prediction <- function(fit.obj){
-  j_index <- maxj(get_threshold(fit.obj))
+  prob_cutoff <- maxj(get_threshold(fit.obj))
   
   optimized <- fit.obj %>%
     collect_predictions() %>%
     mutate(.pred = make_two_class_pred(
       estimate = .pred_HR,
       levels = levels(resistance),
-      threshold = j_index
+      threshold = prob_cutoff
     )) %>%
     select(resistance, contains(".pred"))
   
@@ -2464,6 +2484,8 @@ Fig_9D <- lr_coeff_df %>%
   xlab("") +
   coord_flip()
 
+ggsave(file="images/manuscript/Fig_9D_predictors.png", plot=Fig_9D, width = 8, height=6, units = "in")
+
 Fig_9D 
 ```
 
@@ -2471,6 +2493,9 @@ Fig_9D
 Fig_9CD <- ggarrange(Fig_9C, Fig_9D,
                     labels = c("C", "D"),
                     ncol = 1, nrow = 2)
+
+ggsave(file="images/manuscript/Fig_9CD.png", plot=Fig_9CD, width = 8, height=11, units = "in")
+
 Fig_9CD
 ```
 
@@ -2485,7 +2510,8 @@ optimize_prediction(lr_final[[2]])
 My probability threshold is 0.25, these strains are predicted as HR
 
 ```{r}
-optimize_prediction(lr_final[[2]]) %>% filter(.pred_HR >= 0.25)
+prob_cutoff <- maxj(get_threshold(lr_final[[2]]))
+optimize_prediction(lr_final[[2]]) %>% filter(.pred_HR >= prob_cutoff)
 ```
 
 ### False positives v True positives
