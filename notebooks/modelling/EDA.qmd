@@ -1549,7 +1549,8 @@ facet_names <- c("med.rep.len.chrom" = "chromosome",
                  "med.rep.len.plasmid" = "plasmids",
                  "med.rep.len" = "total")
 
-med_rep_len %>% 
+Fig_5B <- 
+  med_rep_len %>% 
   filter(med.len > 1) %>%
   ggplot(aes(resistance, med.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
@@ -1573,6 +1574,10 @@ med_rep_len %>%
   ylab("median repeat length") +
   xlab("") +
   guides(fill = "none")
+
+ggsave(file="images/manuscript/Fig_5B_replen.png", plot=Fig_5B, width = 8, height=4, units = "in")
+
+Fig_5B
 ```
 
 ```{r}
@@ -1752,6 +1757,21 @@ rep_count %>%
   summarise(median = median(n.rep))
 ```
 
+Poisson regression
+
+```{r}
+rep.count.regr <- glm(n.rep ~ resistance, 
+    data=rep_count %>% filter(location == "n.rep.total"),
+    family = "poisson")
+
+summary(rep.count.regr)
+```
+
+```{r}
+exp(coef(rep.count.regr))
+```
+
+
 ## Amplifiable region size
 
 ```{r}
@@ -1763,7 +1783,7 @@ facet_names <- c("med.AR.len.chrom" = "chromosome",
                  "med.AR.len.plasmid" = "plasmids",
                  "med.AR.len" = "total")
 
-Fig_5B <- ar_len %>% 
+Fig_5C <- ar_len %>% 
   filter(ar.len > 0) %>% 
   ggplot(aes(resistance, ar.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
@@ -1777,18 +1797,18 @@ Fig_5B <- ar_len %>%
   xlab("") +
   guides(fill = "none")
   
-ggsave(file="images/manuscript/Fig_5B_AR.png", plot=Fig_5B, width = 8, height=4, units = "in")
+ggsave(file="images/manuscript/Fig_5C_AR.png", plot=Fig_5B, width = 8, height=4, units = "in")
 
-Fig_5B
+Fig_5C
 ```
 
 
 ```{r,fig.height=8, fig.width=6}
-Fig_5 <- ggarrange(Fig_5A, Fig_5B,
-                    labels = c("A", "B"),
-                    ncol = 1, nrow = 2)
+Fig_5 <- ggarrange(Fig_5A, Fig_5B, Fig_5C,
+                    labels = c("A", "B", "C"),
+                    ncol = 1, nrow = 3)
 
-ggsave(file="images/manuscript/Fig_5_repeats+AR.png", plot=Fig_5, width = 8, height=8, units = "in")
+ggsave(file="images/manuscript/Fig_5_repeats+length+AR.png", plot=Fig_5, width = 8, height=10, units = "in")
 
 Fig_5
 ```
