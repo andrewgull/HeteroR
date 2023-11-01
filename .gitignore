@@ -20,3 +20,4 @@ notebooks/sequencing_files/
 notebooks/rgi_output/
 notebooks/modelling/data/*.gz
 notebooks/EDA_app/data/
+notebooks/modelling/manuscript/images/
