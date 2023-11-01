@@ -1884,6 +1884,13 @@ mod_diff <- contrast_models(mod_posterior, seed = 100)
 summary(mod_diff)
 ```
 
+Save this table
+
+```{r}
+write_csv(summary(mod_diff), "manuscript/tables/contrast_models.csv" )
+```
+
+
 ### Insignificant differences in mean AUCs:
 
 ```{r}
