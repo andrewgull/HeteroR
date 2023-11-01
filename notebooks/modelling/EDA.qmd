@@ -314,7 +314,7 @@ Fig_8A <- pcayj_recipe %>%
   plot_validation_results(c("PC1", "PC2", "PC3", "PC4")) +
   ggtitle("Principal Component Analysis")
 
-ggsave(file="images/manuscript/Fig_8A_PCA.png", plot=Fig_8A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_8A_PCA.png", plot=Fig_8A, width = 8, height=4, units = "in")
 
 Fig_8A
 ```
@@ -388,7 +388,7 @@ Fig_8B <- kpcayj_recipe %>%
   plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4")) +
   ggtitle("Kernel Principal Component Analysis")
 
-ggsave(file="images/manuscript/Fig_8B_kPCA.png", plot=Fig_8B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_8B_kPCA.png", plot=Fig_8B, width = 8, height=4, units = "in")
 
 Fig_8B
 ```
@@ -512,7 +512,7 @@ Fig_8C <- umap_yj_recipe %>%
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP unsupervised")
 
-ggsave(file="images/manuscript/Fig_8C_UMAPu.png", plot=Fig_8C, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_8C_UMAPu.png", plot=Fig_8C, width = 8, height=4, units = "in")
 
 Fig_8C
 ```
@@ -554,7 +554,7 @@ Fig_8D <- umap_sup_yj_recipe %>%
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
   ggtitle("UMAP supervised")
 
-ggsave(file="images/manuscript/Fig_8D_UMAPs.png", plot=Fig_8D, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_8D_UMAPs.png", plot=Fig_8D, width = 8, height=4, units = "in")
 
 Fig_8D
 ```
@@ -584,7 +584,7 @@ Fig_8 <- ggarrange(Fig_8A, Fig_8B, Fig_8C, Fig_8D,
                     labels = c("A", "B", "C", "D"),
                     ncol = 2, nrow = 2, common.legend = TRUE)
 
-ggsave(file="images/manuscript/Fig_8_dimred_all.png", plot=Fig_8, width = 8, height=8, units = "in")
+ggsave(file="manuscript/images/Fig_8_dimred_all.png", plot=Fig_8, width = 8, height=8, units = "in")
 
 Fig_8
 ```
@@ -698,7 +698,7 @@ Fig_4A <- ggplot(data_strain, aes(n.beta.lac.4)) +
   scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme(legend.title=element_blank())
 
-ggsave(file="images/manuscript/n_BL_greater_4.png", plot=Fig_4A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/n_BL_greater_4.png", plot=Fig_4A, width = 8, height=4, units = "in")
 
 Fig_4A
 ```
@@ -754,7 +754,7 @@ Fig_4B <- data_strain %>%
   xlab("n β-lactamases on plasmids") +
   ylab("proportion")
 
-ggsave(file="images/manuscript/Fig_4B_plasmid_BL.png", plot=Fig_4B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_4B_plasmid_BL.png", plot=Fig_4B, width = 8, height=4, units = "in")
 
 Fig_4B
 ```
@@ -900,7 +900,7 @@ Fig_6A <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   ylab("proportion")+
   scale_x_discrete(labels = c("ampC", "non-ampC"))
 
-ggsave(file="images/manuscript/Fig_6A_ampC.png", plot=Fig_6A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_6A_ampC.png", plot=Fig_6A, width = 8, height=4, units = "in")
 
 Fig_6A
 ```
@@ -921,7 +921,7 @@ Fig_6 <- ggarrange(Fig_6A + theme(legend.position = "bottom"),
                    #empty_plot_with_legend,
                    ncol = 1, nrow = 2, labels = c("A", "B"))
 
-ggsave(file="images/manuscript/Fig_6_TEM+ampC.png", plot=Fig_6, width = 8, height=8, units = "in")
+ggsave(file="manuscript/images/Fig_6_TEM+ampC.png", plot=Fig_6, width = 8, height=8, units = "in")
 
 Fig_6
 ```
@@ -989,7 +989,7 @@ Fig_6B <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   xlab("TEM β-lactamases") +
   ylab("proportion")
 
-ggsave(file="images/manuscript/Fig_6B_TEM.png", plot=Fig_6B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_6B_TEM.png", plot=Fig_6B, width = 8, height=4, units = "in")
 
 Fig_6B
 ```
@@ -999,7 +999,7 @@ Fig_4 <- ggarrange(Fig_4A , Fig_4B + ylab("") ,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE,legend = "bottom")
 
-ggsave(file="images/manuscript/Fig_4_BL4+TEM.png", plot=Fig_4, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_4_BL4+TEM.png", plot=Fig_4, width = 8, height=4, units = "in")
 
 Fig_4
 ```
@@ -1133,7 +1133,7 @@ Fig_3B <- data_strain %>%
   xlab("") +
   guides(fill = "none")
 
-ggsave(file="images/manuscript/Fig_3B_coverage.png", plot=Fig_3B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_3B_coverage.png", plot=Fig_3B, width = 8, height=4, units = "in")
 
 Fig_3B
 ```
@@ -1172,7 +1172,7 @@ Fig_3A <-
   xlab("") +
   guides(fill = "none")
 
-ggsave(file="images/manuscript/Fig_3A_longest_read.png", plot=Fig_3A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_3A_longest_read.png", plot=Fig_3A, width = 8, height=4, units = "in")
 
 Fig_3A
 ```
@@ -1190,7 +1190,7 @@ Fig_3 <- ggarrange(Fig_3A, Fig_3B,
           labels = c("A", "B"),
                     ncol = 1, nrow = 2)
 
-ggsave(file="images/manuscript/Fig_3_coverage+length.png", plot=Fig_3, width = 8, height=8, units = "in")
+ggsave(file="manuscript/images/Fig_3_coverage+length.png", plot=Fig_3, width = 8, height=8, units = "in")
 
 Fig_3
 ```
@@ -1575,7 +1575,7 @@ Fig_5B <-
   xlab("") +
   guides(fill = "none")
 
-ggsave(file="images/manuscript/Fig_5B_replen.png", plot=Fig_5B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_5B_replen.png", plot=Fig_5B, width = 8, height=4, units = "in")
 
 Fig_5B
 ```
@@ -1704,7 +1704,7 @@ Fig_5A <-
   xlab("") +
   guides(fill = "none")
 
-ggsave(file="images/manuscript/Fig_5A_repeats.png", plot=Fig_5A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_5A_repeats.png", plot=Fig_5A, width = 8, height=4, units = "in")
 
 Fig_5A
 ```
@@ -1797,7 +1797,7 @@ Fig_5C <- ar_len %>%
   xlab("") +
   guides(fill = "none")
   
-ggsave(file="images/manuscript/Fig_5C_AR.png", plot=Fig_5B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_5C_AR.png", plot=Fig_5B, width = 8, height=4, units = "in")
 
 Fig_5C
 ```
@@ -1808,7 +1808,7 @@ Fig_5 <- ggarrange(Fig_5A, Fig_5B, Fig_5C,
                     labels = c("A", "B", "C"),
                     ncol = 1, nrow = 3)
 
-ggsave(file="images/manuscript/Fig_5_repeats+length+AR.png", plot=Fig_5, width = 8, height=10, units = "in")
+ggsave(file="manuscript/images/Fig_5_repeats+length+AR.png", plot=Fig_5, width = 8, height=10, units = "in")
 
 Fig_5
 ```
@@ -2193,7 +2193,7 @@ Fig_7A <- data_strain %>%
   xlab("") +
   guides(fill="none")
 
-ggsave(file="images/manuscript/Fig_7A_IS.png", plot=Fig_7A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_7A_IS.png", plot=Fig_7A, width = 8, height=4, units = "in")
 
 Fig_7A
 ```
@@ -2222,7 +2222,7 @@ Fig_7D <- data_strain %>%
   xlab("") +
   guides(fill="none")
 
-ggsave(file="images/manuscript/Fig_7D_IS-copies.png", plot=Fig_7D, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_7D_IS-copies.png", plot=Fig_7D, width = 8, height=4, units = "in")
 
 Fig_7D
 ```
@@ -2250,7 +2250,7 @@ Fig_7C <- data_strain %>%
   xlab("") +
   guides(fill="none")
 
-ggsave(file="images/manuscript/Fig_7C_IS-fam.png", plot=Fig_7C, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_7C_IS-fam.png", plot=Fig_7C, width = 8, height=4, units = "in")
 
 Fig_7C
 ```
@@ -2284,7 +2284,7 @@ Fig_7B <- data_strain %>%
   xlab("") +
   guides(fill="none")
 
-ggsave(file="images/manuscript/Fig_7B_IS-dist.png", plot=Fig_7B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_7B_IS-dist.png", plot=Fig_7B, width = 8, height=4, units = "in")
 
 Fig_7B
 ```
@@ -2294,7 +2294,7 @@ Fig_7 <- ggarrange(Fig_7A, Fig_7B, Fig_7C, Fig_7D,
                     labels = c("A", "B", "C", "D"),
                     ncol = 2, nrow = 2)
 
-ggsave(file="images/manuscript/Fig_7_IS-all.png", plot=Fig_7, width = 8, height=8, units = "in")
+ggsave(file="manuscript/images/Fig_7_IS-all.png", plot=Fig_7, width = 8, height=8, units = "in")
 
 Fig_7
 ```
