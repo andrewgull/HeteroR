@@ -565,4 +565,4 @@ final_tibble <-
 #             new_model_row(bt_base_boruta_bres, "BT_bres", "BASE_BORUTA"))
 
 # save
-write_csv(final_tibble, "data/model_comparison_table.csv")
+write_csv(final_tibble, "manuscript/tables/model_comparison_table.csv")
