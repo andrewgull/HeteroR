@@ -1792,6 +1792,9 @@ summary(mlp_preproc_diff)
 One best from each group
 
 LR YJ
+rbfSVM ORQ
+linSVM ORQ
+polySVM ORQ
 MLP BAG
 GBT Bayes
 
@@ -1801,11 +1804,17 @@ GBT Bayes
 # you will need these two objects later
 best_resamples_list <- list(
     lr_base_yj_res,
+    lsvm_ncorq_res,
+    psvm_ncorq_res,
+    rbf_ncorq_res,
     mlp_bag_ncoryj_res,
     bt_base_bres
   )
 best_resamples_names <- c(
     "LLR",
+    "linear SVM",
+    "poly SVM",
+    "rbf SVM",
     "MLP BAG",
     "GBT"
   )
@@ -1824,7 +1833,7 @@ Fig_9A <- roc_df %>%
   coord_equal() + 
   scale_color_brewer(palette="Dark2") 
 
-ggsave(file="images/manuscript/Fig_9A_ROCs.png", plot=Fig_9A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_9A_best_ROCs.png", plot=Fig_9A, width = 8, height=4, units = "in")
 
 Fig_9A
 ```
@@ -1860,7 +1869,7 @@ Fig_9B <- autoplot(mod_posterior) +
     unit = "pt"
   ))
 
-ggsave(file="images/manuscript/Fig_9B_posterior.png", plot=Fig_9B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_9B_posterior.png", plot=Fig_9B, width = 8, height=4, units = "in")
 
 Fig_9B
 ```
@@ -1871,7 +1880,7 @@ Fig_9AB <- ggarrange(Fig_9A, Fig_9B,
                     ncol = 2, nrow = 1, common.legend = TRUE,
                     legend = "bottom")
 
-ggsave(file="images/manuscript/Fig_9AB.png", plot=Fig_9AB, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_9AB.png", plot=Fig_9AB, width = 8, height=4, units = "in")
 
 Fig_9AB
 ```
@@ -2326,7 +2335,7 @@ ggarrange(plotlist = senspec_plots,
 ```{r}
 Fig_9C <- senspec_plot(lr_final[[2]], "")
 
-ggsave(file="images/manuscript/Fig_9C_prob_cutoff.png", plot=Fig_9C, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_9C_prob_cutoff.png", plot=Fig_9C, width = 8, height=4, units = "in")
 
 Fig_9C
 ```
@@ -2492,7 +2501,7 @@ Fig_9D <- lr_coeff_df %>%
   ylab("odds ratio") +
   coord_flip()
 
-ggsave(file="images/manuscript/Fig_9D_predictors.png", plot=Fig_9D, width = 8, height=10, units = "in")
+ggsave(file="manuscript/images/Fig_9D_predictors.png", plot=Fig_9D, width = 8, height=10, units = "in")
 
 Fig_9D 
 ```
@@ -2525,7 +2534,7 @@ Fig_9D_alt <-
   ylab("odds ratio") +
   coord_flip() 
 
-ggsave(file="images/manuscript/Fig_9D_alt_predictors.png", plot=Fig_9D_alt, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_9D_alt_predictors.png", plot=Fig_9D_alt, width = 8, height=6, units = "in")
 
 Fig_9D_alt
 ```
@@ -2536,7 +2545,7 @@ Fig_9CD <- ggarrange(Fig_9C, Fig_9D,
                     labels = c("C", "D"),
                     ncol = 1, nrow = 2)
 
-ggsave(file="images/manuscript/Fig_9CD.png", plot=Fig_9CD, width = 8, height=11, units = "in")
+ggsave(file="manuscript/images/Fig_9CD.png", plot=Fig_9CD, width = 8, height=11, units = "in")
 
 Fig_9CD
 ```
