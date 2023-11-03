@@ -2489,6 +2489,7 @@ Fig_9D <- lr_coeff_df %>%
     legend.position = "bottom"
   ) +
   xlab("") +
+  ylab("odds ratio") +
   coord_flip()
 
 ggsave(file="images/manuscript/Fig_9D_predictors.png", plot=Fig_9D, width = 8, height=10, units = "in")
@@ -2499,12 +2500,18 @@ Fig_9D
 Alternative: plotting estimate
 
 ```{r}
- lr_coeff_df %>%
-  mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>%
-  filter(term != "(Intercept)") %>%
-  ggplot(aes(reorder(term, odds.ratio, decreasing = F), estimate)) +
+Fig_9D_alt <-
+  lr_coeff_df %>%
+  mutate(
+    effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
+    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio)
+  ) %>%
+  filter(term != "(Intercept)", term != "n.beta.lac") %>%
+  ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio_)) +
   geom_col(aes(fill = effect)) +
-  scale_fill_brewer(palette = "Paired", guide = guide_legend(title = NULL)) +
+  #scale_color_brewer(palette = "Paired", guide = guide_legend(title = NULL)) +
+  scale_fill_manual(values = c("#A6CEE3", "#1F78B4"),
+                    guide = guide_legend(title = NULL)) +
   theme(
     axis.text.x = element_text(
       angle = 90,
@@ -2515,7 +2522,12 @@ Alternative: plotting estimate
     legend.position = "bottom"
   ) +
   xlab("") +
-  coord_flip()
+  ylab("odds ratio") +
+  coord_flip() 
+
+ggsave(file="images/manuscript/Fig_9D_alt_predictors.png", plot=Fig_9D_alt, width = 8, height=4, units = "in")
+
+Fig_9D_alt
 ```
 
 
