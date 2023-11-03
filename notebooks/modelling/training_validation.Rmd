@@ -1,6 +1,6 @@
 ---
 title: "Training and validation of models using workflowsets"
-author: "by M.R."
+author: "by M.R. & A.G."
 output: html_document
 date:  "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 ---
