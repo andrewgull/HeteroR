@@ -32,7 +32,7 @@ column_exists <- function(df, colname) {
   }
 }
 
-# to check if a proivided DF has no rows
+# to check if a provided DF has no rows
 empty <- function(df) {
   if (nrow(df) == 0) {
     TRUE
@@ -93,7 +93,7 @@ read_input <- function(file_path_1 = "data/features_strain.csv",
 
 
 # this function filters data and adds/removes columns
-process_input <- function(df){
+process_input <- function(df) {
   # df: a data frame with features, outcome and strain names
   # return: filtered df with new/removed columns
   
@@ -120,9 +120,95 @@ process_input <- function(df){
   return(df)
 }
 
+# this function returns requested recipe
+make_recipe <- function(name="base", df) {
+  # rec: recipe name, one of 'base', 'pca', base_yj', 'base_orq', 'ncorr',
+  # 'ncorr_orq', 'ncorr_yj', 'boruta'
+  # df: train data set
+  if (name == "base") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_nzv(all_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100)
+  } else if (name == "pca") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_YeoJohnson(all_numeric_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100) %>%
+      step_pca(all_predictors(), num_comp = tune()) %>%
+      step_normalize(all_numeric_predictors())
+  } else if (name == "base_yj") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_nzv(all_predictors()) %>%
+      step_YeoJohnson(all_numeric_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100)
+  } else if (name == "base_orq") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_orderNorm(all_numeric_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100)
+  } else if (name == "ncorr") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_nzv(all_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+      step_corr(all_predictors(), threshold = tune("corr_tune"))
+  } else if (name == "ncorr_yj") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_nzv(all_predictors()) %>%
+      step_YeoJohnson(all_numeric_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+      step_corr(all_predictors(), threshold = tune("corr_tune"))
+  } else if (name == "ncorr_orq") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_nzv(all_predictors()) %>%
+      step_orderNorm(all_numeric_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+      step_corr(all_predictors(), threshold = tune("corr_tune"))
+  } else if (name == "boruta") {
+    rec <- recipe(resistance ~ ., data = df) %>%
+      update_role(strain, new_role = "ID") %>%
+      step_nzv(all_predictors()) %>%
+      step_normalize(all_numeric_predictors()) %>%
+      step_dummy(all_nominal_predictors()) %>%
+      step_nzv(all_predictors()) %>%
+      step_smote(resistance, over_ratio = 1, seed = 100) %>% 
+      step_select_boruta(all_predictors(), outcome = "resistance")
+  } else {
+    message("Provided recipe does not exist")
+    stop()
+  }
+  return(rec)
+}
 
 
-#### SPLIT ####
+#### MAIN ####
 # same seed number as in modelling.Rmd
 set.seed(124)
 
