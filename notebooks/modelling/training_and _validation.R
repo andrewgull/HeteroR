@@ -207,6 +207,88 @@ make_recipe <- function(name="base", df) {
   return(rec)
 }
 
+# this function returns requested model specification
+make_spec <- function(mod="lr", threads=1){
+  # param mod: a two to four letter code for a model
+  # param threads: number of threads
+  # return: model specification
+  # lr = logistic regression
+  # lsvm = linear SVM
+  # psvm = polynomial SVM
+  # rsvm = radial basis function SVM
+  # rf = random forest
+  # bt = gradient boosted trees
+  # mlp = multilayer perceptron
+  # mlpb = multilayer perceptron with bagging
+  if (mod == "lr") {
+    my_mod <- logistic_reg(
+      penalty = tune(),
+      mixture = 1, 
+      mode = "classification", 
+      engine = "glmnet")
+  } else if(mod == "lsvm") {
+    my_mod <- svm_linear(
+      cost = tune(), 
+      mode = "classification", 
+      engine = "kernlab",
+      num.threads = threads)
+  } else if(mod == "rf") {
+    my_mod <- rand_forest(
+      mtry = tune(),
+      min_n = tune(),
+      trees = 1000, 
+      mode = "classification", 
+      engine = "ranger",
+      num.threads = threads)
+  } else if (mod == "bt") {
+    my_mod <- boost_tree(
+      trees = tune(),
+      min_n = tune(),
+      tree_depth = tune(),
+      learn_rate = tune(),
+      loss_reduction = tune(),
+      sample_size = tune(),
+      stop_iter = tune(),
+      engine = "lightgbm",
+      mode = "classification",
+      num.threads = threads) %>% 
+      translate()
+  } else if (mod == "psvm") {
+    my_mod <- svm_poly(
+      cost = tune(),
+      degree = tune(),
+      scale_factor = tune(),
+      margin = NULL,
+      engine="kernlab",
+      mode = "classification",
+      num.threads = threads)
+  } else if (mod == "rbfsvm") {
+    my_mod <- svm_rbf(
+      cost = tune(),
+      rbf_sigma = tune(),
+      margin = tune(),
+      engine = "kernlab",
+      mode = "classification",
+      num.threads = threads) 
+  } else if (mod == "mlp") {
+    my_mod <-
+      mlp(hidden_units = tune(),
+          penalty = tune(),
+          epochs = tune(),
+          engine = "nnet",
+          mode = "classification")
+  } else if (mod == "mlpb") {
+    my_mod <- bag_mlp(
+      hidden_units = tune(),
+      penalty = tune(),
+      epochs = tune(),
+      engone = "nnet",
+      mode = "classification",
+      num.threads = threads) %>%
+      translate()
+  }
+  return(my_mod)
+}
 
 #### MAIN ####
 # same seed number as in modelling.Rmd
