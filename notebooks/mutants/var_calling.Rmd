@@ -1,0 +1,43 @@
+---
+title: "variant calling tests"
+author: "AG"
+date: "2023-11-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Bowtie for mapping
+
+```{bash}
+mamba env create --file var_calling.yaml
+```
+
+
+```{bash bowtie2}
+READS1="/home/andrei/Data/HeteroR/results/data_filtered/DA63342/Illumina/mutants/DA63342m_1.fq.gz"
+READS2="/home/andrei/Data/HeteroR/results/data_filtered/DA63342/Illumina/mutants/DA63342m_2.fq.gz"
+REF_FASTA="/home/andrei/Data/HeteroR/results/assemblies_joined/DA63342/assembly.fasta"
+# make index first!
+# mapping
+cd results/variants
+conda activate varcalling-env
+bowtie2-build $REF_FASTA index
+bowtie2 -x index -1 $READS1 -2 $READS2 -S aligned.sam
+samtools sort aligned.sam > aligned.bam
+bcftools mpileup -f $REF_FASTA aligned.bam | bcftools call -m -v -Ob -o variants.bcf
+bcftools index variants.bcf
+bcftools query --format "%POS\t%REF\t%ALT\n" variants.bcf
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
