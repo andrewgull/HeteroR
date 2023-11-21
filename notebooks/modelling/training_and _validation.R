@@ -121,7 +121,7 @@ process_input <- function(df) {
 }
 
 # this function returns requested recipe
-make_recipe <- function(name="base", df) {
+make_recipe <- function(name = "base", df) {
   # rec: recipe name, one of 'base', 'pca', base_yj', 'base_orq', 'ncorr',
   # 'ncorr_orq', 'ncorr_yj', 'boruta'
   # df: train data set
@@ -208,7 +208,7 @@ make_recipe <- function(name="base", df) {
 }
 
 # this function returns requested model specification
-make_spec <- function(mod="lr", threads=1){
+make_spec <- function(mod = "lr", threads = 1){
   # param mod: a two to four letter code for a model
   # param threads: number of threads
   # return: model specification
@@ -290,7 +290,55 @@ make_spec <- function(mod="lr", threads=1){
   return(my_mod)
 }
 
+# this function uses workflowsets to run training and validation
+run_workflow_sets <-
+  function(file_path,
+           model_specs_list,
+           recipes_list,
+           folds,
+           metrics_set_obj,
+           grid_size = 30,
+           seed = 124) {
+    # param file_path: a path to file to save results to
+    # param model_specs_list: list of model specs
+    # param recipes_list: list of recipes
+    # param folds: CV folds object
+    # param metrics_set_obj: metric_set() object
+    # param grid_size: size of the grid fro grid search
+    # param seed: seed number
+    if (!file.exists(file_path)) {
+      print("File does not exist. Proceeding with training and validation.")
+      models_set <-
+        workflow_set(preproc = recipes_list,
+                     models = model_specs_list,
+                     cross = TRUE)
+      set.seed(seed)
+      models_set <-
+        models_set %>%
+        workflow_map(
+          "tune_grid",
+          resamples = folds,
+          grid = grid_size,
+          metrics = metrics_set_obj,
+          verbose = TRUE,
+          control = control_grid(save_pred = TRUE,
+                                 save_workflow = TRUE)
+        )
+      saveRDS(object = models_set, file =  file_path)
+    } else {
+      print("File exists.  It will be loaded into memory.")
+      models_set <- readRDS(file_path)
+    }
+    
+    return(models_set)
+  }
+
 #### MAIN ####
+# first, generate models specs list
+# second, generate recipes list
+# then run workflow sets with both lists
+# display or save plots?
+
 # same seed number as in modelling.Rmd
 set.seed(124)
 
