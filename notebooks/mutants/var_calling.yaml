@@ -5,3 +5,4 @@ dependencies:
   - samtools=1.13
   - bowtie2=2.5.2
   - bcftools=1.10
+  - bedtools=2.31.1
