@@ -9,35 +9,69 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Bowtie for mapping
+## Mapping
 
 ```{bash}
 mamba env create --file var_calling.yaml
 ```
 
+### Take fast arecords from gff annotation file
+because they contain correct contig names!
 
-```{bash bowtie2}
+```{bash make.fasta}
+GFF="/home/andrei/Data/HeteroR/results/annotations/DA63342/prokka/DA63342_genomic.gff"
+
+# leave fasta, drop the rest
+sed -n '/##FASTA/,${p}' $GFF | sed '1d' > assembly_new_names.fasta 
+```
+
+```{bash mapping}
 READS1="/home/andrei/Data/HeteroR/results/data_filtered/DA63342/Illumina/mutants/DA63342m_1.fq.gz"
 READS2="/home/andrei/Data/HeteroR/results/data_filtered/DA63342/Illumina/mutants/DA63342m_2.fq.gz"
-REF_FASTA="/home/andrei/Data/HeteroR/results/assemblies_joined/DA63342/assembly.fasta"
+REF_FASTA="assembly_new_names.fasta"
 # make index first!
 # mapping
 cd results/variants
 conda activate varcalling-env
 bowtie2-build $REF_FASTA index
-bowtie2 -x index -1 $READS1 -2 $READS2 -S aligned.sam
-samtools sort aligned.sam > aligned.bam
-bcftools mpileup -f $REF_FASTA aligned.bam | bcftools call -m -v -Ob -o variants.bcf
-bcftools index variants.bcf
-bcftools query --format "%POS\t%REF\t%ALT\n" variants.bcf
+bowtie2 -p 10 -x index -1 $READS1 -2 $READS2 -S aligned.sam && samtools sort -@ 10 aligned.sam > aligned.bam
 ```
 
-## Including Plots
+## Variant calling & filtering
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{bash var.calling}
+bcftools mpileup --threads 10 --max-depth 800 -f $REF_FASTA -Ou aligned.bam | bcftools call --threads 10 --ploidy 1 -mv -Ob --prior 5.0e-10 -o variants.bcf
+bcftools filter -g3 -i 'QUAL>30 && DP>20' -Ob variants.bcf > variants_filtered.bcf
+# to take a look
+bcftools index variants_filtered.bcf
+bcftools query --format "%POS\t%REF\t%ALT\n" variants_filtered.bcf
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Variant annotation
+
+```{bash var.annotation}
+GFF="/home/andrei/Data/HeteroR/results/annotations/DA63342/prokka/DA63342_genomic.gff"
+
+bcftools view variants_filtered.bcf > variants_filtered.vcf
+
+# drop the genome fasta in the gff file
+sed '/##FASTA/,$d' $GFF > DA63342_genomic_clean.gff 
+
+# vcf file must have the same contig names as the gff file
+bedtools annotate -i DA63342_genomic_clean.gff -files variants_filtered.vcf > gff_with_annot.tsv
+# "Default behavior is to report the fraction of -i covered by each file"
+```
+
+```{r read.gff}
+read_gff <- function(gff_filename) {
+  # read and process
+  df <-
+    as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
+    select(V1, V3, V4, V5, V7, V9, V10) %>%
+    filter(V3 == "gene")
+  return(df)
+}
+
+gff_annotated <- read_gff("gff_with_annot.tsv") %>% filter(V10 > 0)
+gff_annotated
+```
