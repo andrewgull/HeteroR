@@ -7,43 +7,30 @@ rule all:
         expand("results/mutants/final/{parent}_all.done", parent=config['parents'])
         #mutants = expand("results/mutants/final/{mutant}_all.done", mutant=config['mutants'])
 
-rule snippy:
-    input:
-        r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
-        r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz",
-        ref = "results/annotations/{parent}/prokka/{parent}_genomic.gbk"
-    output:
-        directory("results/snippy/{parent}")
-    threads: 10
-    message: "executing SNIPPY with {threads} threads on {wildcards.parent} assembly"
-    log: "results/logs/{parent}_snippy.log"
-    conda: "snippy-env"
-    shell:
-        "snippy --cpus {threads} --outdir {output} --ref {input.ref} --R1 {input.r1} --R2 {input.r2} > {log}"
-
-
 rule make_reference:
     input: "results/annotations/{parent}/prokka/{parent}_genomic.gff"
     output: "results/variants/{parent}/reference.fasta"
-    shell: "sed -n '/##FASTA/,${p}' {input} | sed '1d' > {output}"
+    shell: "sed -n '/##FASTA/,${{p}}' {input} | sed '1d' > {output}"
 
 rule mapping:
     input: r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
            r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz",
            ref = "results/variants/{parent}/reference.fasta"
-    output: temp("results/variants/{parent}/mutant_mapped.sam")
+    output: sam = temp("results/variants/{parent}/mutant_mapped.sam")
     threads: 10
-    message: ""
-    log: "results/logs/variants_mapping.log"
+    message: "Mapping mutant reads onto {wildcards.parent} genome"
+    log: mapping = "results/logs/{parent}_variants_mapping.log",
+         index = "results/logs/{parent}_reference_index.log"
     conda: "varcalling-env"
-    shell: "bowtie2-build {input.ref} index && bowtie2 -p {threads} -x index -1 {input.r1} -2 {input.r2} -S {output} &> {log}"
+    shell: "bowtie2-build {input.ref} index &> {log.index} && "
+           "bowtie2 -p {threads} -x index -1 {input.r1} -2 {input.r2} -S {output.sam} &> {log.mapping}"
 
 rule sorting:
     input: "results/variants/{parent}/mutant_mapped.sam"
     output: "results/variants/{parent}/mutant_mapped.bam"
     threads: 10
-    message: ""
-    log: "results/logs/variants_sorting.log"
+    message: "Sorting mapped reads of {wildcards.parent} mutant"
+    log: "results/logs/{parent}_variants_sorting.log"
     conda: "varcalling-env"
     shell: "samtools sort -@ {threads} {input} > {output} 2> {log}"
 
@@ -53,35 +40,43 @@ rule variant_calling:
         bam = "results/variants/{parent}/mutant_mapped.bam"
     output: "results/variants/{parent}/variants.bcf"
     threads: 10
-    message: ""
-    log: ""
+    message: "Calling varinats in {wildcards.parent} mutant"
+    log: call = "results/logs/{parent}_variant_calling.log",
+         mpileup = "results/logs/{parent}_mpileup.log"
     conda: "varcalling-env"
-    params: max_depth=800, ploidy=1, prior=5.0e-10
-    shell: "bcftools mpileup --threads {threads} --max-depth {params.max_depth} -f {input.ref} -Ou {input.bam} | bcftools call --threads {threads} --ploidy {params.ploidy} -mv -Ob --prior {params.prior} -o {output}"
+    params: max_depth=config["max_depth"], ploidy=config["ploidy"], prior=config["prior"]
+    shell: "bcftools mpileup --threads {threads} -d {params.max_depth} -f {input.ref} -Ou {input.bam} 2> {log.mpileup} | "
+           "bcftools call --threads {threads} --ploidy {params.ploidy} -mv -Ob -P {params.prior} -o {output} 2> {log.call}"
 
 rule variant_filtering:
     input: "results/variants/{parent}/variants.bcf"
     output: "results/variants/{parent}/variants_filtered.bcf"
     threads: 10
-    message:
-    log: ""
+    message: "Filtering variants in {wildcards.parent} mutant"
+    log: "results/logs/{parent}_variant_filtering.log"
     conda: "varcalling-env"
-    params: dist = 3, qual = 30, depth = 20
-    shell: "bcftools filter -g{params.dist} -i 'QUAL>{params.qual} && DP>{params.depth}' -Ob {input} > {output}"
+    params: dist=config["indel_dist"], qual=config["quality"], depth=config["depth"]
+    shell: "bcftools filter -g{params.dist} -i 'QUAL>{params.qual} && DP>{params.depth}' -Ob {input} > {output} 2> {log}"
 
 rule variant_annotation:
     input: gff = "results/annotations/{parent}/prokka/{parent}_genomic.gff",
            bcf = "results/variants/{parent}/variants_filtered.bcf"
     output: gff_clean = "results/variants/{parent}/{parent}_genomic_clean.gff",
             vcf = "results/variants/{parent}/variants_filtered.vcf",
-            gff_annotated = ""results/variants/{parent}/genes_with_mutations.tsv""
-    shell: "bcftools view {input.bcf} > {output.vcf} && 
-           "sed '/##FASTA/,$d' {input.gff} > {output.gff_clean} && " 
-           "bedtools annotate -i {output.gff_clean} -files {output.vcf} > {output.gff_annotated}"
+            gff_annotated = "results/variants/{parent}/genes_with_mutations.tsv"
+    threads: 10
+    message: "Annotating variants in {wildcards.parent} mutant"
+    log: view = "results/logs/{parent}_bcftools_view.log",
+         sed = "results/logs/{parent}_sed_clean_gff.log",
+         annotate = "results/logs/{parent}_variant_annotation.log"
+    conda: "varcalling-env"
+    shell: "bcftools view {input.bcf} > {output.vcf}  2> {log.view} && "
+           "sed '/##FASTA/,$d' {input.gff} > {output.gff_clean} 2> {log.sed} && " 
+           "bedtools annotate -i {output.gff_clean} -files {output.vcf} > {output.gff_annotated} 2> {log.annotate}"
 
 rule final:
     input:
-        snippy="results/snippy/{parent}"
+        gff_annotated= "results/variants/{parent}/genes_with_mutations.tsv"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
