@@ -75,3 +75,59 @@ read_gff <- function(gff_filename) {
 gff_annotated <- read_gff("gff_with_annot.tsv") %>% filter(V10 > 0)
 gff_annotated
 ```
+
+## Depth and amplifications
+
+```{r, fig.width=14}
+library(data.table)
+
+# depth.txt is made by samtools depth/coverage (?)
+depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA62886/depth.txt", sep = "\t")
+# which one is chromosome?
+depth %>% group_by(V1) %>% count()
+depth_chosen <- depth[V1 == "gnl|UU|BNIFGIJN_1",]
+
+```
+
+### coverage in a window of certain size
+
+```{r, fig.width=14, fig.height=4}
+library(dplyr)
+library(ggplot2)
+
+window_size <- 100
+mean_coverage <- mean(depth_chosen$V3)
+
+depth_per_window <- 
+  depth_chosen %>% 
+  mutate(window = 1 + (row_number() - 1) %/% window_size) %>% 
+  group_by(window) %>% 
+  summarise(mean_cov = mean(V3)) %>% 
+  mutate(rel_cov = mean_cov / mean_coverage)
+
+depth_per_window %>% 
+  ggplot(aes(window, mean_cov)) +
+  geom_point(size=0.2) +
+  geom_hline(yintercept = mean_coverage, color = "red")
+```
+
+Normalized by the average coverage
+
+```{r, fig.width=14, fig.height=4}
+depth_per_window %>% 
+  ggplot(aes(window, rel_cov)) +
+  geom_point(size = 0.) 
+```
+
+```{r}
+depth_per_window %>% 
+  arrange(desc(mean_cov))
+```
+
+```{r, fig.width=14, fig.height=4}
+depth_per_window %>% 
+  filter(window < 1500, window > 1000) %>% 
+  ggplot(aes(window, rel_cov)) +
+  geom_point(size = 0.2) 
+```
+
