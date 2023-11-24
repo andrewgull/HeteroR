@@ -78,14 +78,24 @@ rule filter_annotation:
     input: script = "workflow/scripts/filter_variant_annotations.R",
            gff = "results/variants/{parent}/{parent}_annotated_variants.gff"
     output: "results/variants/{parent}/{parent}_genes_with_variants.tsv"
-    message: ""
+    message: "Filtering annotated GFF/VCF in {wildcards.parent} mutant"
     log: "results/logs/{parent}_filter_variant_annotation.log"
     conda: "envs/rscripts.yaml"
     shell: "Rscript {input.script} -i {input.gff} -o {output} &> {log}"
 
+rule depth:
+    input: "results/variants/{parent}/mutant_mapped.bam"
+    output: "results/variants/{parent}/depth.tsv.gz"
+    threads: 10
+    message: "Calculating depth in {wildcards.parent} BAM file"
+    log: "results/logs/{parent}_bam_depth.log"
+    conda: "envs/var_calling.yaml"
+    shell: "samtools depth -@ {threads} {input} | gzip -c > {output} 2> {log}"
+
 rule final:
     input:
-        variants_annotated_filtered = "results/variants/{parent}/{parent}_genes_with_variants.tsv"
+        variants_annotated_filtered = "results/variants/{parent}/{parent}_genes_with_variants.tsv",
+        depth = "results/variants/{parent}/depth.tsv.gz"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
