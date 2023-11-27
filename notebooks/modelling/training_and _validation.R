@@ -6,21 +6,10 @@ library(tidymodels)
 library(workflowsets)
 library(bonsai)
 library(themis)
-library(colino)
 library(bestNormalize)
 library(baguette)
 library(lightgbm)
-library(tidyposterior)
-library(ggplot2)
-source("functions.R")
 
-#### TOC ####
-read_input()
-process_input()
-make_recipe()
-make_spec()
-run_workflow()
-save_diagnostic_plots()
 
 #### MINOR FUNCTIONS ####
 # to check if a provided DF contains column 'strain'
@@ -291,14 +280,7 @@ make_spec <- function(mod = "lr", threads = 1){
 }
 
 # this function uses workflowsets to run training and validation
-run_workflow_sets <-
-  function(file_path,
-           model_specs_list,
-           recipes_list,
-           folds,
-           metrics_set_obj,
-           grid_size = 30,
-           seed = 124) {
+run_workflow_sets <- function(model_specs_list, recipes_list, folds, metrics_set_obj, grid_size = 30, seed = 124) {
     # param file_path: a path to file to save results to
     # param model_specs_list: list of model specs
     # param recipes_list: list of recipes
@@ -306,9 +288,8 @@ run_workflow_sets <-
     # param metrics_set_obj: metric_set() object
     # param grid_size: size of the grid fro grid search
     # param seed: seed number
-    if (!file.exists(file_path)) {
-      print("File does not exist. Proceeding with training and validation.")
-      models_set <-
+    # retrn: workflowset object
+   models_set <-
         workflow_set(preproc = recipes_list,
                      models = model_specs_list,
                      cross = TRUE)
@@ -324,14 +305,8 @@ run_workflow_sets <-
           control = control_grid(save_pred = TRUE,
                                  save_workflow = TRUE)
         )
-      saveRDS(object = models_set, file =  file_path)
-    } else {
-      print("File exists.  It will be loaded into memory.")
-      models_set <- readRDS(file_path)
-    }
-    
     return(models_set)
-  }
+}
 
 #### MAIN ####
 # first, generate models specs list
@@ -339,24 +314,43 @@ run_workflow_sets <-
 # then run workflow sets with both lists
 # display or save plots?
 
-# same seed number as in modelling.Rmd
-set.seed(124)
+main <- function(model_names, recipes_names, file_path){
+  # same seed number as in modelling.Rmd
+  set.seed(124)
 
-# splitting proportion should be the same
-data_split <- initial_split(data_strain,
-                            prop = 0.8,
-                            strata = resistance)
+  # splitting proportion should be the same
+  data_strain <- read_input()
+  data_strain <- process_input(data_strain)
+  data_split <- initial_split(data_strain,
+                              prop = 0.8,
+                              strata = resistance)
 
-df_train <- training(data_split)
-df_test <- testing(data_split)
+  df_train <- training(data_split)
 
-cv_folds <- vfold_cv(df_train,
-                     strata = "resistance",
-                     v = 10,
-                     repeats =10)
+  cv_folds <- vfold_cv(df_train,
+                       strata = "resistance",
+                       v = 10,
+                       repeats =10)
 
-# metrics for imbalanced classes
-imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
+  # metrics for imbalanced classes
+  imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
 
+  model_specs <- lapply(model_names, \(x) make_spec(mod = x, threads = 8))
+  recipes <- lapply(recipes_names, \(x) make_recipe(name = x, df = df_train))
 
-cores <- 8
+  if (!file.exists(file_path)) {
+     print("File does not exist. Proceeding with training and validation.")
+     models_set <- run_workflow_sets(model_specs_list = model_specs,
+                                     folds = cv_folds,
+                                     recipes_list = recipes,
+                                     metrics_set_obj = imbalanced_metrics)
+     saveRDS(object = models_set, file =  file_path)
+  } else {
+     print("File exists. Skipping training and validation")
+  }
+
+}
+
+# how to run the main() for LR
+main(model_names = "lr",
+     recipes_names = c("base", "base_yj", "base_orq", "pca"), file = "results/models/lr_resamples.rds")
