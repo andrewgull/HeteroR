@@ -9,6 +9,7 @@ library(themis)
 library(bestNormalize)
 library(baguette)
 library(lightgbm)
+library(colino)
 
 
 #### MINOR FUNCTIONS ####
@@ -180,7 +181,7 @@ make_recipe <- function(name = "base", df) {
       step_normalize(all_numeric_predictors()) %>%
       step_smote(resistance, over_ratio = 1, seed = 100) %>% 
       step_corr(all_predictors(), threshold = tune("corr_tune"))
-  } else if (name == "boruta") {
+  } else if (name == "bor") {
     rec <- recipe(resistance ~ ., data = df) %>%
       update_role(strain, new_role = "ID") %>%
       step_nzv(all_predictors()) %>%
@@ -288,7 +289,7 @@ run_workflow_sets <- function(model_specs_list, recipes_list, folds, metrics_set
     # param metrics_set_obj: metric_set() object
     # param grid_size: size of the grid fro grid search
     # param seed: seed number
-    # retrn: workflowset object
+    # return: workflowset object
    models_set <-
         workflow_set(preproc = recipes_list,
                      models = model_specs_list,
@@ -308,42 +309,18 @@ run_workflow_sets <- function(model_specs_list, recipes_list, folds, metrics_set
     return(models_set)
 }
 
-#### MAIN ####
-# first, generate models specs list
-# second, generate recipes list
-# then run workflow sets with both lists
-# display or save plots?
+main <- function(data, model_names, recipes_names, file_path, folds, metric){
 
-main <- function(model_names, recipes_names, file_path){
-  # same seed number as in modelling.Rmd
-  set.seed(124)
-
-  # splitting proportion should be the same
-  data_strain <- read_input()
-  data_strain <- process_input(data_strain)
-  data_split <- initial_split(data_strain,
-                              prop = 0.8,
-                              strata = resistance)
-
-  df_train <- training(data_split)
-
-  cv_folds <- vfold_cv(df_train,
-                       strata = "resistance",
-                       v = 10,
-                       repeats =10)
-
-  # metrics for imbalanced classes
-  imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
 
   model_specs <- lapply(model_names, \(x) make_spec(mod = x, threads = 8))
-  recipes <- lapply(recipes_names, \(x) make_recipe(name = x, df = df_train))
+  recipes <- lapply(recipes_names, \(x) make_recipe(name = x, df = data))
 
   if (!file.exists(file_path)) {
      print("File does not exist. Proceeding with training and validation.")
      models_set <- run_workflow_sets(model_specs_list = model_specs,
                                      folds = cv_folds,
                                      recipes_list = recipes,
-                                     metrics_set_obj = imbalanced_metrics)
+                                     metrics_set_obj = metric)
      saveRDS(object = models_set, file =  file_path)
   } else {
      print("File exists. Skipping training and validation")
@@ -351,6 +328,108 @@ main <- function(model_names, recipes_names, file_path){
 
 }
 
-# how to run the main() for LR
-main(model_names = "lr",
-     recipes_names = c("base", "base_yj", "base_orq", "pca"), file = "results/models/lr_resamples.rds")
+# If one wants Bayesian optimization of BT results
+main_bayes <- function(data, file_path, grid_search_res_file, folds) {
+  
+  if (!file.exists(file_path)) {
+    print("File does not exist. Proceeding with optimizing the models.")
+    
+    base_bt_wf <- workflow() %>%
+      add_model(make_spec("bt")) %>%
+      add_recipe(make_recipe(name = "base", df = data))
+    
+    param_set_base_bt <-
+      extract_parameter_set_dials(base_bt_wf) %>%
+      finalize(x = data %>% select(-resistance))
+    
+    models_bt <- readRDS(grid_search_res_file)
+    
+    base_bt_bres <-
+      tune_bayes(
+        base_bt_wf,
+        resamples = folds,
+        initial = models_bt$result[[1]],
+        iter = 40,
+        metrics = metric_set(roc_auc),
+        param_info = param_set_base_bt,
+        control = control_bayes(
+          no_improve = 20,
+          save_pred = TRUE,
+          verbose = FALSE,
+          save_workflow = TRUE
+        )
+      )
+    saveRDS(object = base_bt_bres, file = file_path)
+  } else {
+    base_bt_bres <- readRDS(file_path)
+  }
+  return(base_bt_bres)
+}
+
+#### RUN TRAINING AND VALIDAITON ####
+
+# prepare data sets and folds
+# same seed number as in modelling.Rmd
+set.seed(124)
+
+# splitting proportion should be the same
+data_strain <- read_input()
+data_strain <- process_input(data_strain)
+data_split <- initial_split(data_strain,
+                            prop = 0.8,
+                            strata = resistance)
+
+df_train <- training(data_split)
+
+cv_folds <- vfold_cv(df_train,
+                     strata = "resistance",
+                     v = 10,
+                     repeats =10)
+
+# metrics for imbalanced classes
+imbalanced_metrics <- metric_set(roc_auc, j_index, mcc, pr_auc)
+
+# LR
+main(data = df_train, 
+     model_names = "lr",
+     recipes_names = c("base", "base_yj", "base_orq", "pca"), 
+     file = "/home/andrei/Data/HeteroR/results/models/lr_resamples.rds", 
+     folds = cv_folds, 
+     metric = imbalanced_metrics)
+
+# SVM
+main(data = df_train, 
+     model_names = c("lsvm", "psvm", "rbfsvm"), 
+     recipes_names = c("ncorr", "ncorr_yj", "ncorr_orq", "pca"), 
+     file = "/home/andrei/Data/HeteroR/results/models/svm_resamples.rds", 
+     folds = cv_folds, 
+     metric = imbalanced_metrics)
+
+# MLP
+main(data = df_train,
+     model_names = c("mlp", "mlpb"), 
+    recipes_names = c("ncorr", "ncorr_yj", "ncorr_orq", "pca"), 
+    file = "/home/andrei/Data/HeteroR/results/models/mlp_resamples.rds", 
+    folds = cv_folds, 
+    metric = imbalanced_metrics)
+
+# RF
+main(data = df_train,model_names = "rf", 
+    recipes_names = c("base", "bor"), 
+    file = "/home/andrei/Data/HeteroR/results/models/rf_resamples.rds", 
+    folds = cv_folds, 
+    metric = imbalanced_metrics)
+
+# BT
+main(data = df_train,
+     model_names = "bt", 
+     recipes_names = c("base", "bor"), 
+     file = "/home/andrei/Data/HeteroR/results/models/bt_resamples.rds", 
+     folds = cv_folds, 
+     metric = imbalanced_metrics)
+
+# BT + Bayes
+main_bayes(data = df_train, 
+           file_path = "/home/andrei/Data/HeteroR/results/models/bt_bayes_resamples.rds", 
+           grid_search_res_file = "/home/andrei/Data/HeteroR/results/models/bt_resamples.rds",
+           folds = cv_folds)
