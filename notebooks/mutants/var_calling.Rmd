@@ -63,6 +63,8 @@ bedtools annotate -i DA63342_genomic_clean.gff -files variants_filtered.vcf > gf
 ```
 
 ```{r read.gff}
+library(dplyr)
+
 read_gff <- function(gff_filename) {
   # read and process
   df <-
@@ -72,7 +74,7 @@ read_gff <- function(gff_filename) {
   return(df)
 }
 
-gff_annotated <- read_gff("gff_with_annot.tsv") %>% filter(V10 > 0)
+gff_annotated <- read_gff("/mnt/data/andrei/Data/HeteroR/results/variants/DA63342/DA63342_annotated_variants.gff") %>% filter(V10 > 0)
 gff_annotated
 ```
 
@@ -82,17 +84,19 @@ gff_annotated
 library(data.table)
 
 # depth.txt is made by samtools depth/coverage (?)
-depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA62886/depth.txt", sep = "\t")
+depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA62886/depth.tsv.gz", sep = "\t")
+depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA63342/depth.tsv.gz", sep = "\t")
 # which one is chromosome?
 depth %>% group_by(V1) %>% count()
 depth_chosen <- depth[V1 == "gnl|UU|BNIFGIJN_1",]
-
+depth_chosen <- depth[V1 == "gnl|UU|JBJGLNML_2", ]
+depth_chosen
 ```
 
 ### coverage in a window of certain size
 
 ```{r, fig.width=14, fig.height=4}
-library(dplyr)
+#library(dplyr)
 library(ggplot2)
 
 window_size <- 100
@@ -102,11 +106,11 @@ depth_per_window <-
   depth_chosen %>% 
   mutate(window = 1 + (row_number() - 1) %/% window_size) %>% 
   group_by(window) %>% 
-  summarise(mean_cov = mean(V3)) %>% 
-  mutate(rel_cov = mean_cov / mean_coverage)
+  summarise(coverage = mean(V3)) %>% 
+  mutate(rel_cov = coverage / mean_coverage)
 
 depth_per_window %>% 
-  ggplot(aes(window, mean_cov)) +
+  ggplot(aes(window, coverage)) +
   geom_point(size=0.2) +
   geom_hline(yintercept = mean_coverage, color = "red")
 ```
@@ -119,15 +123,39 @@ depth_per_window %>%
   geom_point(size = 0.) 
 ```
 
+### Automated search for over-covered regions
+
+calculate z-score
+
++ 2SD is your candidate
+
+>The absolute value of z represents the distance between that raw score x and the population mean in units of the standard deviation. z is negative when the raw score is below the mean, positive when above.
+
 ```{r}
 depth_per_window %>% 
-  arrange(desc(mean_cov))
+  mutate(z = (coverage - mean(coverage))/sd(coverage)) %>% 
+  ggplot(aes(z)) +
+  geom_histogram() +
+  geom_vline(xintercept = 2, color = "red")
 ```
 
 ```{r, fig.width=14, fig.height=4}
+depth_per_window %>%
+  mutate(z = (coverage - mean(coverage)) / sd(coverage)) %>%
+  ggplot(aes(window, z)) +
+  geom_point(size = 0.2) +
+  geom_hline(yintercept = 2, color = "red")
+```
+
+```{r}
 depth_per_window %>% 
-  filter(window < 1500, window > 1000) %>% 
-  ggplot(aes(window, rel_cov)) +
-  geom_point(size = 0.2) 
+  mutate(z = (coverage - mean(coverage))/sd(coverage)) %>%
+  filter(z >= 2)
+```
+
+```{r}
+depth_per_window %>% 
+  mutate(z = (coverage - mean(coverage))/sd(coverage)) %>%
+  filter(z < 2)
 ```
 
