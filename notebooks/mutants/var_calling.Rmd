@@ -84,46 +84,16 @@ gff_annotated
 library(data.table)
 
 # depth.txt is made by samtools depth/coverage (?)
-depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA62886/depth.tsv.gz", sep = "\t")
-depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA63342/depth.tsv.gz", sep = "\t")
+depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA63150/depth.tsv.gz", sep = "\t")
+#depth <- fread("/home/andrei/Data/HeteroR/results/variants/DA63342/depth.tsv.gz", sep = "\t")
 # which one is chromosome?
 depth %>% group_by(V1) %>% count()
-depth_chosen <- depth[V1 == "gnl|UU|BNIFGIJN_1",]
-depth_chosen <- depth[V1 == "gnl|UU|JBJGLNML_2", ]
+depth_chosen <- depth[V1 == "gnl|UU|CMIAEBAJ_1",]
+#depth_chosen <- depth[V1 == "gnl|UU|JBJGLNML_2", ]
 depth_chosen
 ```
 
 ### coverage in a window of certain size
-
-```{r, fig.width=14, fig.height=4}
-#library(dplyr)
-library(ggplot2)
-
-window_size <- 100
-mean_coverage <- mean(depth_chosen$V3)
-
-depth_per_window <- 
-  depth_chosen %>% 
-  mutate(window = 1 + (row_number() - 1) %/% window_size) %>% 
-  group_by(window) %>% 
-  summarise(coverage = mean(V3)) %>% 
-  mutate(rel_cov = coverage / mean_coverage)
-
-depth_per_window %>% 
-  ggplot(aes(window, coverage)) +
-  geom_point(size=0.2) +
-  geom_hline(yintercept = mean_coverage, color = "red")
-```
-
-Normalized by the average coverage
-
-```{r, fig.width=14, fig.height=4}
-depth_per_window %>% 
-  ggplot(aes(window, rel_cov)) +
-  geom_point(size = 0.) 
-```
-
-### Automated search for over-covered regions
 
 calculate z-score
 
@@ -131,31 +101,35 @@ calculate z-score
 
 >The absolute value of z represents the distance between that raw score x and the population mean in units of the standard deviation. z is negative when the raw score is below the mean, positive when above.
 
-```{r}
-depth_per_window %>% 
-  mutate(z = (coverage - mean(coverage))/sd(coverage)) %>% 
-  ggplot(aes(z)) +
-  geom_histogram() +
-  geom_vline(xintercept = 2, color = "red")
-```
-
 ```{r, fig.width=14, fig.height=4}
-depth_per_window %>%
+#library(dplyr)
+library(ggplot2)
+
+window_size <- 1000
+mean_coverage <- mean(depth_chosen$V3)
+
+depth_chosen %>%
+  mutate(window = 1 + (row_number() - 1) %/% window_size) %>%
+  group_by(window) %>%
+  summarise(coverage = mean(V3)) %>%
   mutate(z = (coverage - mean(coverage)) / sd(coverage)) %>%
   ggplot(aes(window, z)) +
   geom_point(size = 0.2) +
   geom_hline(yintercept = 2, color = "red")
 ```
 
-```{r}
-depth_per_window %>% 
-  mutate(z = (coverage - mean(coverage))/sd(coverage)) %>%
-  filter(z >= 2)
-```
 
 ```{r}
-depth_per_window %>% 
-  mutate(z = (coverage - mean(coverage))/sd(coverage)) %>%
-  filter(z < 2)
+depth_per_window <-
+        depth_chosen %>%
+  mutate(window = 1 + (row_number() - 1) %/% window_size) %>%
+  group_by(window) %>%
+  summarise(coverage = mean(V3)) %>%
+  mutate(z = (coverage - mean(coverage)) / sd(coverage))
+
+depth_per_window %>%
+  filter(z >= 3) %>%
+        arrange(window)
 ```
+
 
