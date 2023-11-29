@@ -85,12 +85,22 @@ rule filter_annotation:
 
 rule depth:
     input: "results/variants/{parent}/mutant_mapped.bam"
-    output: "results/variants/{parent}/depth.tsv.gz"
+    output: "results/amplifications/{parent}/depth.tsv.gz"
     threads: 10
     message: "Calculating depth in {wildcards.parent} BAM file"
     log: "results/logs/{parent}_bam_depth.log"
     conda: "envs/var_calling.yaml"
     shell: "samtools depth -@ {threads} {input} | gzip -c > {output} 2> {log}"
+
+rule amplified_regions:
+    input: script = "workflow/scripts/find_amplifications.R",
+           depth = "results/amplifications/{parent}/depth.tsv.gz"
+    output: "results/amplifications/{parent}/amplifications_windows.bed"
+    threads: 10
+    message: "Looking for over-covered windows in {wildcards.parent} mutant genome"
+    log: "results/logs/{parent}_amplifications.log"
+    conda: "envs/rscripts.yaml"
+    shell: "Rscript {input.script} -i {input.depth} -o {output} &> {log}"
 
 rule final:
     input:
