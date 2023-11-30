@@ -8,11 +8,27 @@ option_list <- list(
                 default = NULL,
                 help = "TSV file with per position sequence depth",
                 metavar = "path"),
-    make_option(c("-o", "--output"),
+    make_option(c("-b", "--output_bed"),
                 type = "character",
                 default = NULL,
                 help = "BED output file with coordinates of over-covered regions",
-                metavar = "path")
+                metavar = "path"),
+    make_option(c("-l", "--output_plot"),
+                type = "character",
+                default = NULL,
+                help = "PNG output file with coverage plots",
+                metavar = "path"),
+    make_option(c("-z", "--threshold"),
+                type = "integer",
+                default = 2,
+                help = "threshold to filter candidate regions (in SD units)",
+                metavar = "int"
+    ),
+    make_option(c("-w", "--window"),
+                type = "integer",
+                default = 1000,
+                help = "Window size to calculate coverage",
+                metavar = "int")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
@@ -22,13 +38,20 @@ if (is.null(opt$input)){
  print_help(opt_parser)
  stop("Input file must be provided", call. = FALSE)
 }
-if (is.null(opt$output)){
+if (is.null(opt$output_bed)){
  print_help(opt_parser)
- stop("Output file must be provided", call. = FALSE)
+ stop("Output file (BED) must be provided", call. = FALSE)
+}
+if (is.null(opt$output_plot)){
+ print_help(opt_parser)
+ stop("Output file (PNG) must be provided", call. = FALSE)
 }
 
 input_depth_file <- opt$input
-output_bed_file <- opt$output
+output_bed_file <- opt$output_bed
+output_plot_file <- opt$output_plot
+z_threshold <- opt$threshold
+win_len <- opt$window
 
 library(data.table)
 library(ggplot2)
@@ -62,21 +85,37 @@ make_bed <- function(depth_dt, window_size){
  return(bed)
 }
 
+# function to make a plot of coverage per window
+plot_coverage <- function(df, title, z_line){
+ ggplot(df, aes(window, z)) +
+  geom_point(size = 0.2) +
+  geom_hline(yintercept = z_line, color = "red") +
+   ggtitle(title)
+}
+
+# main function
 main <- function(depth_dt, window_length=1000, z_threshold=2){
  # available contig names
  contigs <- unique(depth_dt, by = "V1")[, V1]
  # get normalized depth for each contig
- depth_norm <- purrr::map_dfr(contigs, ~ normalize_depth(depth, ., window_size = window_length))
+ depth_norm_list <- purrr::map(contigs, ~ normalize_depth(depth, ., window_size = window_length))
+ # make list plots
+ depth_plots <- purrr::map2(depth_norm_list, contigs, ~ plot_coverage(.x, .y, z_threshold))
  # filter normalized depth
- depth_norm_filtered <- depth_norm[z >= z_threshold,]
+ depth_norm_filtered <- dplyr::bind_rows(depth_norm_list)[z >= z_threshold,]
  # turn the filtered depth into a bed file (keep in mind the 0-based indexing!)
  bed <- make_bed(depth_norm_filtered, window_size = window_length)
 
- return(bed)
+ return(list(bed, depth_plots))
 }
 
 # Apply the functions above
 depth <- fread(input_depth_file, sep = "\t")
-candidate_regions <- main(depth)
-fwrite(candidate_regions, output_bed_file, sep = "\t", col.names = FALSE)
-
+bed_and_plots <- main(depth, window_length = win_len, z_threshold = z_threshold)
+# write files on the disc
+fwrite(bed_and_plots[[1]], output_bed_file, sep = "\t", col.names = FALSE)
+# arrange plots
+n_plots <- length(bed_and_plots[[2]])
+plots <- ggpubr::ggarrange(plotlist = bed_and_plots[[2]], ncol = 1, nrow = n_plots)
+ggsave(filename = output_plot_file, plot = plots, width = 14, height=2*n_plots)
+print("Script finished, no errors.")
