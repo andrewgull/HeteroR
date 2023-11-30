@@ -1,7 +1,7 @@
 parents:
   DA63342: DA63342
-  #DA62886: DA62886
-  #DA63350: DA63350
+  DA62886: DA62886
+  DA63150: DA63150
   #DA62998: DA62998
 
 mutants:
@@ -10,10 +10,16 @@ mutants:
   "78896": "78896"
   "78760": "78760"
 
+# var.calling
 max_depth: 800
 ploidy: 1
 prior: "5.0e-10"
 
+# var.filtering
 indel_dist: 3
 quality: 30
 depth: 20
+
+# over-covered regions, a.k.a. amplifications
+z_threshold: 3
+window_size: 1000
