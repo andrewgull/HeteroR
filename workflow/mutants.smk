@@ -95,17 +95,18 @@ rule depth:
 rule amplified_regions:
     input: script = "workflow/scripts/find_amplifications.R",
            depth = "results/amplifications/{parent}/depth.tsv.gz"
-    output: "results/amplifications/{parent}/amplifications_windows.bed"
-    threads: 10
+    output: bed = "results/amplifications/{parent}/amplifications_windows.bed",
+            plot = "results/amplifications/{parent}/genome_coverage.png"
     message: "Looking for over-covered windows in {wildcards.parent} mutant genome"
     log: "results/logs/{parent}_amplifications.log"
     conda: "envs/rscripts.yaml"
-    shell: "Rscript {input.script} -i {input.depth} -o {output} &> {log}"
+    params: z = config["z_threshold"], w = config["window_size"]
+    shell: "Rscript {input.script} -i {input.depth} -b {output.bed} -l {output.plot} -z {params.z} -w {params.w} &> {log}"
 
 rule final:
     input:
-        variants_annotated_filtered = "results/variants/{parent}/{parent}_genes_with_variants.tsv",
-        depth = "results/variants/{parent}/depth.tsv.gz"
+        bed = "results/amplifications/{parent}/amplifications_windows.bed",
+        genes_w_snps = "results/variants/{parent}/{parent}_genes_with_variants.tsv"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
