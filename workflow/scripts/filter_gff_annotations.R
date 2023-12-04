@@ -1,6 +1,7 @@
-# script for reading GFF file and filtering based on the 10th column
+# script for reading GFF file and filtering based on the 10th column + retrieving gene names
 # this column contains the fraction of GFF file covered by VCF file
 # if values in this column greater than 0, then the corresponding gene contains a variant
+# outputs a nice TSV table witg gene names and their coordinates
 library(optparse)
 
 # CLI parsing
