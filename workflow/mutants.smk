@@ -61,9 +61,9 @@ rule variant_filtering:
 rule variant_annotation:
     input: gff = "results/annotations/{parent}/prokka/{parent}_genomic.gff",
            bcf = "results/variants/{parent}/variants_filtered.bcf"
-    output: gff_clean = "results/variants/{parent}/{parent}_genomic_clean.gff",
+    output: gff_clean = "results/variants/{parent}/genomic_clean.gff",
             vcf = "results/variants/{parent}/variants_filtered.vcf",
-            gff_annotated = "results/variants/{parent}/{parent}_annotated_variants.gff"
+            gff_annotated = "results/variants/{parent}/annotated_variants.gff"
     threads: 10
     message: "Annotating variants in {wildcards.parent} mutant"
     log: view = "results/logs/{parent}_bcftools_view.log",
@@ -75,9 +75,9 @@ rule variant_annotation:
            "bedtools annotate -i {output.gff_clean} -files {output.vcf} > {output.gff_annotated} 2> {log.annotate}"
 
 rule filter_annotation:
-    input: script = "workflow/scripts/filter_variant_annotations.R",
-           gff = "results/variants/{parent}/{parent}_annotated_variants.gff"
-    output: "results/variants/{parent}/{parent}_genes_with_variants.tsv"
+    input: script = "workflow/scripts/filter_gff_annotations.R",
+           gff = "results/variants/{parent}/annotated_variants.gff"
+    output: "results/variants/{parent}/genes_with_variants.tsv"
     message: "Filtering annotated GFF/VCF in {wildcards.parent} mutant"
     log: "results/logs/{parent}_filter_variant_annotation.log"
     conda: "envs/rscripts.yaml"
@@ -92,7 +92,7 @@ rule depth:
     conda: "envs/var_calling.yaml"
     shell: "samtools depth -@ {threads} {input} | gzip -c > {output} 2> {log}"
 
-rule amplified_regions:
+rule find_amplified_regions:
     input: script = "workflow/scripts/find_amplifications.R",
            depth = "results/amplifications/{parent}/depth.tsv.gz"
     output: bed = "results/amplifications/{parent}/amplifications_windows.bed",
@@ -103,10 +103,37 @@ rule amplified_regions:
     params: z = config["z_threshold"], w = config["window_size"]
     shell: "Rscript {input.script} -i {input.depth} -b {output.bed} -l {output.plot} -z {params.z} -w {params.w} &> {log}"
 
+rule merge_amplified_regions:
+    input: "results/amplifications/{parent}/amplifications_windows.bed"
+    output: "results/amplifications/{parent}/amplifications_merged.bed"
+    message: "Merging overlapping windows in {wildcards.parent} mutant"
+    log: "results/logs/{parent}_merging.log"
+    conda: "envs/var_calling.yaml"
+    shell: "bedtools merge -i {input} > {output} 2> {log}"
+
+rule annotate_amplified_regions:
+    input: bed = "results/amplifications/{parent}/amplifications_merged.bed",
+           gff = "results/variants/{parent}/genomic_clean.gff"
+    output: "results/amplifications/{parent}/amplifications_annotated.gff"
+    message: "Annotating merged amplified regions in {wildcards.parent} mutants"
+    log: "results/logs/{parent}_annotate_merged.log"
+    conda: "envs/var_calling.yaml"
+    shell: "bedtools annotate -i {input.gff} -files {input.bed} | grep -v '0.000000' > {output} 2> {log}"
+
+rule filter_annotated_amplified_regions:
+    input: script = "workflow/scripts/filter_gff_annotations.R",
+           gff = "results/amplifications/{parent}/amplifications_annotated.gff"
+    output: "results/amplifications/{parent}/amplifications_annotated_filtered.tsv"
+    message: "Filtering annotated amplifications in {wildcards.parent} mutant"
+    log: "results/logs/{parent}_filter_amplification_annotation.log"
+    conda: "envs/rscripts.yaml"
+    shell: "Rscript {input.script} -i {input.gff} -o {output} &> {log}"
+
 rule final:
     input:
         bed = "results/amplifications/{parent}/amplifications_windows.bed",
-        genes_w_snps = "results/variants/{parent}/{parent}_genes_with_variants.tsv"
+        genes_w_snps = "results/variants/{parent}/genes_with_variants.tsv",
+        amplifications = "results/amplifications/{parent}/amplifications_annotated_filtered.tsv"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
