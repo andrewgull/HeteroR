@@ -1,0 +1,53 @@
+---
+title: "Nanopore reads coverage analysis"
+output: html_notebook
+---
+
+The recent batch of Nanopore reads (I received it 09.01.24) supposed to be better the previous runs
+
+Old coverage data is in `/home/andrei/Data/HeteroR/results/coverage/strains525.tsv`
+
+I get the data in these tables using my script `coverage_cli.py`
+
+```{r}
+library(tidyverse)
+cov525_path <- "/home/andrei/Data/HeteroR/results/coverage/strains525.tsv"
+cov_new_path <- "/home/andrei/Data/HeteroR/new_nanopore_coverage_filtered.tsv" # there is unfiltered version version
+#cov_new_path <- "/home/andrei/Data/HeteroR/new_nanopore_coverage_raw.tsv"
+
+cov_old <- read_delim(cov525_path, col_names = T)
+cov_new <- read_delim(cov_new_path, col_names = T)
+
+cov_old$strain <- str_extract(cov_old$file, "(DA[0-9]{5})")
+cov_new$strain <- str_extract(cov_new$file, "(DA[0-9]{5})")
+
+cov_join <- left_join(cov_new, cov_old, by = "strain")
+cov_join %>% select(strain, coverage.x, coverage.y)
+```
+
+Plot
+
+```{r}
+cov_join %>%
+  select(strain, coverage.x, coverage.y) %>%
+  rename(new = coverage.x,
+         old = coverage.y) %>%
+  pivot_longer(cols = -strain,
+               names_to = "label",
+               values_to = "coverage") %>%
+        ggplot(aes(strain, coverage)) +
+        geom_col(aes(fill=label), position = 'dodge')
+```
+
+for some strains new sequencing depth is lower than the old one, so I can keep the old sequences for them and discard the new ones
+for the following strains the old reads should be restored:
+
+DA62998
+DA63126
+DA63138
+DA63752
+DA63772
+DA63826
+DA63978
+DA64002
+
