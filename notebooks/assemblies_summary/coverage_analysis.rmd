@@ -27,7 +27,7 @@ cov_join %>% select(strain, coverage.x, coverage.y)
 
 Plot
 
-```{r}
+```{r, fig.width=8}
 cov_join %>%
   select(strain, coverage.x, coverage.y) %>%
   rename(new = coverage.x,
@@ -36,7 +36,9 @@ cov_join %>%
                names_to = "label",
                values_to = "coverage") %>%
         ggplot(aes(strain, coverage)) +
-        geom_col(aes(fill=label), position = 'dodge')
+        geom_col(aes(fill=label), position = 'dodge') +
+        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
 ```
 
 for some strains new sequencing depth is lower than the old one, so I can keep the old sequences for them and discard the new ones
