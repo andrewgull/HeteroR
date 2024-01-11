@@ -483,6 +483,7 @@ rule final:
         renamed_gbk="results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk",
         rep_csv="results/annotations/{strain}/repeats/{strain}_repeats.csv",
         rep_sum="results/tables/repeats_summary.csv",
+        depth="results/genome_coverage/{strain}/depth.txt",
         isescan="results/isescan/{strain}"
     output: touch("results/final/{strain}_all.done")
     shell: "echo 'DONE'"
