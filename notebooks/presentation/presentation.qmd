@@ -1,5 +1,5 @@
 ---
-title: "Predicting the unstable heteroresistance from genomic data"
+title: "Detection of unstable heteroresistance in E.coli using machine learning"
 subtitle: "Andrei Guliaev"
 author: "Researcher, Dan I. Andersson group"
 format: 
@@ -21,11 +21,11 @@ editor: source
 
 -   1.E-07 frequency of resistant population
 
-![](figs/resistance.png){.absolute bottom="250" right="50" width="284" height="200"}
+![Mixed population](figs/resistance.png){.absolute bottom="250" right="50" width="284" height="200"}
 
-![](figs/levels_of_resistance.png){.absolute bottom="20" left="10" width="356" height="260"}
+![Level of resistance](figs/levels_of_resistance.png){.absolute bottom="20" left="10" width="356" height="260"}
 
-![](figs/frequence_of_resistance.png){.absolute bottom="20" right="400" width="218" height="260"}
+![Frequency of resistance](figs/frequency_of_resistance.png){.absolute bottom="20" right="400" width="218" height="260"}
 :::
 
 ## Types of HR
