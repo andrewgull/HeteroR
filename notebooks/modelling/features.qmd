@@ -2382,7 +2382,7 @@ TEM_strains <- TEM_rgi %>%  select(strain) %>%  unlist %>%  unname %>% unique
 
 extract sequences
 
-```{r, eval=FALSE}
+```{r, eval=FALSE, message=F}
 library(Biostrings)
 tem_select <- function(x) {
   path <-
@@ -2420,13 +2420,13 @@ Check if all sequences in dna_set are the same
 unique(merged_dna_set)
 ```
 
-we have 8 differnet sequences, how many different families do we have?
+we have 6 differnet sequences, how many different families do we have?
 
 ```{r}
 TEM_rgi %>%  select(Best_Hit_ARO) %>%  unique()
 ```
 
-We have 4 families, how many different AA sequences do we have?
+We have 2 families, how many different AA sequences do we have?
 
 ```{r, eval=FALSE}
 unique(translate(merged_dna_set))
@@ -2463,7 +2463,7 @@ merged_dna_set_tb %>%
   unique()
 ```
 
-ok, one sequence. no needs to fix anything
+ok, one sequence. no need to fix anything
 
 Biostrings creates a lot of conflicts, better to detach it.
 
@@ -2477,7 +2477,9 @@ detach("package:Biostrings", unload = TRUE)
 tem_pivot <- TEM_rgi %>%
   group_by(strain, Best_Hit_ARO) %>%
   summarise(n = n()) %>%
-  pivot_wider(names_from = Best_Hit_ARO, values_from = n, values_fill = 0) %>% dplyr::rename(n.TEM.1= `TEM-1`,n.TEM.210= `TEM-210`,n.TEM.148= `TEM-148`,n.TEM.37= `TEM-37` )
+  pivot_wider(names_from = Best_Hit_ARO, values_from = n, values_fill = 0) %>% 
+  # check the available TEM names here
+  dplyr::rename(n.TEM.1 = `TEM-1`, n.TEM.148 = `TEM-148`)
 
 features_strain <- left_join(features_strain, tem_pivot, by = "strain")
 head(features_strain)
@@ -2485,7 +2487,7 @@ head(features_strain)
 
 ## Repeats around CTX-type beta-lactamases only
 
-```{r}
+```{r, message=F}
 features %>% 
   select(strain, record_id, AMR.Gene.Family) %>% 
   distinct() %>% 
@@ -2496,7 +2498,7 @@ features %>%
   filter(n.CTX != 0)
 ```
 
-43 strains with CTX
+39 strains with CTX
 
 ### Filter features with CTX genes only
 
@@ -2510,7 +2512,7 @@ features_CTX <- features %>%
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # using that universal function
 repeat_counts_CTX <- repeat_counts(features_CTX, "CTX")
 
@@ -2524,7 +2526,7 @@ head(features_strain)
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # using those universal functions
 med_ar_len_split_CTX <- med_ar_len_split(features_CTX, "CTX")
 med_ar_len_CTX <- med_ar_len(features_CTX, "CTX")
@@ -2540,7 +2542,7 @@ head(features_strain)
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # universal functions
 med_rep_len_split_CTX <- med_rep_len_split(features_CTX, "CTX")
 med_rep_len_CTX <- med_rep_len(features_CTX, "CTX")
@@ -2554,7 +2556,7 @@ head(features_strain)
 
 ## Repeats around TEM-type beta-lactamases only
 
-```{r}
+```{r, message=F}
 features %>% 
   select(strain, record_id, AMR.Gene.Family) %>% 
   distinct() %>% 
@@ -2565,7 +2567,7 @@ features %>%
   filter(TEM != 0)
 ```
 
-184 strains with TEM
+159 strains with TEM
 
 ### Filter features with TEM genes only
 
@@ -2579,7 +2581,7 @@ features_TEM <- features %>%
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # universal function
 repeat_counts_TEM <- repeat_counts(features_TEM, "TEM")
 
@@ -2593,7 +2595,7 @@ head(features_strain)
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # universal functions
 med_ar_len_split_TEM <- med_ar_len_split(features_TEM,"TEM")
 
@@ -2610,7 +2612,7 @@ head(features_strain)
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # universal functions
 med_rep_len_split_TEM <- med_rep_len_split(features_TEM, "TEM")
 
@@ -2625,7 +2627,7 @@ head(features_strain)
 
 ## Repeats around SHV-type beta-lactamases only
 
-```{r}
+```{r, message=F}
 features %>% 
   select(strain, record_id, AMR.Gene.Family) %>% 
   distinct() %>% 
@@ -2640,7 +2642,7 @@ features %>%
 
 ### Filter features with SHV genes only
 
-```{r}
+```{r, message=F}
 # there are 21 types of AMR gene families, only one type's name contain ampC
 features_SHV <- features %>% 
   filter(str_detect(AMR.Gene.Family, "SHV"))
@@ -2650,7 +2652,7 @@ features_SHV <- features %>%
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # all of the SHV resistance genes are on plasmids, can't use the function
 
 repeat_counts_SHV <- features_SHV %>%
@@ -2669,7 +2671,7 @@ head(features_strain)
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 med_ar_len_split_SHV <- features_SHV %>% 
   filter(is.beta.lac) %>% 
   group_by(strain, on.plasmid) %>% 
@@ -2692,7 +2694,7 @@ head(features_strain)
 
 On chromosome, on plasmid, both
 
-```{r}
+```{r, message=F}
 # same problem as before, no genes on chromosomes, I have to rewrite the function.
 med_rep_len_split_SHV <- features_SHV %>% 
   filter(is.beta.lac) %>% 
