@@ -15,7 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 mamba env create --file var_calling.yaml
 ```
 
-### Take fast arecords from gff annotation file
+### Take fasta records from gff annotation file
+
 because they contain correct contig names!
 
 ```{bash make.fasta}
@@ -130,6 +131,103 @@ depth_per_window <-
 depth_per_window %>%
   filter(z >= 3) %>%
         arrange(window)
+```
+
+## Overview of the variants
+
+let's check how many and what kind of variants we've got in our 78 strains
+
+```{r, message=FALSE}
+library(tidyverse)
+library(VariantAnnotation)
+library(GenomicRanges)
+
+vcf_files <- dir("/home/andrei/Data/HeteroR/results/variants", pattern = "*.vcf", recursive = T)
+
+
+var_len <- map_dbl(vcf_files, ~ length(
+  readVcf(
+    paste0("/home/andrei/Data/HeteroR/results/variants/", .))))
+
+hist(var_len, breaks = 30)
+```
+
+```{r}
+var_len
+```
+
+
+```{r}
+as_tibble(rowRanges(test_vcf))
+```
+
+```{r}
+vcf2tibb <- function(file_path, path_prefix){
+  # make full path to the file
+  full_path <- paste0(path_prefix, file_path)
+  # read in vcf
+  vcf_df <- as_tibble(rowRanges(readVcf(full_path)))
+  # extract strain name: the first 7 characters
+  vcf_df$strain <- substr(file_path, 1, 7)
+  return(vcf_df)
+}
+
+var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = "/home/andrei/Data/HeteroR/results/variants/"))
+
+var_df
+```
+
+Hist of rows per strain should be the same as the one above
+
+```{r}
+var_df %>% 
+  group_by(strain) %>% 
+  count() %>% 
+  ggplot(aes(n)) +
+  geom_histogram(bins = 30)
+```
+
+```{r, fig.width=10, fig.height=3}
+var_df %>% 
+  group_by(strain) %>% 
+  count() %>% 
+  ggplot(aes(strain, n)) +
+  geom_col() + 
+  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
+  geom_hline(yintercept = 3)
+```
+
+```{r}
+var_df %>% filter(strain == "DA63752") %>% 
+  group_by(seqnames) %>% 
+  count()
+```
+
+
+## Strains with too many variants
+
+```{r}
+library(Rsamtools)
+
+bamFile <- BamFile("/home/andrei/Data/HeteroR/results/variants/DA63752/mutant_mapped.bam")
+
+# Count all reads
+allReads <- scanBam(bamFile, param = ScanBamParam(what = "flag"))
+
+# Count unmapped reads
+unmappedReads <- scanBam(bamFile, param = ScanBamParam(what = "flag", flag = scanBamFlag(isUnmappedQuery = TRUE)))
+
+# Calculate the number of reads
+totalReads <- length(allReads[[1]]$flag)
+totalUnmappedReads <- length(unmappedReads[[1]]$flag)
+
+# Calculate mapped reads
+totalMappedReads <- totalReads - totalUnmappedReads
+
+# Print statistics
+totalUnmappedReads/totalReads
+
+close(bamFile)
 ```
 
 
