@@ -7,6 +7,21 @@ rule all:
         expand("results/mutants/final/{parent}_all.done", parent=config['parents'])
         #mutants = expand("results/mutants/final/{mutant}_all.done", mutant=config['mutants'])
 
+rule trim_reads:
+    input: 
+        r1 = "resources/data_raw/{strain}/Illumina/mutants/{parent}m_1.fq.gz",
+        r2 = "resources/data_raw/{strain}/Illumina/mutants/{parent}m_2.fq.gz"
+    output:
+        r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
+        r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz"
+    threads: 10
+    message: "trimming front ends of the {wildcards.parent} reads"
+    log: "results/logs/{parent}_mutants_trimming.log"
+    conda: "envs/fastp.yaml"
+    params: f = 10
+    shell: "fastp --in1 {input.r1} --in2 {input.r2} --out1 {output.r1} --out2 {output.r2} --thread {threads} --trim_front1 {params.f} --trim_front2 {params.f} &> {log}" 
+
+
 rule make_reference:
     input: "results/annotations/{parent}/prokka/{parent}_genomic.gff"
     output: "results/variants/{parent}/reference.fasta"
