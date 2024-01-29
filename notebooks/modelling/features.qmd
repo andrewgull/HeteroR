@@ -224,6 +224,7 @@ repeat_df <- bind_rows(repeat_df, no_repeats_df)
 length(unique(repeat_df$strain))
 ```
 
+**End of the outdated block**
 ------------------------------------------------------------------------
 
 ### Read BED files to determine center spanning repeat pairs
@@ -818,7 +819,8 @@ same as with UC
 ```{r}
 list_FMP <- future_map(FMP_strains, ~ read_depth(.))
 df_FMP <- future_map_dfr(list_FMP, function(x) x[[1]])
-short_FMP <-unique(map_chr(list_FMP, function(x) x[[2]]))
+short_FMP <- unique(map_chr(list_FMP, function(x) x[[2]]))
+short_FMP <- short_FMP[!is.na(short_FMP)]
 
 df_FMP_all <- df_FMP %>% 
   filter(!strain %in% short_FMP) 
@@ -1172,7 +1174,7 @@ df_UC_short_scaffold <-
 
 short FMPs data are taken from depth files
 
-there is no unique key to join the two dataframes (assemblies and dpeth)- I can use strain name and length lengths are messed up so I: order them by size merge them and check if the percentage differnce between the the length of the of the merged fragments is lower than the fragment and his neighbors. Only framgments marked as Incomplete are considered to build the chromosome.
+there is no unique key to join the two dataframes (assemblies and depth) - I can use strain name and length lengths are messed up so I: order them by size merge them and check if the percentage differnce between the the length of the of the merged fragments is lower than the fragment and his neighbors. Only fragments marked as Incomplete are considered to build the chromosome.
 
 ```{r}
 FMP_size_median <- df_FMP_all %>% 
@@ -1186,7 +1188,9 @@ FMP_size_median <- df_FMP_all %>%
 
 ```{r}
 build_short_FMP <- function(x) {
+  # x is a strain name like DA00000
   # selecting cols of interest
+  print(x)
   df1 <-
     df_FMP_short_raw  %>% filter(Strain == x) %>% select(Strain, avg_depth, Length) %>% arrange(desc(Length)) %>% dplyr::rename(length_ass = Length)
   df2 <-
@@ -1229,19 +1233,13 @@ build_short_FMP <- function(x) {
           is_lower_than_prev
       )
     ) %>% select(
-      -percent_diff,
-      -next_max_length,
-      -prev_max_length,
-      -max_diff_next,
-      -max_diff_prev,
-      -is_lower_than_next,
-      -is_lower_than_prev
+      -percent_diff,-next_max_length,-prev_max_length,-max_diff_next,-max_diff_prev,-is_lower_than_next,-is_lower_than_prev
     )
   
   if (!all(total_df$is_lower_than_neighbours)) {
     warning(paste0("Union by size of the strain ", x, " is not unique\n\n"))
   }
-
+  
   df_out <-
     total_df %>% mutate(depth_norm = round(avg_depth / avg_depth[1], 0)) %>% filter(depth_norm ==
                                                                                       1, Status == "incomplete")
@@ -1266,7 +1264,7 @@ build_short_FMP <- function(x) {
       avg_depth = (
         sum(chromosome_fragments$depth_times_length) / sum(chromosome_fragments$max_length)
       )
-    )   %>%  arrange(desc(max_length)) %>% 
+    )   %>%  arrange(desc(max_length)) %>%
     mutate(plasmids = round(avg_depth / avg_depth[1], 0))
   
   return(df)
