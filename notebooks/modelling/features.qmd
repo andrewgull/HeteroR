@@ -1270,8 +1270,8 @@ build_short_FMP <- function(x) {
   return(df)
 }
 
-
-df_FMP_short_all <- future_map_dfr(short_FMP, ~ build_short_FMP(.))
+short_FMP[short_FMP != "DA63044"]
+df_FMP_short_all <- future_map_dfr(short_FMP[short_FMP != "DA63044"], ~ build_short_FMP(.))
 ```
 
 checking if all chromosomes have count == 1
@@ -1320,7 +1320,7 @@ plasmid_copy_number <- rbind(df_UC,
 features_strain <- features_strain %>%
   left_join(plasmid_copy_number, by="strain")
 
-features_strain
+features_strain 
 ```
 
 ## Adjusting gene counts by plasmid copy number
@@ -1424,7 +1424,7 @@ count_genes <- function(x) {
   
 }
 
-gene_counts_rgi <- future_map_dfr(strains, ~ count_genes(.))
+gene_counts_rgi <- future_map_dfr(strains[strains != "DA63044"], ~ count_genes(.))
 ```
 
 adding gene counts to features
@@ -2477,7 +2477,7 @@ tem_pivot <- TEM_rgi %>%
   summarise(n = n()) %>%
   pivot_wider(names_from = Best_Hit_ARO, values_from = n, values_fill = 0) %>% 
   # check the available TEM names here
-  dplyr::rename(n.TEM.1 = `TEM-1`, n.TEM.148 = `TEM-148`)
+  dplyr::rename(n.TEM.1 = `TEM-1`)
 
 features_strain <- left_join(features_strain, tem_pivot, by = "strain")
 head(features_strain)
@@ -2726,8 +2726,21 @@ read_isescan_csv <- function(strain_name) {
       "/regions/regions_joined_final.fasta.csv"
     )
   
-  df <- read_csv(path) %>% 
-    add_column(strain = strain_name, .before = 1)
+# Check if file exists
+  if (!file.exists(path)) {
+    warning("File does not exist: ", path)
+    # Create a tibble with specified column names and NA values
+    df <- tibble(
+      seqID = NA, family = NA, cluster = NA, isBegin = NA, isEnd = NA, isLen = NA,
+      ncopy4is = NA, start1 = NA, end1 = NA, start2 = NA, end2 = NA, score = NA,
+      irId = NA, irLen = NA, nGaps = NA, orfBegin = NA, orfEnd = NA, strand = NA,
+      orfLen = NA, `E-value` = NA, `E-value4copy` = NA, type = NA, ov = NA, tir = NA
+    )
+  } else {
+    # Read the file if it exists
+    df <- read_csv(path) %>%
+      add_column(strain = strain_name, .before = 1)
+  }
   
   return(df)
 }
