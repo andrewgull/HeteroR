@@ -137,6 +137,8 @@ depth_per_window %>%
 
 let's check how many and what kind of variants we've got in our 78 strains
 
+First 10 bases in all reads were trimmed - they had very skewed nucleotide content.
+
 ```{r, message=FALSE}
 library(tidyverse)
 library(VariantAnnotation)
@@ -152,14 +154,14 @@ var_len <- map_dbl(vcf_files, ~ length(
 hist(var_len, breaks = 30)
 ```
 
+Number of variants
+
 ```{r}
 var_len
 ```
 
 
-```{r}
-as_tibble(rowRanges(test_vcf))
-```
+Turn VCF to tibbles
 
 ```{r}
 vcf2tibb <- function(file_path, path_prefix){
@@ -182,52 +184,97 @@ Hist of rows per strain should be the same as the one above
 ```{r}
 var_df %>% 
   group_by(strain) %>% 
-  count() %>% 
+  summarise(n = n()) %>% 
+  #count() %>% 
   ggplot(aes(n)) +
   geom_histogram(bins = 30)
 ```
 
+### Variant counts per strain
+
 ```{r, fig.width=10, fig.height=3}
 var_df %>% 
   group_by(strain) %>% 
-  count() %>% 
+  summarise(n = n()) %>% 
+  #count() %>% 
   ggplot(aes(strain, n)) +
   geom_col() + 
   theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
   geom_hline(yintercept = 3)
 ```
 
+Ordered by n
+
 ```{r}
-var_df %>% filter(strain == "DA63752") %>% 
+var_df %>% 
+  #filter(strain == "DA63126") %>% 
+  group_by(strain, seqnames) %>% 
+  dplyr::count() %>% 
+  arrange(n)
+```
+
+###  Strains with too many variants
+
+```{r}
+var_df %>% 
+  filter(strain == "DA63126") %>% 
   group_by(seqnames) %>% 
-  count()
+  dplyr::count()
 ```
 
-
-## Strains with too many variants
 
 ```{r}
-library(Rsamtools)
-
-bamFile <- BamFile("/home/andrei/Data/HeteroR/results/variants/DA63752/mutant_mapped.bam")
-
-# Count all reads
-allReads <- scanBam(bamFile, param = ScanBamParam(what = "flag"))
-
-# Count unmapped reads
-unmappedReads <- scanBam(bamFile, param = ScanBamParam(what = "flag", flag = scanBamFlag(isUnmappedQuery = TRUE)))
-
-# Calculate the number of reads
-totalReads <- length(allReads[[1]]$flag)
-totalUnmappedReads <- length(unmappedReads[[1]]$flag)
-
-# Calculate mapped reads
-totalMappedReads <- totalReads - totalUnmappedReads
-
-# Print statistics
-totalUnmappedReads/totalReads
-
-close(bamFile)
+var_df %>% 
+  filter(strain == "DA63784") %>% 
+  group_by(seqnames) %>% 
+  dplyr::count()
 ```
 
+```{r}
+var_df %>% 
+  filter(strain == "DA63870") %>% 
+  group_by(seqnames) %>% 
+  dplyr::count()
+```
+
+#### What I did with DA63126 (and others)
+
+1. fastqc once again: DA63126 has too big GC content deviations. Contamination?
+2. fastq_screen
+3. Filtering of E.coli mappeing only reads
+4. get VCF again (n = 2400, before n = 4000)
+
+Code:
+
+```{bash}
+cd results/data_filtered/DA63126/Illumina/mutants
+conda activate fastqscreen-env
+# tag reads E.coli reads and keep them, toss the rest
+fastq_screen --tag --filter 00000001000000 --conf FastQ_Screen_Genomes/fastq_screen.conf DA63126m_1.fq.gz --outdir filter_ecoli
+# genome order: hum, mus, rat, dro, worm, yeast, arabido, ecoli, rrna, mito, phix, lamb, vec, adap
+
+# now equalize number of reads in each fastq file
+seqkit pair --id-regexp '^(\S+)\/[12]'  -1 filter_ecoli/DA63126m_1.fq.gz -2 filter_ecoli/DA63126m_2.fq.gz
+
+# move the balanced and filtered reads to . and run the pipeline again
+# run var_calling.Rmd -> number of variants in DA63126 is 2400, still too much
+```
+
+
+Plots from DA63126 fastq screen:
+
+[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA63126/Illumina/mutants/filter_ecoli/DA63126m_1_screen.png)
+
+[screening results reads 2](~/Data/HeteroR/results/data_filtered/DA63126/Illumina/mutants/filter_ecoli/DA63126m_2_screen.png)
+
+Screening of the other suspicious strains and one of the *clean* strains (DA62954) gives the same looking plots.
+
+From DA63784 fastq screen (200 variants):
+
+[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA63784/Illumina/mutants/filter_ecoli/DA63784m_1_screen.png)
+
+
+From DA62954 fastq screen (1 variant)
+
+[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA62954/Illumina/mutants/filter_ecoli/DA62954m_1_screen.png)
 
