@@ -187,7 +187,8 @@ var_df %>%
   summarise(n = n()) %>% 
   #count() %>% 
   ggplot(aes(n)) +
-  geom_histogram(bins = 30)
+  geom_histogram(bins = 30) +
+  geom_rug()
 ```
 
 ### Variant counts per strain
