@@ -9,9 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Variants
+
 ## Mapping
 
-```{bash}
+```{bash, eval=F}
 mamba env create --file var_calling.yaml
 ```
 
@@ -19,14 +21,14 @@ mamba env create --file var_calling.yaml
 
 because they contain correct contig names!
 
-```{bash make.fasta}
+```{bash make.fasta, eval=F}
 GFF="/home/andrei/Data/HeteroR/results/annotations/DA63342/prokka/DA63342_genomic.gff"
 
 # leave fasta, drop the rest
 sed -n '/##FASTA/,${p}' $GFF | sed '1d' > assembly_new_names.fasta 
 ```
 
-```{bash mapping}
+```{bash mapping, eval=F}
 READS1="/home/andrei/Data/HeteroR/results/data_filtered/DA63342/Illumina/mutants/DA63342m_1.fq.gz"
 READS2="/home/andrei/Data/HeteroR/results/data_filtered/DA63342/Illumina/mutants/DA63342m_2.fq.gz"
 REF_FASTA="assembly_new_names.fasta"
@@ -40,7 +42,7 @@ bowtie2 -p 10 -x index -1 $READS1 -2 $READS2 -S aligned.sam && samtools sort -@ 
 
 ## Variant calling & filtering
 
-```{bash var.calling}
+```{bash var.calling, eval=F}
 bcftools mpileup --threads 10 --max-depth 800 -f $REF_FASTA -Ou aligned.bam | bcftools call --threads 10 --ploidy 1 -mv -Ob --prior 5.0e-10 -o variants.bcf
 bcftools filter -g3 -i 'QUAL>30 && DP>20' -Ob variants.bcf > variants_filtered.bcf
 # to take a look
@@ -50,7 +52,7 @@ bcftools query --format "%POS\t%REF\t%ALT\n" variants_filtered.bcf
 
 ## Variant annotation
 
-```{bash var.annotation}
+```{bash var.annotation, eval=F}
 GFF="/home/andrei/Data/HeteroR/results/annotations/DA63342/prokka/DA63342_genomic.gff"
 
 bcftools view variants_filtered.bcf > variants_filtered.vcf
@@ -63,7 +65,7 @@ bedtools annotate -i DA63342_genomic_clean.gff -files variants_filtered.vcf > gf
 # "Default behavior is to report the fraction of -i covered by each file"
 ```
 
-```{r read.gff}
+```{r read.gff, eval=F}
 library(dplyr)
 
 read_gff <- function(gff_filename) {
@@ -78,6 +80,211 @@ read_gff <- function(gff_filename) {
 gff_annotated <- read_gff("/mnt/data/andrei/Data/HeteroR/results/variants/DA63342/DA63342_annotated_variants.gff") %>% filter(V10 > 0)
 gff_annotated
 ```
+
+
+## Overview of the variants
+
+let's check how many and what kind of variants we've got in our 78 strains
+
+First 10 bases in all reads were trimmed - they had very skewed nucleotide content.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(VariantAnnotation)
+library(GenomicRanges)
+
+vcf_files <- dir("/home/andrei/Data/HeteroR/results/variants", pattern = "*.vcf", recursive = T)
+
+
+var_len <- map_dbl(vcf_files, ~ length(
+  readVcf(
+    paste0("/home/andrei/Data/HeteroR/results/variants/", .))))
+
+hist(var_len, breaks = 30)
+```
+
+Number of variants
+
+```{r}
+var_len
+```
+
+```{r}
+summary(var_len)
+```
+
+
+Turn VCF to tibbles
+
+```{r}
+vcf2tibb <- function(file_path, path_prefix){
+  # make full path to the file
+  full_path <- paste0(path_prefix, file_path)
+  # read in vcf
+  vcf_df <- as_tibble(rowRanges(readVcf(full_path)))
+  # extract strain name: the first 7 characters
+  vcf_df$strain <- substr(file_path, 1, 7)
+  return(vcf_df)
+}
+
+var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = "/home/andrei/Data/HeteroR/results/variants/"))
+
+var_df
+```
+
+Hist of rows per strain should be the same as the one above
+
+```{r}
+var_df %>% 
+  group_by(strain) %>% 
+  summarise(n = n()) %>% 
+  #count() %>% 
+  ggplot(aes(n)) +
+  geom_histogram(bins = 30) +
+  geom_rug()
+```
+
+```{r}
+var_df %>% 
+  group_by(strain) %>% 
+  summarise(n = n()) %>% 
+  pull(n) %>% 
+  summary()
+```
+
+
+### Variant counts per strain
+
+```{r, fig.width=10, fig.height=3}
+var_df %>% 
+  group_by(strain) %>% 
+  summarise(n = n()) %>% 
+  #count() %>% 
+  ggplot(aes(strain, n)) +
+  geom_col() + 
+  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
+  geom_hline(yintercept = 3)
+```
+
+Ordered by n
+
+```{r}
+var_df %>% 
+  group_by(strain, seqnames) %>% 
+  dplyr::count() %>% 
+  arrange(-n)
+```
+
+###  Strains with too many variants
+
+```{r}
+var_df %>% 
+  filter(strain == "DA63126") %>% 
+  group_by(seqnames) %>% 
+  dplyr::count()
+```
+
+
+```{r}
+var_df %>% 
+  filter(strain == "DA63784") %>% 
+  group_by(seqnames) %>% 
+  dplyr::count()
+```
+
+```{r}
+var_df %>% 
+  filter(strain == "DA63870") %>% 
+  group_by(seqnames) %>% 
+  dplyr::count()
+```
+
+```{r}
+var_df %>% 
+  filter(strain == "DA63964") %>% 
+  group_by(seqnames) %>% 
+  dplyr::count()
+```
+
+### DA63346
+
+The strain that is not in the HR testing results...
+
+Before I discovered this, it had approx 7 variants
+
+```{r}
+var_df %>% 
+  filter(strain == "DA63346")
+```
+
+Everything with more than 20 variants
+
+```{r}
+var_df %>% 
+  group_by(strain, seqnames) %>% 
+  dplyr::count() %>% 
+  filter(n > 10) %>% 
+  arrange(-n)
+```
+
+Re-run the pipelines on these 12 strains
+
+```{r}
+var_df %>% 
+  group_by(strain, seqnames) %>% 
+  dplyr::count() %>% 
+  filter(n > 10) %>%
+  pull(strain) %>% 
+  write.csv(file = "/home/andrei/Data/HeteroR/resources/strain_lists/mutants_10vars_rerun.txt", quote = F, row.names = F)
+```
+
+Copy the corresponding original files using temporary script 'copy_mutants.py'
+
+
+#### What I did with DA63126 (and others)
+
+1. fastqc once again: DA63126 has too big GC content deviations. Contamination?
+2. fastq_screen
+3. Filtering of E.coli mapping only reads
+4. get VCF again (n = 2400, before n = 4000)
+
+Code:
+
+```{bash, eval=F}
+cd results/data_filtered/DA63126/Illumina/mutants
+conda activate fastqscreen-env
+# tag reads E.coli reads and keep them, toss the rest
+fastq_screen --tag --filter 00000001000000 --conf FastQ_Screen_Genomes/fastq_screen.conf DA63126m_1.fq.gz --outdir filter_ecoli
+# genome order: hum, mus, rat, dro, worm, yeast, arabido, ecoli, rrna, mito, phix, lamb, vec, adap
+
+# now equalize number of reads in each fastq file
+seqkit pair --id-regexp '^(\S+)\/[12]'  -1 filter_ecoli/DA63126m_1.fq.gz -2 filter_ecoli/DA63126m_2.fq.gz
+
+# move the balanced and filtered reads to . and run the pipeline again
+# run var_calling.Rmd -> number of variants in DA63126 is 2400, still too much
+```
+
+
+Plots from DA63126 fastq screen:
+
+[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA63126/Illumina/mutants/filter_ecoli/DA63126m_1_screen.png)
+
+[screening results reads 2](~/Data/HeteroR/results/data_filtered/DA63126/Illumina/mutants/filter_ecoli/DA63126m_2_screen.png)
+
+Screening of the other suspicious strains and one of the *clean* strains (DA62954) gives the same looking plots.
+
+From DA63784 fastq screen (200 variants):
+
+[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA63784/Illumina/mutants/filter_ecoli/DA63784m_1_screen.png)
+
+
+From DA62954 fastq screen (1 variant)
+
+[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA62954/Illumina/mutants/filter_ecoli/DA62954m_1_screen.png)
+
+
+
+# Amplifications
 
 ## Depth and amplifications
 
@@ -94,7 +301,8 @@ depth_chosen <- depth[V1 == "gnl|UU|CMIAEBAJ_1",]
 depth_chosen
 ```
 
-### coverage in a window of certain size
+
+## coverage in a window of certain size
 
 calculate z-score
 
@@ -133,149 +341,62 @@ depth_per_window %>%
         arrange(window)
 ```
 
-## Overview of the variants
 
-let's check how many and what kind of variants we've got in our 78 strains
+# Plasmid CN
 
-First 10 bases in all reads were trimmed - they had very skewed nucleotide content.
+via change in coverage compared to the parental strains
 
-```{r, message=FALSE}
+1. You have depth.txt files with short reads coverage for each parent -> summarise
+
+2. You have coverage files for mutants (from the 'amplifications' step) -> get coverage; summarise
+
+3. Join and compare
+
+```{r, warning=FALSE}
 library(tidyverse)
-library(VariantAnnotation)
-library(GenomicRanges)
 
-vcf_files <- dir("/home/andrei/Data/HeteroR/results/variants", pattern = "*.vcf", recursive = T)
+config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
 
+parents <- unlist(config_mutants$parents)
 
-var_len <- map_dbl(vcf_files, ~ length(
-  readVcf(
-    paste0("/home/andrei/Data/HeteroR/results/variants/", .))))
+dir_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
 
-hist(var_len, breaks = 30)
+assembly_summaries <- map_dfr(parents, ~ read_tsv(paste0(dir_path, ., "/summary.tsv"), 
+                                                  show_col_types = F, 
+                                                  col_types = "ccdccc",
+                                                  col_select = c("Component", "Length", "Coverage", "Status", "Type", "Strain")))
+# "Component", "Length", "Coverage", "Status", "Type", "Strain"
+assembly_summaries
 ```
-
-Number of variants
 
 ```{r}
-var_len
-```
+config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
 
+parents <- unlist(config_mutants$parents)
 
-Turn VCF to tibbles
+dir_path <- "/home/andrei/Data/HeteroR/results/genome_coverage/"
 
-```{r}
-vcf2tibb <- function(file_path, path_prefix){
-  # make full path to the file
-  full_path <- paste0(path_prefix, file_path)
-  # read in vcf
-  vcf_df <- as_tibble(rowRanges(readVcf(full_path)))
-  # extract strain name: the first 7 characters
-  vcf_df$strain <- substr(file_path, 1, 7)
-  return(vcf_df)
-}
+test_depth <- paste0(dir_path, parents[1], "/depth.txt")
 
-var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = "/home/andrei/Data/HeteroR/results/variants/"))
+test_depth_df <- read_tsv(test_depth, col_names = F)
 
-var_df
-```
-
-Hist of rows per strain should be the same as the one above
-
-```{r}
-var_df %>% 
-  group_by(strain) %>% 
-  summarise(n = n()) %>% 
-  #count() %>% 
-  ggplot(aes(n)) +
-  geom_histogram(bins = 30) +
-  geom_rug()
-```
-
-### Variant counts per strain
-
-```{r, fig.width=10, fig.height=3}
-var_df %>% 
-  group_by(strain) %>% 
-  summarise(n = n()) %>% 
-  #count() %>% 
-  ggplot(aes(strain, n)) +
-  geom_col() + 
-  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
-  geom_hline(yintercept = 3)
-```
-
-Ordered by n
-
-```{r}
-var_df %>% 
-  #filter(strain == "DA63126") %>% 
-  group_by(strain, seqnames) %>% 
-  dplyr::count() %>% 
-  arrange(n)
-```
-
-###  Strains with too many variants
-
-```{r}
-var_df %>% 
-  filter(strain == "DA63126") %>% 
-  group_by(seqnames) %>% 
-  dplyr::count()
-```
-
-
-```{r}
-var_df %>% 
-  filter(strain == "DA63784") %>% 
-  group_by(seqnames) %>% 
+test_depth_df %>% 
+  group_by(X1) %>% 
   dplyr::count()
 ```
 
 ```{r}
-var_df %>% 
-  filter(strain == "DA63870") %>% 
-  group_by(seqnames) %>% 
-  dplyr::count()
+test_depth_df %>% 
+  group_by(X1) %>% 
+  summarise(length = n(), 
+            coverage = sum(X3)) %>% 
+  filter(length > 1000) %>% 
+  mutate(avg.cov = round(coverage/length, 3),
+         rel.cov = avg.cov / 173.567)
+  
 ```
 
-#### What I did with DA63126 (and others)
-
-1. fastqc once again: DA63126 has too big GC content deviations. Contamination?
-2. fastq_screen
-3. Filtering of E.coli mappeing only reads
-4. get VCF again (n = 2400, before n = 4000)
-
-Code:
-
-```{bash}
-cd results/data_filtered/DA63126/Illumina/mutants
-conda activate fastqscreen-env
-# tag reads E.coli reads and keep them, toss the rest
-fastq_screen --tag --filter 00000001000000 --conf FastQ_Screen_Genomes/fastq_screen.conf DA63126m_1.fq.gz --outdir filter_ecoli
-# genome order: hum, mus, rat, dro, worm, yeast, arabido, ecoli, rrna, mito, phix, lamb, vec, adap
-
-# now equalize number of reads in each fastq file
-seqkit pair --id-regexp '^(\S+)\/[12]'  -1 filter_ecoli/DA63126m_1.fq.gz -2 filter_ecoli/DA63126m_2.fq.gz
-
-# move the balanced and filtered reads to . and run the pipeline again
-# run var_calling.Rmd -> number of variants in DA63126 is 2400, still too much
+```{r}
+tail(test_depth_df)
 ```
-
-
-Plots from DA63126 fastq screen:
-
-[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA63126/Illumina/mutants/filter_ecoli/DA63126m_1_screen.png)
-
-[screening results reads 2](~/Data/HeteroR/results/data_filtered/DA63126/Illumina/mutants/filter_ecoli/DA63126m_2_screen.png)
-
-Screening of the other suspicious strains and one of the *clean* strains (DA62954) gives the same looking plots.
-
-From DA63784 fastq screen (200 variants):
-
-[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA63784/Illumina/mutants/filter_ecoli/DA63784m_1_screen.png)
-
-
-From DA62954 fastq screen (1 variant)
-
-[screening results reads 1](~/Data/HeteroR/results/data_filtered/DA62954/Illumina/mutants/filter_ecoli/DA62954m_1_screen.png)
 
