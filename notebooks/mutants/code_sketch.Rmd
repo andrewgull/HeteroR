@@ -352,24 +352,11 @@ via change in coverage compared to the parental strains
 
 3. Join and compare
 
+## Parents
+
 ```{r, warning=FALSE}
 library(tidyverse)
 
-config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
-
-parents <- unlist(config_mutants$parents)
-
-dir_path <- "/home/andrei/Data/HeteroR/results/assemblies_joined/"
-
-assembly_summaries <- map_dfr(parents, ~ read_tsv(paste0(dir_path, ., "/summary.tsv"), 
-                                                  show_col_types = F, 
-                                                  col_types = "ccdccc",
-                                                  col_select = c("Component", "Length", "Coverage", "Status", "Type", "Strain")))
-# "Component", "Length", "Coverage", "Status", "Type", "Strain"
-assembly_summaries
-```
-
-```{r}
 config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
 
 parents <- unlist(config_mutants$parents)
@@ -394,9 +381,33 @@ test_depth_df %>%
   mutate(avg.cov = round(coverage/length, 3),
          rel.cov = avg.cov / 173.567)
   
+cov_df <- 
+  test_depth_df %>% 
+  group_by(X1) %>% 
+  summarise(length = n(), 
+            coverage = sum(X3)) %>% 
+  filter(length > 1000) %>% 
+  mutate(avg.cov = round(coverage/length, 3))
+
+# relative coverage
+chrom_cov <- cov_df %>% 
+  filter(length == max(length)) %>% 
+  pull(avg.cov)
+
+cov_df$rel.cov <- cov_df$avg.cov/chrom_cov
+
 ```
 
 ```{r}
-tail(test_depth_df)
+cov_df
 ```
+
+## Mutants
+
+```{r}
+# samtools index {output.bam} &> {log.samtools_index} && 
+# samtools depth -a {output.bam} 2> {log.samtools_depth} > {output.depth}
+```
+
+
 
