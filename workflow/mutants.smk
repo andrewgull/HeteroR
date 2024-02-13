@@ -144,11 +144,33 @@ rule filter_annotated_amplified_regions:
     conda: "envs/rscripts.yaml"
     shell: "Rscript {input.script} -i {input.gff} -o {output} &> {log}"
 
+rule relative_coverage_mutant:
+    input: depth = "results/amplifications/{parent}/depth.tsv.gz", # this one is from mapping of mutant reads
+           script = "workflow/scripts/relative_coverage.R"
+    output: "results/copy_number/{parent}/relative_coverage_mutant.tsv"
+    message: "Calculating relative coverage on {wildcards.parent} mutants"
+    log: "results/logs/{parent}/relative_coverage_mutants.log"
+    conda: "envs/rscripts.yaml"
+    params: min_len = config["min_contig_len"]
+    shell: "Rscript {input.script} -i {input.depth} -o {output} -m {params.min_len} -l mutant -s {parent}"
+
+rule relative_coverage_parent:
+    input: depth = "results/genome_coverage/{parent}/depth.txt", # this one is from mapping of parental reads
+           script = "workflow/scripts/relative_coverage.R"
+    output: "results/copy_number/{parent}/relative_coverage_parent.tsv"
+    message: "Calculating relative coverage on {wildcards.parent} parent"
+    log: "results/logs/{parent}/relative_coverage_parent.log"
+    conda: "envs/rscripts.yaml"
+    params: min_len = config["min_contig_len"]
+    shell: "Rscript {input.script} -i {input.depth} -o {output} -m {params.min_len} -l parent -s {parent}"
+
 rule final:
     input:
         bed = "results/amplifications/{parent}/amplifications_windows.bed",
         genes_w_snps = "results/variants/{parent}/genes_with_variants.tsv",
-        amplifications = "results/amplifications/{parent}/amplifications_annotated_filtered.tsv"
+        amplifications = "results/amplifications/{parent}/amplifications_annotated_filtered.tsv",
+        rel_cov_mut = "results/copy_number/{parent}/relative_coverage_mutant.tsv",
+        rel_cov_parent = "results/copy_number/{parent}/relative_coverage_parent.tsv"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
