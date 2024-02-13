@@ -152,7 +152,7 @@ rule relative_coverage_mutant:
     log: "results/logs/{parent}/relative_coverage_mutants.log"
     conda: "envs/rscripts.yaml"
     params: min_len = config["min_contig_len"]
-    shell: "Rscript {input.script} -i {input.depth} -o {output} -m {params.min_len} -l mutant -s {parent}"
+    shell: "Rscript {input.script} -i {input.depth} -o {output} -m {params.min_len} -l mutant -s {wildcards.parent} &> {log}"
 
 rule relative_coverage_parent:
     input: depth = "results/genome_coverage/{parent}/depth.txt", # this one is from mapping of parental reads
@@ -162,7 +162,7 @@ rule relative_coverage_parent:
     log: "results/logs/{parent}/relative_coverage_parent.log"
     conda: "envs/rscripts.yaml"
     params: min_len = config["min_contig_len"]
-    shell: "Rscript {input.script} -i {input.depth} -o {output} -m {params.min_len} -l parent -s {parent}"
+    shell: "Rscript {input.script} -i {input.depth} -o {output} -m {params.min_len} -l parent -s {wildcards.parent} &> {log}"
 
 rule final:
     input:
