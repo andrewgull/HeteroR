@@ -373,15 +373,7 @@ test_depth_df %>%
 ```
 
 ```{r}
-test_depth_df %>% 
-  group_by(X1) %>% 
-  summarise(length = n(), 
-            coverage = sum(X3)) %>% 
-  filter(length > 1000) %>% 
-  mutate(avg.cov = round(coverage/length, 3),
-         rel.cov = avg.cov / 173.567)
-  
-cov_df <- 
+cov_df_parent <- 
   test_depth_df %>% 
   group_by(X1) %>% 
   summarise(length = n(), 
@@ -390,24 +382,91 @@ cov_df <-
   mutate(avg.cov = round(coverage/length, 3))
 
 # relative coverage
-chrom_cov <- cov_df %>% 
+chrom_cov_parent <- cov_df_parent %>% 
   filter(length == max(length)) %>% 
   pull(avg.cov)
 
-cov_df$rel.cov <- cov_df$avg.cov/chrom_cov
+cov_df_parent$rel.cov <- cov_df_parent$avg.cov/chrom_cov_parent
 
-```
+cov_df_parent <-
+  cov_df_parent %>%
+  arrange(-length)
 
-```{r}
-cov_df
+cov_df_parent
 ```
 
 ## Mutants
 
 ```{r}
-# samtools index {output.bam} &> {log.samtools_index} && 
-# samtools depth -a {output.bam} 2> {log.samtools_depth} > {output.depth}
+# cd results/variants/DA62886
+# conda activate varcalling-env
+# samtools index mutant_mapped.bam 
+# samtools depth -a mutant_mapped.bam > mutant_depth.tsv 
+mut_depth_df <- read_tsv("/home/andrei/Data/HeteroR/results/variants/DA62886/mutant_depth.tsv", col_names = F, show_col_types = F)
+
+mut_depth_df %>% 
+  group_by(X1) %>% 
+  dplyr::count()
 ```
 
+```{r}
+cov_df_mutant <- 
+  mut_depth_df %>% 
+  group_by(X1) %>% 
+  summarise(length = n(), 
+            coverage = sum(X3)) %>% 
+  filter(length > 1000) %>% 
+  mutate(avg.cov = round(coverage/length, 3))
+
+# relative coverage
+chrom_cov_mutant <- cov_df_mutant %>% 
+  filter(length == max(length)) %>% 
+  pull(avg.cov)
+
+cov_df_mutant$rel.cov <- cov_df_mutant$avg.cov/chrom_cov_mutant
+
+cov_df_mutant
+```
+
+### Join & Compare
+
+```{r}
+bind_cols(cov_df_parent, cov_df_mutant) %>% 
+  select(contains("X1"), contains("rel.cov"), contains("length"))
+```
+
+### Function
+
+```{r}
+parse_depth <- function(file_path, min_contig_length=1000) {
+  depth_df <- read_tsv(file_path, col_names = F, show_col_types = F)
+  
+  # check correct column names
+  stopifnot(exprs = {"X8" %in% names(depth_df) & "X3" %in% names(depth_df)})
+  # check if the table is empty
+  stopifnot(nrow(depth_df) > 0)
+  
+  # calculate length and avg. coverage of each contig
+  cov_df <-
+    depth_df %>%
+    group_by(X1) %>%
+    summarise(length = n(),
+              coverage = sum(X3)) %>%
+    filter(length > min_contig_length) %>%
+    mutate(avg.cov = round(coverage / length, 3))
+  
+  # relative coverage
+  chrom_cov <- cov_df %>%
+    filter(length == max(length)) %>%
+    pull(avg.cov)
+  
+  cov_df$rel.cov <- cov_df$avg.cov / chrom_cov
+  
+  return(cov_df)
+}
+
+parse_depth("/home/andrei/Data/HeteroR/results/variants/DA62886/mutant_depth.tsv")
+
+```
 
 
