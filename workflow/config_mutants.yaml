@@ -91,3 +91,6 @@ depth: 20
 # over-covered regions, a.k.a. amplifications
 z_threshold: 3
 window_size: 1000
+
+# raltive coverage
+min_contig_len: 1000
