@@ -396,6 +396,8 @@ cov_df_parent
 ```
 
 ## Mutants
+ 
+You have depth file in `amplifications`
 
 ```{r}
 # cd results/variants/DA62886
@@ -438,11 +440,15 @@ bind_cols(cov_df_parent, cov_df_mutant) %>%
 ### Function
 
 ```{r}
-parse_depth <- function(file_path, min_contig_length=1000) {
+parse_depth <- function(file_path, min_contig_length=1000, strain, label) {
+  # param file_path: depth file path
+  # min_contig_length: contigs to filter out
+  # param strain: strain name
+  # param label: mutant or parent
   depth_df <- read_tsv(file_path, col_names = F, show_col_types = F)
   
   # check correct column names
-  stopifnot(exprs = {"X8" %in% names(depth_df) & "X3" %in% names(depth_df)})
+  stopifnot(exprs = {"X1" %in% names(depth_df) & "X3" %in% names(depth_df)})
   # check if the table is empty
   stopifnot(nrow(depth_df) > 0)
   
@@ -461,12 +467,18 @@ parse_depth <- function(file_path, min_contig_length=1000) {
     pull(avg.cov)
   
   cov_df$rel.cov <- cov_df$avg.cov / chrom_cov
+  cov_df$strain <- strain
+  cov_df$label <- label
   
   return(cov_df)
 }
 
-parse_depth("/home/andrei/Data/HeteroR/results/variants/DA62886/mutant_depth.tsv")
+mut <- parse_depth("/home/andrei/Data/HeteroR/results/variants/DA62886/mutant_depth.tsv", strain = "DA62886", label = "mutant")
+parent <- parse_depth("/home/andrei/Data/HeteroR/results/genome_coverage/DA62886/depth.txt", strain = "DA62886", label = "parent")
 
+
+bind_rows(parent, mut) %>% 
+  ggplot(aes(strain, rel.cov)) +
+  geom_col(aes(fill=label), position = "dodge")
 ```
-
 
