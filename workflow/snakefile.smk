@@ -373,8 +373,9 @@ rule regions_seqs:
         right="results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta"
     message: "retrieving regions' sequences from {wildcards.strain} assembly"
     log: "results/logs/{strain}_bedtools.log"
-    conda: "envs/bedtools.yaml"
+    conda: "varcalling-env"
     shell:
+        "samtools faidx {input.assembly} &&"
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_normal} -nameOnly -fo {output.normal} &> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_5_end} -nameOnly -fo {output.left} &>> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_3_end} -nameOnly -fo {output.right} &>> {log}"
