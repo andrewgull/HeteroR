@@ -65,7 +65,7 @@ with open(snakemake.log[0], "w") as f:
         
         # RUN FLYE
         print("Flye-Medaka-Polypolish will be chosen to assemble the genome")
-        flye_out = subprocess.run(f"flye --nano-raw {LONG_READS} --threads {THREADS} --out-dir {ASSEMBLY_DIR} -g {GENOME_SIZE} --asm-coverage {COVERAGE}",
+        flye_out = subprocess.run(f"flye --nano-raw {LONG_READS} --threads {THREADS} --out-dir {ASSEMBLY_DIR} -g {GENOME_SIZE} --asm-coverage {gen_coverage}",
                                   shell=True, capture_output=True, text=True, check=True)
         outs.append(flye_out)
 
