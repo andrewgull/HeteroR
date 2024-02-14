@@ -93,15 +93,21 @@ library(tidyverse)
 library(VariantAnnotation)
 library(GenomicRanges)
 
-vcf_files <- dir("/home/andrei/Data/HeteroR/results/variants", pattern = "*.vcf", recursive = T)
+path_results <- "/home/andrei/Data/HeteroR/results/mutants/variants/"
+
+vcf_files <- dir(path_results, pattern = "*.vcf", recursive = T)
 
 
 var_len <- map_dbl(vcf_files, ~ length(
-  readVcf(
-    paste0("/home/andrei/Data/HeteroR/results/variants/", .))))
+  readVcf(paste0(path_results, .))))
 
 hist(var_len, breaks = 30)
 ```
+
+```{r}
+length(var_len)
+```
+
 
 Number of variants
 
@@ -127,7 +133,7 @@ vcf2tibb <- function(file_path, path_prefix){
   return(vcf_df)
 }
 
-var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = "/home/andrei/Data/HeteroR/results/variants/"))
+var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = path_results))
 
 var_df
 ```
@@ -162,7 +168,7 @@ var_df %>%
   #count() %>% 
   ggplot(aes(strain, n)) +
   geom_col() + 
-  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1)) +
   geom_hline(yintercept = 3)
 ```
 
@@ -174,6 +180,8 @@ var_df %>%
   dplyr::count() %>% 
   arrange(-n)
 ```
+
+The top two have currently problems with assembling
 
 ###  Strains with too many variants
 
@@ -217,7 +225,7 @@ var_df %>%
   filter(strain == "DA63346")
 ```
 
-Everything with more than 20 variants
+Everything with more than 10 variants
 
 ```{r}
 var_df %>% 
@@ -229,7 +237,7 @@ var_df %>%
 
 Re-run the pipelines on these 12 strains
 
-```{r}
+```{r, eval=F}
 var_df %>% 
   group_by(strain, seqnames) %>% 
   dplyr::count() %>% 
@@ -480,5 +488,53 @@ parent <- parse_depth("/home/andrei/Data/HeteroR/results/genome_coverage/DA62886
 bind_rows(parent, mut) %>% 
   ggplot(aes(strain, rel.cov)) +
   geom_col(aes(fill=label), position = "dodge")
+```
+
+
+## Overview of results
+
+```{r}
+relative_coverage_files <- dir("/home/andrei/Data/HeteroR/results/copy_number/", pattern = "*tsv", recursive = T)
+
+rel_cov_df <- map_dfr(relative_coverage_files, ~ read_tsv(paste0("/home/andrei/Data/HeteroR/results/copy_number/", .), show_col_types = F, col_types = "ciiddcc"))
+
+rel_cov_df
+```
+
+```{r}
+rel_cov_df %>% 
+  group_by(strain, label) %>% 
+  dplyr::count()
+```
+
+```{r}
+rel_cov_df %>% 
+  filter(strain == "DA63126")
+```
+
+```{r}
+parse_depth("/home/andrei/Data/HeteroR/results/amplifications/DA63126/depth.tsv.gz", strain = "DA63126", label = "mutant")
+```
+
+```{r}
+depth_df <- read_tsv("/home/andrei/Data/HeteroR/results/amplifications/DA63126/depth.tsv.gz", col_names = F, show_col_types = F)
+
+
+depth_df %>%
+  group_by(X1) %>%
+  summarise(length = n(),
+            coverage = sum(X3)) %>%
+  filter(length > min_contig_length) %>%
+  mutate(avg.cov = round(coverage / length, 3))
+```
+
+```{r}
+read_tsv("/home/andrei/Data/HeteroR/results/genome_coverage/DA63126/depth.txt", 
+         col_names = F, 
+         show_col_types = F) %>%
+  group_by(X1) %>%
+  summarise(length = n(),
+            coverage = sum(X3))
+
 ```
 
