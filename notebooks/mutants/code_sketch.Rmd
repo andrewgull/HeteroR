@@ -369,25 +369,25 @@ config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mut
 
 parents <- unlist(config_mutants$parents)
 
-dir_path <- "/home/andrei/Data/HeteroR/results/genome_coverage/"
+dir_path <- "/home/andrei/Data/HeteroR/results/mutants/copy_number/"
 
-test_depth <- paste0(dir_path, parents[1], "/depth.txt")
+test_depth <- paste0(dir_path, parents[53], "/parent_depth.tsv.gz")
 
 test_depth_df <- read_tsv(test_depth, col_names = F)
 
-test_depth_df %>% 
-  group_by(X1) %>% 
-  dplyr::count()
+head(test_depth_df)
 ```
+
+Make a table with element lengths, absolute, average and relative (to chromosome) coverage 
 
 ```{r}
 cov_df_parent <- 
   test_depth_df %>% 
   group_by(X1) %>% 
   summarise(length = n(), 
-            coverage = sum(X3)) %>% 
+            abs.cov = sum(X3)) %>% 
   filter(length > 1000) %>% 
-  mutate(avg.cov = round(coverage/length, 3))
+  mutate(avg.cov = round(abs.cov/length, 3))
 
 # relative coverage
 chrom_cov_parent <- cov_df_parent %>% 
@@ -412,7 +412,7 @@ You have depth file in `amplifications`
 # conda activate varcalling-env
 # samtools index mutant_mapped.bam 
 # samtools depth -a mutant_mapped.bam > mutant_depth.tsv 
-mut_depth_df <- read_tsv("/home/andrei/Data/HeteroR/results/variants/DA62886/mutant_depth.tsv", col_names = F, show_col_types = F)
+mut_depth_df <- read_tsv("/home/andrei/Data/HeteroR/results/mutants/amplifications/DA63752/mutant_depth.tsv.gz", col_names = F, show_col_types = F)
 
 mut_depth_df %>% 
   group_by(X1) %>% 
@@ -424,9 +424,9 @@ cov_df_mutant <-
   mut_depth_df %>% 
   group_by(X1) %>% 
   summarise(length = n(), 
-            coverage = sum(X3)) %>% 
+            abs.cov = sum(X3)) %>% 
   filter(length > 1000) %>% 
-  mutate(avg.cov = round(coverage/length, 3))
+  mutate(avg.cov = round(abs.cov/length, 3))
 
 # relative coverage
 chrom_cov_mutant <- cov_df_mutant %>% 
@@ -434,6 +434,8 @@ chrom_cov_mutant <- cov_df_mutant %>%
   pull(avg.cov)
 
 cov_df_mutant$rel.cov <- cov_df_mutant$avg.cov/chrom_cov_mutant
+
+cov_df_mutant <- cov_df_mutant %>% arrange(-length)
 
 cov_df_mutant
 ```
@@ -467,7 +469,8 @@ parse_depth <- function(file_path, min_contig_length=1000, strain, label) {
     summarise(length = n(),
               coverage = sum(X3)) %>%
     filter(length > min_contig_length) %>%
-    mutate(avg.cov = round(coverage / length, 3))
+    mutate(avg.cov = round(coverage / length, 3)) %>% 
+    arrange(-length)
   
   # relative coverage
   chrom_cov <- cov_df %>%
@@ -477,15 +480,17 @@ parse_depth <- function(file_path, min_contig_length=1000, strain, label) {
   cov_df$rel.cov <- cov_df$avg.cov / chrom_cov
   cov_df$strain <- strain
   cov_df$label <- label
+  chrom_plasm_col <- c("chrom", rep("plasmid", nrow(cov_df) - 1))
+  cov_df$genome.part <- chrom_plasm_col
   
   return(cov_df)
 }
 
-mut <- parse_depth("/home/andrei/Data/HeteroR/results/variants/DA62886/mutant_depth.tsv", strain = "DA62886", label = "mutant")
+mut <- parse_depth("/home/andrei/Data/HeteroR/results/mutants/variants/DA62886/mutant_depth.tsv", strain = "DA62886", label = "mutant")
 parent <- parse_depth("/home/andrei/Data/HeteroR/results/genome_coverage/DA62886/depth.txt", strain = "DA62886", label = "parent")
 
-
 bind_rows(parent, mut) %>% 
+  filter(genome.part != "chrom") %>% 
   ggplot(aes(strain, rel.cov)) +
   geom_col(aes(fill=label), position = "dodge")
 ```
@@ -494,7 +499,7 @@ bind_rows(parent, mut) %>%
 ## Overview of results
 
 ```{r}
-relative_coverage_files <- dir("/home/andrei/Data/HeteroR/results/copy_number/", pattern = "*tsv", recursive = T)
+relative_coverage_files <- dir("/home/andrei/Data/HeteroR/results/mutants/copy_number/", pattern = "*tsv", recursive = T)
 
 rel_cov_df <- map_dfr(relative_coverage_files, ~ read_tsv(paste0("/home/andrei/Data/HeteroR/results/copy_number/", .), show_col_types = F, col_types = "ciiddcc"))
 
