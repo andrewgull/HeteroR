@@ -1,9 +1,8 @@
-"""
-adaptive hybrid assembling
-this script runs unicycler if covergae is shallow (< 20x) or flye-medaka-polypolish
-the latter can also be ran if unicycler crashes
-all constants except for UNICYLCER_STATUS are defined in the Snakemake file
-"""
+# adaptive hybrid assembling
+# this script runs unicycler if covergae is shallow (< 20x) or flye-medaka-polypolish
+# the latter can also be run if unicycler crashes
+# all constants except for UNICYLCER_STATUS are defined in the Snakemake file
+
 import sys
 import subprocess
 import os
