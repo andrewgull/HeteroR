@@ -140,7 +140,7 @@ rule depth_mutant:
 
 rule find_amplified_regions:
     input: script = "workflow/scripts/find_amplifications.R",
-           depth = "results/mutants/amplifications/{parent}/depth.tsv.gz"
+           depth = "results/mutants/amplifications/{parent}/mutant_depth.tsv.gz"
     output: bed = "results/mutants/amplifications/{parent}/amplifications_windows.bed",
             plot = "results/mutants/amplifications/{parent}/genome_coverage.png"
     message: "Looking for over-covered windows in {wildcards.parent} mutant genome"
@@ -162,9 +162,9 @@ rule annotate_amplified_regions:
            gff = "results/mutants/variants/{parent}/genomic_clean.gff"
     output: "results/mutants/amplifications/{parent}/amplifications_annotated.gff"
     message: "Annotating merged amplified regions in {wildcards.parent} mutants"
-    log: "results/logs/{parent}_annotate_merged.log"
+    log: "results/logs/{parent}_annotate_amplifications.log"
     conda: "envs/var_calling.yaml"
-    shell: "bedtools annotate -i {input.gff} -files {input.bed} | grep -v '0.000000' > {output} 2> {log}"
+    shell: "touch {output}; bedtools annotate -i {input.gff} -files {input.bed} | grep -v '0.000000' 1>> {output} 2> {log}"
 
 rule filter_annotated_amplified_regions:
     input: script = "workflow/scripts/filter_gff_annotations.R",
