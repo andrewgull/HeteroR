@@ -101,7 +101,7 @@ vcf_files <- dir(path_results, pattern = "*.vcf", recursive = T)
 var_len <- map_dbl(vcf_files, ~ length(
   readVcf(paste0(path_results, .))))
 
-hist(var_len, breaks = 30)
+hist(var_len, breaks = 78)
 ```
 
 ```{r}
@@ -146,8 +146,10 @@ var_df %>%
   summarise(n = n()) %>% 
   #count() %>% 
   ggplot(aes(n)) +
-  geom_histogram(bins = 30) +
-  geom_rug()
+  geom_histogram(bins = 78) +
+  geom_rug() +
+  xlab("N variants") +
+  ylab("N strains")
 ```
 
 ```{r}
@@ -161,7 +163,7 @@ var_df %>%
 
 ### Variant counts per strain
 
-```{r, fig.width=10, fig.height=3}
+```{r, fig.width=6, fig.height=3}
 var_df %>% 
   group_by(strain) %>% 
   summarise(n = n()) %>% 
@@ -176,7 +178,7 @@ Ordered by n
 
 ```{r}
 var_df %>% 
-  group_by(strain, seqnames) %>% 
+  group_by(strain) %>% 
   dplyr::count() %>% 
   arrange(-n)
 ```
@@ -187,7 +189,7 @@ The top two have currently problems with assembling
 
 ```{r}
 var_df %>% 
-  filter(strain == "DA63126") %>% 
+  filter(strain == "DA63790") %>% 
   group_by(seqnames) %>% 
   dplyr::count()
 ```
@@ -195,21 +197,7 @@ var_df %>%
 
 ```{r}
 var_df %>% 
-  filter(strain == "DA63784") %>% 
-  group_by(seqnames) %>% 
-  dplyr::count()
-```
-
-```{r}
-var_df %>% 
-  filter(strain == "DA63870") %>% 
-  group_by(seqnames) %>% 
-  dplyr::count()
-```
-
-```{r}
-var_df %>% 
-  filter(strain == "DA63964") %>% 
+  filter(strain == "DA63694") %>% 
   group_by(seqnames) %>% 
   dplyr::count()
 ```
@@ -449,6 +437,8 @@ bind_cols(cov_df_parent, cov_df_mutant) %>%
 
 ### Function
 
+This function is used in a script in the pipeline
+
 ```{r}
 parse_depth <- function(file_path, min_contig_length=1000, strain, label) {
   # param file_path: depth file path
@@ -486,8 +476,8 @@ parse_depth <- function(file_path, min_contig_length=1000, strain, label) {
   return(cov_df)
 }
 
-mut <- parse_depth("/home/andrei/Data/HeteroR/results/mutants/variants/DA62886/mutant_depth.tsv", strain = "DA62886", label = "mutant")
-parent <- parse_depth("/home/andrei/Data/HeteroR/results/genome_coverage/DA62886/depth.txt", strain = "DA62886", label = "parent")
+mut <- parse_depth("/home/andrei/Data/HeteroR/results/mutants/amplifications/DA62916/mutant_depth.tsv.gz", strain = "DA62916", label = "mutant")
+parent <- parse_depth("/home/andrei/Data/HeteroR/results/mutants/copy_number/DA62916/parent_depth.tsv.gz", strain = "DA62916", label = "parent")
 
 bind_rows(parent, mut) %>% 
   filter(genome.part != "chrom") %>% 
@@ -495,51 +485,119 @@ bind_rows(parent, mut) %>%
   geom_col(aes(fill=label), position = "dodge")
 ```
 
+Or look at them as a fold change
+
+```{r}
+full_join(parent, mut, by="X1") %>% 
+  mutate(rel.cov.fold.change = round(rel.cov.y / rel.cov.x, 2)) %>% 
+  select(X1, genome.part.x, rel.cov.fold.change, strain.x) %>% 
+  filter(genome.part.x != "chrom") %>% 
+  ggplot(aes(X1, rel.cov.fold.change)) +
+  geom_col() +
+  facet_grid(rows=vars(strain.x)) +
+  xlab("") +
+  ylab("relative coverage fold change")
+
+
+```
+
 
 ## Overview of results
 
-```{r}
-relative_coverage_files <- dir("/home/andrei/Data/HeteroR/results/mutants/copy_number/", pattern = "*tsv", recursive = T)
+After applying the script calculating relative coverage for each mutant strain
 
-rel_cov_df <- map_dfr(relative_coverage_files, ~ read_tsv(paste0("/home/andrei/Data/HeteroR/results/copy_number/", .), show_col_types = F, col_types = "ciiddcc"))
+```{r, message=FALSE}
+library(tidyverse)
 
-rel_cov_df
+config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
+parents <- unname(unlist(config_mutants$parents))
+
+
+rel_cov_df_parent <-
+  purrr::map_dfr(parents,
+                 ~ readr::read_tsv(paste0(
+                       "/home/andrei/Data/HeteroR/results/mutants/copy_number/",
+                       ., "/relative_coverage_parent.tsv"), show_col_types = F
+                   ))
+
+rel_cov_df_parent
 ```
 
 ```{r}
-rel_cov_df %>% 
-  group_by(strain, label) %>% 
-  dplyr::count()
+rel_cov_df_mutant <-
+  purrr::map_dfr(parents,
+                 ~ readr::read_tsv(paste0(
+                       "/home/andrei/Data/HeteroR/results/mutants/copy_number/",
+                       ., "/relative_coverage_mutant.tsv"), show_col_types = F
+                   ))
+
+rel_cov_df_mutant
+```
+
+Why do they have different number of rows?
+
+```{r}
+full_join(
+  rel_cov_df_parent %>%
+    group_by(strain, X1) %>%
+    count(),
+  rel_cov_df_mutant %>%
+    group_by(strain, X1) %>%
+    count(),
+  by = c("strain","X1")
+) %>%
+  filter(is.na(n.y) | is.na(n.x))
 ```
 
 ```{r}
-rel_cov_df %>% 
-  filter(strain == "DA63126")
+rel_cov_df_mutant %>% 
+  filter(strain == "DA63038")
 ```
 
 ```{r}
-parse_depth("/home/andrei/Data/HeteroR/results/amplifications/DA63126/depth.tsv.gz", strain = "DA63126", label = "mutant")
+rel_cov_df_parent %>% 
+  filter(strain == "DA63038")
+```
+
+Why so different? Reference file was the same.
+
+Possible explanation: coverage of the mutant has "gaps" and such regions are not reported, therefore the length is calculated incorrectly or is NA (i.e. gnl|UU|DLCOMDEO_3 is not present in the table - not covered at all)
+
+If depth file has non-covered region, how are they reported? as 0-s or as nothing? (not reported) and then there are gaps in X1 column of the depth file?
+
+```{r}
+mut <- data.table::fread("/home/andrei/Data/HeteroR/results/mutants/amplifications/DA63038/mutant_depth.tsv.gz", sep = "\t")
+mut[, ':=' (strain="DA63038", label="mutant")]
+
+parent <- parse_depth("/home/andrei/Data/HeteroR/results/mutants/copy_number/DA63038/parent_depth.tsv.gz", strain = "DA63038", label = "parent")
+
+```
+
+
+```{r}
+# any non reported positions?
+mut %>% 
+  filter(V1 == "gnl|UU|DLCOMDEO_1") %>% 
+  mutate(V2.lag = lag(V2),
+         V2.diff = V2 - V2.lag) 
 ```
 
 ```{r}
-depth_df <- read_tsv("/home/andrei/Data/HeteroR/results/amplifications/DA63126/depth.tsv.gz", col_names = F, show_col_types = F)
-
-
-depth_df %>%
-  group_by(X1) %>%
-  summarise(length = n(),
-            coverage = sum(X3)) %>%
-  filter(length > min_contig_length) %>%
-  mutate(avg.cov = round(coverage / length, 3))
+mut %>% 
+  filter(V1 == "gnl|UU|DLCOMDEO_1") %>% 
+  mutate(V2.lag = lag(V2),
+         V2.diff = V2 - V2.lag) %>% 
+  filter(V2.diff > 1)
 ```
+
+So, some positions are not reported because they have 0 coverage.
 
 ```{r}
-read_tsv("/home/andrei/Data/HeteroR/results/genome_coverage/DA63126/depth.txt", 
-         col_names = F, 
-         show_col_types = F) %>%
-  group_by(X1) %>%
-  summarise(length = n(),
-            coverage = sum(X3))
-
+mut %>% 
+  filter(V1 == "gnl|UU|DLCOMDEO_1") %>% 
+  mutate(V2.lag = lag(V2),
+         V2.diff = V2 - V2.lag) %>% 
+  filter(V2 <= 147407, V2 >= 147394)
 ```
 
+I should account for this when calculating length and average coverage...
