@@ -34,12 +34,12 @@ input_gff <- opt$input
 output_gff <- opt$output
 
 # Libraries
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 library(stringr)
 
 # functions
 read_gff <- function(gff_filename) {
-  # read gff fileand retiurn it as plain data frame
+  # read gff file and return it as a plain data frame
   df <-
     as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
     select(V1, V3, V4, V5, V7, V9, V10) %>%
@@ -48,13 +48,22 @@ read_gff <- function(gff_filename) {
 }
 
 # main
-gff_table <- read_gff(input_gff)
-gff_annotated <- filter(gff_table, V10 > 0) %>%
-  mutate(V11 = str_extract(V9, pattern="(?<=gene=).*(?=;locus_tag)"),
-         V12 = str_extract(V9, pattern="(?<=ID=).*(?=_gene;)")) %>%
-  select(-c(V3, V9, V10))
+# check if annotated GFF is empty (in case when there was nothing to annotate)
+if (file.size(input_gff) == 0L) {
+  # make an empty DF
+  gff_annotated <- data.frame("contig" = c(NA), "start" = c(NA), "stop" = c(NA), "strand" = c(NA), "gene_name" = c(NA), "locus_tag" = c(NA))
+  print("Empty GFF file!")
+} else {
+  # parse annotated GFF
+  gff_table <- read_gff(input_gff)
+  gff_annotated <- filter(gff_table, V10 > 0) %>%
+    mutate(V11 = str_extract(V9, pattern="(?<=gene=).*(?=;locus_tag)"),
+           V12 = str_extract(V9, pattern="(?<=ID=).*(?=_gene;)")) %>%
+    select(-c(V3, V9, V10))
 
-names(gff_annotated) <- c("contig", "start", "stop", "strand", "gene_name", "locus_tag")
+  names(gff_annotated) <- c("contig", "start", "stop", "strand", "gene_name", "locus_tag")
+}
 
 # write results
 write.table(gff_annotated, output_gff, sep = "\t", row.names = FALSE)
+print("Finished. No errors.")
