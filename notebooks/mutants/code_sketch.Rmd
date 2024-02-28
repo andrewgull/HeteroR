@@ -506,103 +506,9 @@ full_join(parent, mut, by="X1") %>%
 
 After applying the script calculating relative coverage for each mutant strain
 
-```{r, message=FALSE}
-library(tidyverse)
+The older version of the script relied on number of rows in depth files and was reporting wrong contig length.
 
-config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
-parents <- unname(unlist(config_mutants$parents))
-
-
-rel_cov_df_parent <-
-  purrr::map_dfr(parents,
-                 ~ readr::read_tsv(paste0(
-                       "/home/andrei/Data/HeteroR/results/mutants/copy_number/",
-                       ., "/relative_coverage_parent.tsv"), show_col_types = F
-                   ))
-
-rel_cov_df_parent
-```
-
-```{r}
-rel_cov_df_mutant <-
-  purrr::map_dfr(parents,
-                 ~ readr::read_tsv(paste0(
-                       "/home/andrei/Data/HeteroR/results/mutants/copy_number/",
-                       ., "/relative_coverage_mutant.tsv"), show_col_types = F
-                   ))
-
-rel_cov_df_mutant
-```
-
-### Depth files have unreported positions
-
-Why do they have different number of rows?
-
-```{r}
-full_join(
-  rel_cov_df_parent %>%
-    group_by(strain, X1) %>%
-    count(),
-  rel_cov_df_mutant %>%
-    group_by(strain, X1) %>%
-    count(),
-  by = c("strain","X1")
-) %>%
-  filter(is.na(n.y) | is.na(n.x))
-```
-
-```{r}
-rel_cov_df_mutant %>% 
-  filter(strain == "DA63038")
-```
-
-```{r}
-rel_cov_df_parent %>% 
-  filter(strain == "DA63038")
-```
-
-Why so different? Reference file was the same.
-
-Possible explanation: coverage of the mutant has "gaps" and such regions are not reported, therefore the length is calculated incorrectly or is NA (i.e. gnl|UU|DLCOMDEO_3 is not present in the table - not covered at all)
-
-If depth file has non-covered region, how are they reported? as 0-s or as nothing? (not reported) and then there are gaps in X1 column of the depth file?
-
-```{r}
-mut <- data.table::fread("/home/andrei/Data/HeteroR/results/mutants/amplifications/DA63038/mutant_depth.tsv.gz", sep = "\t")
-mut[, ':=' (strain="DA63038", label="mutant")]
-
-parent <- parse_depth("/home/andrei/Data/HeteroR/results/mutants/copy_number/DA63038/parent_depth.tsv.gz", strain = "DA63038", label = "parent")
-
-```
-
-
-```{r}
-# any non reported positions?
-mut %>% 
-  filter(V1 == "gnl|UU|DLCOMDEO_1") %>% 
-  mutate(V2.lag = lag(V2),
-         V2.diff = V2 - V2.lag) 
-```
-
-```{r}
-mut %>% 
-  filter(V1 == "gnl|UU|DLCOMDEO_1") %>% 
-  mutate(V2.lag = lag(V2),
-         V2.diff = V2 - V2.lag) %>% 
-  filter(V2.diff > 1)
-```
-
-So, some positions are not reported because they have 0 coverage.
-
-```{r}
-mut %>% 
-  filter(V1 == "gnl|UU|DLCOMDEO_1") %>% 
-  mutate(V2.lag = lag(V2),
-         V2.diff = V2 - V2.lag) %>% 
-  filter(V2 <= 147407, V2 >= 147394)
-```
-
-I should account for this when calculating length and average coverage...
+The new version takes contig lengths directly from reference genome files
 
 ### Reading length directly from reference
 
@@ -723,6 +629,143 @@ parse_depth(depth_path = "/home/andrei/Data/HeteroR/results/mutants/copy_number/
             strain = "DA63038",
             label = "parent")
 ```
+
+The following overview is based on these new results.
+
+### Joined parent-mutant data
+
+```{r, message=FALSE}
+library(tidyverse)
+
+config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
+parents <- unname(unlist(config_mutants$parents))
+
+
+rel_cov_df_parent <-
+  purrr::map_dfr(parents,
+                 ~ readr::read_tsv(paste0(
+                       "/home/andrei/Data/HeteroR/results/mutants/copy_number/",
+                       ., "/relative_coverage_parent.tsv"), show_col_types = F
+                   ))
+
+rel_cov_df_parent
+```
+
+```{r}
+rel_cov_df_mutant <-
+  purrr::map_dfr(parents,
+                 ~ readr::read_tsv(paste0(
+                       "/home/andrei/Data/HeteroR/results/mutants/copy_number/",
+                       ., "/relative_coverage_mutant.tsv"), show_col_types = F
+                   ))
+
+rel_cov_df_mutant
+```
+
+Same number of rows in parents and mutants?
+
+```{r}
+full_join(
+  rel_cov_df_parent %>%
+    group_by(strain, contig.name) %>%
+    count(),
+  rel_cov_df_mutant %>%
+    group_by(strain, contig.name) %>%
+    count(),
+  by = c("strain","contig.name")
+) %>%
+  filter(is.na(n.y) | is.na(n.x))
+```
+
+Seems so
+
+### Many plots
+
+#### Counts
+
+```{r, fig.width=6, fig.height=20}
+bind_rows(rel_cov_df_mutant, rel_cov_df_parent) %>% 
+  filter(genome.part != "chrom") %>% 
+  filter(strain == "DA63038") %>% 
+  mutate(contig.name.2 = str_extract(contig.name, "_[0-9]"))
+   ggplot(aes(contig.name, round(rel.depth, 1))) +
+    geom_col(aes(fill = label), position = "dodge") +
+    ggtitle("strain: DA63038") +
+    xlab("plasmid") +
+    theme(legend.position = "none")
+
+plot_bars <- function(parent_name) {
+  pl <- bind_rows(rel_cov_df_mutant, rel_cov_df_parent) %>%
+    filter(genome.part != "chrom", strain == parent_name) %>%
+    mutate(contig.name.2 = str_extract(contig.name, "_[0-9]")) %>% 
+    ggplot(aes(contig.name.2, round(rel.depth, 1))) +
+    geom_col(aes(fill = label), position = "dodge") +
+    ggtitle(parent_name) +
+    xlab("plasmid") +
+    ylab("n") +
+    theme(legend.position = "none") 
+  
+  return(pl)
+}
+
+plot_list <- map(parents, ~ plot_bars(.))
+
+ggpubr::ggarrange(plotlist = plot_list, nrow = 10, ncol = 2, common.legend = T)
+```
+
+#### Fold change
+
+Relative depth is rounded to the nearest integer
+
+```{r, warning=FALSE}
+bind_cols(rel_cov_df_mutant, rel_cov_df_parent) %>%
+  filter(genome.part...8 != "chrom",
+         strain...6 == "DA63046",
+         !is.na(tot.depth...2)) %>%
+  mutate(rel.depth...5 = round(rel.depth...5, 0),
+         rel.depth...13 = round(rel.depth...13, 0)) %>% 
+  mutate(contig.name.2 = str_extract(contig.name...1, "_[0-9]")) %>% 
+  ggplot(aes(contig.name.2, rel.depth...5 / rel.depth...13)) +
+  geom_col(fill="seagreen", position = "dodge") +
+  ggtitle("DA63046") +
+  xlab("") +
+  ylab("fold change in mutant") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(
+          size = 10,
+          angle = 45,
+          hjust = 1
+        )) 
+
+plot_fc <- function(parent_name) {
+  pl <- bind_rows(rel_cov_df_mutant, rel_cov_df_parent) %>%
+    filter(genome.part...8 != "chrom",
+           strain...6 == parent_name,!is.na(tot.depth...2)) %>%
+    mutate(
+      rel.depth...5 = round(rel.depth...5, 0),
+      rel.depth...13 = round(rel.depth...13, 0)
+    ) %>%
+    ggplot(aes(contig.name...1, rel.depth...5 / rel.depth...13)) +
+    geom_col(position = "dodge") +
+    ggtitle(parent_name) +
+    xlab("") +
+    ylab("fold change in mutant") +
+    theme(legend.position = "none",
+          axis.text.x = element_text(
+            size = 10,
+            angle = 45,
+            hjust = 1
+          ))
+  
+  return(pl)
+}
+
+plot_fc_list <- map(parents, ~ plot_fc(.))
+
+ggpubr::ggarrange(plotlist = plot_fc_list, nrow = 10, ncol = 2)
+```
+
+
 
 
 
