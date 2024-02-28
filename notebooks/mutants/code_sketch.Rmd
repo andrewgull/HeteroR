@@ -534,6 +534,8 @@ rel_cov_df_mutant <-
 rel_cov_df_mutant
 ```
 
+### Depth files have unreported positions
+
 Why do they have different number of rows?
 
 ```{r}
@@ -601,3 +603,126 @@ mut %>%
 ```
 
 I should account for this when calculating length and average coverage...
+
+### Reading length directly from reference
+
+Calculate length
+
+```{r}
+library(Biostrings)
+
+file_path <- "/home/andrei/Data/HeteroR/results/mutants/variants/DA63038/reference.fasta" 
+
+# Read the file
+ref_gen <- readDNAStringSet(file_path)
+contig_lengths <- width(ref_gen)
+
+contig_len_df <- tibble("contig.name" = names(ref_gen), 
+                       "contig.len" = contig_lengths)
+contig_len_df
+```
+
+Calculate coverage
+
+```{r}
+mut_depth_df <- read_tsv("/home/andrei/Data/HeteroR/results/mutants/amplifications/DA63038/mutant_depth.tsv.gz", col_names = F, show_col_types = F)
+
+mut_depth_df %>% 
+  group_by(X1) %>% 
+  summarise(tot.depth = sum(X3)) %>% 
+  rename("contig.name" = X1) %>% 
+  left_join(contig_len_df, by = "contig.name") %>% 
+  mutate(avg.depth = tot.depth / contig.len)
+
+```
+
+### New parse_depth() function
+
+```{r}
+cov_df <- mut_depth_df %>%
+    group_by(X1) %>%
+    summarise(tot.depth = sum(X3)) %>%
+    rename("contig.name" = X1) %>%
+    left_join(contig_len_df, by = "contig.name") %>%
+    mutate(avg.depth = tot.depth / contig.len) %>% 
+    arrange(-contig.len)
+
+cov_df
+
+
+chrom_cov <- cov_df %>%
+    filter(contig.len == max(contig.len)) %>%
+    pull(avg.depth)
+
+chrom_cov
+```
+
+
+```{r}
+library(dplyr)
+library(readr)
+library(Biostrings)
+
+parse_depth <- function(depth_path, ref_path, min_contig_length=1000, strain, label) {
+  # param depth_path: a path to the depth file
+  # param ref_path: a path to the reference genome in fasta format
+  # min_contig_length: contigs to filter out
+  # param strain: strain name
+  # param label: mutant or parent
+  
+  # read reference
+  ref_gen <- readDNAStringSet(ref_path)
+  # make a table with contig names and lengths
+  contig_len_df <- tibble("contig.name" = names(ref_gen), 
+                         "contig.len" = width(ref_gen))
+  # read depth file
+  depth_df <- read.table(depth_path, sep = "\t", header = F)
+  # check correct column names
+  stopifnot(exprs = {"V1" %in% names(depth_df) & "V3" %in% names(depth_df)})
+  # check if the table is empty
+  stopifnot(nrow(depth_df) > 0)
+  
+  # calculate length and avg. coverage of each contig
+  cov_df <- depth_df %>%
+    group_by(V1) %>%
+    summarise(tot.depth = sum(V3)) %>%
+    rename("contig.name" = V1) %>%
+    full_join(contig_len_df, by = "contig.name") %>%
+    mutate(avg.depth = tot.depth / contig.len) %>% 
+    arrange(-contig.len) %>% 
+    filter(contig.len >= min_contig_length)
+
+  # relative coverage
+  chrom_cov <- cov_df %>%
+    filter(contig.len == max(contig.len)) %>%
+    pull(avg.depth)
+  
+  cov_df$rel.depth <- cov_df$avg.depth / chrom_cov
+  cov_df$strain <- strain
+  cov_df$label <- label
+  # make a column indicating what is chrom and what is plasmid
+  chrom_plasm_col <- c("chrom", rep("plasmid", nrow(cov_df) - 1))
+  cov_df$genome.part <- chrom_plasm_col
+  
+  return(cov_df)
+}
+
+# test the function
+parse_depth(depth_path = "/home/andrei/Data/HeteroR/results/mutants/amplifications/DA63038/mutant_depth.tsv.gz",
+            ref_path = "/home/andrei/Data/HeteroR/results/mutants/variants/DA63038/reference.fasta",
+            min_contig_length = 1000,
+            strain = "DA63038",
+            label = "mutant")
+
+```
+
+```{r}
+parse_depth(depth_path = "/home/andrei/Data/HeteroR/results/mutants/copy_number/DA63038/parent_depth.tsv.gz",
+            ref_path = "/home/andrei/Data/HeteroR/results/mutants/variants/DA63038/reference.fasta",
+            min_contig_length = 1000,
+            strain = "DA63038",
+            label = "parent")
+```
+
+
+
