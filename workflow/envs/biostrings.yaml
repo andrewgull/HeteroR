@@ -1,0 +1,7 @@
+name: biostrings-env
+channels: 
+  - bioconda
+dependencies:
+  - r-optparse=1.7.3
+  - r-dplyr==1.0.8
+  - bioconductor-biostrings=2.62.0
