@@ -1,0 +1,231 @@
+---
+title: "Analysis of mutants"
+author: "AG"
+date: "2024-02-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here I will copy and develop further "Overview" sections from `code_sketch.Rmd`
+
+## Variants
+
+We're interested in (1) resistance genes - resistance selection, (2) other genes - media adaptation
+
+### All variants
+
+```{r}
+library(tidyverse)
+library(VariantAnnotation)
+library(GenomicRanges)
+
+path_results <- "/home/andrei/Data/HeteroR/results/mutants/variants/"
+
+vcf_files <- dir(path_results, pattern = "*_filtered.vcf", recursive = T)
+
+var_len <- map_dbl(vcf_files, ~ length(
+  readVcf(paste0(path_results, .))))
+
+hist(var_len, breaks = 78, main = "histogram of variant counts", xlab = "N variants", ylab = "count")
+```
+
+Number of strains containing more than 5 variants is `r length(var_len[var_len > 5])`
+
+### Variants within genes
+
+```{r}
+# where the TSV files are (= genes with variants)
+path_results <- "/home/andrei/Data/HeteroR/results/mutants/variants/"
+
+tsv_files <- dir(path_results, pattern = "*_variants.tsv", recursive = T)
+
+genes_w_vars <- map_dfr(paste0(path_results, tsv_files),
+                        function(x)
+                          read_tsv(
+                            x,
+                            col_names = T,
+                            show_col_types = F,
+                            col_types = "ciiccc") %>% 
+                          mutate(file = x)) %>%
+  mutate(strain = str_extract(file, "DA[0-9]*")) %>% 
+  dplyr::select(-file) %>% 
+  dplyr::rename("gene_start" = start,
+                "gene_end" = stop)
+
+# 38 strains that do not have genes with mutations should also be in the table
+# length(tsv_files) - length(unique(genes_w_vars$strain))
+config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
+
+strains <- unname(unlist(config_mutants$parents))
+
+# genes_w_vars_all <-
+#   strains[!strains %in% unique(genes_w_vars$strain)] %>%
+#   map_dfr(
+#     ~ tibble(
+#       contig = c(NA),
+#       start = c(NA),
+#       stop = c(NA),
+#       strand = c(NA),
+#       gene_name = c(NA),
+#       locus_tag = c(NA),
+#       strain = c(.)
+#     )
+#   ) %>%
+#   bind_rows(genes_w_vars)
+
+genes_w_vars
+```
+
+Histogram of variants detected inside the genes
+
+```{r}
+genes_w_vars_all %>% 
+  group_by(strain, contig) %>% 
+  dplyr::count() %>% 
+  mutate(n.adj = if_else(is.na(contig), 0, n)) %>% 
+  ggplot(aes(n.adj)) +
+  geom_histogram(binwidth = 0.5, fill = "seagreen", alpha = 0.7) +
+  scale_x_continuous(breaks = c(0, 1, 2, 3, 4, 5, 6, 7))
+```
+
+More than 5 variants:
+
+```{r}
+genes_w_vars_all %>% 
+  group_by(strain, contig) %>% 
+  dplyr::count() %>% 
+  filter(n > 5)
+```
+
+### Annotated variants
+
+Genes' names/products and variants
+
+```{r}
+# function to read a VCF file and add strain name
+vcf2tibb <- function(file_path, path_prefix){ 
+  # make full path to the file
+  full_path <- paste0(path_prefix, file_path)
+  # read in vcf
+  vcf_df <- as_tibble(rowRanges(readVcf(full_path)))
+  # extract strain name: the first 7 characters
+  vcf_df$strain <- substr(file_path, 1, 7)
+  # convert ALT to char
+  vcf_df$ALT.char <- unlist(map(vcf_df$ALT, ~as.character(.)))
+  # done
+  return(vcf_df)
+}
+
+# where the VCF files are
+path_vars <- "/home/andrei/Data/HeteroR/results/mutants/variants/"
+vcf_files <- dir(path_vars, pattern = "*_filtered.vcf", recursive = T)
+
+# parse the files and join them into one table
+var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = path_vars)) %>% 
+  dplyr::select(-c(ALT, paramRangeID)) %>% 
+  dplyr::rename("contig" = seqnames,
+                "var_start" = start,
+                "var_end" = end,
+                "ALT" = ALT.char) %>%
+  relocate(ALT, .before = QUAL)
+  
+var_df
+```
+
+Join variants with the genes they are in
+
+keep the variants which are between the borders of the genes with variants
+
+```{r}
+# function
+
+# df_var -> variants no genes
+# df_gene -> genes no variants
+
+filter_vars_in_genes <- function(df_var, df_gene) {
+  # check headers
+  stopifnot(sum(grepl("var_start", colnames(df_var))) == 1)
+  
+  stopifnot(sum(grepl("gene_start", colnames(df_gene))) == 1)
+  
+  # filter variants within genes
+  out_df <- map2_dfr(df_gene$gene_start,
+                     df_gene$gene_end,
+                     ~ filter(df_var, between(var_start, .x, .y) |
+                                between(var_end, .x, .y)))
+  # return a df with vars inside genes
+  return(out_df)
+}
+
+# keep only variant of strains that have at least 1 variant 
+var_df_filt <- var_df %>% 
+  filter(strain %in% unique(genes_w_vars$strain))
+
+var_df_list <- split.data.frame(var_df_filt, f = var_df_filt$strain)
+
+gene_df_list <- split.data.frame(genes_w_vars, f = genes_w_vars$strain)
+
+# apply the function
+var_inside_genes_df <-
+  map2_dfr(var_df_list, gene_df_list, ~ filter_vars_in_genes(.x, .y)) %>%
+  distinct()
+
+var_inside_genes_df %>% head()
+```
+
+Join `genes with variants` with `variants inside genes`
+
+```{r}
+# split vars inside the genes
+var_inside_list <- split.data.frame(var_inside_genes_df, f = var_inside_genes_df$strain)
+
+# apply joining and filtering to each strain-table
+vars_inside_final <- map2_dfr(
+  gene_df_list,
+  var_inside_list,
+  ~ left_join(.x, .y, by = c("strain", "contig")) %>% filter(
+    between(var_start, gene_start, gene_end) |
+      between(var_end, gene_start, gene_end)) %>%
+    distinct()
+  )
+
+# to check that n. rows per strain in both tables is the same
+full_join(
+  vars_inside_final %>%
+    group_by(strain) %>%
+    dplyr::count(),
+  var_inside_genes_df %>%
+    group_by(strain) %>%
+    dplyr::count(),
+  by = "strain"
+) %>%
+  mutate(diff = n.x - n.y) %>%
+  filter(diff != 0)
+
+```
+
+This one strain has some discrepancies between the two tables because two variants were mapped to the last position of the 'gene' `OELAHNJC_03152`, which overlaps `OELAHNJC_03153`.
+
+As the result, the same variants end up on twice more rows than I expected.
+
+```{r, eval=FALSE}
+# to check it, run
+var_inside_genes_df %>% filter(strain == "DA63362") %>% 
+  distinct() %>% 
+  arrange(var_start)
+
+# in this one you will see these two variants and 'genes'
+vars_inside_final %>% filter(strain == "DA63362") %>% 
+  filter(locus_tag == "OELAHNJC_03153" | locus_tag == "OELAHNJC_03152") %>% 
+  arrange(var_start)
+```
+
+The resulting table:
+
+```{r}
+vars_inside_final
+```
+
