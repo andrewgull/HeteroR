@@ -1,12 +1,30 @@
 ---
 title: "Analysis of mutants"
 author: "AG"
-date: "2024-02-29"
-output: html_document
+date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+    code_folding: hide
+    theme: cerulean
+    highlight: kate
+    toc_float: yes
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F, cache = T)
+# requires
+# tidyverse - data manipulation 
+# VariantAnnotation - to parse VCFs
+# reactable - to print tables in HTML
+
+#read config to get strain names
+config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
+strains <- unname(unlist(config_mutants$parents))
 ```
 
 Here I will copy and develop further "Overview" sections from `code_sketch.Rmd`
@@ -15,7 +33,9 @@ Here I will copy and develop further "Overview" sections from `code_sketch.Rmd`
 
 We're interested in (1) resistance genes - resistance selection, (2) other genes - media adaptation
 
-### All variants
+### Plots {.tabset .tabset-pills}
+
+#### All variants
 
 ```{r}
 library(tidyverse)
@@ -27,14 +47,14 @@ path_results <- "/home/andrei/Data/HeteroR/results/mutants/variants/"
 vcf_files <- dir(path_results, pattern = "*_filtered.vcf", recursive = T)
 
 var_len <- map_dbl(vcf_files, ~ length(
-  readVcf(paste0(path_results, .))))
+  VariantAnnotation::readVcf(paste0(path_results, .))))
 
-hist(var_len, breaks = 78, main = "histogram of variant counts", xlab = "N variants", ylab = "count")
+hist(var_len, breaks = 78, main = "", xlab = "N variants", ylab = "count")
 ```
 
 Number of strains containing more than 5 variants is `r length(var_len[var_len > 5])`
 
-### Variants within genes
+#### Variants inside genes
 
 ```{r}
 # where the TSV files are (= genes with variants)
@@ -57,26 +77,24 @@ genes_w_vars <- map_dfr(paste0(path_results, tsv_files),
 
 # 38 strains that do not have genes with mutations should also be in the table
 # length(tsv_files) - length(unique(genes_w_vars$strain))
-config_mutants <- yaml::read_yaml("/home/andrei/Data/HeteroR/workflow/config_mutants.yaml")
 
-strains <- unname(unlist(config_mutants$parents))
+# this one I need for the histogram below (it should contain 0 variants)
+genes_w_vars_all <-
+  strains[!strains %in% unique(genes_w_vars$strain)] %>%
+  map_dfr(
+    ~ tibble(
+      contig = c(NA),
+      start = c(NA),
+      stop = c(NA),
+      strand = c(NA),
+      gene_name = c(NA),
+      locus_tag = c(NA),
+      strain = c(.)
+    )
+  ) %>%
+  bind_rows(genes_w_vars)
 
-# genes_w_vars_all <-
-#   strains[!strains %in% unique(genes_w_vars$strain)] %>%
-#   map_dfr(
-#     ~ tibble(
-#       contig = c(NA),
-#       start = c(NA),
-#       stop = c(NA),
-#       strand = c(NA),
-#       gene_name = c(NA),
-#       locus_tag = c(NA),
-#       strain = c(.)
-#     )
-#   ) %>%
-#   bind_rows(genes_w_vars)
-
-genes_w_vars
+# genes_w_vars
 ```
 
 Histogram of variants detected inside the genes
@@ -88,7 +106,9 @@ genes_w_vars_all %>%
   mutate(n.adj = if_else(is.na(contig), 0, n)) %>% 
   ggplot(aes(n.adj)) +
   geom_histogram(binwidth = 0.5, fill = "seagreen", alpha = 0.7) +
-  scale_x_continuous(breaks = c(0, 1, 2, 3, 4, 5, 6, 7))
+  scale_x_continuous(breaks = c(0, 1, 2, 3, 4, 5, 6, 7)) +
+  xlab("N variants") +
+  ylab("N strains")
 ```
 
 More than 5 variants:
@@ -132,7 +152,7 @@ var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = path_vars)) %>%
                 "ALT" = ALT.char) %>%
   relocate(ALT, .before = QUAL)
   
-var_df
+# var_df
 ```
 
 Join variants with the genes they are in
@@ -173,7 +193,7 @@ var_inside_genes_df <-
   map2_dfr(var_df_list, gene_df_list, ~ filter_vars_in_genes(.x, .y)) %>%
   distinct()
 
-var_inside_genes_df %>% head()
+# var_inside_genes_df %>% head()
 ```
 
 Join `genes with variants` with `variants inside genes`
@@ -188,10 +208,15 @@ vars_inside_final <- map2_dfr(
   var_inside_list,
   ~ left_join(.x, .y, by = c("strain", "contig")) %>% filter(
     between(var_start, gene_start, gene_end) |
-      between(var_end, gene_start, gene_end)) %>%
+      between(var_end, gene_start, gene_end)
+  ) %>%
     distinct()
-  )
+) %>%
+  relocate(strain, .before = contig)
+```
 
+
+```{r, eval=FALSE}
 # to check that n. rows per strain in both tables is the same
 full_join(
   vars_inside_final %>%
@@ -204,10 +229,10 @@ full_join(
 ) %>%
   mutate(diff = n.x - n.y) %>%
   filter(diff != 0)
-
 ```
 
-This one strain has some discrepancies between the two tables because two variants were mapped to the last position of the 'gene' `OELAHNJC_03152`, which overlaps `OELAHNJC_03153`.
+
+Strain **DA63362** has some discrepancies between the two tables because two variants were mapped to the last position of the 'gene' `OELAHNJC_03152`, which overlaps `OELAHNJC_03153`.
 
 As the result, the same variants end up on twice more rows than I expected.
 
@@ -223,9 +248,265 @@ vars_inside_final %>% filter(strain == "DA63362") %>%
   arrange(var_start)
 ```
 
-The resulting table:
+### The final table
 
 ```{r}
-vars_inside_final
+vars_inside_final %>% 
+  dplyr::select(-c(width, strand.y, QUAL, FILTER)) %>% 
+  reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
 ```
+
+Number of strains in the table: `r length(unique(vars_inside_final$strain))`
+
+Number of genes in the table: `r length(unique(vars_inside_final$locus_tag))`
+
+Number of genes with functional (scientific) names: `r length(unique(vars_inside_final$gene_name)) - 1`
+
+Some genes got functional names, some - only systematic names aka "locus tags"
+
+
+## Amplifications
+
+### Table
+
+```{r}
+path_results <- "/home/andrei/Data/HeteroR/results/mutants/amplifications/"
+file_common_name <- "/amplifications_annotated_filtered.tsv"
+
+read_amp_tsv <- function(tsv, strain_name) {
+  out_df <- read_tsv(tsv, show_col_types = F, col_names = T)
+  out_df$strain <- strain_name
+  return(out_df)
+}
+
+amp_df <- map_dfr(strains, ~ read_amp_tsv(paste0(path_results, ., file_common_name), .)) %>% 
+  relocate(strain, .before = contig)
+
+amp_df %>% 
+  reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
+```
+
+
+How many strains have amplifications: `r length(unique(amp_df$strain))`
+
+Number of functional gene names inside the amplifications: `r length(unique(amp_df$gene_name)) - 1`
+
+Number of systematic gene names inside the amplifications: `r length(unique(amp_df$locus_tag))`
+
+### Plots {.tabset .tabset-pills}
+
+#### Histogram
+
+```{r}
+amp_df %>% 
+  group_by(strain) %>% 
+  dplyr::count() %>% 
+  ggplot(aes(n)) + 
+  geom_histogram(fill="steelblue", alpha = 0.8, binwidth = 4) +
+  scale_y_continuous(breaks = c(0, 2, 4, 6, 8)) +
+  xlab("N genes with amplifications") +
+  ylab("N strains") +
+  ggtitle("Genes with amplifications (per strain)")
+```
+
+#### Barplot
+
+```{r, fig.width=10}
+amp_df %>% 
+  group_by(strain) %>% 
+  dplyr::count() %>% 
+  ggplot(aes(reorder(strain, -n), n)) +
+  geom_col(fill = "steelblue") +
+  theme(axis.text.x = element_text(size=7, angle=45, hjust = 1)) +
+  xlab("") +
+  ylab("N genes with amplifications") +
+  ggtitle("Number of genes in amplifications")
+```
+
+## Plasmid copy number change
+
+### Table
+
+```{r}
+# code from code_sketch.Rmd
+path_results <- "/home/andrei/Data/HeteroR/results/mutants/copy_number/"
+
+file_common_name <- "/relative_coverage"
+
+# parents
+rel_cov_df_parent <-
+  map_dfr(strains,
+          ~ read_tsv(
+            paste0(path_results,
+                   ., file_common_name, "_parent.tsv"),
+            show_col_types = F
+          ))
+
+# mutants
+rel_cov_df_mutant <-
+  map_dfr(strains,
+          ~ read_tsv(
+            paste0(path_results,
+                   ., file_common_name, "_mutant.tsv"),
+            show_col_types = F
+          ))
+
+# altogether, minus chromosomes
+rel_cov_final <- bind_rows(rel_cov_df_mutant, rel_cov_df_parent) %>%
+  filter(genome.part != "chrom") %>%
+  mutate(contig.name.2 = str_extract(contig.name, "_[0-9]"),
+         contig.name.2 = sub(pattern = "_", replacement = "", x = contig.name.2, fixed = T))
+```
+
+```{r}
+rel_cov_final %>%
+  relocate(strain, .before = contig.name) %>%
+  dplyr::select(-c(genome.part, contig.name.2)) %>% 
+  reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
+```
+
+
+### Plots {.tabset .tabset-pills}
+
+#### Plot 1
+
+```{r, fig.height=6, fig.width=8}
+plot_bars <- function(df, parent_name) {
+  pl <- df %>%
+    dplyr::filter(strain == parent_name) %>% 
+    ggplot(aes(contig.name.2, round(rel.depth, 1))) +
+    geom_col(aes(fill = label), position = "dodge") +
+    ggtitle(parent_name) +
+    xlab("plasmid") +
+    ylab("n") +
+    theme(legend.position = "none") 
+  
+  return(pl)
+}
+
+plot_list <- map(strains, ~ plot_bars(rel_cov_final, .))
+
+ggpubr::ggarrange(plotlist = plot_list[c(1:6)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 2
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(7:12)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 3
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(13:18)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 4
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(19:24)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+
+#### Plot 5
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(25:30)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+
+#### Plot 6
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(31:36)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+
+#### Plot 7
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(37:42)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 8
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(43:48)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 9
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(49:54)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 10
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(55:60)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 11
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(61:66)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+
+#### Plot 12
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(67:72)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+#### Plot 13
+
+```{r, fig.height=6, fig.width=8}
+ggpubr::ggarrange(plotlist = plot_list[c(73:78)], nrow = 2, ncol = 3, common.legend = T)
+```
+
+
+
+
+
+
 
