@@ -505,8 +505,153 @@ ggpubr::ggarrange(plotlist = plot_list[c(73:78)], nrow = 2, ncol = 3, common.leg
 ```
 
 
+## IS elements 
+
+### Summary of ISEscan results
+
+Overview of IS found in these 78 strains (no IS found in DA63688)
+
+```{r}
+path_results <- "/home/andrei/Data/HeteroR/results/isescan/"
+file_common_name <- "/regions/regions_joined_final.fasta.tsv"
+
+is_df <-
+  map_dfr(strains, ~ tryCatch({ read_tsv(paste0(path_results, ., file_common_name), show_col_types = F)}, error = function(e) {
+      message(paste("No file exist for ", ., sep = " "))
+      return(NULL)}))
+# No file exist for  DA63688
+
+# add family lemgth from IS finder DB
+is_df <- is_df %>% 
+  mutate(db.length = case_when(
+    family == "IS91" ~ 1800,
+    family == "ISAS1" ~ 1300,
+    family == "IS4" ~ 1340,
+    family == "IS3" ~ 1430,
+    family == "IS66" ~ 2500,
+    family == "IS110" ~ 1400,
+    family == "ISL3" ~ 1750,
+    family == "IS21" ~ 1330,
+    family == "ISNCY" ~ 1700,
+    family == "IS200/IS605" ~ 1800,
+    family == "IS256" ~ 1300,
+    family == "IS481" ~ 1100,
+    family == "IS1" ~ 768,
+    family == "IS630" ~ 1100,
+    family == "IS6" ~ 891,
+    family == "IS5" ~ 1200,
+    family == "IS30" ~ 1200,
+    family == "IS1380" ~ 1656,
+    family == "IS1182" ~ 1650,
+    family == "new" ~ NA
+  ))
+
+is_df %>% 
+    reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
+```
 
 
+### Histograms {.tabset .tabset-pills}
 
+Vertical line represents average length of a particular element according ISfinder database
 
+```{r}
+is_lst <- split.data.frame(is_df, f = is_df$family)
 
+plot_length_hist <- function(df) {
+  # df should contain isLen, orfLen, family, db.length
+  out_plot <- df %>%
+    ggplot(aes(obs.length)) +
+    geom_histogram(bins = 50, aes(fill = label)) +
+    geom_rug(aes(color = label)) +
+    geom_vline(aes(xintercept = db.length)) +
+    ggtitle(df$family[1])
+  
+  return(out_plot)
+}
+
+# filter, reshape and add db.length column
+reshape_is_df <- function(is_df) {
+  out_df <- is_df %>% 
+    dplyr::select(isLen, orfLen, family, db.length) %>% 
+    pivot_longer(cols = c(1, 2), names_to = "label", values_to = "obs.length")
+  #hist_plot <- plot_length_hist(out_df)
+  return(out_df)
+}
+
+# reshape every table and make a list of histograms
+is_hist_list <- map(is_lst, ~ plot_length_hist(reshape_is_df(.)))
+```
+
+#### IS1 & IS110
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(1,2)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### IS1182 & IS1380
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(3,4)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### IS200/IS605 & IS21
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(5, 6)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### IS256 & IS3
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(7, 8)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### IS30 & IS4
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(9,10)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### IS481 & IS5
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(11,12)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### IS6 & IS630
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(13,14)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### IS66 & IS91
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(15,16)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### ISAS1 & ISL3
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(17,18)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```
+
+#### ISNCY & 'new'
+
+```{r}
+ggpubr::ggarrange(plotlist = is_hist_list[c(19,20)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
+```

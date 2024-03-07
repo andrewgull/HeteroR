@@ -766,6 +766,109 @@ ggpubr::ggarrange(plotlist = plot_fc_list, nrow = 10, ncol = 2)
 ```
 
 
+# IS elements
+
+I need nuc. sequences of IS elements of each strain to run ISmapper on them.
+
+the results of ISEscan are in `results/isescan/DA00000/regions`
+
+The IS elements are saved in the `*.is.fna` file as raw nuc. sequences.
+
+Summary information of these IS elements is shown below
+
+
+Let's read all the strains summary and filter out very short seuences.
+
+The rest can be used for ISmapper
+
+```{r}
+path_results <- "/home/andrei/Data/HeteroR/results/isescan/"
+file_common_name <- "/regions/regions_joined_final.fasta.tsv"
+
+is_df <-
+  map_dfr(strains, ~ tryCatch({ read_tsv(paste0(path_results, ., file_common_name), show_col_types = F)}, error = function(e) {
+      message(paste("No file exist for ", ., sep = " "))
+      return(NULL)}))
+# No file exist for  DA63688
+is_df
+```
+
+IS length vs ORF length
+
+```{r}
+ggplot(is_df, aes(isLen, orfLen)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+Histograms
+
+```{r}
+is_df %>% 
+  dplyr::select(isLen, orfLen) %>% 
+  pivot_longer(cols = c(1, 2), names_to = "label", values_to = "length") %>% 
+ggplot(aes(length)) +
+  geom_histogram(bins = 50, aes(fill = label)) +
+  geom_rug(aes(color = label))
+```
+
+```{r, fig.height=30, fig.width=10}
+is_df %>% 
+  dplyr::select(isLen, orfLen, family, db.length) %>% 
+  pivot_longer(cols = c(1, 2), names_to = "label", values_to = "obs.length") %>% 
+ggplot(aes(obs.length)) +
+  geom_histogram(bins = 50, aes(fill = label)) +
+  geom_rug(aes(color = label)) +
+  geom_vline(aes(xintercept = db.length)) +
+  facet_grid(rows = vars(family), scales = "free")
+```
+
+
+
+Cases when orfLen is longer than isLen
+
+```{r}
+is_df %>% 
+  dplyr::select(isLen, orfLen) %>% 
+  mutate(diff = isLen - orfLen) %>% 
+  filter(diff < 0)
+```
+
+IS names
+
+```{r}
+unique(is_df$family)
+```
+
+Only 20 types of IS elements
+
+IS elements' lengths according to ISfinder data base:
+
+IS91 - 1800
+ISAS1 - 1300
+IS4 - 1340
+IS3 - 1430
+IS66 - 2500
+IS110 - 1400
+ISL3 - 1750
+IS21 - 1330
+ISNCY - 1700
+IS200/IS605 - 1300 to 1800
+IS256 - 1300
+IS481 - 1000 to 1200
+IS1 - 768 (maybe subunits?)
+IS630 - 1100
+IS6 - 891
+IS5 - 1200
+IS30 - 1200
+IS1380 - 1656
+IS1182 - 1500 to 1800 (not found in E.coli)
+
+This code and data will be transferred to the `analysis_of_mutants.Rmd`
+
+
+
+
 
 
 
