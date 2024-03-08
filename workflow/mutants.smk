@@ -197,13 +197,21 @@ rule relative_coverage_parent:
     params: min_len = config["min_contig_len"]
     shell: "Rscript {input.script} -d {input.depth} -r {input.ref} -o {output} -m {params.min_len} -l parent -s {wildcards.parent} &> {log}"
 
+rule collect_transposons:
+    input:
+        # strain DA63688 doesn't have ISEscan output = no IS elements found
+        [f for f in expand("results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna", parent=config['parents']) if "DA63688" not in f]
+    output: "results/mutants/ismapper/query_collection.fasta"
+    shell: "cat {input} > {output}"
+
 rule final:
     input:
         bed = "results/mutants/amplifications/{parent}/amplifications_windows.bed",
         genes_w_snps = "results/mutants/variants/{parent}/genes_with_variants.tsv",
         amplifications = "results/mutants/amplifications/{parent}/amplifications_annotated_filtered.tsv",
         rel_cov_mut = "results/mutants/copy_number/{parent}/relative_coverage_mutant.tsv",
-        rel_cov_parent = "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv"
+        rel_cov_parent = "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv",
+        transposon_collection = "results/mutants/ismapper/query_collection.fasta"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
