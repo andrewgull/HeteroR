@@ -197,12 +197,39 @@ rule relative_coverage_parent:
     params: min_len = config["min_contig_len"]
     shell: "Rscript {input.script} -d {input.depth} -r {input.ref} -o {output} -m {params.min_len} -l parent -s {wildcards.parent} &> {log}"
 
-rule collect_transposons:
+rule collect_all_IS:
     input:
         # strain DA63688 doesn't have ISEscan output = no IS elements found
         [f for f in expand("results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna", parent=config['parents']) if "DA63688" not in f]
     output: "results/mutants/ismapper/query_collection.fasta"
     shell: "cat {input} > {output}"
+
+rule find_best_IS:
+    input: script="find_best_IS_examples.R",
+           dir_path="results/isescan/" # trailing / is important!
+    output: "results/mutants/ismapper/best_IS_representatives.tsv"
+    message: "Looking for best representatives of each IS family"
+    log: "results/logs/mutants_best_IS.log"
+    conda: "envs/rscripts.yaml"
+    shell: "Rscript {input.script} -i {input.dir_path} -o {output} > {log}"
+
+rule extract_IS_headers:
+    input: table="results/mutants/ismapper/best_IS_representatives.tsv",
+           collection="results/mutants/ismapper/query_collection.fasta"
+    output: "results/mutants/ismapper/best_IS_representatives_IDs.txt"
+    shell: "while IFS=$'\t' read -r col1 col2 _; do grep $col1 {input.collection} | grep $col2 >> {output}; done < {input.table} && sed -i 's/>//g' {output}"
+
+rule extract_best_IS:
+    input: id_file = "results/mutants/ismapper/best_IS_representatives_IDs.txt",
+           collection="results/mutants/ismapper/query_collection.fasta"
+    output: "results/mutants/ismapper/best_IS_from_each_family.fasta"
+    shell: "seqkit grep -n -f {input.id_file} {input.collection} -o {output}"
+
+rule map_new_insertions:
+    input: "results/mutants/ismapper/best_IS_from_each_family.fasta"
+    output: "results/ismapper/{parent}/new_insertions.tsv"
+    conda: "ismapper-env"
+    shell: "ismap.py --query {input} --output {output}"
 
 rule final:
     input:
@@ -211,7 +238,9 @@ rule final:
         amplifications = "results/mutants/amplifications/{parent}/amplifications_annotated_filtered.tsv",
         rel_cov_mut = "results/mutants/copy_number/{parent}/relative_coverage_mutant.tsv",
         rel_cov_parent = "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv",
-        transposon_collection = "results/mutants/ismapper/query_collection.fasta"
+        #transposon_collection = "results/mutants/ismapper/query_collection.fasta",
+        #best_IS = "results/mutants/ismapper/best_IS_from_each_family.fasta",
+        new_insert="results/ismapper/{parent}/new_insertions.tsv"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
