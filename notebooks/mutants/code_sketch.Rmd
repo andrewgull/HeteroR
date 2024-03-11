@@ -786,9 +786,12 @@ path_results <- "/home/andrei/Data/HeteroR/results/isescan/"
 file_common_name <- "/regions/regions_joined_final.fasta.tsv"
 
 is_df <-
-  map_dfr(strains, ~ tryCatch({ read_tsv(paste0(path_results, ., file_common_name), show_col_types = F)}, error = function(e) {
-      message(paste("No file exist for ", ., sep = " "))
-      return(NULL)}))
+  map_dfr(strains, ~ tryCatch({
+    read_tsv(paste0(path_results, ., file_common_name), show_col_types = F)
+  }, error = function(e) {
+    message(paste("No file exist for ", ., sep = " "))
+    return(NULL)
+  }))
 # No file exist for  DA63688
 is_df
 ```
@@ -867,7 +870,84 @@ IS1182 - 1500 to 1800 (not found in E.coli)
 This code and data will be transferred to the `analysis_of_mutants.Rmd`
 
 
+### Extracting the best representative IS from our collection
 
+Using the tables from above filter those seqID that are within acceptable range of lengths,
+then choose the closest to the DB length and with long ORF.
+Then use this entry to fish out the sequence from the fasta files.
+
+```{r}
+# ise_lengths <- yaml::read_yaml("is_lengths.yaml")
+# ise_lengths$IS91
+# 'cluster' is in the fasta headers
+
+filter_margins <- function(df, filt_term, marg) {
+  # filters ISEscan table
+  # keeps rows with isLen & orfLen within +/- 10% of the normal IS size
+  # for specified IS family
+  dplyr::filter(
+    df,
+    family == filt_term,
+    between(isLen, db.length - marg * db.length, db.length + marg *
+              db.length),
+    between(orfLen, db.length - marg * db.length, db.length + marg *
+              db.length)
+  )
+}
+
+select_plausible_length <- function(fam_name, big_is_df, mrg=c(0.05, 0.1, 0.2)) {
+    # filter those entries in IS table that have both 
+    # IS and ORF lengths within specified margins
+    # try the first margin
+    out_df <- filter_margins(big_is_df, fam_name, mrg[1])
+    if (nrow(out_df) == 0) {
+      # if nothing found
+      # try another margin
+      message("try margin 2...")
+      out_df <- filter_margins(big_is_df, fam_name, mrg[2])
+    } 
+    # if still 0, try another margin
+    if (nrow(out_df) == 0) {
+      message("try margin 3...")
+      out_df <- filter_margins(big_is_df, fam_name, mrg[3])
+    }
+    # if still 0, issue a warning
+    if (nrow(out_df) == 0) {
+      message(paste0("No entries found for ", fam_name))
+    }
+    # select some columns
+    out_df %>% 
+      dplyr::select(seqID, family, cluster, isLen, orfLen)
+}
+
+# try it
+select_plausible_length(fam_name = "ISAS1", is_df, mrg = c(0.05, 0.1, 0.5)) %>% 
+  dplyr::filter(orfLen < isLen)
+```
+
+Now, select one best IS representative for each family
+
+```{r}
+is_families <- unique(is_df$family)
+
+# apply the functions from above, select the first row of each output table
+best_is_representatives <- map_dfr(is_families, ~ select_plausible_length(., is_df, mrg = c(0.05, 0.1, 0.5)) %>% 
+  dplyr::filter(orfLen < isLen) %>% 
+    slice_head(n=1))
+
+write_delim(best_is_representatives, "/home/andrei/Data/HeteroR/results/mutants/ismapper/is_representatives.tsv", delim = "\t")
+
+best_is_representatives
+```
+
+
+Now use the first two columns to form a double grep query like:
+
+```{bash}
+grep "LGKBJLLO_03743_gene" results/mutants/ismapper/query_collection.fasta | grep "IS4_107"
+```
+
+This will give you headers that you need to extract with `seqkit grep`
 
 
 
