@@ -1,0 +1,6 @@
+name: ismapper-env
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - ismapper=2.0.2
