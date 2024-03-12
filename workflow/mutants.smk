@@ -226,10 +226,18 @@ rule extract_best_IS:
     shell: "seqkit grep -n -f {input.id_file} {input.collection} -o {output}"
 
 rule map_new_insertions:
-    input: "results/mutants/ismapper/best_IS_from_each_family.fasta"
-    output: "results/ismapper/{parent}/new_insertions.tsv"
+    input: is_queries="results/mutants/ismapper/best_IS_from_each_family.fasta",
+           parent_ref="results/mutants/variants/{parent}/reference.fasta",
+           mut_reads_1="results/data_filtered/{parent}/Illumina/mutants/{parent}_1.fastq.gz",
+           mut_reads_2="results/data_filtered/{parent}/Illumina/mutants/{parent}_2.fastq.gz"
+    output: directory("results/mutants/ismapper/new_insertions/{parent}")
+    threads: 10
+    message: "Looking for new IS insertions in {wildcards.parent} mutant"
+    log: "results/logs/{parent}_ISmapper.log"
     conda: "ismapper-env"
-    shell: "ismap.py --query {input} --output {output}"
+    shell: "ismap --queries {input.is_queries} --reads {input.mut_reads_1} {input.mut_reads_2} "
+           "--reference {input.parent_ref} --t {threads} --output_dir {output} &> {log}"
+
 
 rule final:
     input:
@@ -238,9 +246,7 @@ rule final:
         amplifications = "results/mutants/amplifications/{parent}/amplifications_annotated_filtered.tsv",
         rel_cov_mut = "results/mutants/copy_number/{parent}/relative_coverage_mutant.tsv",
         rel_cov_parent = "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv",
-        #transposon_collection = "results/mutants/ismapper/query_collection.fasta",
-        #best_IS = "results/mutants/ismapper/best_IS_from_each_family.fasta",
-        new_insert="results/ismapper/{parent}/new_insertions.tsv"
+        new_insert="results/ismapper/new_insertions/{parent}"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
