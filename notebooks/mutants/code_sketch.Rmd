@@ -950,5 +950,41 @@ grep "LGKBJLLO_03743_gene" results/mutants/ismapper/query_collection.fasta | gre
 This will give you headers that you need to extract with `seqkit grep`
 
 
+## ISmapper output
 
+`compiled_table.py` doesn't work with multiple records in the reference (which is a GenBank file).
+Also, it doesn't compile results of multiple IS queries.
+
+Here I will try to summarize the output tables myself
+
+
+```{r}
+path_results <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/new_insertions/DA64006/DA64006/AFFJGFHN_02197_gene_56039_57378_+/"
+tables_names <- dir(path_results, pattern = "*_table.txt")
+
+map_dfr(tables_names, ~ read_tsv(paste0(path_results, .), show_col_types = F, col_types = "ccdddccccccdcccdc"))
+```
+
+```{r}
+path_results <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/new_insertions/DA64006/"
+tables_names <- dir(path_results, pattern = "*_table.txt", recursive = TRUE)
+tables_names
+
+# read the provided table and add IS name
+ismapper_table <- function(table_file, family_id) {
+  # table_file: a file with ISmapper results
+  # family_id: a data frame with two columns 'seqID' and 'family' from 'best_is_representatives'
+  out_df <- read_tsv(table_file, show_col_types = F, col_types = "ccdddccccccdcccdc") 
+  # find family name
+  seqid <- str_extract(table_file, "[A-Z]*_[0-9]*_gene")
+  fam_name <- dplyr::filter(family_id, seqID == seqid) %>% pull(family)
+  out_df$family <- fam_name
+  return(out_df)
+}
+
+map_dfr(map(tables_names, ~ paste0(path_results, .)),
+        ~ ismapper_table(., dplyr::select(
+          best_is_representatives, c(seqID, family)
+        )))
+```
 
