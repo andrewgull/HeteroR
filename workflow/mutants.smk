@@ -246,7 +246,7 @@ rule final:
         amplifications = "results/mutants/amplifications/{parent}/amplifications_annotated_filtered.tsv",
         rel_cov_mut = "results/mutants/copy_number/{parent}/relative_coverage_mutant.tsv",
         rel_cov_parent = "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv",
-        new_insert="results/ismapper/new_insertions/{parent}"
+        new_insert="results/mutants/ismapper/new_insertions/{parent}"
     output: 
         touch("results/mutants/final/{parent}_all.done")
     shell: "echo 'DONE'"
