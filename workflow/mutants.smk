@@ -5,7 +5,6 @@ from snakemake.io import touch, directory, temp, expand
 rule all:
     input:
         expand("results/mutants/final/{parent}_all.done", parent=config['parents'])
-        #mutants = expand("results/mutants/final/{mutant}_all.done", mutant=config['mutants'])
 
 rule trim_reads:
     input: 
@@ -18,8 +17,10 @@ rule trim_reads:
     message: "trimming front ends of the {wildcards.parent} reads"
     log: "results/logs/{parent}_mutants_trimming.log"
     conda: "envs/fastp.yaml"
-    params: f = 10
-    shell: "fastp --in1 {input.r1} --in2 {input.r2} --out1 {output.r1} --out2 {output.r2} --thread {threads} --trim_front1 {params.f} --trim_front2 {params.f} &> {log}" 
+    params: f = config["trim_front"], adapter1 = config["adapter1"], adapter2 = config["adapter2"]
+    shell: "fastp --in1 {input.r1} --in2 {input.r2} --out1 {output.r1} --out2 {output.r2} --thread {threads} "
+           "--trim_front1 {params.f} --trim_front2 {params.f} --adapter_sequence {params.adapter1} "
+           "--adapter_sequence_r2 {params.adapter2} &> {log}"
 
 rule make_reference:
     input: "results/annotations/{parent}/prokka/{parent}_genomic.gff"
@@ -237,7 +238,6 @@ rule map_new_insertions:
     conda: "ismapper-env"
     shell: "ismap --queries {input.is_queries} --reads {input.mut_reads_1} {input.mut_reads_2} "
            "--reference {input.parent_ref} --t {threads} --output_dir {output} &> {log}"
-
 
 rule final:
     input:

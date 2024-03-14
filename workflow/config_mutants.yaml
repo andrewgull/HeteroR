@@ -78,7 +78,12 @@ parents:
   DA64024: DA64024
   DA64058: DA64058
  
-#var.calling
+# qual and BGI-adapters trimming
+trim_front: 10
+adapter1: AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA
+adapter2: AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG
+
+# var.calling
 max_depth: 800
 ploidy: 1
 prior: "5.0e-10"
