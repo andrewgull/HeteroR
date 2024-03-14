@@ -90,8 +90,6 @@ First 10 bases in all reads were trimmed - they had very skewed nucleotide conte
 
 ```{r, message=FALSE}
 library(tidyverse)
-library(VariantAnnotation)
-library(GenomicRanges)
 
 path_results <- "/home/andrei/Data/HeteroR/results/mutants/variants/"
 
@@ -99,7 +97,7 @@ vcf_files <- dir(path_results, pattern = "*.vcf", recursive = T)
 
 
 var_len <- map_dbl(vcf_files, ~ length(
-  readVcf(paste0(path_results, .))))
+  VariantAnnotation::readVcf(paste0(path_results, .))))
 
 hist(var_len, breaks = 78)
 ```
@@ -127,7 +125,7 @@ vcf2tibb <- function(file_path, path_prefix){
   # make full path to the file
   full_path <- paste0(path_prefix, file_path)
   # read in vcf
-  vcf_df <- as_tibble(rowRanges(readVcf(full_path)))
+  vcf_df <- as_tibble(MatrixGenerics::rowRanges(VariantAnnotation::readVcf(full_path)))
   # extract strain name: the first 7 characters
   vcf_df$strain <- substr(file_path, 1, 7)
   return(vcf_df)
@@ -766,6 +764,30 @@ ggpubr::ggarrange(plotlist = plot_fc_list, nrow = 10, ncol = 2)
 ```
 
 
+# Panther DB
+
+and functional annotation of selected genes
+
+```{r}
+library(AnnotationHub)
+ah <- AnnotationHub()
+query(ah, "PANTHER.db")[[1]]
+
+library(PANTHER.db)
+```
+
+
+```{r}
+# to find organism name
+# availablePthOrganisms(PANTHER.db) %>% 
+#   dplyr::filter(`PANTHER Species` == "ECOLI")
+
+# set your organism of interest
+pthOrganisms(PANTHER.db) <- "ECOLI"
+PANTHER.db
+```
+
+
 # IS elements
 
 I need nuc. sequences of IS elements of each strain to run ISmapper on them.
@@ -777,7 +799,7 @@ The IS elements are saved in the `*.is.fna` file as raw nuc. sequences.
 Summary information of these IS elements is shown below
 
 
-Let's read all the strains summary and filter out very short seuences.
+Let's read all the strains summary and filter out very short sequences.
 
 The rest can be used for ISmapper
 
