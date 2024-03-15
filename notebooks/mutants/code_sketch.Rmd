@@ -808,7 +808,7 @@ path_results <- "/home/andrei/Data/HeteroR/results/isescan/"
 file_common_name <- "/regions/regions_joined_final.fasta.tsv"
 
 is_df <-
-  map_dfr(strains, ~ tryCatch({
+  map_dfr(parents, ~ tryCatch({
     read_tsv(paste0(path_results, ., file_common_name), show_col_types = F)
   }, error = function(e) {
     message(paste("No file exist for ", ., sep = " "))
@@ -899,14 +899,22 @@ then choose the closest to the DB length and with long ORF.
 Then use this entry to fish out the sequence from the fasta files.
 
 ```{r}
-# ise_lengths <- yaml::read_yaml("is_lengths.yaml")
-# ise_lengths$IS91
-# 'cluster' is in the fasta headers
+ise_lengths <- yaml::read_yaml("is_lengths.yaml")
+# find IS length according to DB
+ise_len_df <-
+  tibble(family = names(ise_lengths),
+         db.length = as.numeric(sapply(c(1:20), function(x)
+           ise_lengths[[x]])))
 
+# add db.lengths to the main table
+is_df <- left_join(is_df, ise_len_df, by="family")
+
+# some useful functions
 filter_margins <- function(df, filt_term, marg) {
   # filters ISEscan table
   # keeps rows with isLen & orfLen within +/- 10% of the normal IS size
   # for specified IS family
+  stopifnot(sum(grepl("db.length", colnames(df))) == 1)
   dplyr::filter(
     df,
     family == filt_term,
@@ -957,7 +965,7 @@ best_is_representatives <- map_dfr(is_families, ~ select_plausible_length(., is_
   dplyr::filter(orfLen < isLen) %>% 
     slice_head(n=1))
 
-write_delim(best_is_representatives, "/home/andrei/Data/HeteroR/results/mutants/ismapper/is_representatives.tsv", delim = "\t")
+write_delim(best_is_representatives, "/home/andrei/Data/HeteroR/results/mutants/ismapper/best_IS_representatives.tsv", delim = "\t")
 
 best_is_representatives
 ```
