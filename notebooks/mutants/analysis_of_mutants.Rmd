@@ -39,8 +39,8 @@ We're interested in (1) resistance genes - resistance selection, (2) other genes
 
 ```{r}
 library(tidyverse)
-library(VariantAnnotation)
-library(GenomicRanges)
+#library(VariantAnnotation)
+#library(GenomicRanges)
 
 path_results <- "/home/andrei/Data/HeteroR/results/mutants/variants/"
 
@@ -94,12 +94,6 @@ genes_w_vars_all <-
   ) %>%
   bind_rows(genes_w_vars)
 
-# genes_w_vars
-```
-
-Histogram of variants detected inside the genes
-
-```{r}
 genes_w_vars_all %>% 
   group_by(strain, contig) %>% 
   dplyr::count() %>% 
@@ -108,7 +102,8 @@ genes_w_vars_all %>%
   geom_histogram(binwidth = 0.5, fill = "seagreen", alpha = 0.7) +
   scale_x_continuous(breaks = c(0, 1, 2, 3, 4, 5, 6, 7)) +
   xlab("N variants") +
-  ylab("N strains")
+  ylab("N strains") +
+  ggtitle("Variants inside genes")
 ```
 
 More than 5 variants:
@@ -130,7 +125,7 @@ vcf2tibb <- function(file_path, path_prefix){
   # make full path to the file
   full_path <- paste0(path_prefix, file_path)
   # read in vcf
-  vcf_df <- as_tibble(rowRanges(readVcf(full_path)))
+  vcf_df <- as_tibble(MatrixGenerics::rowRanges(VariantAnnotation::readVcf(full_path)))
   # extract strain name: the first 7 characters
   vcf_df$strain <- substr(file_path, 1, 7)
   # convert ALT to char
@@ -152,20 +147,12 @@ var_df <- map_dfr(vcf_files, ~ vcf2tibb(., path_prefix = path_vars)) %>%
                 "ALT" = ALT.char) %>%
   relocate(ALT, .before = QUAL)
   
-# var_df
-```
-
-Join variants with the genes they are in
-
-keep the variants which are between the borders of the genes with variants
-
-```{r}
+# Join variants with the genes they are in
+# keep the variants which are between the borders of the genes with variants
 # function
-
-# df_var -> variants no genes
-# df_gene -> genes no variants
-
 filter_vars_in_genes <- function(df_var, df_gene) {
+  # df_var -> variants no genes
+  # df_gene -> genes no variants
   # check headers
   stopifnot(sum(grepl("var_start", colnames(df_var))) == 1)
   
@@ -193,12 +180,8 @@ var_inside_genes_df <-
   map2_dfr(var_df_list, gene_df_list, ~ filter_vars_in_genes(.x, .y)) %>%
   distinct()
 
-# var_inside_genes_df %>% head()
-```
+# Join `genes with variants` with `variants inside genes`
 
-Join `genes with variants` with `variants inside genes`
-
-```{r}
 # split vars inside the genes
 var_inside_list <- split.data.frame(var_inside_genes_df, f = var_inside_genes_df$strain)
 
@@ -521,30 +504,17 @@ is_df <-
       return(NULL)}))
 # No file exist for  DA63688
 
-# add family lemgth from IS finder DB
-is_df <- is_df %>% 
-  mutate(db.length = case_when(
-    family == "IS91" ~ 1800,
-    family == "ISAS1" ~ 1300,
-    family == "IS4" ~ 1340,
-    family == "IS3" ~ 1430,
-    family == "IS66" ~ 2500,
-    family == "IS110" ~ 1400,
-    family == "ISL3" ~ 1750,
-    family == "IS21" ~ 1330,
-    family == "ISNCY" ~ 1700,
-    family == "IS200/IS605" ~ 1800,
-    family == "IS256" ~ 1300,
-    family == "IS481" ~ 1100,
-    family == "IS1" ~ 768,
-    family == "IS630" ~ 1100,
-    family == "IS6" ~ 891,
-    family == "IS5" ~ 1200,
-    family == "IS30" ~ 1200,
-    family == "IS1380" ~ 1656,
-    family == "IS1182" ~ 1650,
-    family == "new" ~ NA
-  ))
+# read family lengths from the yaml file
+ise_lengths <- yaml::read_yaml("is_lengths.yaml")
+# find IS length according to DB
+ise_len_df <-
+  tibble(family = names(ise_lengths),
+         db.length = as.numeric(sapply(c(1:20), function(x)
+           ise_lengths[[x]])))
+
+# add db.lengths to the main table
+is_df <- left_join(is_df, ise_len_df, by="family")
+
 
 is_df %>% 
     reactable::reactable(
