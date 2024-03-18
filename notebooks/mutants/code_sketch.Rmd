@@ -1018,3 +1018,46 @@ map_dfr(map(tables_names, ~ paste0(path_results, .)),
         )))
 ```
 
+### Strains DA63784, DA63694 & DA63046s
+
+These two had problems with ISmapper (see the Notes). I ran ISmapper on each element separately to find which one causes the error.
+
+>UnboundLocalError: cannot access local variable 'm' where it is not associated with a value
+
+Below is the script that I used to run analysis separately on each IS family
+
+```{bash}
+#!/usr/bin/zsh
+# conda activate ismapper-env
+is_dir_path="results/mutants/ismapper/is_separated/"
+is_names=("IS110" "IS1182" "IS1380" "IS1" "IS21" "IS256" "IS30" "IS3" "IS481" "IS4" "IS5" "IS630" "IS66" "IS6" "IS91" "ISAS1" "ISL3" "ISNCY")
+# strains=("DA63784" "DA63694" "DA63046")
+# choose your strain from the list above
+strain="DA63694"
+threads=10
+output_prefix="results/mutants/ismapper/separate_test_results/"
+
+echo "running ISmapper on strain $strain"
+
+for name in "${is_names[@]}"; do
+  file="$is_dir_path$name.fasta"
+  touch "$output_prefix$strain$name.log"
+  ismap --queries "$file" --reads results/data_filtered/"$strain"/Illumina/mutants/"$strain"_1.fastq.gz \
+  results/data_filtered/"$strain"/Illumina/mutants/"$strain"_2.fastq.gz \
+  --reference results/annotations/"$strain"/prokka/"$strain"_genomic.gbk --t $threads --output_dir "$output_prefix$strain$name" \
+  &> "$output_prefix$strain$name.log"
+done
+```
+
+How many ended up with an error?
+
+```{bash}
+results/mutants/ismapper/separate_test_results
+grep -c "Error" results/mutants/ismapper/separate_test_results/*.log | grep -v ":0"
+# DA63046IS1.log:1
+# DA63694ISNCY.log:1
+# DA63784IS256.log:1
+```
+
+Just one in every strain
+

@@ -625,3 +625,74 @@ ggpubr::ggarrange(plotlist = is_hist_list[c(17,18)], ncol = 1, nrow = 2, common.
 ```{r}
 ggpubr::ggarrange(plotlist = is_hist_list[c(19,20)], ncol = 1, nrow = 2, common.legend = T, legend = "right")
 ```
+
+### New insertions in the mutants
+
+```{r}
+results_path <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/new_insertions/"
+results_files <- dir(path = results_path, pattern = "*table.txt", recursive = T)
+best_is_representatives <- read_tsv("/home/andrei/Data/HeteroR/results/mutants/ismapper/best_IS_representatives.tsv")
+
+# read the provided table and add IS name
+ismapper_table <- function(table_file, family_id) {
+  # table_file: a file with ISmapper results
+  # family_id: a data frame with two columns 'seqID' and 'family' from 'best_is_representatives'
+  out_df <- read_tsv(table_file, show_col_types = F, col_types = "ccdddccccccdcccdc") 
+  # find family name
+  seqid <- str_extract(table_file, "[A-Z]*_[0-9]*_gene")
+  fam_name <- dplyr::filter(family_id, seqID == seqid) %>% pull(family)
+  out_df$family <- fam_name
+  return(out_df)
+}
+
+new_inserts <- map_dfr(results_files,
+         ~ ismapper_table(
+           table_file = paste0(results_path, .),
+           family_id = select(best_is_representatives, seqID, family)
+         ))
+
+
+# For the three problematic strains another function is needed
+# Because they have different patterns in the output file names
+results_path2 <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/separate_test_results/"
+results_files2 <- dir(path = results_path2, pattern = "*table.txt", recursive = T)
+
+# IS family is present in the file name itself
+ismapper_table2 <- function(table_file) {
+  # table_file: a file with ISmapper results
+  out_df <- read_tsv(table_file, show_col_types = F, col_types = "ccdddccccccdcccdc") 
+  out_df$family <- str_extract(table_file, "IS[0-9,A-Z]*")
+  return(out_df)
+}
+
+new_inserts2 <-
+  map_dfr(results_files2, ~ ismapper_table2(
+    table_file = paste0(results_path2, .)))
+
+# join and print
+bind_rows(new_inserts, new_inserts2) %>% 
+  filter(left_description != "hypothetical protein",
+         right_description != "hypothetical protein")
+```
+
+How many genes next to IS?
+
+```{r}
+bind_rows(new_inserts, new_inserts2) %>% 
+  filter(left_description != "hypothetical protein",
+         right_description != "hypothetical protein") %>% 
+  group_by(family) %>% 
+  count() %>% 
+  ggplot(aes(family, n)) +
+  geom_col()
+```
+
+How many gene interruptions?
+
+```{r}
+bind_rows(new_inserts, new_inserts2) %>% 
+  filter(left_description != "hypothetical protein",
+         right_description != "hypothetical protein",
+         gene_interruption == "False")
+```
+
