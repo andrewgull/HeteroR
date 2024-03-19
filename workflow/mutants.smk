@@ -22,6 +22,14 @@ rule trim_reads:
            "--trim_front1 {params.f} --trim_front2 {params.f} --adapter_sequence {params.adapter1} "
            "--adapter_sequence_r2 {params.adapter2} &> {log}"
 
+rule create_links:
+    # required for ISmapper - it recognizes files only if 'fastq.gz' is in the name
+    input: r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
+           r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz"
+    output: r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}_1.fastq.gz",
+            r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}_2.fastq.gz"
+    shell: "ln -s {input.r1} {output.r2} && ln -s {input.r2} {output.r2}"
+
 rule make_reference:
     input: "results/annotations/{parent}/prokka/{parent}_genomic.gff"
     output: "results/mutants/variants/{parent}/reference.fasta"
@@ -200,13 +208,12 @@ rule relative_coverage_parent:
 
 rule collect_all_IS:
     input:
-        # strain DA63688 doesn't have ISEscan output = no IS elements found
-        [f for f in expand("results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna", parent=config['parents']) if "DA63688" not in f]
+       expand("results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna", parent=config['parents'])
     output: "results/mutants/ismapper/query_collection.fasta"
     shell: "cat {input} > {output}"
 
 rule find_best_IS:
-    input: script="find_best_IS_examples.R",
+    input: script="workflow/scripts/find_best_IS_examples.R",
            dir_path="results/isescan/" # trailing / is important!
     output: "results/mutants/ismapper/best_IS_representatives.tsv"
     message: "Looking for best representatives of each IS family"
