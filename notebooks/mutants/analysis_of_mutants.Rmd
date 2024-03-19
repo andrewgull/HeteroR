@@ -260,10 +260,50 @@ Number of genes with functional (scientific) names: `r length(unique(vars_inside
 
 Some genes got functional names, some - only systematic names aka "locus tags"
 
+### Functional annotations
+
+Taken from the annotation tables
+
+```{r}
+genes_annotation <-
+  map_dfr(
+    unique(vars_inside_final$strain),
+    ~ read_tsv(
+      paste0(
+        "/home/andrei/Data/HeteroR/results/annotations/",
+        .,
+        "/prokka/",
+        .,
+        "_genomic.tsv"
+      ),
+      show_col_types = F
+    ) %>% filter(ftype == "CDS",!is.na(gene)) %>% select(locus_tag, COG, product)
+  )
+
+vars_inside_final %>% 
+  filter(!is.na(gene_name)) %>% 
+  left_join(genes_annotation, by="locus_tag") %>% 
+  select(strain, contig, gene_name, product, locus_tag, COG, REF, ALT) %>% 
+    reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
+```
+
 
 ## Amplifications
 
-### Table
+### Table of known genes inside the amplifications
 
 ```{r}
 path_results <- "/home/andrei/Data/HeteroR/results/mutants/amplifications/"
@@ -278,7 +318,26 @@ read_amp_tsv <- function(tsv, strain_name) {
 amp_df <- map_dfr(strains, ~ read_amp_tsv(paste0(path_results, ., file_common_name), .)) %>% 
   relocate(strain, .before = contig)
 
-amp_df %>% 
+genes_annotation <-
+  map_dfr(
+    unique(amp_df$strain),
+    ~ read_tsv(
+      paste0(
+        "/home/andrei/Data/HeteroR/results/annotations/",
+        .,
+        "/prokka/",
+        .,
+        "_genomic.tsv"
+      ),
+      show_col_types = F
+    ) %>% filter(ftype == "CDS",!is.na(gene)) %>% 
+      select(locus_tag, COG, product)
+  )
+
+
+left_join(amp_df, genes_annotation, by = "locus_tag") %>%
+  select(strain, contig, strand, start, stop, gene_name, product, COG) %>%
+  filter(!is.na(gene_name)) %>%
   reactable::reactable(
     filterable = TRUE,
     minRows = 10,
@@ -295,6 +354,7 @@ amp_df %>%
   )
 ```
 
+Type 'Beta' in the search box to find beta-lactamases
 
 How many strains have amplifications: `r length(unique(amp_df$strain))`
 
@@ -364,12 +424,11 @@ rel_cov_df_mutant <-
 rel_cov_final <- bind_rows(rel_cov_df_mutant, rel_cov_df_parent) %>%
   filter(genome.part != "chrom") %>%
   mutate(contig.name.2 = str_extract(contig.name, "_[0-9]"),
-         contig.name.2 = sub(pattern = "_", replacement = "", x = contig.name.2, fixed = T))
-```
+         contig.name.2 = sub(pattern = "_", replacement = "", x = contig.name.2, fixed = T)) %>%
+  relocate(strain, .before = contig.name)
 
-```{r}
 rel_cov_final %>%
-  relocate(strain, .before = contig.name) %>%
+  # keep this select() here!
   dplyr::select(-c(genome.part, contig.name.2)) %>% 
   reactable::reactable(
     filterable = TRUE,
@@ -400,7 +459,7 @@ plot_bars <- function(df, parent_name) {
     geom_col(aes(fill = label), position = "dodge") +
     ggtitle(parent_name) +
     xlab("plasmid") +
-    ylab("n") +
+    ylab("relative depth") +
     theme(legend.position = "none") 
   
   return(pl)
