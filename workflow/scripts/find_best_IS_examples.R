@@ -29,6 +29,7 @@ if (is.null(opt$output)){
 
 #### Libraries ####
 suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(purrr))
 library(readr)
 
 #### Functions ####
