@@ -265,9 +265,11 @@ Some genes got functional names, some - only systematic names aka "locus tags"
 Taken from the annotation tables
 
 ```{r}
-genes_annotation <-
+parse_annotations <- function(strains_vec) {
+  # this function reads annotation TSV files
+  # strains_vec: vector of unique strain names
   map_dfr(
-    unique(vars_inside_final$strain),
+    strains_vec,
     ~ read_tsv(
       paste0(
         "/home/andrei/Data/HeteroR/results/annotations/",
@@ -277,8 +279,13 @@ genes_annotation <-
         "_genomic.tsv"
       ),
       show_col_types = F
-    ) %>% filter(ftype == "CDS",!is.na(gene)) %>% select(locus_tag, COG, product)
+    ) %>% 
+      filter(ftype == "CDS", !is.na(gene)) %>% 
+      select(locus_tag, COG, product)
   )
+}
+
+genes_annotation <- parse_annotations(unique(vars_inside_final$strain))
 
 vars_inside_final %>% 
   filter(!is.na(gene_name)) %>% 
@@ -318,22 +325,7 @@ read_amp_tsv <- function(tsv, strain_name) {
 amp_df <- map_dfr(strains, ~ read_amp_tsv(paste0(path_results, ., file_common_name), .)) %>% 
   relocate(strain, .before = contig)
 
-genes_annotation <-
-  map_dfr(
-    unique(amp_df$strain),
-    ~ read_tsv(
-      paste0(
-        "/home/andrei/Data/HeteroR/results/annotations/",
-        .,
-        "/prokka/",
-        .,
-        "_genomic.tsv"
-      ),
-      show_col_types = F
-    ) %>% filter(ftype == "CDS",!is.na(gene)) %>% 
-      select(locus_tag, COG, product)
-  )
-
+genes_annotation <- parse_annotations(unique(amp_df$strain))
 
 left_join(amp_df, genes_annotation, by = "locus_tag") %>%
   select(strain, contig, strand, start, stop, gene_name, product, COG) %>%
@@ -373,9 +365,9 @@ amp_df %>%
   ggplot(aes(n)) + 
   geom_histogram(fill="steelblue", alpha = 0.8, binwidth = 4) +
   scale_y_continuous(breaks = c(0, 2, 4, 6, 8)) +
-  xlab("N genes with amplifications") +
+  xlab("N genes") +
   ylab("N strains") +
-  ggtitle("Genes with amplifications (per strain)")
+  ggtitle("Genes inside amplifications (per strain)")
 ```
 
 #### Barplot
@@ -446,6 +438,75 @@ rel_cov_final %>%
   )
 ```
 
+Length of the contigs
+
+```{r}
+rel_cov_final %>% 
+  ggplot(aes(contig.len)) +
+  geom_histogram(bins = 100) +
+  geom_rug() +
+  geom_vline(xintercept = 100000)
+```
+
+Some contigs are too long for plasmids. Vertival line is at 100 kb mark.
+
+Which genes reside on this contigs?
+
+```{r}
+# these annotations do not have contig name
+genes_annotation <- parse_annotations(unique(rel_cov_final$strain))
+
+# read GFF additionally to get contig names
+read_gff <- function(gff_filename) {
+    as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
+    select(V1, V3, V4, V5, V7, V9) %>%
+    filter(V3 == "gene")
+}
+
+gff_table <- map_dfr(
+  unique(rel_cov_final$strain), 
+  ~ read_gff(paste0("/home/andrei/Data/HeteroR/results/annotations/",
+                    .,
+                    "/prokka/", ., "_genomic.gff")) %>% 
+    # keep only needed columns
+    select(V1, V9)) %>% 
+    # extract locus tags from V9
+    mutate(locus_tag = str_extract(V9, "[A-Z]*_[0-9]*")) %>% 
+    # remove V9
+    select(-V9) %>% 
+    rename("contig.name" = V1)
+
+# add the contig names to the annotations
+genes_annotation <- left_join(genes_annotation, gff_table, by = "locus_tag")
+
+# join genes to contigs with their relative coverage
+left_join(rel_cov_final, genes_annotation, by = "contig.name") %>% 
+  filter(contig.len < 100000)
+  # filtering?
+```
+
+Plasmids with increased CN
+
+```{r}
+left_join(rel_cov_final, genes_annotation, by = "contig.name") %>% 
+  filter(contig.len < 100000) %>% 
+  select(-c(tot.depth, contig.len, avg.depth, genome.part)) %>% 
+  pivot_wider(names_from = label, values_from = rel.depth) %>% 
+  mutate(mut.increase = (mutant - parent) > 0) %>% 
+  filter(mut.increase)
+```
+
+Plasmids with decreased CN
+
+```{r}
+left_join(rel_cov_final, genes_annotation, by = "contig.name") %>% 
+  filter(contig.len < 100000) %>% 
+  select(-c(tot.depth, contig.len, avg.depth, genome.part)) %>% 
+  pivot_wider(names_from = label, values_from = rel.depth) %>% 
+  mutate(mut.decrease = (mutant - parent) < 0) %>% 
+  filter(mut.decrease)
+```
+
 
 ### Plots {.tabset .tabset-pills}
 
@@ -465,7 +526,8 @@ plot_bars <- function(df, parent_name) {
   return(pl)
 }
 
-plot_list <- map(strains, ~ plot_bars(rel_cov_final, .))
+# filtering here
+plot_list <- map(strains, ~ plot_bars(rel_cov_final %>% filter(contig.len < 100000), .))
 
 ggpubr::ggarrange(plotlist = plot_list[c(1:6)], nrow = 2, ncol = 3, common.legend = T)
 ```
