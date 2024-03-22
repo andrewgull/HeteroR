@@ -262,9 +262,8 @@ Some genes got functional names, some - only systematic names aka "locus tags"
 
 ### Functional annotations
 
-Taken from the annotation tables
-
 ```{r}
+# this function will be used later
 parse_annotations <- function(strains_vec) {
   # this function reads annotation TSV files
   # strains_vec: vector of unique strain names
@@ -287,10 +286,29 @@ parse_annotations <- function(strains_vec) {
 
 genes_annotation <- parse_annotations(unique(vars_inside_final$strain))
 
+# read the InterProScan results
+ips <-
+  read_tsv(
+    "/home/andrei/Data/HeteroR/results/mutants/variants/InterProScan_results_Galaxy.tsv",
+    col_names = F,
+    show_col_types = F
+  ) %>%
+  select(X1, X4, X6) %>%
+  rename("locus_tag" = X1) %>%
+  pivot_wider(
+    names_from = X4,
+    values_from = X6,
+    values_fn = dplyr::first
+  )
+
+# join together IPS, variants and genes' annotations
 vars_inside_final %>% 
   filter(!is.na(gene_name)) %>% 
   left_join(genes_annotation, by="locus_tag") %>% 
-  select(strain, contig, gene_name, product, locus_tag, COG, REF, ALT) %>% 
+  select(strain, contig,  locus_tag, gene_name, product, COG, REF, ALT) %>% 
+  left_join(ips, by = "locus_tag") %>% 
+  select(-locus_tag) %>% 
+  relocate(COG, .after = FunFam) %>% 
     reactable::reactable(
     filterable = TRUE,
     minRows = 10,
@@ -386,7 +404,7 @@ amp_df %>%
 
 ## Plasmid copy number change
 
-### Table
+### Overview of contigs' lengths
 
 ```{r}
 # code from code_sketch.Rmd
@@ -413,102 +431,49 @@ rel_cov_df_mutant <-
           ))
 
 # altogether, minus chromosomes
+# this table is required for the plots below
 rel_cov_final <- bind_rows(rel_cov_df_mutant, rel_cov_df_parent) %>%
   filter(genome.part != "chrom") %>%
   mutate(contig.name.2 = str_extract(contig.name, "_[0-9]"),
          contig.name.2 = sub(pattern = "_", replacement = "", x = contig.name.2, fixed = T)) %>%
   relocate(strain, .before = contig.name)
 
-rel_cov_final %>%
-  # keep this select() here!
-  dplyr::select(-c(genome.part, contig.name.2)) %>% 
-  reactable::reactable(
-    filterable = TRUE,
-    minRows = 10,
-    sortable = TRUE,
-    defaultColDef = reactable::colDef(
-      cell = function(value)
-        format(value, nsmall = 1),
-      align = "center",
-      minWidth = 70,
-      headerStyle = list(background = "#f7f7f8")
-    ),
-    bordered = TRUE,
-    highlight = TRUE
-  )
+# rel_cov_final %>%
+#   # keep this select() here!
+#   dplyr::select(-c(genome.part, contig.name.2)) %>% 
+#   reactable::reactable(
+#     filterable = TRUE,
+#     minRows = 10,
+#     sortable = TRUE,
+#     defaultColDef = reactable::colDef(
+#       cell = function(value)
+#         format(value, nsmall = 1),
+#       align = "center",
+#       minWidth = 70,
+#       headerStyle = list(background = "#f7f7f8")
+#     ),
+#     bordered = TRUE,
+#     highlight = TRUE
+#   )
 ```
 
-Length of the contigs
+
 
 ```{r}
 rel_cov_final %>% 
   ggplot(aes(contig.len)) +
   geom_histogram(bins = 100) +
   geom_rug() +
-  geom_vline(xintercept = 100000)
+  geom_vline(xintercept = 100000, lty = 3) +
+  ggtitle("Length distribution of all contigs")
 ```
 
-Some contigs are too long for plasmids. Vertival line is at 100 kb mark.
-
-Which genes reside on this contigs?
-
-```{r}
-# these annotations do not have contig name
-genes_annotation <- parse_annotations(unique(rel_cov_final$strain))
-
-# read GFF additionally to get contig names
-read_gff <- function(gff_filename) {
-    as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
-    select(V1, V3, V4, V5, V7, V9) %>%
-    filter(V3 == "gene")
-}
-
-gff_table <- map_dfr(
-  unique(rel_cov_final$strain), 
-  ~ read_gff(paste0("/home/andrei/Data/HeteroR/results/annotations/",
-                    .,
-                    "/prokka/", ., "_genomic.gff")) %>% 
-    # keep only needed columns
-    select(V1, V9)) %>% 
-    # extract locus tags from V9
-    mutate(locus_tag = str_extract(V9, "[A-Z]*_[0-9]*")) %>% 
-    # remove V9
-    select(-V9) %>% 
-    rename("contig.name" = V1)
-
-# add the contig names to the annotations
-genes_annotation <- left_join(genes_annotation, gff_table, by = "locus_tag")
-
-# join genes to contigs with their relative coverage
-left_join(rel_cov_final, genes_annotation, by = "contig.name") %>% 
-  filter(contig.len < 100000)
-  # filtering?
-```
-
-Plasmids with increased CN
-
-```{r}
-left_join(rel_cov_final, genes_annotation, by = "contig.name") %>% 
-  filter(contig.len < 100000) %>% 
-  select(-c(tot.depth, contig.len, avg.depth, genome.part)) %>% 
-  pivot_wider(names_from = label, values_from = rel.depth) %>% 
-  mutate(mut.increase = (mutant - parent) > 0) %>% 
-  filter(mut.increase)
-```
-
-Plasmids with decreased CN
-
-```{r}
-left_join(rel_cov_final, genes_annotation, by = "contig.name") %>% 
-  filter(contig.len < 100000) %>% 
-  select(-c(tot.depth, contig.len, avg.depth, genome.part)) %>% 
-  pivot_wider(names_from = label, values_from = rel.depth) %>% 
-  mutate(mut.decrease = (mutant - parent) < 0) %>% 
-  filter(mut.decrease)
-```
+Some contigs are too long for plasmids. Vertical dotted line is at 100 kb.
 
 
-### Plots {.tabset .tabset-pills}
+### Relative depth comparison plots {.tabset .tabset-pills}
+
+Contigs longer than 100 kb were filtered out
 
 #### Plot 1
 
@@ -609,11 +574,114 @@ ggpubr::ggarrange(plotlist = plot_list[c(73:78)], nrow = 2, ncol = 3, common.leg
 ```
 
 
+### Table of all genes
+
+```{r}
+# these annotations do not have contig name
+genes_annotation <- parse_annotations(unique(rel_cov_final$strain))
+
+# read GFF additionally to get contig names
+read_gff <- function(gff_filename) {
+    as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
+    select(V1, V3, V4, V5, V7, V9) %>%
+    filter(V3 == "gene")
+}
+
+gff_table <- map_dfr(
+  unique(rel_cov_final$strain), 
+  ~ read_gff(paste0("/home/andrei/Data/HeteroR/results/annotations/",
+                    .,
+                    "/prokka/", ., "_genomic.gff")) %>% 
+    # keep only needed columns
+    select(V1, V9)) %>% 
+    # extract locus tags from V9
+    mutate(locus_tag = str_extract(V9, "[A-Z]*_[0-9]*")) %>% 
+    # remove V9
+    select(-V9) %>% 
+    rename("contig.name" = V1)
+
+# add the contig names to the annotations
+genes_annotation <- left_join(genes_annotation, gff_table, by = "locus_tag")
+
+# join genes to contigs with their relative coverage
+left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
+  # filter(contig.len < 100000)
+  # filtering?
+  select(strain,
+         contig.name,
+         contig.len,
+         rel.depth,
+         locus_tag,
+         label,
+         product) %>%
+  pivot_wider(names_from = label, values_from = rel.depth) %>%
+  rename("rel.depth.mutant" = mutant,
+         "rel.depth.parent" = parent) %>%
+  relocate(rel.depth.mutant, rel.depth.parent, .after = contig.len) %>%
+  mutate(
+    rel.depth.mutant = round(rel.depth.mutant, 1),
+    rel.depth.parent = round(rel.depth.parent, 1),
+    CN = if_else(rel.depth.mutant > rel.depth.parent, "increased", "decreased")
+  ) %>%
+  reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
+```
+
+
+### Table of genes on contings shorter than 100 kb
+
+```{r}
+left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
+  # filter(contig.len < 100000)
+  # filtering?
+  select(strain,
+         contig.name,
+         contig.len,
+         rel.depth,
+         locus_tag,
+         label,
+         product) %>%
+  filter(contig.len < 100000) %>%
+  pivot_wider(names_from = label, values_from = rel.depth) %>%
+  rename("rel.depth.mutant" = mutant,
+         "rel.depth.parent" = parent) %>%
+  relocate(rel.depth.mutant, rel.depth.parent, .after = contig.len) %>%
+  mutate(
+    rel.depth.mutant = round(rel.depth.mutant, 1),
+    rel.depth.parent = round(rel.depth.parent, 1),
+    CN = if_else(rel.depth.mutant > rel.depth.parent, "increased", "decreased")
+  ) %>%
+  reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
+```
+
 ## IS elements 
 
-### Summary of ISEscan results
-
-Overview of IS found in these 78 strains (no IS found in DA63688)
+### Overview of IS found in parental strains
 
 ```{r}
 path_results <- "/home/andrei/Data/HeteroR/results/isescan/"
@@ -636,22 +704,6 @@ ise_len_df <-
 # add db.lengths to the main table
 is_df <- left_join(is_df, ise_len_df, by="family")
 
-
-is_df %>% 
-    reactable::reactable(
-    filterable = TRUE,
-    minRows = 10,
-    sortable = TRUE,
-    defaultColDef = reactable::colDef(
-      cell = function(value)
-        format(value, nsmall = 1),
-      align = "center",
-      minWidth = 70,
-      headerStyle = list(background = "#f7f7f8")
-    ),
-    bordered = TRUE,
-    highlight = TRUE
-  )
 ```
 
 
@@ -750,12 +802,13 @@ ggpubr::ggarrange(plotlist = is_hist_list[c(19,20)], ncol = 1, nrow = 2, common.
 ### New insertions in the mutants
 
 ```{r}
-results_path <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/new_insertions/"
-results_files <- dir(path = results_path, pattern = "*table.txt", recursive = T)
+results_path <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/new_insertions"
+results_files <- dir(path = results_path, pattern = "*table.txt", recursive = T, full.names = T)
+
 best_is_representatives <- read_tsv("/home/andrei/Data/HeteroR/results/mutants/ismapper/best_IS_representatives.tsv")
 
 # read the provided table and add IS name
-ismapper_table <- function(table_file, family_id) {
+ismapper_table <- function(table_file, family_id, strain_name) {
   # table_file: a file with ISmapper results
   # family_id: a data frame with two columns 'seqID' and 'family' from 'best_is_representatives'
   out_df <- read_tsv(table_file, show_col_types = F, col_types = "ccdddccccccdcccdc") 
@@ -763,57 +816,110 @@ ismapper_table <- function(table_file, family_id) {
   seqid <- str_extract(table_file, "[A-Z]*_[0-9]*_gene")
   fam_name <- dplyr::filter(family_id, seqID == seqid) %>% pull(family)
   out_df$family <- fam_name
+  out_df$strain <- strain_name
   return(out_df)
 }
 
 new_inserts <- map_dfr(results_files,
          ~ ismapper_table(
-           table_file = paste0(results_path, .),
-           family_id = select(best_is_representatives, seqID, family)
+           table_file = .,
+           family_id = select(best_is_representatives, seqID, family),
+           strain_name = str_extract(., "DA[0-9]*")
          ))
 
 
 # For the three problematic strains another function is needed
 # Because they have different patterns in the output file names
-results_path2 <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/separate_test_results/"
-results_files2 <- dir(path = results_path2, pattern = "*table.txt", recursive = T)
+results_path2 <- "/home/andrei/Data/HeteroR/results/mutants/ismapper/separate_test_results"
+results_files2 <- dir(path = results_path2, pattern = "*table.txt", recursive = T, full.names = T)
 
 # IS family is present in the file name itself
-ismapper_table2 <- function(table_file) {
+ismapper_table2 <- function(table_file, strain_name) {
   # table_file: a file with ISmapper results
   out_df <- read_tsv(table_file, show_col_types = F, col_types = "ccdddccccccdcccdc") 
   out_df$family <- str_extract(table_file, "IS[0-9,A-Z]*")
+  out_df$strain <- strain_name
   return(out_df)
 }
 
 new_inserts2 <-
-  map_dfr(results_files2, ~ ismapper_table2(
-    table_file = paste0(results_path2, .)))
+  map_dfr(results_files2,
+          ~ ismapper_table2(table_file = ., 
+                            strain_name = str_extract(., "DA[0-9]*")))
 
 # join and print
 bind_rows(new_inserts, new_inserts2) %>% 
   filter(left_description != "hypothetical protein",
-         right_description != "hypothetical protein")
+         right_description != "hypothetical protein") %>% 
+  select(-c(gap, percent_ID, percent_cov)) %>% 
+  relocate(strain, .before = region)
+  reactable::reactable(
+    filterable = TRUE,
+    minRows = 10,
+    sortable = TRUE,
+    defaultColDef = reactable::colDef(
+      cell = function(value)
+        format(value, nsmall = 1),
+      align = "center",
+      minWidth = 70,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    bordered = TRUE,
+    highlight = TRUE
+  )
 ```
 
-How many genes next to IS?
 
-```{r}
+#### Plots
+
+How many new insertions in proximity to known genes per strain?
+
+```{r, fig.width=10}
 bind_rows(new_inserts, new_inserts2) %>% 
   filter(left_description != "hypothetical protein",
-         right_description != "hypothetical protein") %>% 
-  group_by(family) %>% 
+         right_description != "hypothetical protein",
+         call == "novel*") %>% 
+  select(strain, region) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
   count() %>% 
-  ggplot(aes(family, n)) +
-  geom_col()
+  ggplot(aes(reorder(strain, -n), n)) +
+  geom_col(fill = "steelblue") +
+  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
+  xlab("") +
+  ylab("new instertions")
 ```
 
-How many gene interruptions?
+How many genes next to each IS family?
 
 ```{r}
 bind_rows(new_inserts, new_inserts2) %>% 
   filter(left_description != "hypothetical protein",
          right_description != "hypothetical protein",
-         gene_interruption == "False")
+         call == "novel*") %>% 
+  group_by(family) %>% 
+  count() %>% 
+  ggplot(aes(reorder(family, -n), n)) +
+  geom_col(fill = "steelblue") +
+  theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1)) +
+  xlab("")
+```
+
+How many gene interruptions?
+
+```{r, fig.width=10}
+bind_rows(new_inserts, new_inserts2) %>% 
+  filter(left_description != "hypothetical protein",
+         right_description != "hypothetical protein",
+         gene_interruption == "True",
+         call == "novel*") %>% 
+  select(strain, region) %>% 
+  distinct() %>% 
+  group_by(strain) %>% 
+  count() %>% 
+  ggplot(aes(reorder(strain, -n), n)) +
+  geom_col(fill = "steelblue") +
+  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
+  xlab("")
 ```
 
