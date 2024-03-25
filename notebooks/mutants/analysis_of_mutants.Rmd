@@ -237,6 +237,8 @@ vars_inside_final %>% filter(strain == "DA63362") %>%
 vars_inside_final %>% 
   dplyr::select(-c(width, strand.y, QUAL, FILTER)) %>% 
   reactable::reactable(
+    #style = list(fontFamily = "Work Sans, sans-serif", fontSize = "0.675rem"),
+    resizable = TRUE,
     filterable = TRUE,
     minRows = 10,
     sortable = TRUE,
@@ -244,9 +246,16 @@ vars_inside_final %>%
       cell = function(value)
         format(value, nsmall = 1),
       align = "center",
-      minWidth = 70,
+      minWidth = 35,
       headerStyle = list(background = "#f7f7f8")
     ),
+    columns = list(strain = reactable::colDef(
+      sticky = "left",
+      # Add a right border style to visually distinguish the sticky column
+      style = list(borderRight = "1px solid #eee"),
+      headerStyle = list(borderRight = "1px solid #eee")
+    ))
+    ,
     bordered = TRUE,
     highlight = TRUE
   )
@@ -280,7 +289,7 @@ parse_annotations <- function(strains_vec) {
       show_col_types = F
     ) %>% 
       filter(ftype == "CDS", !is.na(gene)) %>% 
-      select(locus_tag, COG, product)
+      dplyr::select(locus_tag, COG, product)
   )
 }
 
@@ -293,8 +302,8 @@ ips <-
     col_names = F,
     show_col_types = F
   ) %>%
-  select(X1, X4, X6) %>%
-  rename("locus_tag" = X1) %>%
+  dplyr::select(X1, X4, X6) %>%
+  dplyr::rename("locus_tag" = X1) %>%
   pivot_wider(
     names_from = X4,
     values_from = X6,
@@ -305,11 +314,12 @@ ips <-
 vars_inside_final %>% 
   filter(!is.na(gene_name)) %>% 
   left_join(genes_annotation, by="locus_tag") %>% 
-  select(strain, contig,  locus_tag, gene_name, product, COG, REF, ALT) %>% 
+  dplyr::select(strain, contig,  locus_tag, gene_name, product, COG, REF, ALT) %>% 
   left_join(ips, by = "locus_tag") %>% 
-  select(-locus_tag) %>% 
-  relocate(COG, .after = FunFam) %>% 
-    reactable::reactable(
+  dplyr::select(-locus_tag) %>% 
+  reactable::reactable(
+    #style = list(fontFamily = "Work Sans, sans-serif", fontSize = "0.675rem"),
+    resizable = TRUE,
     filterable = TRUE,
     minRows = 10,
     sortable = TRUE,
@@ -317,9 +327,16 @@ vars_inside_final %>%
       cell = function(value)
         format(value, nsmall = 1),
       align = "center",
-      minWidth = 70,
+      minWidth = 35,
       headerStyle = list(background = "#f7f7f8")
     ),
+    columns = list(strain = reactable::colDef(
+      sticky = "left",
+      # Add a right border style to visually distinguish the sticky column
+      style = list(borderRight = "1px solid #eee"),
+      headerStyle = list(borderRight = "1px solid #eee")
+    ))
+    ,
     bordered = TRUE,
     highlight = TRUE
   )
@@ -346,9 +363,11 @@ amp_df <- map_dfr(strains, ~ read_amp_tsv(paste0(path_results, ., file_common_na
 genes_annotation <- parse_annotations(unique(amp_df$strain))
 
 left_join(amp_df, genes_annotation, by = "locus_tag") %>%
-  select(strain, contig, strand, start, stop, gene_name, product, COG) %>%
+  dplyr::select(strain, contig, strand, start, stop, gene_name, product, COG) %>%
   filter(!is.na(gene_name)) %>%
   reactable::reactable(
+    #style = list(fontFamily = "Work Sans, sans-serif", fontSize = "0.675rem"),
+    resizable = TRUE,
     filterable = TRUE,
     minRows = 10,
     sortable = TRUE,
@@ -356,9 +375,16 @@ left_join(amp_df, genes_annotation, by = "locus_tag") %>%
       cell = function(value)
         format(value, nsmall = 1),
       align = "center",
-      minWidth = 70,
+      minWidth = 35,
       headerStyle = list(background = "#f7f7f8")
     ),
+    columns = list(strain = reactable::colDef(
+      sticky = "left",
+      # Add a right border style to visually distinguish the sticky column
+      style = list(borderRight = "1px solid #eee"),
+      headerStyle = list(borderRight = "1px solid #eee")
+    ))
+    ,
     bordered = TRUE,
     highlight = TRUE
   )
@@ -583,7 +609,7 @@ genes_annotation <- parse_annotations(unique(rel_cov_final$strain))
 # read GFF additionally to get contig names
 read_gff <- function(gff_filename) {
     as_tibble(read.delim(gff_filename, header = F, comment.char = "#")) %>%
-    select(V1, V3, V4, V5, V7, V9) %>%
+    dplyr::select(V1, V3, V4, V5, V7, V9) %>%
     filter(V3 == "gene")
 }
 
@@ -593,12 +619,12 @@ gff_table <- map_dfr(
                     .,
                     "/prokka/", ., "_genomic.gff")) %>% 
     # keep only needed columns
-    select(V1, V9)) %>% 
+    dplyr::select(V1, V9)) %>% 
     # extract locus tags from V9
     mutate(locus_tag = str_extract(V9, "[A-Z]*_[0-9]*")) %>% 
     # remove V9
-    select(-V9) %>% 
-    rename("contig.name" = V1)
+    dplyr::select(-V9) %>% 
+    dplyr::rename("contig.name" = V1)
 
 # add the contig names to the annotations
 genes_annotation <- left_join(genes_annotation, gff_table, by = "locus_tag")
@@ -607,7 +633,7 @@ genes_annotation <- left_join(genes_annotation, gff_table, by = "locus_tag")
 left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
   # filter(contig.len < 100000)
   # filtering?
-  select(strain,
+  dplyr::select(strain,
          contig.name,
          contig.len,
          rel.depth,
@@ -615,7 +641,7 @@ left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
          label,
          product) %>%
   pivot_wider(names_from = label, values_from = rel.depth) %>%
-  rename("rel.depth.mutant" = mutant,
+  dplyr::rename("rel.depth.mutant" = mutant,
          "rel.depth.parent" = parent) %>%
   relocate(rel.depth.mutant, rel.depth.parent, .after = contig.len) %>%
   mutate(
@@ -624,6 +650,8 @@ left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
     CN = if_else(rel.depth.mutant > rel.depth.parent, "increased", "decreased")
   ) %>%
   reactable::reactable(
+    #style = list(fontFamily = "Work Sans, sans-serif", fontSize = "0.675rem"),
+    resizable = TRUE,
     filterable = TRUE,
     minRows = 10,
     sortable = TRUE,
@@ -631,9 +659,16 @@ left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
       cell = function(value)
         format(value, nsmall = 1),
       align = "center",
-      minWidth = 70,
+      minWidth = 35,
       headerStyle = list(background = "#f7f7f8")
     ),
+    columns = list(strain = reactable::colDef(
+      sticky = "left",
+      # Add a right border style to visually distinguish the sticky column
+      style = list(borderRight = "1px solid #eee"),
+      headerStyle = list(borderRight = "1px solid #eee")
+    ))
+    ,
     bordered = TRUE,
     highlight = TRUE
   )
@@ -646,7 +681,7 @@ left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
 left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
   # filter(contig.len < 100000)
   # filtering?
-  select(strain,
+  dplyr::select(strain,
          contig.name,
          contig.len,
          rel.depth,
@@ -655,7 +690,7 @@ left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
          product) %>%
   filter(contig.len < 100000) %>%
   pivot_wider(names_from = label, values_from = rel.depth) %>%
-  rename("rel.depth.mutant" = mutant,
+  dplyr::rename("rel.depth.mutant" = mutant,
          "rel.depth.parent" = parent) %>%
   relocate(rel.depth.mutant, rel.depth.parent, .after = contig.len) %>%
   mutate(
@@ -664,6 +699,8 @@ left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
     CN = if_else(rel.depth.mutant > rel.depth.parent, "increased", "decreased")
   ) %>%
   reactable::reactable(
+    #style = list(fontFamily = "Work Sans, sans-serif", fontSize = "0.675rem"),
+    resizable = TRUE,
     filterable = TRUE,
     minRows = 10,
     sortable = TRUE,
@@ -671,9 +708,16 @@ left_join(rel_cov_final, genes_annotation, by = "contig.name") %>%
       cell = function(value)
         format(value, nsmall = 1),
       align = "center",
-      minWidth = 70,
+      minWidth = 35,
       headerStyle = list(background = "#f7f7f8")
     ),
+    columns = list(strain = reactable::colDef(
+      sticky = "left",
+      # Add a right border style to visually distinguish the sticky column
+      style = list(borderRight = "1px solid #eee"),
+      headerStyle = list(borderRight = "1px solid #eee")
+    ))
+    ,
     bordered = TRUE,
     highlight = TRUE
   )
@@ -823,7 +867,7 @@ ismapper_table <- function(table_file, family_id, strain_name) {
 new_inserts <- map_dfr(results_files,
          ~ ismapper_table(
            table_file = .,
-           family_id = select(best_is_representatives, seqID, family),
+           family_id = dplyr::select(best_is_representatives, seqID, family),
            strain_name = str_extract(., "DA[0-9]*")
          ))
 
@@ -846,14 +890,27 @@ new_inserts2 <-
   map_dfr(results_files2,
           ~ ismapper_table2(table_file = ., 
                             strain_name = str_extract(., "DA[0-9]*")))
+```
 
+```{r}
 # join and print
-bind_rows(new_inserts, new_inserts2) %>% 
-  filter(left_description != "hypothetical protein",
-         right_description != "hypothetical protein") %>% 
-  select(-c(gap, percent_ID, percent_cov)) %>% 
-  relocate(strain, .before = region)
+bind_rows(new_inserts, new_inserts2) %>%
+  filter(
+    left_description != "hypothetical protein",
+    right_description != "hypothetical protein",
+    call == "novel*"
+  ) %>%
+  dplyr::select(-c(gap, percent_ID, percent_cov, call, contains("strand"))) %>%
+  mutate(
+    region = str_extract(region, "[0-9]"),
+    x = round(x, 0),
+    y = round(y, 0)
+  ) %>%
+  unite("pos", x:y, sep = " - ", remove = T) %>% 
+  relocate(c(strain, family), .before = region) %>%
   reactable::reactable(
+    #style = list(fontFamily = "Work Sans, sans-serif", fontSize = "0.675rem"),
+    resizable = TRUE,
     filterable = TRUE,
     minRows = 10,
     sortable = TRUE,
@@ -861,9 +918,16 @@ bind_rows(new_inserts, new_inserts2) %>%
       cell = function(value)
         format(value, nsmall = 1),
       align = "center",
-      minWidth = 70,
+      minWidth = 35,
       headerStyle = list(background = "#f7f7f8")
     ),
+    columns = list(strain = reactable::colDef(
+      sticky = "left",
+      # Add a right border style to visually distinguish the sticky column
+      style = list(borderRight = "1px solid #eee"),
+      headerStyle = list(borderRight = "1px solid #eee")
+    ))
+    ,
     bordered = TRUE,
     highlight = TRUE
   )
@@ -879,10 +943,10 @@ bind_rows(new_inserts, new_inserts2) %>%
   filter(left_description != "hypothetical protein",
          right_description != "hypothetical protein",
          call == "novel*") %>% 
-  select(strain, region) %>% 
+  dplyr::select(strain, region) %>% 
   distinct() %>% 
   group_by(strain) %>% 
-  count() %>% 
+  dplyr::count() %>% 
   ggplot(aes(reorder(strain, -n), n)) +
   geom_col(fill = "steelblue") +
   theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
@@ -898,7 +962,7 @@ bind_rows(new_inserts, new_inserts2) %>%
          right_description != "hypothetical protein",
          call == "novel*") %>% 
   group_by(family) %>% 
-  count() %>% 
+  dplyr::count() %>% 
   ggplot(aes(reorder(family, -n), n)) +
   geom_col(fill = "steelblue") +
   theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1)) +
@@ -913,10 +977,10 @@ bind_rows(new_inserts, new_inserts2) %>%
          right_description != "hypothetical protein",
          gene_interruption == "True",
          call == "novel*") %>% 
-  select(strain, region) %>% 
+  dplyr::select(strain, region) %>% 
   distinct() %>% 
   group_by(strain) %>% 
-  count() %>% 
+  dplyr::count() %>% 
   ggplot(aes(reorder(strain, -n), n)) +
   geom_col(fill = "steelblue") +
   theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1)) +
