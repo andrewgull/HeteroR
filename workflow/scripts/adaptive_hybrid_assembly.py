@@ -32,7 +32,7 @@ with open(snakemake.log[0], "w") as f:
     
     # CALCULATE COVERAGE in order to decide which assembler to use
     seqkit_out = subprocess.run(f"seqkit stats {LONG_READS} -T", shell=True, capture_output=True, text=True, check=True)
-    gen_coverage = int(seqkit_out.stdout.split("\n")[1].split("\t")[4])/GENOME_LENGTH
+    gen_coverage = int(int(seqkit_out.stdout.split("\n")[1].split("\t")[4])/GENOME_LENGTH)
 
     # SET UNICYCLER STATUS, it is needed to decide whether to ditch Unicycler if it crashes
     UNICYCLER_STATUS = "ok"
