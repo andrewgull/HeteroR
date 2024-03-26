@@ -593,12 +593,6 @@ ggpubr::ggarrange(plotlist = plot_list[c(61:66)], nrow = 2, ncol = 3, common.leg
 ggpubr::ggarrange(plotlist = plot_list[c(67:72)], nrow = 2, ncol = 3, common.legend = T)
 ```
 
-#### Plot 13
-
-```{r, fig.height=6, fig.width=8}
-ggpubr::ggarrange(plotlist = plot_list[c(73:78)], nrow = 2, ncol = 3, common.legend = T)
-```
-
 
 ### Table of all genes
 
