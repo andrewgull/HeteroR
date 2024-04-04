@@ -1878,12 +1878,6 @@ features <- left_join(features, rep_len_sum, by = "record_id") %>%
 head(features_strain)
 ```
 
-### Repeat density
-
-Under construction.
-
-This metric reflects maximum number of repeats per sliding window.
-
 ### Median repeat length
 
 Only repeats found around beta-lactamase genes should be taken into account.
