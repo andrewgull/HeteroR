@@ -1499,6 +1499,7 @@ gff <- future_map_dfr(gff_files, ~ read_gff(.)) %>%
   rename("dist.to.oriC" = start) %>%
   select(record_id, dist.to.oriC, pos.strand, on.plasmid, gene.length)
 
+gff
 ```
 
 ## Remove non-beta-lactamase AMR genes from GFF
@@ -1509,8 +1510,7 @@ gff <- features %>%
   select(record_id, is.beta.lac) %>% 
   distinct() %>% 
   filter(is.beta.lac) %>% 
-  right_join(gff, by = "record_id") %>% 
-  select(-is.beta.lac)
+  right_join(gff, by = "record_id")
 
 gff
 ```
@@ -1525,7 +1525,7 @@ features <- features %>%
 head(features)
 ```
 
-## Add 'strain' and 'record_id' to `gff` (GFF with BL genes)
+## Add 'strain' to `gff` (GFF with BL genes)
 
 ```{r}
 gff <- features %>% 
@@ -1538,17 +1538,17 @@ gff <- features %>%
 
 (from GFF)
 
--   minimum distance to oriC
+-   minimum distance to oriC - NOT RELEVANT
 
--   average (median) distance to oriC
+-   average (median) distance to oriC - NOT RELEVANT
 
--   number of genes on a positive strand
+-   number of genes on a positive strand - NOT RELEVANT
 
 -   number of genes on plasmids
 
 All in three variants: on chromosome, on plasmids, both
 
-```{r}
+```{r, eval=FLASE}
 min_dist_oriC <- gff %>% 
   group_by(strain, on.plasmid) %>% 
   summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
@@ -1589,34 +1589,14 @@ Counting the resistance genes, let's take into account plasmids copy-number
 # ERROR here: some nc.plasmids = 0 
 gff_with_counts <- gene_counts_rgi %>% 
   select(record_id, strain, nc.plasmids) %>% 
-  right_join(gff, by = c("record_id", "strain"))
-
-n_genes_plus_strand <- gff_with_counts %>%
-  filter(pos.strand == "yes") %>% 
-  mutate(nc.plasmids.dummy = ifelse(on.plasmid == "yes", nc.plasmids, 0)) %>% 
-  group_by(strain, on.plasmid) %>%
-  summarise(
-    n.beta.lac.plus = sum(pos.strand == "yes"),
-    nc.beta.lac.plus.plasmid = sum(nc.plasmids.dummy)
-  ) %>%
-  spread(key = "on.plasmid", value = "n.beta.lac.plus", fill = 0) %>%
-  dplyr::rename(n.beta.lac.plus.chrom = no ,
-                n.beta.lac.plus.plasmid = yes) %>%
-  group_by(strain) %>% 
-  summarise(n.beta.lac.plus.chrom = sum(n.beta.lac.plus.chrom),
-            n.beta.lac.plus.plasmid = sum(n.beta.lac.plus.plasmid),
-            nc.beta.lac.plus.plasmid = sum(nc.beta.lac.plus.plasmid)) %>% 
-  mutate(
-    n.beta.lac.plus = n.beta.lac.plus.chrom + n.beta.lac.plus.plasmid,
-    nc.beta.lac.plus = n.beta.lac.plus.chrom + nc.beta.lac.plus.plasmid
-  ) 
+  right_join(gff, by = c("record_id", "strain")) 
 
 n_genes_plasmids <-
   gff_with_counts %>%
   mutate(
     n_genes_on_plasmid = ifelse(on.plasmid == "yes", 1, 0),
     nc_genes_on_plasmid = ifelse(on.plasmid == "yes", nc.plasmids, 0)
-  ) %>%
+  ) %>% 
   group_by(strain) %>%
   summarise(
     n.beta.lac.plasmid = sum(n_genes_on_plasmid),
@@ -1624,14 +1604,9 @@ n_genes_plasmids <-
   )
 
 features_strain <-
-  list(
-    features_strain,
-    min_dist_oriC,
-    med_dist_oriC,
-    n_genes_plus_strand,
-    n_genes_plasmids
-  ) %>%
-  purrr::reduce(left_join, by = "strain") %>%
+  left_join(features_strain,
+            n_genes_plasmids, 
+            by = "strain") %>%
   mutate(n.beta.lac.chrom = n.beta.lac - n.beta.lac.plasmid) %>%
   relocate(n.beta.lac.plasmid, n.beta.lac.chrom, .before = min.dist.oriC.chrom)
 
@@ -2064,7 +2039,7 @@ features %>%
   filter(n.ampC == 0)
 ```
 
-In real life, every E.coli has at least 1 ampC gene on chromosome - the table above should be empty, unless `AMR.Gene.Family` is `NA`! (DA63310)
+In real life, every E.coli has at least 1 ampC gene on chromosome - the table above should be empty, unless `AMR.Gene.Family` is `NA`!
 
 ### Filter features with ampC genes only
 
@@ -2256,7 +2231,7 @@ amr_gene_presence <- as_tibble(
 
 # add strain and summarize counts
 amr_gene_presence$strain <- amr_gene_types$strain
-amr_gene_presence <- relocate(amr_gene_presence, strain, .before = "ampC.type.beta.lactamase")
+amr_gene_presence <- relocate(amr_gene_presence, strain, .before = 1)
 
 # here sum is applied to all variables
 amr_types_strain <- amr_gene_presence %>% 
@@ -2308,8 +2283,6 @@ select TEM strains
 TEM_rgi <- rgi %>% 
   filter(str_detect(Best_Hit_ARO, "TEM")) 
 
-TEM_rgi
-
 TEM_strains <- TEM_rgi %>%  select(strain) %>%  unlist %>%  unname %>% unique
 ```
 
@@ -2356,7 +2329,9 @@ unique(merged_dna_set)
 we have 6 differnet sequences, how many different families do we have?
 
 ```{r}
-TEM_rgi %>%  select(Best_Hit_ARO) %>%  unique()
+TEM_rgi %>% 
+  select(Best_Hit_ARO) %>% 
+  unique()
 ```
 
 We have 2 families, how many different AA sequences do we have?
@@ -2412,7 +2387,8 @@ tem_pivot <- TEM_rgi %>%
   summarise(n = n()) %>%
   pivot_wider(names_from = Best_Hit_ARO, values_from = n, values_fill = 0) %>% 
   # check the available TEM names here
-  dplyr::rename(n.TEM.1 = `TEM-1`)
+  dplyr::rename(n.TEM.1 = `TEM-1`, 
+                n.TEM.207 = `TEM-207`)
 
 features_strain <- left_join(features_strain, tem_pivot, by = "strain")
 head(features_strain)
@@ -2650,6 +2626,7 @@ head(features_strain)
 
 ```{r}
 is_strains <- dir("/mnt/data/andrei/Data/HeteroR/results/isescan")
+is_strains <- is_strains[is_strains %in% strains]
 ```
 
 ```{r message=FALSE}
@@ -2690,14 +2667,14 @@ isescan_df
 ### per strain features
 
 ```{r}
-#families per strain
+# families per strain
 is_types <- isescan_df  %>%
   dplyr::count(family, strain, name = "count") %>%
   group_by(strain) %>%
   summarise(unique_count = n()) %>% 
   dplyr::rename(n.is.fam = unique_count)
 
-#total amount of IS per strain
+# total amount of IS per strain
 is_all <- isescan_df  %>%
   group_by(strain) %>%
   summarise(count = n()) %>%
@@ -2750,8 +2727,8 @@ interrupted_genes <-
 # add to feature_strain 
 features_strain <- 
   list(features_strain, is_types, max_len, families_pivot, is_all, min_distance_is_gene, interrupted_genes) %>% 
-  reduce(left_join, by = "strain") %>% 
-  as_tibble() #??
+  reduce(left_join, by = "strain") 
+
 ```
 
 Are there any genes that have the same insertion sequence family on both sides?
