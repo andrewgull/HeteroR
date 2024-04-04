@@ -752,7 +752,7 @@ read_depth <- function(strain_name, max_gen_size=4500000) {
                 strain_name,
                 "/depth.txt")
   
-  df <- read.delim(path) %>%
+  df <- data.table::fread(path) %>%
     set_names(c("chr", "position", "n")) %>% 
     mutate(n = as.numeric(n), chr = as.factor(chr)) %>%
     group_by(chr) %>%
@@ -1549,28 +1549,15 @@ gff <- future_map_dfr(gff_files, ~ read_gff(.)) %>%
 
 ```{r}
 #| eval: true
-gff <- features %>% 
+gff_beta_lac <- features %>% 
   mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   select(record_id, is.beta.lac) %>% 
   distinct() %>% 
-  right_join(gff, by = "record_id") %>% 
   filter(is.beta.lac) %>% 
+  right_join(gff, by = "record_id") %>% 
   select(-is.beta.lac)
 
-gff
-```
-
-Alternative (if filtering by Resistance mechanism is not applied):
-
-```{r, eval=FALSE}
-#| eval: false
-gff <- features %>% 
-  mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
-  select(record_id, is.beta.lac) %>% 
-  distinct() %>% 
-  right_join(gff, by = "record_id")
-
-gff
+gff_beta_lac
 ```
 
 ## Add 'on.plasmid', 'strand' and 'dist.to.oriC' to `features`
@@ -1586,10 +1573,10 @@ head(features)
 ## Add 'strain' and 'record_id' to `gff` (GFF with BL genes)
 
 ```{r}
-gff <- features %>% 
+gff_beta_lac <- features %>% 
   select(strain, record_id) %>% 
   distinct() %>% 
-  right_join(gff, by = "record_id")
+  right_join(gff_beta_lac, by = "record_id")
 ```
 
 ### Summarize some BL-related features per strain
@@ -1608,14 +1595,14 @@ All in three variants: on chromosome, on plasmids, both
 
 ```{r}
 #| eval: true
-min_dist_oriC <- gff %>% 
+min_dist_oriC <- gff_beta_lac %>% 
   group_by(strain, on.plasmid) %>% 
   summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
   spread(key = "on.plasmid", value = "min.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
   rename("min.dist.oriC.chrom" = no, "min.dist.oriC.plasmid" = yes) %>% 
   mutate(min.dist.oriC = min.dist.oriC.chrom + min.dist.oriC.plasmid)
 
-med_dist_oriC <- gff %>% 
+med_dist_oriC <- gff_beta_lac %>% 
 group_by(strain, on.plasmid) %>% 
   summarise(med.dist.oriC = median(dist.to.oriC)) %>% 
   spread(key = "on.plasmid", value = "med.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
@@ -1648,7 +1635,7 @@ Counting the resistance genes, let's take into account plasmids copy-number
 # ERROR here: some nc.plasmids = 0 
 gff_with_counts <- gene_counts_rgi %>% 
   select(record_id, strain, nc.plasmids) %>% 
-  right_join(gff, by = c("record_id", "strain"))
+  right_join(gff_beta_lac, by = c("record_id", "strain"))
 
 n_genes_plus_strand <- gff_with_counts %>%
   filter(pos.strand == "yes") %>% 
