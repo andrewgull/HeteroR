@@ -548,8 +548,7 @@ Like ARO, Cut_Off, Model_ID etc.
 
 Leave Best_Hit_ARO because it contains information on types of beta-lactamases.
 
-```{r}
-#| eval: true
+```{r, eval=TRUE}
 features <- features %>% 
   select(-c(ARO, Cut_Off, Pass_Bitscore, Best_Hit_Bitscore,
             Best_Identities, Model_ID, Model_type, SNPs_in_Best_Hit_ARO,
@@ -585,42 +584,6 @@ How many strains in features?
 
 ```{r}
 length(unique(features$strain))
-```
-
-One strain has been removed because it doesn't have any RGs or repeats
-
-I should add it back and assign NAs everywhere
-
-```{r, eval=FALSE}
-strains_no_rg <- setdiff(strains, features$strain)
-
-na_col <- function(){
-  rep(NA, length(strains_no_rg))
-}
-
-l.rg <- length(strains_no_rg)
-
-no_rg_df <- tibble(strain = strains_no_rg, 
-                   record_id = na_col(),
-                   repeat_length = na_col(),
-                   AR_length = na_col(),
-                   spans_center = na_col(),
-                   ORF_ID = na_col(),
-                   Drug.Class = na_col(),
-                   Resistance.Mechanism = na_col(),
-                   AMR.Gene.Family = na_col())
-
-no_rg_df
-```
-
-This strain also doesn't have ampC beta-lactamase, which cannot be.
-
-Should I remove it whatsoever?
-
-Also, it has been tested as nonHR
-
-```{r, eval=FALSE}
-features <- bind_rows(features, no_rg_df)
 ```
 
 # Per-strain dataset
