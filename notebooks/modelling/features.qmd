@@ -598,40 +598,41 @@ Check on the pairs plot from assemblies summary and coverage analysis to find ou
 
 ```{bash, eval=FALSE}
 # run from within ~/Data/HeteroR
-workflow/scripts/coverage_cli.py resources/strain_lists/strains525.txt 5131220 results/coverage/strains525.tsv filtered
+workflow/scripts/coverage_cli.py resources/strain_lists/strains_475.txt 5131220 results/coverage/strains_475.tsv filtered
 ```
 
 Read the coverage table
 
 ```{r, message=FALSE}
-coverage <- read_delim("/mnt/data/andrei/Data/HeteroR/results/coverage/strains525.tsv", na = c("", "NaN")) %>% 
+coverage <- read_delim("/mnt/data/andrei/Data/HeteroR/results/coverage/strains_475.tsv", na = c("", "NaN")) %>% 
   mutate(strain = str_extract(file, "DA[0-9]*")) %>% 
-  select(strain, coverage, max_len)
+  select(strain, coverage, max_len) %>% 
+  filter(strain %in% strains)
 
 head(coverage)
 ```
 
 ## Completeness and N50
 
-`completeness` and `N50` come from assemblies summary files
+`completeness` and `N50` come from assemblies summary files; keep only strains used in the analysis
 
 ```{r, message=FALSE}
-summaries <- dir(path = "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined",  pattern = "summary.tsv", recursive=TRUE)
+ass_sum_path <- "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/"
 
-assemblies <- future_map_dfr(summaries, function(x){
-  read_delim(paste0("/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/", x), col_types = "cccccccccccc")
-  }) %>% mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
+assemblies <- future_map_dfr(strains, function(x){
+  read_delim(paste0(ass_sum_path, x, "/summary.tsv"), col_types = "cccccccccccc")}) %>%
+  mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
                 Length = as.integer(gsub(",", "", Length, fixed = TRUE)),
                 N50 = as.integer(gsub(",", "", N50, fixed = TRUE)),
                 Longest_component = as.integer(gsub(",", "", Longest_component, fixed = TRUE)),
                 Status2 = case_when(Status == "incomplete" ~ "linear",
                              Status == "complete" | Status == "Y" ~ "circular",
-                             Status == "scaffold" ~ "add.plasmid"))
+                             Status == "scaffold" ~ "add.plasmid")) 
 
 head(assemblies)
 ```
 
-Join these two tables to make per strain features
+Join `assemblies` and `coverage` tables to make per strain features; keep only strains that were used in the analysis
 
 ```{r}
 features_strain <- assemblies %>% 
@@ -639,18 +640,10 @@ features_strain <- assemblies %>%
   select(Strain, Status2, N50) %>% 
   rename("strain" = Strain, "chrom.status" = Status2) %>% 
   left_join(coverage, by = "strain") %>% 
-  rename("read.max.len" = max_len)
+  rename("read.max.len" = max_len) 
   
 head(features_strain)
 ```
-
-How many strains here?
-
-```{r}
-length(unique(features_strain$strain))
-```
-
-OK
 
 ## Number of plasmids
 
