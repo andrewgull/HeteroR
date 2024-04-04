@@ -617,10 +617,10 @@ head(coverage)
 `completeness` and `N50` come from assemblies summary files; keep only strains used in the analysis
 
 ```{r, message=FALSE}
-ass_sum_path <- "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/"
+ass_joined_path <- "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/"
 
 assemblies <- future_map_dfr(strains, function(x){
-  read_delim(paste0(ass_sum_path, x, "/summary.tsv"), col_types = "cccccccccccc")}) %>%
+  read_delim(paste0(ass_joined_path, x, "/summary.tsv"), col_types = "cccccccccccc")}) %>%
   mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
                 Length = as.integer(gsub(",", "", Length, fixed = TRUE)),
                 N50 = as.integer(gsub(",", "", N50, fixed = TRUE)),
@@ -980,7 +980,7 @@ for UC strains without scaffold all the infos i need are in the headers of the a
 get_cov_uc_header <- function(x) {
   path <-
     paste0(
-      "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/",
+      ass_joined_path,
       x,
       "/assembly.fasta"
     )
@@ -1504,8 +1504,7 @@ gff <- future_map_dfr(gff_files, ~ read_gff(.)) %>%
 ## Remove non-beta-lactamase AMR genes from GFF
 
 ```{r}
-#| eval: true
-gff_beta_lac <- features %>% 
+gff <- features %>% 
   mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   select(record_id, is.beta.lac) %>% 
   distinct() %>% 
@@ -1513,10 +1512,10 @@ gff_beta_lac <- features %>%
   right_join(gff, by = "record_id") %>% 
   select(-is.beta.lac)
 
-gff_beta_lac
+gff
 ```
 
-## Add 'on.plasmid', 'strand' and 'dist.to.oriC' to `features`
+## Add gff table (columns: 'on.plasmid', 'strand' and 'dist.to.oriC') to `features`
 
 ```{r}
 features <- features %>% 
@@ -1529,10 +1528,10 @@ head(features)
 ## Add 'strain' and 'record_id' to `gff` (GFF with BL genes)
 
 ```{r}
-gff_beta_lac <- features %>% 
+gff <- features %>% 
   select(strain, record_id) %>% 
   distinct() %>% 
-  right_join(gff_beta_lac, by = "record_id")
+  right_join(gff, by = "record_id")
 ```
 
 ### Summarize some BL-related features per strain
@@ -1550,15 +1549,14 @@ gff_beta_lac <- features %>%
 All in three variants: on chromosome, on plasmids, both
 
 ```{r}
-#| eval: true
-min_dist_oriC <- gff_beta_lac %>% 
+min_dist_oriC <- gff %>% 
   group_by(strain, on.plasmid) %>% 
   summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
   spread(key = "on.plasmid", value = "min.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
   rename("min.dist.oriC.chrom" = no, "min.dist.oriC.plasmid" = yes) %>% 
   mutate(min.dist.oriC = min.dist.oriC.chrom + min.dist.oriC.plasmid)
 
-med_dist_oriC <- gff_beta_lac %>% 
+med_dist_oriC <- gff %>% 
 group_by(strain, on.plasmid) %>% 
   summarise(med.dist.oriC = median(dist.to.oriC)) %>% 
   spread(key = "on.plasmid", value = "med.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
@@ -1591,7 +1589,7 @@ Counting the resistance genes, let's take into account plasmids copy-number
 # ERROR here: some nc.plasmids = 0 
 gff_with_counts <- gene_counts_rgi %>% 
   select(record_id, strain, nc.plasmids) %>% 
-  right_join(gff_beta_lac, by = c("record_id", "strain"))
+  right_join(gff, by = c("record_id", "strain"))
 
 n_genes_plus_strand <- gff_with_counts %>%
   filter(pos.strand == "yes") %>% 
