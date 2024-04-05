@@ -5,7 +5,7 @@ output: html_document
 date:  "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 ---
 
-```{r}
+```{r, message=FALSE}
 library(tidymodels)
 library(workflowsets)
 library(bonsai)
@@ -32,19 +32,23 @@ hr_testing <- readr::read_csv("data/heteroresistance_testing.csv",
 data_strain <- data_strain %>%
   left_join(hr_testing, by = "strain")
 
-# strain filtering: DA63310 doesn't have ampC and repeats
-# the other two clustered with E. fergusoni and E. albertii on the tree
+# strain filtering: "DA63246", "DA63068", "DA63044" clustered with E. fergusoni and E. albertii on the tree
+# keep them for now
 data_strain <- data_strain %>%
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
   relocate(n.beta.lac.4, .before = "n.plasmids") %>%
-  filter(resistance != "R", 
-         !(strain %in% c("DA63310", "DA63246", "DA63068", "DA63044"))) %>%
+  filter(resistance != "R") %>%
   mutate(
     resistance = factor(resistance, levels = c("HR", "nonHR")),
     chrom.status = factor(chrom.status)
   )
 
 data_strain$N50 <- NULL
+# TEMPORARILY: remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
+# reasons for both are currently unclear
+data_strain$nc.beta.lac.plasmid <- NULL
+data_strain$n.beta.lac.chrom <- NULL
+# NA s to 0s
 data_strain[is.na(data_strain)] <- 0
 data_strain <- data_strain %>% 
   select(-contains("oriC")) %>% 
