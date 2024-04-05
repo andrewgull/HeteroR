@@ -69,7 +69,10 @@ data_strain <- data_strain %>%
   filter(resistance != "R") %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
          chrom.status = factor(chrom.status))
-
+# TEMPORARILY: remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
+# reasons for both are currently unclear
+data_strain$nc.beta.lac.plasmid <- NULL
+data_strain$n.beta.lac.chrom <- NULL
 data_strain$N50 <- NULL
 data_strain[is.na(data_strain)] <- 0
 ```
@@ -1826,16 +1829,17 @@ roc_df <-
   function(x, y)
     make_roc(x, y))
 
-Fig_9A <- roc_df %>% 
+Fig_all_rocs <- roc_df %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
   scale_color_brewer(palette="Dark2") 
 
-ggsave(file="manuscript/images/Fig_9A_best_ROCs.png", plot=Fig_9A, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_all_ROCs.png", 
+       plot=Fig_all_rocs, width = 8, height=4, units = "in")
 
-Fig_9A
+Fig_all_rocs
 ```
 
 ## Posterior probability distribution
@@ -1859,7 +1863,7 @@ mod_posterior <-
     cores = 8
   )
 
-Fig_9B <- autoplot(mod_posterior) +
+Fig_all_posterior <- autoplot(mod_posterior) +
   scale_color_brewer(palette = "Dark2") +
   theme(plot.margin = margin(
     t = 23,
@@ -1869,20 +1873,22 @@ Fig_9B <- autoplot(mod_posterior) +
     unit = "pt"
   ))
 
-ggsave(file="manuscript/images/Fig_9B_posterior.png", plot=Fig_9B, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_all_posterior.png", 
+       plot=Fig_all_posterior, width = 8, height=4, units = "in")
 
-Fig_9B
+Fig_all_posterior
 ```
 
 ```{r, fig.width=8}
-Fig_9AB <- ggarrange(Fig_9A, Fig_9B,
+Fig_all_rocs_all_posterior <- ggarrange(Fig_all_rocs, Fig_all_posterior,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE,
                     legend = "bottom")
 
-ggsave(file="manuscript/images/Fig_9AB.png", plot=Fig_9AB, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_all_rocs_all_posterior.png", 
+       plot=Fig_all_rocs_all_posterior, width = 8, height=4, units = "in")
 
-Fig_9AB
+Fig_all_rocs_all_posterior
 ```
 
 ## Difference estimates
@@ -1896,7 +1902,7 @@ summary(mod_diff)
 Save this table
 
 ```{r}
-write_csv(summary(mod_diff), "manuscript/tables/contrast_models.csv" )
+write_csv(summary(mod_diff), "manuscript/tables/contrast_all_models.csv" )
 ```
 
 
@@ -1937,14 +1943,19 @@ roc3_df <-
            top_names,
            function(x, y)
              make_roc(x, y))
-roc3_df %>% 
+
+Fig_top_rocs <- roc3_df %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_brewer(palette = "Set1") +
-  ggtitle("ROC curves, top models")
+  scale_color_brewer(palette = "Set1") 
+  #ggtitle("ROC curves, top models")
 
+ggsave(file="manuscript/images/Fig_top_rocs.png", 
+       plot=Fig_top_rocs, width = 8, height=4, units = "in")
+
+Fig_top_rocs
 ```
 
 ### PR curves
@@ -1980,13 +1991,33 @@ mod_posterior <-
     cores = 8
   )
 
-autoplot(mod_posterior) + 
+Fig_top_posterior <- autoplot(mod_posterior) + 
   scale_color_brewer(palette = "Set1")
+
+ggsave(file="manuscript/images/Fig_top_posterior.png", 
+       plot=Fig_top_posterior, width = 8, height=4, units = "in")
+
+Fig_top_posterior
 ```
+
+```{r}
+Fig_top_rocs_top_posterior <- ggarrange(Fig_top_rocs, Fig_top_posterior,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1, common.legend = TRUE,
+                    legend = "bottom")
+
+ggsave(file="manuscript/images/Fig_top_rocs_top_posterior.png", 
+       plot=Fig_top_rocs_top_posterior, width = 8, height=4, units = "in")
+
+Fig_top_rocs_top_posterior
+```
+
 
 
 ```{r}
 mod_diff <- contrast_models(mod_posterior, seed = 100) 
+
+write_csv(summary(mod_diff), "manuscript/tables/contrast_top_models.csv" )
 
 summary(mod_diff)
 ```
@@ -2330,14 +2361,15 @@ ggarrange(plotlist = senspec_plots,
 ```
 
 
-### Fig_9C
+### LR prob cutoff
 
 ```{r}
-Fig_9C <- senspec_plot(lr_final[[2]], "")
+Fig_LR_prob_cutoff <- senspec_plot(lr_final[[2]], "LR")
 
-ggsave(file="manuscript/images/Fig_9C_prob_cutoff.png", plot=Fig_9C, width = 8, height=4, units = "in")
+ggsave(file="manuscript/images/Fig_LR_prob_cutoff.png", 
+       plot=Fig_LR_prob_cutoff, width = 8, height=4, units = "in")
 
-Fig_9C
+Fig_LR_prob_cutoff
 ```
 
 
@@ -2350,6 +2382,32 @@ lr_final[[2]] %>%
   filter(.estimate == max(.estimate)) %>%
   slice_tail()
 ```
+
+### GBT prob cutoff
+
+```{r}
+Fig_GBT_prob_cutoff <- senspec_plot(gbt_base_final[[2]], "GBT")
+
+ggsave(file="manuscript/images/Fig_GBT_prob_cutoff.png", 
+       plot=Fig_GBT_prob_cutoff, width = 8, height=4, units = "in")
+
+Fig_GBT_prob_cutoff
+```
+
+### KR and GBT prob cutoff together
+
+```{r, fig.height=8}
+Fig_LR_GBT_prob_cutoff <- ggarrange(plotlist = senspec_plots[1:2],
+                  nrow = 1,
+                  ncol = 2,
+                  common.legend = T)
+
+ggsave(file="manuscript/images/Fig_LR_GBT_prob_cutoff.png", 
+       plot=Fig_LR_GBT_prob_cutoff, width = 8, height=4, units = "in")
+
+Fig_LR_GBT_prob_cutoff
+```
+
 
 ### Optimized confusion matrix
 
@@ -2482,7 +2540,7 @@ lr_coeff_df %>%
 ### Plot
 
 ```{r, fig.width=8, fig.height=6}
-Fig_9D <- lr_coeff_df %>%
+Fig_LR_predictors <- lr_coeff_df %>%
   mutate(effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob.")) %>%
   filter(term != "(Intercept)") %>%
   ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio)) +
@@ -2501,15 +2559,16 @@ Fig_9D <- lr_coeff_df %>%
   ylab("odds ratio") +
   coord_flip()
 
-ggsave(file="manuscript/images/Fig_9D_predictors.png", plot=Fig_9D, width = 8, height=10, units = "in")
+ggsave(file="manuscript/images/Fig_LR_predictors.png", plot=Fig_LR_predictors, 
+       width = 10, height=6, units = "in")
 
-Fig_9D 
+Fig_LR_predictors
 ```
 
 Alternative: plotting estimate
 
 ```{r}
-Fig_9D_alt <-
+Fig_LR_predictors_alt <-
   lr_coeff_df %>%
   mutate(
     effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
@@ -2534,20 +2593,20 @@ Fig_9D_alt <-
   ylab("odds ratio") +
   coord_flip() 
 
-ggsave(file="manuscript/images/Fig_9D_alt_predictors.png", plot=Fig_9D_alt, width = 8, height=6, units = "in")
+ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", plot=Fig_LR_predictors_alt, width = 8, height=6, units = "in")
 
-Fig_9D_alt
+Fig_LR_predictors_alt
 ```
 
 
 ```{r,fig.width=7, fig.height=10}
-Fig_9CD <- ggarrange(Fig_9C, Fig_9D,
+Fig_LR_prob_cutoff_predictors <- ggarrange(Fig_LR_prob_cutoff, Fig_LR_predictors_alt,
                     labels = c("C", "D"),
                     ncol = 1, nrow = 2)
 
-ggsave(file="manuscript/images/Fig_9CD.png", plot=Fig_9CD, width = 8, height=11, units = "in")
+ggsave(file="manuscript/images/Fig_prob_cutoff_predictors.png", plot=Fig_LR_prob_cutoff_predictors, width = 8, height=11, units = "in")
 
-Fig_9CD
+Fig_LR_prob_cutoff_predictors
 ```
 
 ## Analysis of misclassified strains
