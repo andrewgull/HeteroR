@@ -448,14 +448,12 @@ lr_pca_res %>%
 ```{r}
 lr_best_res <- list(lr_base_res,
                     lr_base_yj_res,
-                    lr_base_orq_res,
-                    lr_pca_res)
+                    lr_base_orq_res)
 
 lr_best_names <-
   c("base",
     "base_yj",
-    "base_orq",
-    "pca")
+    "base_orq")
 ```
 
 
@@ -537,191 +535,7 @@ PCA performs significantly worse than the other models.
 
 Base, YJ and ORQ pre-processing recipes don't differ significantly in ROC AUC, but there is a difference in PR curves: base has better PR-curve.
 
-# Multivariate adaptive regression splines (MARS)
 
-## NCORR recipe
-
-```{r mars norm, eval=FALSE}
-mars_ncorr_res <- read_wfset("models_mars.rds", "ncorr_MARS")
-
-autoplot(mars_ncorr_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-mars_ncorr_res %>% 
-  show_best(metric = "roc_auc")
-```
-
-## NCORR + YJ recipe
-
-```{r, eval=FALSE}
-mars_ncoryj_res <- read_wfset("models_mars.rds", "ncorr_yj_MARS")
-
-autoplot(mars_ncoryj_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-mars_ncoryj_res %>% 
-  show_best("roc_auc", n = 5)
-```
-
-## NCORR + ORQ recipe
-
-```{r, eval=FALSE}
-mars_ncorq_res <- read_wfset("models_mars.rds", "ncorr_orq_MARS")
-
-autoplot(mars_ncorq_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-mars_ncorq_res %>% show_best("roc_auc", n = 5)
-```
-
-## PCA
-
-```{r, eval=FALSE}
-mars_pca_res <- read_wfset("models_mars.rds", "pca_MARS")
-
-autoplot(mars_pca_res)
-```
-
-```{r, eval=FALSE}
-show_best(mars_pca_res, metric = "roc_auc")
-```
-
-
-# Bagged MARS 
-
-## NCORR + YJ recipe
-
-```{r, eval=FALSE}
-mars_bag_ncoryj_res <- read_wfset("models_mars.rds", "ncorr_yj_MARS_BAG")
-
-autoplot(mars_bag_ncoryj_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-show_best(mars_bag_ncoryj_res)
-```
-
-## NCORR + ORQ recipe
-
-```{r, eval=FALSE}
-mars_bag_ncorq_res <- read_wfset("models_mars.rds", "ncorr_orq_MARS_BAG")
-
-autoplot(mars_bag_ncorq_res)
-```
-
-```{r, eval=FALSE}
-show_best(mars_bag_ncorq_res, "roc_auc")
-```
-
-## PCA
-
-```{r, eval=FALSE}
-mars_bag_pca_res <- read_wfset("models_mars.rds", "pca_MARS_BAG")
-
-autoplot(mars_bag_pca_res)
-```
-
-```{r, eval=FALSE}
-show_best(mars_bag_pca_res)
-```
-
-
-## Compare preprocessors
-
-### ROCs overlapped
-
-```{r, eval=FALSE}
-mars_best_res <- list(
-    mars_ncorr_res,
-    mars_ncoryj_res,
-    mars_ncorq_res,
-    mars_pca_res,
-    mars_bag_ncoryj_res,
-    mars_bag_ncorq_res,
-    mars_bag_pca_res
-  )
-  
-mars_best_names <- c(
-    "ncorr",
-    "ncorr_yj",
-    "ncorr_orq",
-    "pca",
-    "ncorr_yj_bag",
-    "ncorr_orq_bag",
-    "pca_bag"
-  )
-
-mars_rocs <-
-  map2_dfr(mars_best_res, mars_best_names,
-  function(x, y)
-    make_roc(x, y))
-
-mars_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("MARS, ROC curves")
-```
-
-### PR curves overlapped
-
-```{r, eval=FALSE}
-mars_prs <-
-  map2_dfr(mars_best_res,
-  mars_best_names,
-  function(x, y)
-    make_pr(x, y))
-
-mars_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("MARS, PR curves")
-```
-
-
-## Comparison of the preprocessing steps
-
-```{r, eval=FALSE}
-mars_comp <-
-  res_comp_table(
-    res_list = mars_best_res,
-    mod_names = mars_best_names
-  )
-
-mars_posterior <-
-  perf_mod(
-    mars_comp,
-    iter = 2000,
-    seed = 100,
-    refresh = 0,
-    chains = 5,
-    cores = 6
-  )
-
-autoplot(mars_posterior)
-```
-
-```{r, eval=FALSE}
-mars_preproc_diff <- contrast_models(mars_posterior, seed = 100) 
-
-summary(mars_preproc_diff)
-```
 
 # Linear support vector machines (linSVM)
 
@@ -2373,7 +2187,7 @@ Fig_LR_prob_cutoff
 ```
 
 
-### j-index and the probability threshold
+#### j-index and the probability threshold
 
 ```{r}
 lr_final[[2]] %>%
@@ -2394,7 +2208,17 @@ ggsave(file="manuscript/images/Fig_GBT_prob_cutoff.png",
 Fig_GBT_prob_cutoff
 ```
 
-### KR and GBT prob cutoff together
+#### j-index and the probability threshold
+
+```{r}
+gbt_base_final[[2]] %>%
+  get_threshold() %>%
+  filter(.metric == "j_index") %>%
+  filter(.estimate == max(.estimate)) %>%
+  slice_tail()
+```
+
+### LR and GBT prob cutoff together
 
 ```{r, fig.height=8}
 Fig_LR_GBT_prob_cutoff <- ggarrange(plotlist = senspec_plots[1:2],
