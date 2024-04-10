@@ -75,7 +75,7 @@ Read features and classification labels
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
   relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
-  #filter(!(strain %in% c("DA63310", "DA63246", "DA63068"))) %>% 
+  filter(!(strain %in% c("DA63246", "DA63068"))) %>% 
   mutate(chrom.status = factor(chrom.status)) %>% 
   select(-contains("oriC")) %>% 
   select(-contains("plus"))
@@ -664,13 +664,17 @@ ggplot(data_strain, aes(n.beta.lac)) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6))
 ```
 
-There is a strain without a single beta-lactamase
+All strains contain at least one beta-lactamase gene
 
 ```{r}
 data_strain %>% filter(n.beta.lac == 0)
 ```
 
-Low coverage, incomplete assembly, susceptible, no repeats.
+
+```{r}
+summary(data_strain$n.beta.lac)
+```
+
 
 #### Proportion
 
@@ -1269,7 +1273,7 @@ data_strain %>%
               height = 0.1) +
   scale_fill_brewer(palette = "Set2") +
   ggtitle("") +
-  ylab("n") +
+  ylab("n plasmids") +
   xlab("") +
   guides(fill = "none")
 ```
@@ -1347,7 +1351,7 @@ summary(pois_fit)
 exp(coef(pois_fit))
 ```
 
-Increase in `coverage` slowly decreases `n.c.plasmids`, but now it's significant.
+
 
 ## Copy number vs number of plasmids
 
