@@ -56,23 +56,23 @@ gheatmap(tree_plot, hr_labels, offset=.05, width=0.05, font.size=3, hjust=0) +
 
 
 ```{r, fig.width=10, fig.height=10}
-tree_plot_circ <- ggtree(coli_tree_root, branch.length = "none", layout = 'circular') + 
+tree_plot_circ <- ggtree(coli_tree_root, branch.length = "none") + 
   #geom_tiplab(size=1.5, color="black") +
   geom_strip("DA63750", "DA63034", 
-             barsize=2, color='darkred',
-            label="B1", offset.text = 6, offset = 3.5, fontsize = 10) +
-  geom_strip("DA63090", "DA62946", barsize = 2, color = "blue",
-             label = "A", offset.text = 6, offset = 3.5, fontsize = 10) +
-  geom_strip("DA63836", "DA63628", barsize = 2, color = "magenta2",
-             label = "D1", offset.text = 6, offset = 3.5, fontsize = 10) +
-  geom_strip("DA63974", "DA63328", barsize = 2, color = "darkorange",
-             label = "D2/F", offset.text = 6, offset = 3.5, fontsize = 10, extend = T) +
-  geom_strip("DA63268", "DA63010", barsize = 2, color = "darkgreen",
-             label = "B2", offset.text = 6, offset = 3.5, fontsize = 10) +
-  geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 2, color = "purple",
-             label = "E", offset.text = 6, offset = 3.5, fontsize = 10)
+             barsize=4, color='darkred',
+            label="B1", offset.text = 4, offset = 0.5, fontsize = 10) +
+  geom_strip("DA63090", "DA62946", barsize = 4, color = "blue",
+             label = "A", offset.text = 2, offset = 0.5, fontsize = 10) +
+  geom_strip("DA63836", "DA63628", barsize = 4, color = "magenta2",
+             label = "D1", offset.text = 2, offset = 0.5, fontsize = 10) +
+  geom_strip("DA63974", "DA63328", barsize = 4, color = "darkorange",
+             label = "D2/F", offset.text = 2, offset = 0.5, fontsize = 10, extend = T) +
+  geom_strip("DA63268", "DA63010", barsize = 4, color = "darkgreen",
+             label = "B2", offset.text = 2, offset = 0.5, fontsize = 10) +
+  geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 4, color = "purple",
+             label = "E", offset.text = 2, offset = 0.5, fontsize = 10)
 
-gheatmap(tree_plot_circ, hr_labels, offset=.05, width=0.05, font.size=3, hjust=0) +
+gheatmap(tree_plot_circ, hr_labels, offset=9, width=0.05, font.size=3, hjust=0) +
   ggplot2::scale_fill_manual(breaks=c("nonHR", "HR", "R"), 
         values=c("steelblue", "firebrick", "gold"), name="phenotype")
 ```
