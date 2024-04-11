@@ -26,7 +26,11 @@ library(themis) # smote
 library(ggforce) # for plot_validation_results()
 library(embed) # for umap and PCA variants
 library(scales)
+library(bestNormalize) # ORQ normalization
 source("functions.R")
+
+# my color palette
+my_colors <- RColorBrewer::brewer.pal(9, "Set1")[c(1,2)]
 ```
 
 # Intro
@@ -94,44 +98,6 @@ strains <- data_strain$strain
 dim(data_strain)
 ```
 
-**NB**: Some strains are in HR labels data; some are on Argos, and some are assembled.
-
-```{r, eval=FALSE}
-# strains tested
-length(hr_testing$strain)
-# strains available
-strains_on_argos <- dir("/mnt/data/andrei/Data/Argos/imb_sal_raw/Sequenced_reference_strains/Sequencing/Strains/", pattern = "DA") # 540
-strains_assembled <- dir("/mnt/data/andrei/Data/HeteroR/resources/data_raw/", pattern="DA") # 526
-
-# strains on Argos and in tested
-length(intersect(strains_on_argos, hr_testing$strain))
-```
-
-Which strain that are tested, but are not on Argos yet?
-
-```{r, eval=FALSE}
-setdiff(hr_testing$strain, strains_on_argos) # 12 = 500 - 488
-```
-
-Which strains were tested, but are not assembled yet?
-
-```{r, eval=FALSE}
-setdiff(hr_testing$strain, strains_assembled)
-```
-
-The same 12 strains, which means the rest were sequenced and assembled.
-
-We have very imbalanced target class with any classification scheme.
-
-Look at target class distribution in the data set you're working with (521 strains)
-
-
-```{r}
-data_strain %>% 
-  group_by(resistance) %>% 
-  count()
-```
-
 # Descriptive stats
 
 ## Factors
@@ -139,6 +105,14 @@ data_strain %>%
 ```{r}
 skim(data_strain) %>% 
   yank("factor")
+```
+
+### Target class distribution
+
+```{r}
+data_strain %>% 
+  group_by(resistance) %>% 
+  count()
 ```
 
 ## Circularity in tested strains
@@ -182,8 +156,6 @@ data_strain$n.beta.lac.chrom <- NULL
 
 ### n.plasmids outliers
 
-I have fixed this filtering by plasmid length in `features.qmd`
-
 ```{r}
 data_strain %>% 
   filter(n.plasmids > 20) %>% 
@@ -210,6 +182,8 @@ All pre-processing will be done with `recipes`
 
 ## Correlation plot
 
+### As is
+
 ```{r, fig.width=14, fig.height=10, warning=FALSE}
 # without resistance
 cor_matrix <- data_strain %>%
@@ -225,76 +199,26 @@ cor_matrix <- data_strain %>%
 corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.6)
 ```
 
-We see a lot of correlated features.
-
-## PCA
-
 ### ORQ Normalization
 
-ORQ normalization is used here, regular `step_normalize()` is not really needed.
-
-```{r}
-library(bestNormalize)
-
+```{r, fig.width=12, fig.height=12, warning=FALSE}
 orq_recipe <- recipe(resistance ~., data = data_strain) %>%
   update_role(strain, new_role = "ID") %>%
   step_nzv(all_predictors()) %>% 
   step_orderNorm(all_numeric_predictors()) %>% 
   step_dummy(all_nominal_predictors())
-  #step_normalize(all_predictors())
 
-data_prep <- orq_recipe %>% prep() %>% juice()
+data_orq <- orq_recipe %>% prep() %>% juice()
 
-# processed data 
-data_prep
-```
-
-```{r, fig.width=12, fig.height=12, warning=FALSE}
 # without resistance
-cor_matrix_norm <- data_prep %>% 
+cor_matrix_norm <- data_orq %>% 
   select(-c(strain, resistance)) %>%
   cor(use = "pairwise.complete.obs", method = "spearman")
 
 corrplot::corrplot(cor_matrix_norm, type = "upper", tl.col = "black", tl.cex = 0.6)
 ```
 
-#### Compare distributions
-
-Choose the variable of interest in the function below or check the **shiny app** out!
-
-```{r, fig.width = 10, fig.height=5}
-library(patchwork)
-
-plots <- comp_plots("n.c.plasmids", data_strain, data_prep)
-
-# patchwork's syntax
-(plots[[1]] | plots[[2]])
-```
-
-### Yeo-Johnson transformation
-
-```{r}
-yj_recipe <- recipe(resistance ~ ., data = data_strain) %>%
-  update_role(strain, new_role = "ID") %>% 
-  step_nzv(all_predictors()) %>%
-  step_YeoJohnson(all_numeric_predictors()) %>% 
-  #step_normalize(all_numeric_predictors()) %>% 
-  step_dummy(all_nominal_predictors())
-```
-
-#### Check the distributions
-
-```{r}
-data_prep_yj <- yj_recipe %>% prep() %>% juice()
-
-plots <- comp_plots("coverage", data_strain, data_prep_yj)
-```
-
-```{r, fig.width = 12, fig.height=5}
-(plots[[1]] | plots[[2]])
-```
-
-**NB**: Yeo-Johnson transformation works comparable or worse than ORQ normalization
+## PCA
 
 ### PCA plot
 
@@ -315,7 +239,7 @@ pcayj_recipe <-
 Fig_PCA <- pcayj_recipe %>% 
   prep() %>% 
   juice() %>% 
-  plot_validation_results(c("PC1", "PC2", "PC3", "PC4")) +
+  plot_validation_results(c("PC1", "PC2", "PC3", "PC4"), my_colors) +
   ggtitle("Principal Component Analysis")
 
 ggsave(file="manuscript/images/Fig_PCA.png", 
@@ -344,7 +268,7 @@ var_df
 
 10 PCs explain 70% of variation 18 PCs needed to explain 80% of variation 30 PCs needed to explain 90% of variation
 
-Plot
+#### Plot
 
 ```{r, fig.width=12, fig.height=6}
 var_df %>%
@@ -390,7 +314,7 @@ kpcayj_recipe <-
 Fig_kPCA <- kpcayj_recipe %>% 
   prep() %>% 
   juice() %>% 
-  plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4")) +
+  plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4"), my_colors) +
   ggtitle("Kernel Principal Component Analysis")
 
 ggsave(file="manuscript/images/Fig_kPCA.png", plot=Fig_kPCA, width = 8, height=4, units = "in")
@@ -418,7 +342,7 @@ ica_recipe <-
 data_ica <- prep(ica_recipe, retain = TRUE)
 
 data_ica$template %>% 
-  plot_validation_results(c("IC1", "IC2", "IC3", "IC4")) + 
+  plot_validation_results(c("IC1", "IC2", "IC3", "IC4"), my_) + 
   ggtitle("Independent Component Analysis")
 ```
 
@@ -503,18 +427,10 @@ umap_yj_recipe <-
   ) %>% 
   step_normalize(all_numeric_predictors())
 
-# umapu_recipe <- orq_recipe %>%
-#   step_umap(
-#     all_numeric_predictors(),
-#     num_comp = 10,
-#     min_dist = 0.8,
-#     neighbors = 25
-#   )
-
 Fig_UMAPu <- umap_yj_recipe %>%
   prep() %>% 
   juice() %>% 
-  plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
+  plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04"), my_colors) +
   ggtitle("UMAP unsupervised")
 
 ggsave(file="manuscript/images/Fig_UMAPu.png", plot=Fig_UMAPu, width = 8, height=4, units = "in")
@@ -544,37 +460,16 @@ umap_sup_yj_recipe <-
   ) %>% 
   step_normalize(all_numeric_predictors())
 
-# umaps_recipe <- orq_recipe %>%
-#   step_umap(
-#     all_numeric_predictors(),
-#     outcome = "resistance",
-#     num_comp = 10,
-#     min_dist = 0.99,
-#     neighbors = 10
-#   )
-
 Fig_UMAPs <- umap_sup_yj_recipe %>%
   prep() %>% 
   juice() %>% 
-  plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04")) +
+  plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04"), my_colors) +
   ggtitle("UMAP supervised")
 
 ggsave(file="manuscript/images/Fig_UMAPs.png", plot=Fig_UMAPs, width = 8, height=4, units = "in")
 
 Fig_UMAPs
 ```
-
-#### nonHR strains in HR cluster
-
-In this small red cluster of HRs, two strains are nonHR. Find their names.
-
-```{r}
-umap_sup_yj_recipe %>%
-  prep() %>% juice() %>% 
-  select(UMAP02, UMAP04, strain, resistance) %>% 
-  filter(UMAP02 > 0.5, UMAP04 < 0, resistance == "nonHR")
-```
-
 
 ### On 'captured variance'
 
@@ -585,9 +480,13 @@ The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes hims
 ## All dimensionality reduction lots
 
 ```{r,fig.height=10, fig.width=10}
-Fig_dim_red_all <- ggarrange(Fig_PCA, Fig_kPCA, Fig_UMAPu, Fig_UMAPs,
-                    labels = c("A", "B", "C", "D"),
-                    ncol = 2, nrow = 2, common.legend = TRUE)
+# Fig_dim_red_all <- ggarrange(Fig_PCA, Fig_kPCA, Fig_UMAPu, Fig_UMAPs,
+#                     labels = c("A", "B", "C", "D"),
+#                     ncol = 2, nrow = 2, common.legend = TRUE)
+
+Fig_dim_red_all <- ggarrange(Fig_UMAPu, Fig_UMAPs,
+                    labels = c("A", "B"),
+                    ncol = 1, nrow = 2, common.legend = TRUE)
 
 ggsave(file="manuscript/images/Fig_dimred_all.png", plot=Fig_dim_red_all, width = 8, height=8, units = "in")
 
@@ -598,8 +497,8 @@ Fig_dim_red_all
 
 ### In strains tested for AMP
 
-```{r}
-rg_n_genes <- data_strain %>% 
+```{r, eval=FALSE}
+rg_n_genes <- features %>% 
   dplyr::select(strain, record_id) %>% 
   distinct() %>% 
   group_by(strain) %>% 
@@ -609,8 +508,6 @@ ggplot(rg_n_genes, aes(n)) +
   geom_histogram(fill = "steelblue", binwidth = 1) +
   xlab("RG count") +
   ylab("Strains count")
-
-
 ```
 
 ```{r}
@@ -621,8 +518,8 @@ Same number as in the total data set.
 
 ### In strains with beta-lactamases genes only
 
-```{r}
-betaL_n_genes <- data_strain %>% 
+```{r, eval=FALSE}
+betaL_n_genes <- features %>% 
   filter(grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   select(strain, record_id) %>% 
   distinct() %>% 
@@ -636,11 +533,6 @@ ggplot(betaL_n_genes, aes(n)) +
 
 ```
 
-```{r}
-summary(betaL_n_genes$n)
-```
-
-Every strain has at least one beta-lactamase gene.
 
 ## Gene presence
 
@@ -653,11 +545,10 @@ This supposed to be the main predictor of HR
 because number of BL genes is count data.
 
 ```{r}
-#data_strain$resistance <- factor()
-
 ggplot(data_strain, aes(n.beta.lac)) +
   geom_bar(aes(fill = resistance), position = "dodge") +
-  scale_fill_brewer(palette = "Set1") +
+  #scale_fill_brewer(palette = "Dark2", direction = -1) +
+  scale_fill_manual(values = my_colors) +
   xlab("n beta-lactamases") +
   ylab("n strains") +
   theme(legend.title = element_blank()) +
@@ -892,9 +783,6 @@ ggsave(file="manuscript/images/Fig_ampC.png", plot=Fig_ampC, width = 8, height=4
 Fig_ampC
 ```
 
-
-
-
 ```{r, fig.height=8, fig.width=6}
 legend <- get_legend(Fig_ampC)
 
@@ -957,17 +845,6 @@ ggplot(bl_type_count, aes(non.ampC)) +
   ylab("proportion") 
 ```
 
-
-
-```{r}
-Fig_4 <- ggarrange(Fig_4A , Fig_4B + ylab("") ,
-                    labels = c("A", "B"),
-                    ncol = 2, nrow = 1, common.legend = TRUE,legend = "bottom")
-
-ggsave(file="manuscript/images/Fig_4_BL4+TEM.png", plot=Fig_4, width = 8, height=4, units = "in")
-
-Fig_4
-```
 
 ### Other TEM columns
 
