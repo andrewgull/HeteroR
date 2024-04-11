@@ -72,7 +72,7 @@ comp_plots <- function(col_name, orig_data, prep_data){
   return(list(p_orig, p_norm))
 }
 
-plot_validation_results <- function(dat, components) {
+plot_validation_results <- function(dat, components, colors_vec) {
   # dat - data table
   # components - vector of components names to plot
   dat %>%
@@ -83,8 +83,8 @@ plot_validation_results <- function(dat, components) {
     geom_point(alpha = 0.4, size = 1) +
     ggforce::geom_autodensity(alpha = .3) +
     ggforce::facet_matrix(vars(-resistance), layer.diag = 2) + 
-    scale_color_brewer(palette = "Set1") + 
-    scale_fill_brewer(palette = "Set1")
+    scale_color_manual(values = colors_vec) +
+    scale_fill_manual(values = colors_vec)
 }
 
 # to read workflowsets file and return the required workflow by ID
