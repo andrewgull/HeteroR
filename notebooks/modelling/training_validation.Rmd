@@ -32,12 +32,13 @@ hr_testing <- readr::read_csv("data/heteroresistance_testing.csv",
 data_strain <- data_strain %>%
   left_join(hr_testing, by = "strain")
 
-# strain filtering: "DA63246", "DA63068", "DA63044" clustered with E. fergusoni and E. albertii on the tree
-# keep them for now
+# strain "DA63246", "DA63068" clustered with E. fergusoniш and E. albertii on the tree
+# remove them
 data_strain <- data_strain %>%
-  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
-  relocate(n.beta.lac.4, .before = "n.plasmids") %>%
-  filter(resistance != "R") %>%
+  # mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
+  # relocate(n.beta.lac.4, .before = "n.plasmids") %>%
+  filter(resistance != "R",
+         !(strain %in% c("DA63246", "DA63068"))) %>%
   mutate(
     resistance = factor(resistance, levels = c("HR", "nonHR")),
     chrom.status = factor(chrom.status)
