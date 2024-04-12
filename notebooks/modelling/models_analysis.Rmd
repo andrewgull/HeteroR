@@ -43,7 +43,7 @@ The data sets are the same as in EDA
 
 ```{r read data}
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
-    filter(!(strain %in% c("DA63310", "DA63246", "DA63068"))) %>%  
+    filter(!(strain %in% c("DA63246", "DA63068"))) %>%  
   select(-contains("oriC")) %>% 
   select(-contains("plus"))
 
@@ -64,8 +64,8 @@ Add n.beta.lac \>4
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
+  # mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
+  # relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
          chrom.status = factor(chrom.status))
@@ -992,148 +992,6 @@ autoplot(rbf_posterior)
 rbf_preproc_diff <- contrast_models(rbf_posterior, seed = 100) 
 
 summary(rbf_preproc_diff)
-```
-
-# k-Nearest Neighbors (KNN)
-
-## NCORR recipe
-
-```{r knn norm, fig.width=8, eval=FALSE}
-knn_ncorr_res <- read_wfset("models_knn.rds", "ncorr_kNN")
-
-autoplot(knn_ncorr_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-knn_ncorr_res %>% 
-  show_best("roc_auc", n = 5)
-```
-
-## NCORR + YJ
-
-```{r, fig.width=8, eval=FALSE}
-knn_ncoryj_res <- read_wfset("models_knn.rds", "ncorr_yj_kNN")
-
-autoplot(knn_ncoryj_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-show_best(knn_ncoryj_res)
-```
-
-## NCORR + ORQ recipe
-
-```{r, fig.width=8, eval=FALSE}
-knn_ncorq_res <- read_wfset("models_knn.rds", "ncorr_orq_kNN")
-
-autoplot(knn_ncorq_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-knn_ncorq_res %>% 
-  show_best("roc_auc")
-```
-
-
-## PCA
-
-```{r, fig.width=8, eval=FALSE}
-knn_pca_res <- read_wfset("models_knn.rds", "pca_kNN")
-
-autoplot(knn_pca_res)
-```
-
-### Best models
-
-```{r, eval=FALSE}
-knn_pca_res %>% 
-  show_best("roc_auc")
-```
-
-## Comparison of the preprocessors
-
-### ROCs overlapped
-
-```{r, eval=FALSE}
-knn_best_res <- list(knn_ncorr_res,
-                     knn_ncorq_res,
-                     knn_ncoryj_res,
-                     knn_pca_res)
-knn_best_names <- c("ncorr",
-                    "ncorr_orq",
-                    "ncorr_yj",
-                    "pca")
-```
-
-
-```{r, eval=FALSE}
-knn_rocs <-
-  map2_dfr(knn_best_res,
-           knn_best_names,
-           function(x, y)
-             make_roc(x, y))
-
-knn_rocs %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal() + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("kNN, ROC curves")
-```
-
-### PR curves overlapped
-
-```{r, eval=FALSE}
-knn_prs <-
-  map2_dfr(knn_best_res,
-           knn_best_names,
-           function(x, y)
-             make_pr(x, y))
-
-knn_prs %>% 
-  ggplot(aes(x = recall, y = precision, col = model)) + 
-  geom_path(lwd = 0.5, alpha = 0.8) +
-  geom_abline(lty = 3) + 
-  coord_equal(ylim=c(0, 1)) + 
-  scale_color_brewer(palette="Set1") +
-  ggtitle("kNN, PR curves")
-```
-
-### Posterior distributions
-
-```{r, eval=FALSE}
-knn_comp <-
-  res_comp_table(
-    res_list = knn_best_res,
-    knn_best_names
-  )
-
-knn_posterior <-
-  perf_mod(
-    knn_comp,
-    iter = 2000,
-    seed = 100,
-    refresh = 0,
-    chains = 5,
-    cores = 6
-  )
-
-autoplot(knn_posterior)
-```
-
-### Difference estimates
-
-```{r, eval=FALSE}
-knn_preproc_diff <- contrast_models(knn_posterior, seed = 100) 
-
-summary(knn_preproc_diff)
 ```
 
 # Random Forest (RF)
