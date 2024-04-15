@@ -325,14 +325,13 @@ There are two ways to tune hyper-parameters:
 
 # Rule-based prediction
 
-Let's take a rule 'if there is more than 4 beta-lactamases, then the strain is HR' (from EDA)
-
 ## Performance on Train data
 
 ```{r base rule}
 rule_pred <- 
   df_train %>% 
-  mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
+  mutate(n.beta.lac.4 = if_else(n.beta.lac > 4, "yes", "no"),
+    pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
   select(pred, resistance)
 
 conf_mat(rule_pred, truth = resistance, estimate = pred)
@@ -348,7 +347,8 @@ conf_mat(rule_pred, truth = resistance, estimate = pred) %>%
 ```{r}
 rule_pred <- 
   df_test %>% 
-  mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
+  mutate(n.beta.lac.4 = if_else(n.beta.lac > 4, "yes", "no"),
+    pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
   select(pred, resistance)
 
 conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
@@ -360,13 +360,13 @@ conf_mat(rule_pred, truth = resistance, estimate = pred) %>%
 ```{r}
 rule_pred <- 
   data_strain %>% 
-  mutate(pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
+  mutate(n.beta.lac.4 = if_else(n.beta.lac > 4, "yes", "no"),
+    pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
   select(pred, resistance)
 
 conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
   summary()
 ```
-
 
 # Penalized LR
 
@@ -1913,7 +1913,7 @@ ggarrange(plotlist = prs_final,
 
 Probability cut-off = 0.5
 
-```{r ff cm, fig.width=9}
+```{r ff cm, fig.width=14}
 make_cm <- function(fit_obj, title="") {
   fit_obj %>%
   collect_predictions() %>%
@@ -2078,7 +2078,7 @@ gbt_base_final[[2]] %>%
 
 ### LR and GBT prob cutoff together
 
-```{r, fig.height=8}
+```{r, fig.width=12}
 Fig_LR_GBT_prob_cutoff <- ggarrange(plotlist = senspec_plots[1:2],
                   nrow = 1,
                   ncol = 2,
@@ -2193,8 +2193,6 @@ lr_coeff_df <- lr_final[[2]] %>%
 
 lr_coeff_df
 ```
-
-Just 44 features plus Intercept are used by the model.
 
 On the `odds.ratio` column: 
 
