@@ -388,60 +388,6 @@ remove models object
 rm(models_mlp)
 ```
 
-# KNN
-
-```{r, eval=FALSE}
-models_knn <- get_models_set(
-  file_path = "~/Data/HeteroR/results/models/scheme12/models_knn.rds",
-  model_specs_list = list(kNN = knn),
-  recipes_list = list(
-    ncorr = ncorr_recipe,
-    ncorr_yj = ncorr_yj_recipe,
-    ncorr_orq = ncorr_orq_recipe ,
-    pca = pca_recipe
-  )
-)
-```
-
-
-```{r, eval=FALSE}
-autoplot(models_knn, select_best= TRUE)
-```
-
-remove to free memory
-
-```{r, eval=FALSE}
-rm(models_knn)
-```
-
-# MARS
-
-```{r, eval=FALSE}
-models_mars <- get_models_set(
-  file_path = "~/Data/HeteroR/results/models/scheme12/models_mars.rds",
-  model_specs_list = list(MARS = mars,
-                          MARS_BAG = mars_bag),
-  recipes_list = list(
-    ncorr = ncorr_recipe,
-    ncorr_yj = ncorr_yj_recipe,
-    ncorr_orq = ncorr_orq_recipe ,
-    pca = pca_recipe
-  )
-)
-```
-
-Multiple issues: "glm.fit: fitted probabilities numerically 0 or 1 occurred"
-
-```{r, eval=FALSE}
-autoplot(models_mars, select_best= TRUE)
-```
-
-remove models object 
-
-```{r, eval=FALSE}
-rm(models_mars)
-```
-
 # RF
 
 ```{r}
