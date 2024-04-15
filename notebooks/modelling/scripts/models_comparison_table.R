@@ -41,7 +41,9 @@ get_j_index_SE <-
 # The data sets are the same as in EDA
 data_strain <-
   read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>%
-  filter(!(strain %in% c("DA63310", "DA63246", "DA63068")))
+  filter(!(strain %in% c("DA63246", "DA63068"))) %>%  
+  select(-contains("oriC")) %>% 
+  select(-contains("plus"))
 
 # HR testing lables
 hr_testing <-
@@ -51,10 +53,6 @@ hr_testing <-
 
 data_strain <- data_strain %>%
   left_join(hr_testing, by = "strain")
-
-data_strain %>%
-  group_by(resistance) %>%
-  count()
 
 #Add n.beta.lac \>4
 
