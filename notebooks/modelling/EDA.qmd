@@ -77,8 +77,8 @@ Read features and classification labels
 
 ```{r, message=FALSE}
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
-  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
+  # mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
+  # relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(!(strain %in% c("DA63246", "DA63068"))) %>% 
   mutate(chrom.status = factor(chrom.status)) %>% 
   select(-contains("oriC")) %>% 
@@ -1433,9 +1433,14 @@ med_rep_len %>%
 
 ```{r}
 med_rep_len %>% 
-  filter(location == "med.rep.len.plasmid") %>% 
+  filter(location == "med.rep.len") %>% 
   group_by(resistance) %>% 
   summarise(median = median(med.len))
+```
+
+
+```{r}
+kruskal.test(data_strain$med.rep.len, data_strain$resistance)
 ```
 
 
