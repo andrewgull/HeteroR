@@ -1937,7 +1937,7 @@ ggplot(data_strain %>% filter(med.AR.len.CTX > 0), aes(resistance, med.AR.len.CT
 colnames <- data_strain %>% 
   select(strain, resistance, new, contains("IS", ignore.case = FALSE)) %>% names()
 
-data_strain %>% 
+Fig_IS_fam_prop <- data_strain %>% 
   select(strain, resistance, new, contains("IS", ignore.case = FALSE)) %>% 
   pivot_longer(cols = colnames[3:23], names_to = "is.family", values_to = "n") %>% 
   ggplot(aes(is.family, n)) +
@@ -1946,35 +1946,16 @@ data_strain %>%
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
   xlab("") +
   ylab("proportion")
-```
 
-### ISAS1
+ggsave(file="manuscript/images/Fig_IS_fam_prop.png", plot=Fig_IS_fam_prop, 
+       width = 8, height=4, units = "in")
 
-This IS family was the only predictor used by rbfSVM + ncor+yj+rfe
-
-What's so special about it?
-
-```{r}
-data_strain %>%
-  ggplot(aes(resistance, ISAS1)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(
-    aes(fill = resistance),
-    alpha = 0.2,
-    notch = F,
-    varwidth = T
-  ) +
-  geom_jitter(alpha = 0.2,
-              width = 0.15,
-              height = 0.1) +
-  scale_fill_brewer(palette = "Pastel1") +
-  ggtitle("ISAS1 count") +
-  ylab("n") +
-  xlab("") +
-  guides(fill = "none")
+Fig_IS_fam_prop
 ```
 
 ### IS max length
+
+#### Plot
 
 ```{r}
 Fig_IS_max_len <- data_strain %>% 
@@ -1994,17 +1975,23 @@ ggsave(file="manuscript/images/Fig_IS_max_len.png", plot=Fig_IS_max_len,
 Fig_IS_max_len
 ```
 
+#### Medians
+
 ```{r}
 data_strain %>% 
   group_by(resistance) %>% 
   summarise(median = median(max.is.len))
 ```
 
+#### KW test
+
 ```{r}
 kruskal.test(data_strain$max.is.len, data_strain$resistance)
 ```
 
 ### IS copies count
+
+#### Plot
 
 ```{r}
 Fig_IS_copies <- data_strain %>% 
@@ -2024,17 +2011,23 @@ ggsave(file="manuscript/images/Fig_IS_copies.png", plot=Fig_IS_copies,
 Fig_IS_copies
 ```
 
+#### Medians
+
 ```{r}
 data_strain %>% 
   group_by(resistance) %>% 
   summarise(median = median(n.is.tot))
 ```
 
+#### KW test
+
 ```{r}
 kruskal.test(data_strain$n.is.tot, data_strain$resistance)
 ```
 
 ### Total family number
+
+#### Plot
 
 ```{r}
 Fig_IS_families <- data_strain %>% 
@@ -2052,11 +2045,15 @@ ggsave(file="manuscript/images/Fig_IS_families.png", plot=Fig_IS_families, width
 Fig_IS_families
 ```
 
+#### Medians
+
 ```{r}
 data_strain %>% 
   group_by(resistance) %>% 
   summarise(median = median(n.is.fam))
 ```
+
+#### Poisson regression
 
 ```{r}
 isfam_pois_fit <- glm(n.is.fam ~resistance, data = data_strain, family="poisson")
@@ -2069,6 +2066,8 @@ exp(coef(isfam_pois_fit))
 ```
 
 ### min IS distance to the gene
+
+#### Plot
 
 ```{r}
 Fig_IS_gene_dist <- data_strain %>% 
@@ -2085,6 +2084,23 @@ ggsave(file="manuscript/images/Fig_IS_gene_dist.png", plot=Fig_IS_gene_dist, wid
 
 Fig_IS_gene_dist
 ```
+
+#### Medians
+
+```{r}
+data_strain %>% 
+  group_by(resistance) %>% 
+  summarize(m = median(min_distance_is_gene))
+```
+
+#### KW test
+
+```{r}
+kruskal.test(data_strain$min_distance_is_gene, data_strain$resistance)
+```
+
+
+### All four plots together
 
 ```{r,fig.height=8, fig.width=9}
 Fig_IS_all <- ggarrange(Fig_IS_max_len, Fig_IS_gene_dist, Fig_IS_families, Fig_IS_copies,
