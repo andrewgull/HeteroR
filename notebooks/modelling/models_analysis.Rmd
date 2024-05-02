@@ -1719,8 +1719,7 @@ run_last_fit <-
     
     set.seed(345)
     # final fit
-    final_fit <- final_metrics <-
-      last_wf %>%
+    final_fit <- last_wf %>%
       last_fit(train_test_split)
     # final metrics
     final_metrics <-
@@ -2278,152 +2277,41 @@ ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", plot=Fig_LR_predictor
 Fig_LR_predictors_alt
 ```
 
-
-```{r,fig.width=7, fig.height=10}
-Fig_LR_prob_cutoff_predictors <- ggarrange(Fig_LR_prob_cutoff, Fig_LR_predictors_alt,
-                    labels = c("C", "D"),
-                    ncol = 1, nrow = 2)
-
-ggsave(file="manuscript/images/Fig_prob_cutoff_predictors.png", plot=Fig_LR_prob_cutoff_predictors, width = 8, height=11, units = "in")
-
-Fig_LR_prob_cutoff_predictors
-```
-
-## Analysis of misclassified strains
-
-Extract predictions using the final model fit and adjusted probability cut-off
-
-```{r}
-optimize_prediction(lr_final[[2]])
-```
-
-My probability threshold is 0.25, these strains are predicted as HR
-
-```{r}
-prob_cutoff <- maxj(get_threshold(lr_final[[2]]))
-optimize_prediction(lr_final[[2]]) %>% filter(.pred_HR >= prob_cutoff)
-```
-
-### False positives v True positives
-
-```{r}
-false_positives <- optimize_prediction(lr_final[[2]]) %>%
-  mutate(strain = df_test$strain) %>%
-  filter(.pred == "HR", resistance == "nonHR") %>%
-  select(strain, resistance, .pred, .pred_HR) %>%
-  mutate(type = "FP")
-
-true_positives <- optimize_prediction(lr_final[[2]]) %>%
-  mutate(strain = df_test$strain) %>%
-  filter(.pred == "HR", resistance == "HR") %>%
-  select(strain, resistance, .pred, .pred_HR) %>%
-  mutate(type = "TP")
-
-df_test_proc <-
-  base_yj_recipe %>% 
-  prep() %>% 
-  bake(new_data = df_test) %>% 
-  mutate(strain = df_test$strain)
-
-fp_tp <- bind_rows(false_positives, true_positives) %>% 
-  left_join(df_test_proc, by="strain")
-```
-
-#### Positive predictors
-
-```{r, fig.width=8, fig.height=10}
-# features increasing HR prob
-predictors_positive <- lr_coeff_df %>% 
-  filter(odds.ratio >= 1.0) %>% 
-  select(term) %>% 
-  unlist()
-
-get_plot <- function(var_name){
-  ggplot(fp_tp, aes(type, .data[[var_name]])) +
-    geom_boxplot() +
-    geom_violin(alpha=0.1) +
-    xlab("")
-}
-
-plot_list <- map(predictors_positive, ~get_plot(.))
-
-ggarrange(plotlist = plot_list, ncol=3, nrow=7)
-```
-
-With raw probabilities
-
-```{r, fig.width=8, fig.height=10}
-get_scatterplot <- function(var_name){
-  ggplot(fp_tp, aes(.pred_HR, .data[[var_name]])) +
-   geom_point(aes(color=type))
-}
-
-plot_list <- map(predictors_positive, ~get_scatterplot(.))
-
-ggarrange(plotlist = plot_list, ncol=3, nrow=7, common.legend = T)
-```
-
-#### Negative predictors
-
-```{r, fig.width=8, fig.height=10}
-predictors_negative <- lr_coeff_df %>%
-  filter(odds.ratio < 1.0) %>%
-  select(term) %>% 
-  filter(term != "(Intercept)") %>% 
-  unlist()
-
-plot_list <- map(predictors_negative, ~get_plot(.))
-
-ggarrange(plotlist = plot_list, ncol=4, nrow=5)
-```
-
-
-With raw probabilities
-
-```{r, fig.width=8, fig.height=10}
-plot_list <- map(predictors_negative, ~get_scatterplot(.))
-
-ggarrange(plotlist = plot_list, ncol=4, nrow=5, common.legend = T)
-```
-
-
-## Features used by the best model (MLP)
+## Predictors used by the GBT model
 
 ### Fit the model with selected (h)-params
 
 ```{r, eval=FALSE}
 # IT'S THE WAY TO GET MLP FIT OBJECT W/O MY BULKY FUNCTIONS for final fit
-mlp_best_param <- select_best(mlp_bag_ncoryj_res, "roc_auc")
-mlp_model_final <- finalize_model(mlp_bag_spec, mlp_best_param)
+# 
+bt <- boost_tree(
+      trees = tune(),
+      min_n = tune(),
+      tree_depth = tune(),
+      learn_rate = tune(),
+      loss_reduction = tune(),
+      sample_size = tune(),
+      stop_iter = tune()) %>%
+      set_engine("lightgbm", num.threads = 8) %>%
+      set_mode("classification") %>% translate()
+
+bt_best_param <- select_best(bt_base_bres, "roc_auc")
+bt_model_final <- finalize_model(bt, bt_best_param)
 
 # I need processed data
-df_train_proc <- ncorr_yj_recipe_tuned %>% 
+df_train_proc <- base_recipe %>% 
   prep() %>% 
   juice() %>% 
   select(-strain)
 
 # fit the tuned model to the data
-mlp_fit <- fit(mlp_model_final, resistance ~ ., df_train_proc)
+bt_fit <- fit(bt_model_final, resistance ~ ., df_train_proc)
 
-mlp_fit 
+bt_fit 
 
 # the same as three functions above
 # fit_best(mlp_bag_ncoryj_res)
 ```
-
-### Plot predictors importance
-
-Top 20
-
-```{r, fig.width=8}
-mlp_fit$fit$imp %>% 
-  slice_head(n = 20) %>% 
-  ggplot(aes(value, reorder(term, value))) +
-  geom_point() +
-  geom_errorbarh(aes(xmax = value + std.error, xmin = value - std.error), size = 0.2) +
-  ylab("")
-```
-
 
 ### Build an explainer
 
@@ -2433,7 +2321,7 @@ their classification as HR
 #### Select FP/FN
 
 ```{r}
-mlp_bag_ncoryj_final[[2]] %>% collect_predictions() %>% 
+bt_model_final[[2]] %>% collect_predictions() %>% 
   mutate(FP = if_else(.pred_class == "HR" & resistance == "nonHR", "FP", NA),
          FN = if_else(.pred_class == "nonHR" & resistance == "HR", "FN", NA),
          TP = if_else(.pred_class == "HR" & resistance == "HR", "TP", NA),
@@ -2449,16 +2337,16 @@ mlp_bag_ncoryj_final[[2]] %>% collect_predictions() %>%
 ```{r, eval=FALSE}
 library(DALEXtra)
 
-df_test_proc <- ncorr_yj_recipe_tuned %>% prep() %>% bake(df_test) %>% 
+df_test_proc <- base_recipe %>% prep() %>% bake(df_test) %>% 
   mutate(strain = df_test$strain) %>% 
   select(-resistance)
 
 explainer_final <- 
   explain_tidymodels(
-    mlp_fit, 
+    bt_fit, 
     data = df_test_proc, 
     y = df_test$resistance,
-    label = "MLP",
+    label = "GBT",
     verbose = FALSE
   )
 
@@ -2469,6 +2357,7 @@ show_contribution <- function(strain_name, explainer = explainer_final, data = d
   return(contribution)
 }
 
+# local explanations
 fp_contrib <- show_contribution("DA63072")
 tp_contrib <- show_contribution("DA63150")
 
@@ -2496,6 +2385,54 @@ tp_contrib %>%
   xlab("") +
   ggtitle("DA63150")
 ```
+
+### Global explanations
+
+```{r}
+set.seed(1003)
+
+vip_gbt <- model_parts(explainer_final, loss_function = loss_one_minus_auc)
+
+ggplot_imp <- function(...) {
+  obj <- list(...)
+  metric_name <- attr(obj[[1]], "loss_name")
+  metric_lab <- paste(metric_name, 
+                      "after permutations\n(higher indicates more important)")
+  
+  full_vip <- bind_rows(obj) %>%
+    filter(variable != "_baseline_")
+  
+  perm_vals <- full_vip %>% 
+    filter(variable == "_full_model_") %>% 
+    group_by(label) %>% 
+    summarise(dropout_loss = mean(dropout_loss))
+  
+  p <- full_vip %>%
+    filter(variable != "_full_model_") %>% 
+    mutate(variable = fct_reorder(variable, dropout_loss)) %>%
+    ggplot(aes(dropout_loss, variable)) 
+  if(length(obj) > 1) {
+    p <- p + 
+      facet_wrap(vars(label)) +
+      geom_vline(data = perm_vals, aes(xintercept = dropout_loss, color = label),
+                 linewidth = 1.4, lty = 2, alpha = 0.7) +
+      geom_boxplot(aes(color = label, fill = label), alpha = 0.2)
+  } else {
+    p <- p + 
+      geom_vline(data = perm_vals, aes(xintercept = dropout_loss),
+                 linewidth = 1.4, lty = 2, alpha = 0.7) +
+      geom_boxplot(fill = "#91CBD765", alpha = 0.4)
+    
+  }
+  p +
+    theme(legend.position = "none") +
+    labs(x = metric_lab, 
+         y = NULL,  fill = NULL,  color = NULL)
+}
+
+ggplot_imp(vip_gbt)
+```
+
 
 ### SHAP
 
