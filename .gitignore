@@ -4,6 +4,7 @@
 *.Rhistory
 *.RData
 results/
+notebooks/presentation/
 resources/
 .idea/
 workflow/scripts/__pycache__/
