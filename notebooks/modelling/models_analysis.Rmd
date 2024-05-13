@@ -1868,8 +1868,8 @@ mlp_bag_ncoryj_final[[1]]
 ## ROCs
 
 ```{r ff roc, fig.width=9}
-mod_labels <- c("LR", "GBT", "MLP")
-mod_finals <- list(lr_final[[2]], gbt_base_final[[2]], mlp_bag_ncoryj_final[[2]])
+mod_labels <- c("LR", "GBT")
+mod_finals <- list(lr_final[[2]], gbt_base_final[[2]])
 
 make_final_roc <- function(fit_obj, title=""){
   fit_obj %>%   
@@ -1884,7 +1884,7 @@ rocs_final <- map2(
   ~ make_final_roc(.x, .y)
 )
 
-ggarrange(plotlist = rocs_final, nrow=1, ncol = 3)
+ggarrange(plotlist = rocs_final, nrow=1, ncol = 2)
 ```
 
 ## PRs
@@ -1904,7 +1904,7 @@ prs_final <-  map2(
 )
 
 ggarrange(plotlist = prs_final,
-          ncol = 3,
+          ncol = 2,
           nrow = 1)
 ```
 
@@ -1912,7 +1912,7 @@ ggarrange(plotlist = prs_final,
 
 Probability cut-off = 0.5
 
-```{r ff cm, fig.width=14}
+```{r ff cm, fig.width=10}
 make_cm <- function(fit_obj, title="") {
   fit_obj %>%
   collect_predictions() %>%
@@ -1927,7 +1927,7 @@ cm_final <-
     ~ make_cm(.x, .y)
   )
 
-ggarrange(plotlist = cm_final, ncol = 3, nrow = 1)
+ggarrange(plotlist = cm_final, ncol = 2, nrow = 1)
 ```
 
 
@@ -2002,8 +2002,8 @@ senspec_plot <- function(fit_obj, title="") {
     geom_line(size = 1) +
     #theme_minimal() +
     #scale_color_viridis_d(end = 0.9) +
-    scale_color_brewer(palette = "Set1", guide = guide_legend(title = NULL) ) +
-    scale_alpha_manual(values = c(.4, 1), guide = "none") +
+    scale_color_brewer(palette = "Set2", guide = guide_legend(title = NULL) ) +
+    scale_alpha_manual(values = c(.9, 1), guide = "none") +
     geom_vline(
       xintercept = max_j_index_threshold,
       alpha = .8,
@@ -2018,7 +2018,7 @@ senspec_plot <- function(fit_obj, title="") {
 ```
 
 
-```{r, fig.height=9}
+```{r, fig.height=8, fig.width=10}
 senspec_plots <- map2(
   mod_finals,
   mod_labels,
@@ -2026,7 +2026,7 @@ senspec_plots <- map2(
 )
 
 ggarrange(plotlist = senspec_plots,
-                  nrow = 3,
+                  nrow = 2,
                   ncol = 1,
                   common.legend = T)
 ```
@@ -2123,7 +2123,7 @@ cm_optimized_plots <- map2(
 
 ggarrange(plotlist = cm_optimized_plots,
           nrow = 1,
-          ncol = 3,
+          ncol = 2,
           common.legend = F)
 ```
 
@@ -2313,7 +2313,37 @@ bt_fit
 # fit_best(mlp_bag_ncoryj_res)
 ```
 
-### Build an explainer
+### Global explanations
+
+```{r, fig.height=12, fig.width=9}
+library(DALEXtra)
+set.seed(1003)
+
+df_test_proc <- base_recipe %>% 
+  prep() %>% 
+  bake(df_test) %>% 
+  select(-c(resistance, strain))
+
+explainer_final <- 
+  explain_tidymodels(
+    bt_fit, 
+    data = df_test_proc, 
+    y = if_else(df_test$resistance == "HR", 1, 0),
+    label = "GBT",
+    verbose = FALSE
+  )
+
+vip_gbt <- model_parts(explainer_final, 
+                       loss_function = loss_one_minus_auc,
+                       B = 50, 
+                       type = "difference")
+
+plot(vip_gbt) +
+  ggtitle("Mean variable-importance over 50 permutations", "")
+
+```
+
+### Local explanations
 
 You can choose for instance false positives and look what influenced
 their classification as HR
@@ -2386,52 +2416,7 @@ tp_contrib %>%
   ggtitle("DA63150")
 ```
 
-### Global explanations
 
-```{r}
-set.seed(1003)
-
-vip_gbt <- model_parts(explainer_final, loss_function = loss_one_minus_auc)
-
-ggplot_imp <- function(...) {
-  obj <- list(...)
-  metric_name <- attr(obj[[1]], "loss_name")
-  metric_lab <- paste(metric_name, 
-                      "after permutations\n(higher indicates more important)")
-  
-  full_vip <- bind_rows(obj) %>%
-    filter(variable != "_baseline_")
-  
-  perm_vals <- full_vip %>% 
-    filter(variable == "_full_model_") %>% 
-    group_by(label) %>% 
-    summarise(dropout_loss = mean(dropout_loss))
-  
-  p <- full_vip %>%
-    filter(variable != "_full_model_") %>% 
-    mutate(variable = fct_reorder(variable, dropout_loss)) %>%
-    ggplot(aes(dropout_loss, variable)) 
-  if(length(obj) > 1) {
-    p <- p + 
-      facet_wrap(vars(label)) +
-      geom_vline(data = perm_vals, aes(xintercept = dropout_loss, color = label),
-                 linewidth = 1.4, lty = 2, alpha = 0.7) +
-      geom_boxplot(aes(color = label, fill = label), alpha = 0.2)
-  } else {
-    p <- p + 
-      geom_vline(data = perm_vals, aes(xintercept = dropout_loss),
-                 linewidth = 1.4, lty = 2, alpha = 0.7) +
-      geom_boxplot(fill = "#91CBD765", alpha = 0.4)
-    
-  }
-  p +
-    theme(legend.position = "none") +
-    labs(x = metric_lab, 
-         y = NULL,  fill = NULL,  color = NULL)
-}
-
-ggplot_imp(vip_gbt)
-```
 
 
 ### SHAP
