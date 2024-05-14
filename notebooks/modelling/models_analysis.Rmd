@@ -2147,7 +2147,7 @@ map2_dfr(
 
 # Post-modelling analysis
 
-## Features used by the best model (LR)
+## Features used by LLR
 
 ### How many predictors were removed
 
@@ -2178,7 +2178,7 @@ recipe(resistance ~ ., data = df_train) %>%
   step_nzv(all_predictors()) %>% prep() %>% juice() %>% ncol()
 ```
 
-### Features importance
+## Features importance: LLR
 
 Non-zero LLR coefficients:
 
@@ -2187,7 +2187,8 @@ lr_coeff_df <- lr_final[[2]] %>%
   extract_fit_parsnip() %>% tidy() %>% 
   filter(estimate != 0) %>% 
   arrange(-abs(estimate)) %>% 
-  mutate(odds.ratio = 1/exp(estimate)) %>% 
+  mutate(odds.ratio = 1/exp(estimate),
+         term = gsub(term, pattern= "_", replacement = ".", fixed=T)) %>% 
   select(-penalty)
 
 lr_coeff_df
@@ -2216,7 +2217,7 @@ lr_coeff_df %>%
   select(term)
 ```
 
-### Plot
+### Plots
 
 ```{r, fig.width=8, fig.height=6}
 Fig_LR_predictors <- lr_coeff_df %>%
@@ -2253,7 +2254,7 @@ Fig_LR_predictors_alt <-
     effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
     odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio)
   ) %>%
-  filter(term != "(Intercept)", term != "n.beta.lac") %>%
+  filter(term != "(Intercept)") %>%
   ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio_)) +
   geom_col(aes(fill = effect)) +
   #scale_color_brewer(palette = "Paired", guide = guide_legend(title = NULL)) +
@@ -2277,7 +2278,44 @@ ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", plot=Fig_LR_predictor
 Fig_LR_predictors_alt
 ```
 
-## Predictors used by the GBT model
+Alternative 2: no legend, better names
+
+```{r}
+Fig_LR_predictors_alt2 <-
+  lr_coeff_df %>%
+  mutate(
+    effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
+    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio)
+  ) %>%
+  filter(term != "(Intercept)") %>%
+  ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio_)) +
+  geom_col(aes(fill = effect)) +
+  scale_fill_manual(values = c("#A6CEE3", "#1F78B4"),
+                    guide = guide_legend(title = NULL)) +
+  theme(
+    axis.text.x = element_text(
+      angle = 90,
+      vjust = 0.9,
+      hjust = 0.9,
+      size = 8
+    ),
+    legend.position = "none"
+  ) +
+  xlab("") +
+  ylab("odds ratio") +
+  # scale_x_discrete(labels = c("TEM beta-lac.", "MPhT", "repeats > 100 nt on plasmids", 
+  #                             "IS families", "IS30", "median AR length on plasmids", 
+  #                             "median repaet length on chrom.", "CAT", "IS21", 
+  #                             "beta-lac. on plasmids", "ISAS1", "median AR")) +
+  coord_flip()
+
+# ggsave(file="manuscript/images/Fig_LR_predictors_alt2.png", plot=Fig_LR_predictors_alt2, width = 8, height=6, units = "in")
+
+Fig_LR_predictors_alt2
+```
+
+
+## Features used by GBT
 
 [Source](https://ema.drwhy.ai/featureImportance.html#featureImportanceIntuition)
 
@@ -2315,7 +2353,9 @@ bt_fit
 # fit_best(mlp_bag_ncoryj_res)
 ```
 
-### Global explanations
+## Features importance: GBT
+
+Aka "global explanations"
 
 ```{r, fig.height=12, fig.width=9}
 library(DALEXtra)
