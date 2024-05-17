@@ -2245,21 +2245,34 @@ ggsave(file="manuscript/images/Fig_LR_predictors.png", plot=Fig_LR_predictors,
 Fig_LR_predictors
 ```
 
-Alternative: plotting estimate
+Alternative 1: categories of predictors
 
 ```{r}
-Fig_LR_predictors_alt <-
-  lr_coeff_df %>%
+# add categories of the predictors, i.e. genes, repeats or technical artefacts
+Fig_LR_predictors_alt <- 
+lr_coeff_df %>%
   mutate(
-    effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
-    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio)
+    HR_probability = if_else(estimate < 0, "increased", "decreased"),
+    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
+    category = case_when(
+      grepl("IS", term) |
+        grepl("rep", term) |
+        grepl("AR", term) | grepl("is", term) ~ "repeats",
+      grepl("beta", term) |
+        grepl("transfer", term) |
+        grepl("n.c.plasmids", term) |
+        grepl("APH6", term) |
+        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
+      grepl("linear", term) |
+        grepl("coverage", term) ~ "technical"
+    )
   ) %>%
-  filter(term != "(Intercept)") %>%
-  ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio_)) +
-  geom_col(aes(fill = effect)) +
-  #scale_color_brewer(palette = "Paired", guide = guide_legend(title = NULL)) +
-  scale_fill_manual(values = c("#A6CEE3", "#1F78B4"),
-                    guide = guide_legend(title = NULL)) +
+  filter(term != "(Intercept)") %>% 
+  ggplot(aes(reorder(term, -odds.ratio, decreasing = T), odds.ratio_)) +
+  geom_col(aes(fill = category)) +
+  scale_fill_brewer(palette = "Dark2", guide = guide_legend(title = NULL), direction = -1) +
+  #scale_fill_manual(values = c("#E77200", "#6A329F", "#0B6629"), guide = guide_legend(title = NULL)) +
+  #scale_alpha_discrete(range = c(0.6, 1), guide = guide_legend(title = NULL)) +
   theme(
     axis.text.x = element_text(
       angle = 90,
@@ -2278,9 +2291,9 @@ ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", plot=Fig_LR_predictor
 Fig_LR_predictors_alt
 ```
 
-Alternative 2: no legend, better names
+Alternative 2:
 
-```{r}
+```{r, fig.width=10, fig.height=10}
 Fig_LR_predictors_alt2 <-
   lr_coeff_df %>%
   mutate(
@@ -2288,7 +2301,7 @@ Fig_LR_predictors_alt2 <-
     odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio)
   ) %>%
   filter(term != "(Intercept)") %>%
-  ggplot(aes(reorder(term, odds.ratio, decreasing = F), odds.ratio_)) +
+  ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio_)) +
   geom_col(aes(fill = effect)) +
   scale_fill_manual(values = c("#A6CEE3", "#1F78B4"),
                     guide = guide_legend(title = NULL)) +
@@ -2302,12 +2315,8 @@ Fig_LR_predictors_alt2 <-
     legend.position = "none"
   ) +
   xlab("") +
-  ylab("odds ratio") +
-  # scale_x_discrete(labels = c("TEM beta-lac.", "MPhT", "repeats > 100 nt on plasmids", 
-  #                             "IS families", "IS30", "median AR length on plasmids", 
-  #                             "median repaet length on chrom.", "CAT", "IS21", 
-  #                             "beta-lac. on plasmids", "ISAS1", "median AR")) +
-  coord_flip()
+  ylab("odds ratio")
+
 
 # ggsave(file="manuscript/images/Fig_LR_predictors_alt2.png", plot=Fig_LR_predictors_alt2, width = 8, height=6, units = "in")
 
