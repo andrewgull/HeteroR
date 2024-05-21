@@ -2293,18 +2293,35 @@ Fig_LR_predictors_alt
 
 Alternative 2:
 
-```{r, fig.width=10, fig.height=10}
-Fig_LR_predictors_alt2 <-
-  lr_coeff_df %>%
+```{r, fig.width=8, fig.height=6}
+library(hrbrthemes)
+library(viridis)
+
+Fig_LR_predictors_alt2 <- 
+lr_coeff_df %>%
   mutate(
-    effect = if_else(estimate < 0, "increase HR prob.", "decrease HR prob."),
-    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio)
+    HR_probability = if_else(estimate < 0, "increased", "decreased"),
+    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
+    category = case_when(
+      grepl("IS", term) |
+        grepl("rep", term) |
+        grepl("AR", term) | grepl("is", term) ~ "repeats",
+      grepl("beta", term) |
+        grepl("transfer", term) |
+        grepl("n.c.plasmids", term) |
+        grepl("APH6", term) |
+        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
+      grepl("linear", term) |
+        grepl("coverage", term) ~ "technical"
+    )
   ) %>%
-  filter(term != "(Intercept)") %>%
-  ggplot(aes(reorder(term, odds.ratio, decreasing = T), odds.ratio_)) +
-  geom_col(aes(fill = effect)) +
-  scale_fill_manual(values = c("#A6CEE3", "#1F78B4"),
-                    guide = guide_legend(title = NULL)) +
+  filter(term != "(Intercept)", HR_probability == "increased") %>% 
+  ggplot(aes(x = reorder(term, -odds.ratio, decreasing = T), y = odds.ratio_)) +
+  geom_col(fill = "steelblue") +
+  #geom_point(aes(alpha=0.5,  color="black")) +
+  #scale_size(range = c(.1, 24), name="UU") +
+  scale_fill_brewer(palette = "Dark2", guide = guide_legend(title = NULL), direction = -1) +
+  #scale_fill_viridis(discrete=TRUE, guide=FALSE, option="A") +
   theme(
     axis.text.x = element_text(
       angle = 90,
@@ -2312,15 +2329,60 @@ Fig_LR_predictors_alt2 <-
       hjust = 0.9,
       size = 8
     ),
-    legend.position = "none"
+    legend.position = "bottom"
   ) +
+  #theme_ipsum() +
   xlab("") +
-  ylab("odds ratio")
+  ylab("odds ratio") +
+  #coord_trans(y = "log") +
+  coord_flip() 
 
-
-# ggsave(file="manuscript/images/Fig_LR_predictors_alt2.png", plot=Fig_LR_predictors_alt2, width = 8, height=6, units = "in")
+ggsave(file="manuscript/images/Fig_LR_predictors_alt2.png", plot=Fig_LR_predictors_alt2, width = 8, height=6, units = "in")
 
 Fig_LR_predictors_alt2
+```
+
+Alternative 3
+
+```{r}
+Fig_LR_predictors_alt3 <- 
+lr_coeff_df %>%
+  mutate(
+    HR_probability = if_else(estimate < 0, "increased", "decreased"),
+    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
+    category = case_when(
+      grepl("IS", term) |
+        grepl("rep", term) |
+        grepl("AR", term) | grepl("is", term) ~ "repeats",
+      grepl("beta", term) |
+        grepl("transfer", term) |
+        grepl("n.c.plasmids", term) |
+        grepl("APH6", term) |
+        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
+      grepl("linear", term) |
+        grepl("coverage", term) ~ "technical"
+    )
+  ) %>%
+  filter(term != "(Intercept)", HR_probability == "decreased") %>% 
+  ggplot(aes(x = reorder(term, -odds.ratio, decreasing = T), y = odds.ratio)) +
+  geom_col(fill = "steelblue") +
+  scale_fill_brewer(palette = "Dark2", guide = guide_legend(title = NULL), direction = -1) +
+  theme(
+    axis.text.x = element_text(
+      angle = 90,
+      vjust = 0.9,
+      hjust = 0.9,
+      size = 8
+    ),
+    legend.position = "bottom"
+  ) +
+  xlab("") +
+  ylab("odds ratio") +
+  coord_flip() 
+
+ggsave(file="manuscript/images/Fig_LR_predictors_alt3.png", plot=Fig_LR_predictors_alt3, width = 8, height=6, units = "in")
+
+Fig_LR_predictors_alt3
 ```
 
 
