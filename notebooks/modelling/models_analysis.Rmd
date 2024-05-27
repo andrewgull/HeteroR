@@ -2247,13 +2247,16 @@ Fig_LR_predictors
 
 Alternative 1: categories of predictors
 
-```{r}
+```{r, fig.width=8, fig.height=6}
 # add categories of the predictors, i.e. genes, repeats or technical artefacts
+# add breaks
+library(ggbreak)
+
 Fig_LR_predictors_alt <- 
 lr_coeff_df %>%
   mutate(
     HR_probability = if_else(estimate < 0, "increased", "decreased"),
-    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
+    # odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
     category = case_when(
       grepl("IS", term) |
         grepl("rep", term) |
@@ -2268,11 +2271,11 @@ lr_coeff_df %>%
     )
   ) %>%
   filter(term != "(Intercept)") %>% 
-  ggplot(aes(reorder(term, -odds.ratio, decreasing = T), odds.ratio_)) +
+  ggplot(aes(reorder(term, -odds.ratio, decreasing = T), odds.ratio)) +
   geom_col(aes(fill = category)) +
   scale_fill_brewer(palette = "Dark2", guide = guide_legend(title = NULL), direction = -1) +
-  #scale_fill_manual(values = c("#E77200", "#6A329F", "#0B6629"), guide = guide_legend(title = NULL)) +
-  #scale_alpha_discrete(range = c(0.6, 1), guide = guide_legend(title = NULL)) +
+  scale_y_break(c(4, 29), ticklabels=c(30)) +
+  #scale_alpha_discrete(breaks=c(0.5, 1), limits=c(0.5, 1), guide = guide_legend(title = NULL)) +
   theme(
     axis.text.x = element_text(
       angle = 90,
@@ -2280,11 +2283,12 @@ lr_coeff_df %>%
       hjust = 0.9,
       size = 8
     ),
-    legend.position = "bottom"
+    legend.position = "top"
   ) +
   xlab("") +
   ylab("odds ratio") +
-  coord_flip() 
+  coord_flip() +
+  geom_hline(yintercept = 1, linetype="dashed")
 
 ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", plot=Fig_LR_predictors_alt, width = 8, height=6, units = "in")
 
