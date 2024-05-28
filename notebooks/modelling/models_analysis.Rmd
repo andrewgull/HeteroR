@@ -1506,7 +1506,8 @@ Fig_all_rocs <- roc_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_brewer(palette="Dark2") 
+  scale_color_brewer(palette="Dark2") +
+  theme_minimal()
 
 ggsave(file="manuscript/images/Fig_all_ROCs.png", 
        plot=Fig_all_rocs, width = 8, height=4, units = "in")
@@ -1537,6 +1538,7 @@ mod_posterior <-
 
 Fig_all_posterior <- autoplot(mod_posterior) +
   scale_color_brewer(palette = "Dark2") +
+  theme_minimal() +
   theme(plot.margin = margin(
     t = 23,
     r = 15,
@@ -1608,7 +1610,7 @@ top_models <- list(
     bt_base_bres,
     mlp_bag_ncoryj_res)
 
-top_names <- c("LR", "GBT", "MLP")
+top_names <- c("LLR", "GBT", "MLP")
 
 roc3_df <-
   map2_dfr(top_models,
@@ -1621,8 +1623,8 @@ Fig_top_rocs <- roc3_df %>%
   geom_path(lwd = 0.5, alpha = 0.8) +
   geom_abline(lty = 3) + 
   coord_equal() + 
-  scale_color_brewer(palette = "Set1") 
-  #ggtitle("ROC curves, top models")
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal()
 
 ggsave(file="manuscript/images/Fig_top_rocs.png", 
        plot=Fig_top_rocs, width = 8, height=4, units = "in")
@@ -1644,6 +1646,7 @@ pr_top_df %>%
   geom_abline(lty = 3) + 
   coord_equal(ylim=c(0,1)) + 
   scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
   ggtitle("PR curves, top models")
 ```
 
@@ -1664,7 +1667,8 @@ mod_posterior <-
   )
 
 Fig_top_posterior <- autoplot(mod_posterior) + 
-  scale_color_brewer(palette = "Set1")
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal()
 
 ggsave(file="manuscript/images/Fig_top_posterior.png", 
        plot=Fig_top_posterior, width = 8, height=4, units = "in")
@@ -1868,7 +1872,7 @@ mlp_bag_ncoryj_final[[1]]
 ## ROCs
 
 ```{r ff roc, fig.width=9}
-mod_labels <- c("LR", "GBT")
+mod_labels <- c("LLR", "GBT")
 mod_finals <- list(lr_final[[2]], gbt_base_final[[2]])
 
 make_final_roc <- function(fit_obj, title=""){
@@ -1952,71 +1956,6 @@ map2_dfr(
 ```
 
 ## Probability cutoff adjustment by maximum j-index
-
-```{r ff prob adj func}
-maxj <- function(threshold_df) {
-  # find max j-index
-  max_j_index_threshold <- threshold_df %>%
-    filter(.metric == "j_index") %>%
-    filter(.estimate == max(.estimate)) %>%
-    pull(.threshold)
-  
-  # max_j_index_threshold may be a vector, use its last element
-  if (length(max_j_index_threshold) > 1) {
-    max_j_index_threshold <-
-      max_j_index_threshold[length(max_j_index_threshold)]
-  }
-  
-  return(max_j_index_threshold)
-}
-
-get_threshold <- function(fit_obj){
-    # collect sens, spec, j-index at various cut-offs
-  threshold_data <-
-    fit_obj %>%
-    collect_predictions() %>%
-    threshold_perf(resistance, .pred_HR, thresholds = seq(0.0, 1, by = 0.01)) %>%
-    filter(.metric != "distance") %>%
-    mutate(group = case_when(.metric == "sens" |
-                               .metric == "spec" ~ "1",
-                             TRUE ~ "2"))
-  return(threshold_data)
-}
-
-senspec_plot <- function(fit_obj, title="") {
-  # collect sens, spec, j-index at various cut-offs
-  threshold_data <- get_threshold(fit_obj)
-  
-  # find max j-index
-  max_j_index_threshold <- maxj(threshold_data)
-  
-  # plot metrics v cut-offs
-  sens_spec_j_plot <-
-    ggplot(threshold_data,
-           aes(
-             x = .threshold,
-             y = .estimate,
-             color = .metric,
-             alpha = group
-           )) +
-    geom_line(size = 1) +
-    #theme_minimal() +
-    #scale_color_viridis_d(end = 0.9) +
-    scale_color_brewer(palette = "Set2", guide = guide_legend(title = NULL) ) +
-    scale_alpha_manual(values = c(.9, 1), guide = "none") +
-    geom_vline(
-      xintercept = max_j_index_threshold,
-      alpha = .8,
-      color = "grey30",
-      linetype = "longdash"
-    ) +
-    labs(x = "Probability",
-         y = "Metric Estimate",
-         title = title)
-  return(sens_spec_j_plot)
-}
-```
-
 
 ```{r, fig.height=8, fig.width=10}
 senspec_plots <- map2(
@@ -2189,7 +2128,76 @@ lr_coeff_df <- lr_final[[2]] %>%
   arrange(-abs(estimate)) %>% 
   mutate(odds.ratio = 1/exp(estimate),
          term = gsub(term, pattern= "_", replacement = ".", fixed=T)) %>% 
-  select(-penalty)
+  select(-penalty) %>%
+  mutate(
+    HR_probability = if_else(estimate < 0, "increased", "decreased"),
+    category = case_when(
+      grepl("IS", term) |
+        grepl("rep", term) |
+        grepl("AR", term) | grepl("is", term) ~ "repeats",
+      grepl("beta", term) |
+        grepl("transfer", term) |
+        grepl("n.c.plasmids", term) |
+        grepl("APH6", term) |
+        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
+      grepl("linear", term) |
+        grepl("coverage", term) ~ "technical"
+    ),
+    # make readable term names
+    term = recode(term,
+                  "n.beta.lac" = "number of β-lactamases",
+                   "TEM.beta.lactamase" = "number of tem β-lactamases",
+                   "ampC.type.beta.lactamase" = "number of ampC β-lactamases",
+                  "med.AR.len.TEM" = "median AR length around tem β-lactamases",
+                  "CTX.M.beta.lactamase" = "number of ctx-m β-lactamases",
+                  "macrolide.phosphotransferase.MPH" = "number of mph genes",
+                  "n.rep.100.plasmid" = "number of repeats longer than 100 nt on plasmids",
+                  "n.is.fam" = "number of IS families",
+                  "max.rep.len" = "maximal repeat length",
+                  "IS30" = "number of IS30 elements",
+                  "med.AR.len.cen.plasmid" = "median length of AR spanning RG on plasmdis",
+                  "min.distance.is.gene" = "distance between IS element and closest resistance gene",
+                  "IS5" = "number of IS5 elements",
+                  "ANT3" = "number of ANT3 genes",
+                  "med.tot.rep.len.chrom" = "median repeat length on chromosome",
+                  "ISNCY" = "number of ISNCY elements",
+                  "med.AR.len.cen" = "median AR length",
+                  "chloramphenicol.acetyltransferase.CAT" = "number of cat genes",
+                  "n.is.tot" = "total number of IS families",
+                  "AAC3" = "number of aac3 genes",
+                  "IS21" = "number of IS21 elements",
+                  "IS481" = "number of IS481 elements",
+                  "ISL3" = "number of ISL3 elements",
+                  "med.rep.len.ampC" = "median repeat length around ampC β-lactamases",
+                  "n.beta.lac.plasmid" = "number of β-lactamases on plasmids",
+                  "ISAS1" = "number of ISAS1 elements",
+                  "IS3" = "number of IS3 elements",
+                  "IS1" = "number of IS1 elements",
+                  "med.AR.len.plasmid" = "median AR length on plasmids",
+                  "med.tot.rep.len" = "median repeat length",
+                  "max.rep.len.cen" = "maximal length of repeats spanning RG",
+                  "IS200/IS605" = "number of IS200/IS605 elements",
+                  "med.AR.len.plasmid.TEM" = "median AR length around tem β-lactamases on plasmids",
+                  "med.rep.len.plasmid.TEM" = "median repeat length around tem β-lactamases on plasmids",
+                  "IS630" = "number of IS630 elements",
+                  "max.is.len" = "maximal IS element length",
+                  "min.AR.len.cen" = "minimal AR length",
+                  "med.rep.len.chrom" = "median repeat length on chromosomes",
+                  "n.rep.chrom.ampC" = "number of repeats around ampC β-lactamases on chromosomes",
+                  "min.AR.len.cen.chrom" = "minimal AR length on chromosomes",
+                  "IS110" = "number of IS110 elements",
+                  "IS4" = "number of IS4 elements",
+                  "n.rep.500.cen.tot" = "number of repeats longer than 500 nt",
+                  "chrom.status.linear" = "incomplete genome assembly",
+                  "n.rep.100.total" = "number of repeats longer than 100 nt",
+                  "sulfonamide.resistant.sul" = "number of sul genes",
+                  "trimethoprim.resistant.dihydrofolate.reductase.dfr" = "number of dfr genes",
+                  "IS6" = "number of IS6 elements",
+                  "IS66" = "number of IS66 elements",
+                  "APH6" = "number of aph6 genes",
+                  "n.c.plasmids" = "copy number of plasmids"
+                  )) %>%
+  filter(term != "(Intercept)")
 
 lr_coeff_df
 ```
@@ -2245,150 +2253,40 @@ ggsave(file="manuscript/images/Fig_LR_predictors.png", plot=Fig_LR_predictors,
 Fig_LR_predictors
 ```
 
-Alternative 1: categories of predictors
+Alternative 1: categories of predictors + a break
 
 ```{r, fig.width=8, fig.height=6}
-# add categories of the predictors, i.e. genes, repeats or technical artefacts
-# add breaks
-library(ggbreak)
+library(ggbreak) # for y/x axis break
+library(scales) # for labels wrapping
 
-Fig_LR_predictors_alt <- 
-lr_coeff_df %>%
-  mutate(
-    HR_probability = if_else(estimate < 0, "increased", "decreased"),
-    # odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
-    category = case_when(
-      grepl("IS", term) |
-        grepl("rep", term) |
-        grepl("AR", term) | grepl("is", term) ~ "repeats",
-      grepl("beta", term) |
-        grepl("transfer", term) |
-        grepl("n.c.plasmids", term) |
-        grepl("APH6", term) |
-        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
-      grepl("linear", term) |
-        grepl("coverage", term) ~ "technical"
-    )
-  ) %>%
-  filter(term != "(Intercept)") %>% 
-  ggplot(aes(reorder(term, -odds.ratio, decreasing = T), odds.ratio)) +
+Fig_LR_predictors_alt <-
+  ggplot(lr_coeff_df,
+         aes(reorder(term, -odds.ratio, decreasing = T), odds.ratio)) +
   geom_col(aes(fill = category)) +
-  scale_fill_brewer(palette = "Dark2", guide = guide_legend(title = NULL), direction = -1) +
-  scale_y_break(c(4, 29), ticklabels=c(30)) +
-  #scale_alpha_discrete(breaks=c(0.5, 1), limits=c(0.5, 1), guide = guide_legend(title = NULL)) +
+  coord_flip() +
+  scale_fill_brewer(
+    palette = "Dark2",
+    name =,
+    direction = -1
+  ) +
+  scale_y_break(c(4, 29), ticklabels = c(30)) +
   theme(
+    legend.position = "top",
     axis.text.x = element_text(
-      angle = 90,
       vjust = 0.9,
       hjust = 0.9,
-      size = 8
-    ),
-    legend.position = "top"
+      size = 7
+    )
   ) +
-  xlab("") +
-  ylab("odds ratio") +
-  coord_flip() +
-  geom_hline(yintercept = 1, linetype="dashed")
+  labs(y = "odds ratio", x = NULL) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  theme_minimal()
 
-ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", plot=Fig_LR_predictors_alt, width = 8, height=6, units = "in")
+ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", 
+       plot=Fig_LR_predictors_alt, width = 8, height=6, units = "in")
 
 Fig_LR_predictors_alt
 ```
-
-Alternative 2:
-
-```{r, fig.width=8, fig.height=6}
-library(hrbrthemes)
-library(viridis)
-
-Fig_LR_predictors_alt2 <- 
-lr_coeff_df %>%
-  mutate(
-    HR_probability = if_else(estimate < 0, "increased", "decreased"),
-    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
-    category = case_when(
-      grepl("IS", term) |
-        grepl("rep", term) |
-        grepl("AR", term) | grepl("is", term) ~ "repeats",
-      grepl("beta", term) |
-        grepl("transfer", term) |
-        grepl("n.c.plasmids", term) |
-        grepl("APH6", term) |
-        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
-      grepl("linear", term) |
-        grepl("coverage", term) ~ "technical"
-    )
-  ) %>%
-  filter(term != "(Intercept)", HR_probability == "increased") %>% 
-  ggplot(aes(x = reorder(term, -odds.ratio, decreasing = T), y = odds.ratio_)) +
-  geom_col(fill = "steelblue") +
-  #geom_point(aes(alpha=0.5,  color="black")) +
-  #scale_size(range = c(.1, 24), name="UU") +
-  scale_fill_brewer(palette = "Dark2", guide = guide_legend(title = NULL), direction = -1) +
-  #scale_fill_viridis(discrete=TRUE, guide=FALSE, option="A") +
-  theme(
-    axis.text.x = element_text(
-      angle = 90,
-      vjust = 0.9,
-      hjust = 0.9,
-      size = 8
-    ),
-    legend.position = "bottom"
-  ) +
-  #theme_ipsum() +
-  xlab("") +
-  ylab("odds ratio") +
-  #coord_trans(y = "log") +
-  coord_flip() 
-
-ggsave(file="manuscript/images/Fig_LR_predictors_alt2.png", plot=Fig_LR_predictors_alt2, width = 8, height=6, units = "in")
-
-Fig_LR_predictors_alt2
-```
-
-Alternative 3
-
-```{r}
-Fig_LR_predictors_alt3 <- 
-lr_coeff_df %>%
-  mutate(
-    HR_probability = if_else(estimate < 0, "increased", "decreased"),
-    odds.ratio_ = if_else(odds.ratio < 1.0, odds.ratio * (-1), odds.ratio),
-    category = case_when(
-      grepl("IS", term) |
-        grepl("rep", term) |
-        grepl("AR", term) | grepl("is", term) ~ "repeats",
-      grepl("beta", term) |
-        grepl("transfer", term) |
-        grepl("n.c.plasmids", term) |
-        grepl("APH6", term) |
-        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
-      grepl("linear", term) |
-        grepl("coverage", term) ~ "technical"
-    )
-  ) %>%
-  filter(term != "(Intercept)", HR_probability == "decreased") %>% 
-  ggplot(aes(x = reorder(term, -odds.ratio, decreasing = T), y = odds.ratio)) +
-  geom_col(fill = "steelblue") +
-  scale_fill_brewer(palette = "Dark2", guide = guide_legend(title = NULL), direction = -1) +
-  theme(
-    axis.text.x = element_text(
-      angle = 90,
-      vjust = 0.9,
-      hjust = 0.9,
-      size = 8
-    ),
-    legend.position = "bottom"
-  ) +
-  xlab("") +
-  ylab("odds ratio") +
-  coord_flip() 
-
-ggsave(file="manuscript/images/Fig_LR_predictors_alt3.png", plot=Fig_LR_predictors_alt3, width = 8, height=6, units = "in")
-
-Fig_LR_predictors_alt3
-```
-
 
 ## Features used by GBT
 
