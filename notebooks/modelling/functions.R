@@ -84,7 +84,9 @@ plot_validation_results <- function(dat, components, colors_vec) {
     ggforce::geom_autodensity(alpha = .3) +
     ggforce::facet_matrix(vars(-resistance), layer.diag = 2) + 
     scale_color_manual(values = colors_vec) +
-    scale_fill_manual(values = colors_vec)
+    scale_fill_manual(values = colors_vec) +
+    theme_minimal() +
+    theme(legend.title = element_blank())
 }
 
 # to read workflowsets file and return the required workflow by ID
@@ -94,3 +96,66 @@ read_wfset <- function(wf_file, wf_id, models_path="/mnt/data/andrei/Data/Hetero
     pull(result) %>% 
     pluck(1)
 } 
+
+maxj <- function(threshold_df) {
+  # find max j-index
+  max_j_index_threshold <- threshold_df %>%
+    filter(.metric == "j_index") %>%
+    filter(.estimate == max(.estimate)) %>%
+    pull(.threshold)
+  
+  # max_j_index_threshold may be a vector, use its last element
+  if (length(max_j_index_threshold) > 1) {
+    max_j_index_threshold <-
+      max_j_index_threshold[length(max_j_index_threshold)]
+  }
+  
+  return(max_j_index_threshold)
+}
+
+get_threshold <- function(fit_obj){
+  # collect sens, spec, j-index at various cut-offs
+  threshold_data <-
+    fit_obj %>%
+    collect_predictions() %>%
+    threshold_perf(resistance, .pred_HR, thresholds = seq(0.0, 1, by = 0.01)) %>%
+    filter(.metric != "distance") %>%
+    mutate(group = case_when(.metric == "sens" |
+                               .metric == "spec" ~ "1",
+                             TRUE ~ "2"))
+  return(threshold_data)
+}
+
+senspec_plot <- function(fit_obj, title="") {
+  # collect sens, spec, j-index at various cut-offs
+  threshold_data <- get_threshold(fit_obj)
+  
+  # find max j-index
+  max_j_index_threshold <- maxj(threshold_data)
+  
+  # plot metrics v cut-offs
+  sens_spec_j_plot <-
+    ggplot(threshold_data,
+           aes(
+             x = .threshold,
+             y = .estimate,
+             color = .metric,
+             alpha = group
+           )) +
+    geom_line(size = 1) +
+    #theme_minimal() +
+    #scale_color_viridis_d(end = 0.9) +
+    scale_color_brewer(palette = "Set2", guide = guide_legend(title = NULL) ) +
+    scale_alpha_manual(values = c(.9, 1), guide = "none") +
+    geom_vline(
+      xintercept = max_j_index_threshold,
+      alpha = .8,
+      color = "grey30",
+      linetype = "longdash"
+    ) +
+    labs(x = "Probability",
+         y = "Metric Estimate",
+         title = title) +
+    theme_minimal()
+  return(sens_spec_j_plot)
+}
