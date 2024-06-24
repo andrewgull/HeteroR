@@ -1507,7 +1507,8 @@ Fig_all_rocs <- roc_df %>%
   geom_abline(lty = 3) + 
   coord_equal() + 
   scale_color_brewer(palette="Dark2") +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.title = element_blank())
 
 ggsave(file="manuscript/images/Fig_all_ROCs.png", 
        plot=Fig_all_rocs, width = 8, height=4, units = "in")
@@ -1539,6 +1540,7 @@ mod_posterior <-
 Fig_all_posterior <- autoplot(mod_posterior) +
   scale_color_brewer(palette = "Dark2") +
   theme_minimal() +
+  theme(legend.title = element_blank()) +
   theme(plot.margin = margin(
     t = 23,
     r = 15,
@@ -2134,23 +2136,25 @@ lr_coeff_df <- lr_final[[2]] %>%
     category = case_when(
       grepl("IS", term) |
         grepl("rep", term) |
-        grepl("AR", term) | grepl("is", term) ~ "repeats",
+        grepl("AR", term) | grepl(".is.", term, fixed = TRUE) ~ "repeats",
       grepl("beta", term) |
         grepl("transfer", term) |
         grepl("n.c.plasmids", term) |
         grepl("APH6", term) |
-        grepl("AAC3", term) | grepl("ANT3", term) ~ "genes",
+        grepl("AAC3", term) | 
+        grepl("ANT3", term) | 
+        grepl(".dfr", term) | grepl(".sul", term) ~ "genes",
       grepl("linear", term) |
         grepl("coverage", term) ~ "technical"
     ),
     # make readable term names
     term = recode(term,
-                  "n.beta.lac" = "number of β-lactamases",
-                   "TEM.beta.lactamase" = "number of tem β-lactamases",
-                   "ampC.type.beta.lactamase" = "number of ampC β-lactamases",
-                  "med.AR.len.TEM" = "median AR length around tem β-lactamases",
-                  "CTX.M.beta.lactamase" = "number of ctx-m β-lactamases",
-                  "macrolide.phosphotransferase.MPH" = "number of mph genes",
+                  "n.beta.lac" = "number of bla genes",
+                   "TEM.beta.lactamase" = "number of bla TEM genes",
+                   "ampC.type.beta.lactamase" = "number of bla ampC genes ",
+                  "med.AR.len.TEM" = "median AR length around bla TEM genes",
+                  "CTX.M.beta.lactamase" = "number of bla CTX-M genes",
+                  "macrolide.phosphotransferase.MPH" = "number of MPH genes",
                   "n.rep.100.plasmid" = "number of repeats longer than 100 nt on plasmids",
                   "n.is.fam" = "number of IS families",
                   "max.rep.len" = "maximal repeat length",
@@ -2162,14 +2166,14 @@ lr_coeff_df <- lr_final[[2]] %>%
                   "med.tot.rep.len.chrom" = "median repeat length on chromosome",
                   "ISNCY" = "number of ISNCY elements",
                   "med.AR.len.cen" = "median AR length",
-                  "chloramphenicol.acetyltransferase.CAT" = "number of cat genes",
+                  "chloramphenicol.acetyltransferase.CAT" = "number of CAT genes",
                   "n.is.tot" = "total number of IS families",
-                  "AAC3" = "number of aac3 genes",
+                  "AAC3" = "number of AAC3 genes",
                   "IS21" = "number of IS21 elements",
                   "IS481" = "number of IS481 elements",
                   "ISL3" = "number of ISL3 elements",
-                  "med.rep.len.ampC" = "median repeat length around ampC β-lactamases",
-                  "n.beta.lac.plasmid" = "number of β-lactamases on plasmids",
+                  "med.rep.len.ampC" = "median repeat length around bla ampC genes",
+                  "n.beta.lac.plasmid" = "number of bla genes on plasmids",
                   "ISAS1" = "number of ISAS1 elements",
                   "IS3" = "number of IS3 elements",
                   "IS1" = "number of IS1 elements",
@@ -2177,24 +2181,24 @@ lr_coeff_df <- lr_final[[2]] %>%
                   "med.tot.rep.len" = "median repeat length",
                   "max.rep.len.cen" = "maximal length of repeats spanning RG",
                   "IS200/IS605" = "number of IS200/IS605 elements",
-                  "med.AR.len.plasmid.TEM" = "median AR length around tem β-lactamases on plasmids",
-                  "med.rep.len.plasmid.TEM" = "median repeat length around tem β-lactamases on plasmids",
+                  "med.AR.len.plasmid.TEM" = "median AR length around bla TEM genes on plasmids",
+                  "med.rep.len.plasmid.TEM" = "median repeat length around bla TEM genes on plasmids",
                   "IS630" = "number of IS630 elements",
                   "max.is.len" = "maximal IS element length",
                   "min.AR.len.cen" = "minimal AR length",
                   "med.rep.len.chrom" = "median repeat length on chromosomes",
-                  "n.rep.chrom.ampC" = "number of repeats around ampC β-lactamases on chromosomes",
+                  "n.rep.chrom.ampC" = "number of repeats around bla ampC genes on chromosomes",
                   "min.AR.len.cen.chrom" = "minimal AR length on chromosomes",
                   "IS110" = "number of IS110 elements",
                   "IS4" = "number of IS4 elements",
                   "n.rep.500.cen.tot" = "number of repeats longer than 500 nt",
                   "chrom.status.linear" = "incomplete genome assembly",
                   "n.rep.100.total" = "number of repeats longer than 100 nt",
-                  "sulfonamide.resistant.sul" = "number of sul genes",
-                  "trimethoprim.resistant.dihydrofolate.reductase.dfr" = "number of dfr genes",
+                  "sulfonamide.resistant.sul" = "number of SUL genes",
+                  "trimethoprim.resistant.dihydrofolate.reductase.dfr" = "number of DFR genes",
                   "IS6" = "number of IS6 elements",
                   "IS66" = "number of IS66 elements",
-                  "APH6" = "number of aph6 genes",
+                  "APH6" = "number of APH6 genes",
                   "n.c.plasmids" = "copy number of plasmids"
                   )) %>%
   filter(term != "(Intercept)")
@@ -2280,10 +2284,11 @@ Fig_LR_predictors_alt <-
   ) +
   labs(y = "odds ratio", x = NULL) +
   geom_hline(yintercept = 1, linetype = "dashed") +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.title = element_blank())
 
 ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", 
-       plot=Fig_LR_predictors_alt, width = 8, height=6, units = "in")
+       plot=Fig_LR_predictors_alt, width = 8, height=8, units = "in")
 
 Fig_LR_predictors_alt
 ```
@@ -2294,9 +2299,8 @@ Fig_LR_predictors_alt
 
 ### Fit the model with selected (h)-params
 
-```{r, eval=FALSE}
-# IT'S THE WAY TO GET MLP FIT OBJECT W/O MY BULKY FUNCTIONS for final fit
-# 
+```{r}
+
 bt <- boost_tree(
       trees = tune(),
       min_n = tune(),
@@ -2330,7 +2334,7 @@ bt_fit
 
 Aka "global explanations"
 
-```{r, fig.height=12, fig.width=9}
+```{r}
 library(DALEXtra)
 set.seed(1003)
 
@@ -2354,6 +2358,12 @@ vip_gbt <- model_parts(explainer_final,
                        type = "difference",
                        N = NULL)
 
+# 86 predictors
+vip_gbt %>% group_by(variable) %>% summarise(m = median(dropout_loss))
+```
+
+
+```{r, fig.height=12, fig.width=9}
 # Mean variable-importance over 50 permutations
 Fig_GBT_predictors <- 
   plot(vip_gbt) +
@@ -2409,17 +2419,120 @@ ggplot_imp <- function(...) {
 }
 
 
+# make readable predictors' names
+
+lr_terms <- lr_final[[2]] %>%
+  extract_fit_parsnip() %>% tidy() %>%
+  filter(estimate != 0) %>% pull(term)
+
+# setdiff(unique(vip_gbt$variable), lr_terms)
+
+vip_gbt <- vip_gbt %>%
+  mutate(
+    variable = recode(
+      variable,
+      "n.beta.lac" = "number of bla genes",
+      "TEM.beta.lactamase" = "number of bla TEM genes",
+      "ampC.type.beta.lactamase" = "number of bla ampC genes",
+      "med.AR.len.TEM" = "median AR length around bla TEM genes",
+      "CTX.M.beta.lactamase" = "number of bla CTX-M genes",
+      "macrolide.phosphotransferase.MPH" = "number of MPH genes",
+      "n.rep.100.plasmid" = "number of repeats longer than 100 nt on plasmids",
+      "n.is.fam" = "number of IS families",
+      "max.rep.len" = "maximal repeat length",
+      "IS30" = "number of IS30 elements",
+      "med.AR.len.cen.plasmid" = "median length of AR spanning RG on plasmdis",
+      "min.distance.is.gene" = "distance between IS element and closest resistance gene",
+      "IS5" = "number of IS5 elements",
+      "ANT3" = "number of ANT3 genes",
+      "med.tot.rep.len.chrom" = "median repeat length on chromosomes",
+      "ISNCY" = "number of ISNCY elements",
+      "med.AR.len.cen" = "median AR length",
+      "chloramphenicol.acetyltransferase.CAT" = "number of CAT genes",
+      "n.is.tot" = "total number of IS families",
+      "AAC3" = "number of AAC3 genes",
+      "IS21" = "number of IS21 elements",
+      "IS481" = "number of IS481 elements",
+      "ISL3" = "number of ISL3 elements",
+      "med.rep.len.ampC" = "median repeat length around bla ampC genes",
+      "n.beta.lac.plasmid" = "number of bla genes on plasmids",
+      "ISAS1" = "number of ISAS1 elements",
+      "IS3" = "number of IS3 elements",
+      "IS1" = "number of IS1 elements",
+      "med.AR.len.plasmid" = "median AR length on plasmids",
+      "med.tot.rep.len" = "median repeat length",
+      "max.rep.len.cen" = "maximal length of repeats spanning RG",
+      "IS200/IS605" = "number of IS200/IS605 elements",
+      "med.AR.len.plasmid.TEM" = "median AR length around bla TEM genes on plasmids",
+      "med.rep.len.plasmid.TEM" = "median repeat length around bla TEM genes on plasmids",
+      "IS630" = "number of IS630 elements",
+      "max.is.len" = "maximal IS element length",
+      "min.AR.len.cen" = "minimal AR length",
+      "med.rep.len.chrom" = "median repeat length on chromosomes",
+      "n.rep.chrom.ampC" = "number of repeats around bla ampC genes on chromosomes",
+      "min.AR.len.cen.chrom" = "minimal AR length on chromosomes",
+      "IS110" = "number of IS110 elements",
+      "IS4" = "number of IS4 elements",
+      "n.rep.500.cen.tot" = "number of repeats longer than 500 nt",
+      "chrom.status.linear" = "incomplete genome assembly",
+      "n.rep.100.total" = "number of repeats longer than 100 nt",
+      "sulfonamide.resistant.sul" = "number of SUL genes",
+      "trimethoprim.resistant.dihydrofolate.reductase.dfr" = "number of DFR genes",
+      "IS6" = "number of IS6 elements",
+      "IS66" = "number of IS66 elements",
+      "APH6" = "number of APH6 genes",
+      "n.c.plasmids" = "copy number of plasmids",
+      "coverage" = "Nanopore sequencing coverage",
+      "min.AR.len.cen.plasmid" = "minimal length of AR spanning RG on plasmids",
+      "read.max.len" = "length of the longest Nanopore read",
+      "n.rep.plasmid.TEM" = "number of repeats arount bla TEM genes on plasmids",
+      "med.rep.len.TEM" = "median length of repeats around bla TEM genes",
+      "n.rep.500.total" = "total number of repeats longer than 500 nt",
+      "med.AR.len.chrom.ampC" = "median length of AR around bla ampC genes on chromosomes",
+      "n.rep.cen.plasmid" = "number of repeats spanning RG on plasmids",
+      "med.tot.rep.len.plasmid" = "median total repeat length on plasmids",
+      "med.rep.len.chrom.ampC" = "median length of repeats around bla ampC genes on chromosomes",
+      "max.rep.len.cen.plasmid" = "maximal length of repeats spanning RG on plamids",
+      "n.rep.plasmid" = "number of repeats on plasnids",
+      "med.AR.len" = "median AR length",
+      "n.rep.cen.chrom" = "number of repeats spanning RG on chromosomes",
+      "med.rep.len" = "median repeat length",
+      "med.AR.len.cen.chrom" = "median length of AR spanning RG on chromosomes",
+      "n.rep.100.cen.tot" = "total number of repeats longer than 100 nt spanning RG",
+      "n.rep.plasmid.ampC" = "number of repeats around bla ampC on plasmids",
+      "med.AR.len.chrom" = "median AR length on chromosomes",
+      "n.rep.tot.cen" = "total number of repeats spanning RG",
+      "n.rep.100.chrom" = "number of repeats longer than 100 nt on chromosomes",
+      "max.rep.len.chrom" = "maximal length of repeats on chromosomes",
+      "n.rep.total" = "total number of repeats",
+      "n.rep.500.plasmid" = "number of repeats longer than 500 nt on plasmids",
+      "med.rep.len.plasmid.ampC" = "median length of repeats around bla ampC genes on plasmids",
+      "med.AR.len.ampC" = "median length of AR around bla ampC genes",
+      "APH3" = "number of APH3 genes",
+      "med.AR.len.plasmid.ampC" = "median length of AR around ampC genes on plasmids",
+      "n.rep.chrom" = "number of repeats on chromosomes",
+      "n.plasmids" = "number of plasmids",
+      "max.rep.len.cen.chrom" = "maximal length of repeats spanning RG on chromosomes",
+      "n.rep.100.cen.plasmid" = "number of repeats longer than 100 nt spanning RG on plasmids",
+      "max.rep.len.plasmid" = "maximal length of repeats on plasmids",
+      "med.rep.len.plasmid" = "median length of repeats on plasmids",
+      "n.rep.500.chrom" = "number of repeats longer than 500 nt on chromosomes",
+      "min_distance_is_gene" = "minimal distance between IS and the nearest RG"
+  )
+)
+   
 
 # Mean variable-importance over 50 permutations
 Fig_GBT_predictors_alt <- 
-  ggplot_imp(vip_gbt)
+  ggplot_imp(vip_gbt) +
+  theme_minimal()
 
 ggsave(file="manuscript/images/Fig_GBT_predictors_alt.png", plot=Fig_GBT_predictors_alt, width = 9, height=12, units = "in")
 
 Fig_GBT_predictors_alt
 ```
 
-
+The dashed line this figure shows the 1-AUC for the full model. Features farther to the right are more important, because permuting them results in higher AUC.
 
 ### Local explanations
 
