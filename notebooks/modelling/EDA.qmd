@@ -18,6 +18,7 @@ editor: source
 ```{r, message=FALSE, warning=FALSE}
 library(tidymodels)
 library(ggpubr)
+library(ggtext) # for text formatting in the plots
 library(factoextra)
 library(cluster)
 library(skimr)
@@ -570,10 +571,12 @@ summary(data_strain$n.beta.lac)
 Fig_BL_total <- ggplot(data_strain, aes(n.beta.lac)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 0.97) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("number of β-lactamase genes") +
-  ylab("proportion of strains") +
+  labs(x = "number of *bla* genes",
+       y = "proportion of strains") +
   scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7)) +
-  theme_minimal()
+  theme_minimal() +
+  theme(axis.title.x = ggtext::element_markdown())
+
 
 ggsave(file="manuscript/images/Fig_BL_total.png", plot=Fig_BL_total,
        width = 8, height=4, units = "in")
@@ -591,7 +594,7 @@ Fig_BL_total
 
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
-```{r}
+```{r, eval = F}
 Fig_BL_greater_4 <- ggplot(data_strain, aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha=0.97) +
   scale_fill_brewer(palette="Set1", name = "") +
@@ -616,9 +619,10 @@ As proportion:
 Fig_TEM <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 0.97) +
   scale_fill_brewer(palette = "Set1", name = "") +
-  labs(x = "number of TEM β-lactamase genes", 
+  labs(x = "number of *bla*<sub>*TEM*</sub> genes", 
        y = "proportion of strains") +
-  theme_minimal()
+  theme_minimal() +
+  theme(axis.title.x = ggtext::element_markdown())
 
 ggsave(file="manuscript/images/Fig_TEM.png", plot=Fig_TEM, 
        width = 8, height=4, units = "in")
@@ -639,7 +643,7 @@ Fig_BL_TEM <- ggarrange(
 )
 
 ggsave(file="manuscript/images/Fig_BL_TEM.png", 
-       plot=Fig_BL_TEM, width = 8, height=8, units = "in")
+       plot=Fig_BL_TEM, width = 10, height=8, units = "in")
 
 Fig_BL_TEM
 ```
@@ -1393,18 +1397,20 @@ data_strain %>%
 ```{r}
 med_rep_len <- data_strain %>% 
   select(resistance, med.rep.len.chrom, med.rep.len.plasmid, med.rep.len) %>% 
-  gather("location", "med.len", 2:4)
+  rename('chromosome' = med.rep.len.chrom,
+         'plasmids' = med.rep.len.plasmid,
+         'total' = med.rep.len) %>% 
+  gather("location", "median", 2:4)
 
-med_rep_len$med.len <- if_else(med_rep_len$med.len == 0, 1, med_rep_len$med.len)
-
-facet_names <- c("med.rep.len.chrom" = "chromosome",
-                 "med.rep.len.plasmid" = "plasmids",
-                 "med.rep.len" = "total")
+# how a median of 0 can appear in the table?
+# they can come from strains with 0 repeats and I have such strains
+# therefore before plotting medians such observations should be removed
 
 Fig_med_rep_len <- 
   med_rep_len %>% 
-  filter(med.len > 1) %>%
-  ggplot(aes(resistance, med.len)) +
+  # remove median = 0
+  filter(median > 0) %>%
+  ggplot(aes(resistance, median)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(
     aes(fill = resistance),
@@ -1421,9 +1427,9 @@ Fig_med_rep_len <-
   ) +
   scale_fill_brewer(palette = "Pastel1") +
   coord_trans(y = "log") +
-  #scale_y_continuous(trans = "pseudo_log") +
-  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
+  facet_grid(cols = vars(location)) +
   labs(x = "", y = "median repeat length, nt") +
+  # scale_y_continuous(breaks = c(30, 50, 100, 250, 500, 750)) +
   guides(fill = "none") +
   theme_minimal()
 
@@ -1435,8 +1441,8 @@ Fig_med_rep_len
 
 ```{r}
 med_rep_len %>% 
-  filter(location == "med.rep.len.plasmid") %>% 
-  ggplot(aes(resistance, med.len)) +
+  filter(location == "plasmids") %>% 
+  ggplot(aes(resistance, median)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
   geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
   geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
@@ -1449,9 +1455,9 @@ med_rep_len %>%
 
 ```{r}
 med_rep_len %>% 
-  filter(location == "med.rep.len") %>% 
+  filter(location == "total") %>% 
   group_by(resistance) %>% 
-  summarise(median = median(med.len))
+  summarise(median = median(median))
 ```
 
 
@@ -1634,23 +1640,35 @@ exp(coef(rep.count.regr))
 ```{r}
 ar_len <- data_strain %>% 
   select(resistance, med.AR.len.chrom, med.AR.len.plasmid, med.AR.len) %>% 
+  rename("chromosome" = med.AR.len.chrom,
+         "plasmids" = med.AR.len.plasmid,
+         "total" = med.AR.len) %>% 
   gather("location", "ar.len", 2:4)
 
-facet_names <- c("med.AR.len.chrom" = "chromosome",
-                 "med.AR.len.plasmid" = "plasmids",
-                 "med.AR.len" = "total")
 
-Fig_AR_len <- ar_len %>% 
-  filter(ar.len > 0) %>% 
+
+Fig_AR_len <- ar_len %>%
+  filter(ar.len > 0) %>%
   ggplot(aes(resistance, ar.len)) +
   geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, 
-               outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
+  geom_boxplot(
+    aes(fill = resistance),
+    alpha = 0.2,
+    notch = F,
+    varwidth = T,
+    outlier.shape = NA
+  ) +
+  geom_jitter(
+    alpha = 0.2,
+    width = 0.05,
+    height = 0.1,
+    size = 0.8
+  ) +
   scale_fill_brewer(palette = "Pastel1") +
-  scale_y_continuous(labels = label_log(base=10), breaks = c(1, 10000, 100000)) +
-  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
-  theme(panel.grid.minor = element_line(size=0)) +
+  scale_y_continuous(labels = label_log(base = 10),
+                     breaks = c(1, 10000, 100000)) +
+  facet_grid(cols = vars(location)) +
+  theme(panel.grid.minor = element_line(size = 0)) +
   labs(x = "", y = "median AR length, nt") +
   guides(fill = "none") +
   theme_minimal()
@@ -2094,6 +2112,7 @@ Fig_IS_gene_dist <- data_strain %>%
   scale_fill_brewer(palette = "Pastel1", name = "") +
   labs(x = "", y = "distance between IS and nearest RG, nt") +
   guides(fill="none") +
+  theme(axis.text.y = element_text(size = 2)) +
   theme_minimal()
 
 ggsave(file="manuscript/images/Fig_IS_gene_dist.png", plot=Fig_IS_gene_dist, width = 8, height=4, units = "in")
