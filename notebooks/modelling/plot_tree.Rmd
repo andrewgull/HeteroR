@@ -72,7 +72,7 @@ tree_plot_circ <- ggtree(coli_tree_root, branch.length = "none") +
   geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 4, color = "purple",
              label = "E", offset.text = 2, offset = 0.5, fontsize = 10)
 
-gheatmap(tree_plot_circ, hr_labels, offset=9, width=0.05, font.size=3, hjust=0) +
+gheatmap(tree_plot_circ, hr_labels, offset=9, width=0.05, font.size=3, hjust=0, colnames = FALSE) +
   ggplot2::scale_fill_manual(breaks=c("nonHR", "HR", "R"), 
         values=c("steelblue", "firebrick", "gold"), name="phenotype")
 ```
