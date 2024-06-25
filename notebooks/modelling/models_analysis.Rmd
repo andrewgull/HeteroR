@@ -389,6 +389,13 @@ lr_base_res %>%
   show_best("roc_auc", n = 5) 
 ```
 
+```{r}
+lr_base_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor1_Model26")
+```
+
+
 ## Base + YJ recipe
 
 ```{r lr yj, fig.height=6, fig.width=6}
@@ -404,7 +411,9 @@ show_best(lr_base_yj_res)
 ```
 
 ```{r}
-show_best(lr_base_yj_res, metric = "j_index")
+lr_base_yj_res %>% 
+  show_best(metric = "j_index") %>% 
+  filter(.config == "Preprocessor1_Model24")
 ```
 
 The same model is the best
@@ -424,6 +433,12 @@ lr_base_orq_res %>%
   show_best("roc_auc", n = 5)
 ```
 
+```{r}
+lr_base_orq_res %>% 
+  show_best(metric = "j_index") %>% 
+  filter(.config == "Preprocessor1_Model24")
+```
+
 ## PCA recipe
 
 ```{r lr pca}
@@ -439,6 +454,11 @@ lr_pca_res %>%
   show_best("roc_auc", n = 5)
 ```
 
+```{r}
+lr_pca_res %>% 
+  show_best("j_index", n = 50) %>% 
+  filter(.config == "Preprocessor3_Model09")
+```
 
 
 ## Compare preprocessors
@@ -562,6 +582,12 @@ lsvm_ncorr_res %>%
   show_best("roc_auc", n = 5)
 ```
 
+```{r}
+lsvm_ncorr_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor06_Model1")
+```
+
 
 ## NCORR + YJ recipe
 
@@ -578,6 +604,13 @@ lsvm_ncoryj_res %>%
   show_best("roc_auc", n = 5)
 ```
 
+```{r}
+lsvm_ncoryj_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor10_Model1")
+```
+
+
 ## NCORR + ORQ recipe
 
 ```{r}
@@ -592,6 +625,13 @@ autoplot(lsvm_ncorq_res)
 lsvm_ncorq_res %>% show_best("roc_auc")
 ```
 
+```{r}
+lsvm_ncorq_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor06_Model1")
+```
+
+
 ## PCA
 
 ```{r}
@@ -604,6 +644,12 @@ autoplot(lsvm_pca_res)
 
 ```{r}
 show_best(lsvm_pca_res, metric = "roc_auc")
+```
+
+```{r}
+lsvm_pca_res %>%
+  show_best(metric = "j_index", n=50) %>% 
+  filter(.config == "Preprocessor1_Model02")
 ```
 
 
@@ -708,6 +754,12 @@ psvm_ncorr_res %>%
   show_best("roc_auc", n = 5)
 ```
 
+```{r}
+psvm_ncorr_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor05_Model1")
+```
+
 
 ## NCORR + YJ
 
@@ -721,6 +773,12 @@ autoplot(psvm_ncoryj_res)
 
 ```{r}
 show_best(psvm_ncoryj_res, metric = "roc_auc")
+```
+
+```{r}
+psvm_ncoryj_res %>%
+  show_best(metric = "j_index", n = 15) %>% 
+  filter(.config == "Preprocessor05_Model1")
 ```
 
 
@@ -739,6 +797,13 @@ psvm_ncorq_res %>%
   show_best("roc_auc")
 ```
 
+```{r}
+psvm_ncorq_res %>% 
+  show_best("j_index") %>% 
+  filter(.config == "Preprocessor05_Model1")
+```
+
+
 ## PCA 
 
 ```{r}
@@ -753,6 +818,13 @@ autoplot(psvm_pca_res)
 psvm_pca_res %>% 
   show_best("roc_auc")
 ```
+
+```{r}
+psvm_pca_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor2_Model05")
+```
+
 
 ## Comparison of the preprocessing steps
 
@@ -866,6 +938,13 @@ autoplot(rbf_ncorr_res)
 show_best(rbf_ncorr_res, metric = "roc_auc")
 ```
 
+```{r}
+rbf_ncorr_res %>% 
+  show_best(metric = "j_index") %>% 
+  filter(.config == "Preprocessor19_Model1")
+```
+
+
 ## NCORR + YJ recipe
 
 ```{r, fig.width=8}
@@ -879,6 +958,13 @@ autoplot(rbf_ncoryj_res)
 ```{r}
 show_best(rbf_ncoryj_res, metric = "roc_auc")
 ```
+
+```{r}
+rbf_ncoryj_res %>% 
+  show_best(metric = "j_index", n = 15) %>% 
+  filter(.config == "Preprocessor11_Model1")
+```
+
 
 ## NCORR + ORQ recipe
 
@@ -894,6 +980,13 @@ autoplot(rbf_ncorq_res)
 show_best(rbf_ncorq_res, metric = "roc_auc")
 ```
 
+```{r}
+rbf_ncorq_res %>% 
+  show_best(metric = "j_index") %>% 
+  filter(.config == "Preprocessor19_Model1")
+```
+
+
 ## PCA
 
 ```{r, fig.width=8}
@@ -905,6 +998,12 @@ autoplot(rbf_pca_res)
 
 ```{r}
 show_best(rbf_pca_res, metric = "roc_auc")
+```
+
+```{r}
+rbf_pca_res %>% 
+  show_best(metric = "j_index", n = 15) %>% 
+  filter(.config == "Preprocessor1_Model04")
 ```
 
 
@@ -1011,6 +1110,13 @@ rf_base_res %>%
   show_best("roc_auc", n = 5)
 ```
 
+```{r}
+rf_base_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor1_Model28")
+```
+
+
 ## Base + Boruta feature selection
 
 ```{r}
@@ -1020,8 +1126,16 @@ autoplot(rf_base_bor_res)
 ```
 
 ```{r}
-show_best(rf_base_bor_res)
+rf_base_bor_res %>% 
+  show_best("roc_auc")
 ```
+
+```{r}
+rf_base_bor_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor1_Model28")
+```
+
 
 ## Comparison of preprocessors
 
@@ -1120,6 +1234,12 @@ bt_base_res %>%
   show_best(metric = "roc_auc")
 ```
 
+```{r}
+bt_base_res %>% 
+  show_best(metric = "j_index", n = 50) %>% 
+  filter(.config == "Preprocessor1_Model05")
+```
+
 
 ## Base recipe + Bayesian optimization
 
@@ -1140,6 +1260,12 @@ bt_base_bres %>%
 ```
 
 >Shrinkage (learning rate) is a gradient boosting regularization procedure that helps modify the update rule, which is aided by a parameter known as the learning rate. The use of learning rates below 0.1 produces improvements that are significant in the generalization of a model.
+
+```{r}
+bt_base_bres %>% 
+  show_best(metric = "j_index") 
+```
+
 
 ## Base recipe + Boruta feature selection
 
@@ -1269,6 +1395,13 @@ mlp_ncor_res %>%
   show_best("roc_auc")
 ```
 
+```{r}
+mlp_ncor_res %>% 
+  show_best("j_index") %>% 
+  filter(.config == "Preprocessor13_Model1")
+```
+
+
 ## NCORR + YJ recipe
 
 ```{r, fig.width=8}
@@ -1284,6 +1417,13 @@ mlp_ncoryj_res %>%
   show_best("roc_auc")
 ```
 
+```{r}
+mlp_ncoryj_res %>% 
+  show_best("j_index") %>% 
+  filter(.config == "Preprocessor19_Model1")
+```
+
+
 ## NCORR + ORQ
 
 ```{r, fig.width=8}
@@ -1295,8 +1435,16 @@ mlp_ncorq_res %>% autoplot()
 ### Best models
 
 ```{r}
-mlp_ncorq_res %>% show_best(metric = "roc_auc")
+mlp_ncorq_res %>% 
+  show_best(metric = "roc_auc")
 ```
+
+```{r}
+mlp_ncorq_res %>% 
+  show_best(metric = "j_index") %>% 
+  filter(.config == "Preprocessor13_Model1")
+```
+
 
 ## PCA
 
@@ -1309,7 +1457,14 @@ mlp_pca_res %>% autoplot()
 ### Best models
 
 ```{r}
-mlp_pca_res %>% show_best("roc_auc")
+mlp_pca_res %>% 
+  show_best("roc_auc")
+```
+
+```{r}
+mlp_pca_res %>% 
+  show_best("j_index") %>% 
+  filter(.config == "Preprocessor2_Model03")
 ```
 
 
@@ -1326,8 +1481,15 @@ autoplot(mlp_bag_ncorr_res)
 ### Best models
 
 ```{r}
-show_best(mlp_bag_ncorr_res)
+show_best(mlp_bag_ncorr_res, "roc_auc")
 ```
+
+```{r}
+mlp_bag_ncorr_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor09_Model1")
+```
+
 
 ## NCORR + YJ
 
@@ -1343,6 +1505,13 @@ autoplot(mlp_bag_ncoryj_res)
 show_best(mlp_bag_ncoryj_res, metric = "roc_auc")
 ```
 
+```{r}
+mlp_bag_ncoryj_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor19_Model1")
+```
+
+
 ## NCORR + ORQ
 
 ```{r, fig.width=8}
@@ -1355,6 +1524,12 @@ autoplot(mlp_bag_ncorq_res)
 
 ```{r}
 show_best(mlp_bag_ncorq_res, metric = "roc_auc")
+```
+
+```{r}
+mlp_bag_ncorq_res %>% 
+  show_best("j_index", n = 15) %>% 
+  filter(.config == "Preprocessor09_Model1")
 ```
 
 ## PCA
@@ -1370,6 +1545,13 @@ autoplot(mlp_bag_ncoryj_res)
 ```{r}
 show_best(mlp_bag_pca_res, metric = "roc_auc")
 ```
+
+```{r}
+mlp_bag_pca_res %>% 
+  show_best(metric = "j_index", n = 15) %>% 
+  filter(.config == "Preprocessor3_Model4")
+```
+
 
 ## Comparison of the preprocessors
 
