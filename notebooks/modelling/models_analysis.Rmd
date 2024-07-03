@@ -1566,7 +1566,7 @@ mlp_best_res <- list(
     mlp_bag_ncorr_res,
     mlp_bag_ncoryj_res,
     mlp_bag_ncorq_res,
-    mlp_pca_res
+    mlp_bag_pca_res
   )
 
 mlp_best_names <- c(
