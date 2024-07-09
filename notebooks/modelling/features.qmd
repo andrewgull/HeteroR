@@ -26,112 +26,23 @@ plan(multisession, workers = 10)
 
 This is a notebook for creating various features and their exploration
 
-# Structure of the main table
+# Paths and other constants
 
-Which will contain all features and will be suitable for EDA
+```{r constants}
+annot_dir <- "/mnt/data/andrei/Data/HeteroR/results/annotations/"
+rep_bed_dir <- "/mnt/data/andrei/Data/HeteroR/results/direct_repeats/"
+res_genes_dir <- "/mnt/data/andrei/Data/HeteroR/results/resistance_genes/"
+coverage_table <- "/mnt/data/andrei/Data/HeteroR/results/coverage/strains_475.tsv"
+ass_joined_path <- "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/"
+coverage_dir <- "/mnt/data/andrei/Data/HeteroR/results/genome_coverage/"
+isescan_dir <- "/mnt/data/andrei/Data/HeteroR/results/isescan/"
 
-It should contain the following variables:
-
--   repeat length,
--   repeat counts,
--   AR length,
--   center spanning,
--   within gene location (of a repeat),
--   distance to oriC,
--   density of matches,
--   density of RG (they often go together)
--   IS presence (?),
--   IS length (=activity)
--   number of plasmids,
--   number of plasmids carrying RGs with repeats,
--   is an RG located on a plasmid,
--   "the black box" of AR
-
-Its tidy structure should look like this:
-
-Each strain contains:
-
--   [x] 1 AB label
-
--   [x] 1 resistance label
-
--   [x] 1 label for presence of an RG
-
--   [x] 1 value for plasmid count,
-
--   [x] 1 value for alternate plasmid count,
-
--   [ ] 1 value for a number plasmids carrying RGs,
-
--   [x] repeat count with min 100
-
--   [x] repeat count with min 500
-
--   [x] median repeat length
-
--   [x] median repeat length with min 100
-
--   [x] median repeat length with min 500
-
--   [x] maximum repeat length
-
--   [x] median AR length
-
--   [x] median AR length with min 100
-
--   [x] median AR length with min 500
-
--   [ ] 1 value for repeat count adjusted by number of plasmids,
-
--   [x] tens of genes; each gene (e.g. region) contains:
-
-    -   [x] 1 distance to oriC,
-
-    -   [ ] 1 density value,
-
-    -   [x] 'on a plasmid' label,
-
-    -   [x] 1 value for repeat count,
-
-    -   [ ] 1 value for IS count,
-
-    -   [ ] value for max IS length,
-
-    -   [x] RGI resistance mechanism,
-
-    -   [x] RGI resistance SNP,
-
-    -   [x] RGI other SNP,
-
-    -   [x] RGI cut-off,
-
-    -   [x] RGI best identities,
-
-    -   [x] RGI AMR gene family,
-
-    -   [x] RGI Model type,
-
-    -   [x] RGI Drug class,
-
-    -   [x] RGI ORF ID,
-
-    -   [x] RGI Percentage Length of Reference Sequence,
-
-    -   [x] a lot of repeat pairs; each repeat pair has:
-
-        -   [x] 1 AR length,
-        -   \[-\] 1 AR black box matrix,
-        -   [x] 1 repeat length,
-        -   [x] 1 center spanning label,
-        -   [ ] 'inside the gene' label,
+# load("/mnt/data/andrei/Data/HeteroR/notebooks/features.RData")
+```
 
 # Making a table with features
 
 Start from a table with repeat.
-
-```{r, eval=FALSE}
-load("/mnt/data/andrei/Data/HeteroR/notebooks/features.RData")
-```
 
 ## Read table with repeats: way no. 1
 
@@ -141,11 +52,13 @@ To build this table anew run the code chunk below (its evaluation is OFF by defa
 
 How many strains with annotated repeats we have?
 
-```{r}
+```{r, message=FALSE}
 # a new way of getting repeat data frame across all strains
-strains <- dir("/mnt/data/andrei/Data/HeteroR/results/direct_repeats")
-# read lab testing data and filter out not tested strains 
-lab_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
+strains <-
+  dir("/mnt/data/andrei/Data/HeteroR/results/direct_repeats")
+
+# read lab testing data and filter out R strains
+lab_testing <- read_csv("data/heteroresistance_testing.csv") %>%
   filter(resistance != "R")
 
 strains <- intersect(strains, lab_testing$strain)
@@ -158,112 +71,75 @@ length(strains)
 Some tables are empty!
 
 ```{r, message=FALSE}
-repeat_df <- future_map_dfr(strains, function(x){
-  path <- paste0("/mnt/data/andrei/Data/HeteroR/results/annotations/", x, "/repeats/", x, "_repeats.csv")
+repeat_df <- future_map_dfr(strains, function(x) {
+  path <-
+    paste0(
+      annot_dir,
+      x,
+      "/repeats/",
+      x,
+      "_repeats.csv"
+    )
   df <- read_csv(path, col_types = "ccdddddc")
   return(df)
-  }) %>% 
-  mutate(AR_length = start_2 - end_1 + 1) %>% 
+}) %>%
+  mutate(AR_length = start_2 - end_1 + 1) %>%
   select(-...1)
-  
+
 head(repeat_df)
 ```
 
-Dimensions:
+In this table there are `r length(unique(repeat_df$strain))` strains
 
-```{r}
-dim(repeat_df)
-```
+Strains that don't have repeats: `r length(setdiff(strains, unique(repeat_df$strain)))`
 
-In this table there are
+### Parse BED files 
 
-```{r}
-length(unique(repeat_df$strain))
-```
-
-strains
-
-0 strains don't have repeats!
-
-```{r}
-setdiff(strains, unique(repeat_df$strain))
-```
-
-| **Outdated block**                                                 |
-|--------------------------------------------------------------------|
-| checked some of these strain, their `repeats.csv` tables are empty |
-
-I checked `grf_perfect.log` files - this file is empty in DA62900, but have info on repeats in DA62906.
-
-Then I checked `results/direct_repeats/DA62*/repeats_no_mismatch` directories. In DA62900 all files are empty, in DA62906 only `perfect.id` is empty, `imperfect.id` has some data inside.
-
-I think, this is the explanation.
-
-Conclusion: the strains above do not have (perfect) repeats longer than 20 bp indeed.
-
-I should add them to the `repeat_df` with NAs in every column except `strain` (`skip_empty_rows=FALSE` in `read_csv` doesn't fix the problem)
-
-```{r, eval=FALSE}
-strains_no_repeats <- setdiff(strains, unique(repeat_df$strain))
-
-no_repeats_df <- tibble(record_id = rep(NA, length(strains_no_repeats)),
-                        start_1 = rep(NA, length(strains_no_repeats)),
-                        end_gene.length1 = rep(NA, length(strains_no_repeats)),
-                        start_2 = rep(NA, length(strains_no_repeats)),
-                        end_2 = rep(NA, length(strains_no_repeats)),
-                        length = rep(NA, length(strains_no_repeats)),
-                        strain = strains_no_repeats,
-                        AR_length = rep(NA, length(strains_no_repeats)))
-
-no_repeats_df
-```
-
-```{r, eval=FALSE}
-repeat_df <- bind_rows(repeat_df, no_repeats_df)
-
-length(unique(repeat_df$strain))
-```
-
-**End of the outdated block**
-------------------------------------------------------------------------
-
-### Read BED files to determine center spanning repeat pairs
+to determine center spanning repeat pairs
 
 ```{r, message=FALSE}
-bed_df <- future_map_dfr(strains, function(x){
-    path <- paste0("/mnt/data/andrei/Data/HeteroR/results/direct_repeats/", x, "/regions/regions_within.bed")
-    df <- read_delim(path, col_names = FALSE, col_types = "cddcdd") %>% mutate(strain = x)
-    return(df)
-  }) %>% 
-  mutate(gene_center = round((X3 - X2 + 1)/2)) %>% 
-  rename("record_id" = X4) %>% 
+bed_df <- future_map_dfr(strains, function(x) {
+  path <-
+    paste0(
+      rep_bed_dir,
+      x,
+      "/regions/regions_within.bed"
+    )
+  df <-
+    read_delim(path, col_names = FALSE, col_types = "cddcdd") %>% mutate(strain = x)
+  return(df)
+}) %>%
+  mutate(gene_center = round((X3 - X2 + 1) / 2)) %>%
+  rename(X4 = "record_id") %>%
   select(strain, record_id, gene_center)
 
 head(bed_df)
 ```
 
-We have bed files for
+We have bed files for `r length(unique(bed_df$strain))` strains.
 
-```{r}
-length(unique(bed_df$strain))
-```
-
-strains.
-
-### Features table: join bed files and repeats table
+## Features table: join bed files and repeats table
 
 `bed_df` contains more strains and genes than `repeat_df`, but if there is no repeats AR length and gene center - `repeat_df` is important, that's why I use `left_join()` below.
 
 ```{r}
 # join the two tables
-features <- left_join(repeat_df, bed_df, by = "record_id") %>% 
-  mutate(spans_center = if_else(end_1 <= gene_center & start_2 >= gene_center, "yes", "no"),
-         record_id = sub("_gene", "", record_id)) %>% 
-  rename("repeat_length" = length) %>% 
-  select(-strain.y) %>% 
-  rename("strain" = strain.x) %>% 
-  relocate(strain, .before = record_id) %>% 
-  select(strain, record_id, repeat_length, AR_length, spans_center, gene_center)
+features <- left_join(repeat_df, bed_df, by = "record_id") %>%
+  mutate(
+    spans_center = if_else(end_1 <= gene_center &
+                             start_2 >= gene_center, "yes", "no"),
+    record_id = sub("_gene", "", record_id)
+  ) %>%
+  select(-strain.y) %>%
+  rename(strain.x = "strain",
+         length = "repeat_length") %>%
+  relocate(strain, .before = record_id) %>%
+  select(strain,
+         record_id,
+         repeat_length,
+         AR_length,
+         spans_center,
+         gene_center)
 
 # look at this!
 head(features)
@@ -281,15 +157,34 @@ They are required for filtering of resistance genes and much more...
 # in RGI tables I don't need the last two columns (Nudged and Note) 
 # because they cause problems during table reading
 
-rgi <- future_map_dfr(strains, function(x){
-        read_delim(file = paste0("/mnt/data/andrei/Data/HeteroR/results/resistance_genes/", x, "/rgi_table.txt"), na = c("n/a", ""), 
-                   name_repair = "universal",
-                   col_select = -c(Predicted_Protein, CARD_Protein_Sequence, Contig, Start, Stop, Orientation, Predicted_DNA, Note, Nudged),
-                   show_col_types = FALSE) %>% 
-          mutate(strain = x)}) %>% 
-  filter(Cut_Off != "Loose") %>% 
-  mutate(record_id = map_chr(ORF_ID, function(x) strsplit(x, " ")[[1]][1])) %>% 
-  relocate(strain, record_id, .before=ORF_ID)
+rgi <- future_map_dfr(strains, function(x) {
+  read_delim(
+    file = paste0(
+      res_genes_dir,
+      x,
+      "/rgi_table.txt"
+    ),
+    na = c("n/a", ""),
+    name_repair = "universal",
+    col_select = -c(
+      Predicted_Protein,
+      CARD_Protein_Sequence,
+      Contig,
+      Start,
+      Stop,
+      Orientation,
+      Predicted_DNA,
+      Note,
+      Nudged
+    ),
+    show_col_types = FALSE
+  ) %>%
+    mutate(strain = x)
+}) %>%
+  filter(Cut_Off != "Loose") %>%
+  mutate(record_id = map_chr(ORF_ID, function(x)
+    strsplit(x, " ")[[1]][1])) %>%
+  relocate(strain, record_id, .before = ORF_ID)
 
 ab_groups <- unique(rgi$Drug.Class)
 
@@ -300,15 +195,11 @@ In this table `r length(unique(rgi$ORF_ID))` resistance genes have been detected
 
 ### How many RG don't have repeats?
 
-It's the difference between record IDs from RGI and record IDs from Features (or repeat_df).
+It's the difference between record IDs from RGI and record IDs from Features (or `repeat_df`).
 
-RGI - Features:
+RGI - Features: `r length(setdiff(rgi$record_id, features$record_id))`
 
-```{r}
-length(setdiff(rgi$record_id, features$record_id))
-```
-
-That many RGs don't have repeats around them.
+That's how many RGs don't have repeats around them.
 
 Since all record IDs in both tables are unique, difference between record IDs of both tables should equal the same number: `r length(unique(rgi$record_id)) - length(unique(features$record_id))`
 
@@ -329,17 +220,19 @@ Criteria:
 #### Number of RGs per strain: before filtering
 
 ```{r, warning=FALSE}
-rgi %>% 
-  group_by(strain) %>% 
-  count() %>% 
+rgi %>%
+  group_by(strain) %>%
+  count() %>%
   ggplot(aes(n)) +
-    geom_histogram(fill = "steelblue")
+  geom_histogram(fill = "steelblue", binwidth = 1) +
+  geom_rug()
 ```
 
 ```{r}
 rgi %>% 
   group_by(strain) %>% 
   count() %>% 
+  pull(n) %>% 
   summary()
 ```
 
@@ -388,7 +281,7 @@ summary(rgi$Percentage.Length.of.Reference.Sequence)
 
 How short is too short? 90%
 
-Filtering:
+### Filtering by Percentage Length:
 
 ```{r}
 rgi <- rgi %>% 
@@ -400,16 +293,17 @@ summary(rgi$Percentage.Length.of.Reference.Sequence)
 ### Number of RGs per strain : after the 1st filtering
 
 ```{r}
-rgi %>% 
-  group_by(strain) %>% 
-  count() %>% 
-  ggplot(aes(n)) + 
-    geom_histogram(fill = "steelblue")
+rgi %>%
+  group_by(strain) %>%
+  count() %>%
+  ggplot(aes(n)) +
+  geom_histogram(fill = "steelblue", binwidth = 1) +
+  geom_rug()
 ```
 
 More filtering required!
 
-### Filtering by Resistance.Mechanism (try to not use)
+### Filtering by Resistance.Mechanism
 
 How many resistance mechanisms do we have?
 
@@ -438,7 +332,6 @@ What should stay:
 **OBS!** Leave those records that *contain* what should stay
 
 ```{r}
-#| eval: true
 stay <- c("antibiotic target replacement", "antibiotic target protection", "antibiotic inactivation")
 
 rgi <- rgi %>% 
@@ -463,12 +356,13 @@ No SNPs in the filtered RGI table - if filtering by resistance mechanism is appl
 ### Number of RGs per strain: after the 2nd filtering
 
 ```{r}
-rgi %>% 
-  group_by(strain) %>% 
-  count() %>% 
-  ggplot(aes(n))+ 
-    geom_histogram(fill = "steelblue")+
-    xlab("Number of RGs per strain")
+rgi %>%
+  group_by(strain) %>%
+  count() %>%
+  ggplot(aes(n)) +
+  geom_histogram(fill = "steelblue", binwidth = 1) +
+  geom_rug() +
+  xlab("Number of RGs per strain")
 ```
 
 Summary
@@ -477,6 +371,7 @@ Summary
 rgi %>% 
   group_by(strain) %>% 
   count() %>%
+  pull(n) %>% 
   summary()
 ```
 
@@ -488,24 +383,18 @@ In total, I have `r length(unique(rgi$record_id))` RGs in the filtered RGI
 
 Same approach as above: it's the difference between filtered RGI's genes IDs and gene IDs from features (=repeat_df)
 
-Filtered RGI - Features:
-
-```{r}
-length(setdiff(rgi$record_id, features$record_id))
-```
-
-`r length(setdiff(rgi$record_id, features$record_id))` resistance genes after filtering don't have repeats around them.
+Filtered RGI - Features: `r length(setdiff(rgi$record_id, features$record_id))` resistance genes after filtering don't have repeats around them.
 
 ### Number of RGs per strain per Cut_Off type
 
 ```{r}
-rgi %>% 
-  group_by(Cut_Off, strain) %>% 
-  count() %>% 
-  ggplot(aes(n))+ 
-    geom_histogram(fill = "steelblue")+
-    facet_grid(rows = vars(Cut_Off)) +
-    xlab("Number of RGs per strain")
+rgi %>%
+  group_by(Cut_Off, strain) %>%
+  count() %>%
+  ggplot(aes(n)) +
+  geom_histogram(fill = "steelblue", binwidth = 1) +
+  facet_grid(rows = vars(Cut_Off)) +
+  xlab("Number of RGs per strain")
 ```
 
 ### Any NAs in features?
@@ -524,7 +413,7 @@ rgi %>%
   map_int(sum)
 ```
 
-### Add filtered RGI annotations to Features
+### Add RGI data to Features
 
 Use gene names as key since they are unique and make a full join with features.
 
@@ -548,7 +437,7 @@ Like ARO, Cut_Off, Model_ID etc.
 
 Leave Best_Hit_ARO because it contains information on types of beta-lactamases.
 
-```{r, eval=TRUE}
+```{r}
 features <- features %>% 
   select(-c(ARO, Cut_Off, Pass_Bitscore, Best_Hit_Bitscore,
             Best_Identities, Model_ID, Model_type, SNPs_in_Best_Hit_ARO,
@@ -580,11 +469,7 @@ dim(features)
 
 This is the dimensions of new `features`
 
-How many strains in features?
-
-```{r}
-length(unique(features$strain))
-```
+That's how many strains there are in features: `r length(unique(features$strain))`
 
 # Per-strain dataset
 
@@ -604,7 +489,7 @@ workflow/scripts/coverage_cli.py resources/strain_lists/strains_475.txt 5131220 
 Read the coverage table
 
 ```{r, message=FALSE}
-coverage <- read_delim("/mnt/data/andrei/Data/HeteroR/results/coverage/strains_475.tsv", na = c("", "NaN")) %>% 
+coverage <- read_delim(coverage_table, na = c("", "NaN")) %>% 
   mutate(strain = str_extract(file, "DA[0-9]*")) %>% 
   select(strain, coverage, max_len) %>% 
   filter(strain %in% strains)
@@ -616,14 +501,13 @@ head(coverage)
 
 `completeness` and `N50` come from assemblies summary files; keep only strains used in the analysis
 
-```{r, message=FALSE}
-ass_joined_path <- "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/"
+N50 is available only for Unicycler-assembled genomes therefore not useful
 
+```{r, message=FALSE}
 assemblies <- future_map_dfr(strains, function(x){
   read_delim(paste0(ass_joined_path, x, "/summary.tsv"), col_types = "cccccccccccc")}) %>%
   mutate(Links = as.integer(gsub(",", "", Links, fixed = TRUE)),
                 Length = as.integer(gsub(",", "", Length, fixed = TRUE)),
-                N50 = as.integer(gsub(",", "", N50, fixed = TRUE)),
                 Longest_component = as.integer(gsub(",", "", Longest_component, fixed = TRUE)),
                 Status2 = case_when(Status == "incomplete" ~ "linear",
                              Status == "complete" | Status == "Y" ~ "circular",
@@ -634,13 +518,16 @@ head(assemblies)
 
 Join `assemblies` and `coverage` tables to make per strain features; keep only strains that were used in the analysis
 
+## Create per-strain features table
+
 ```{r}
-features_strain <- assemblies %>% 
-  filter(Type == "Chromosome") %>% 
-  select(Strain, Status2, N50) %>% 
-  rename("strain" = Strain, "chrom.status" = Status2) %>% 
-  left_join(coverage, by = "strain") %>% 
-  rename("read.max.len" = max_len) 
+features_strain <- assemblies %>%
+  filter(Type == "Chromosome") %>%
+  select(Strain, Status2) %>%
+  rename(Strain = "strain",
+         Status2 = "chrom.status") %>%
+  left_join(coverage, by = "strain") %>%
+  rename(max_len = "read.max.len") 
   
 head(features_strain)
 ```
@@ -704,7 +591,7 @@ Fragments under the 1k length are removed - For Strains with a chromosome-like s
 read_depth <- function(strain_name, max_gen_size=4500000) {
   # a function to read and process genome coverage files
   # to get plasmid copy number
-  path <- paste0("/mnt/data/andrei/Data/HeteroR/results/genome_coverage/",
+  path <- paste0(coverage_dir,
                 strain_name,
                 "/depth.txt")
   
@@ -763,8 +650,15 @@ df_UC <-
 ```
 
 checking if all chromosomes have count == 1
+
 ```{r}
-df_UC_all %>% group_by(strain) %>%  filter(size == max(size)) %>%  ungroup() %>%  pull(plasmids) %>%  as.numeric() %>%  table
+df_UC_all %>% 
+  group_by(strain) %>% 
+  filter(size == max(size)) %>% 
+  ungroup() %>% 
+  pull(plasmids) %>% 
+  as.numeric() %>% 
+  table()
 ```
 
 
@@ -808,13 +702,13 @@ checking if all chromosomes have count == 1
 df_FMP_all %>% group_by(strain) %>%  filter(size == max(size)) %>%  ungroup() %>%  pull(plasmids) %>%  table
 ```
 
-#### SHORT UC
+#### Short Unicycler assemblies
 
-```{r, eval =FALSE}
+```{r, eval=FALSE}
 # short_UC
 
 read_depth_short <- function(x) {
-   path <- paste0("/mnt/data/andrei/Data/HeteroR/results/genome_coverage/", x, "/depth.txt")
+   path <- paste0(coverage_dir, x, "/depth.txt")
    
    df <- read.delim(path) %>% 
      set_names(c("chr", "position", "n")) %>% 
@@ -1031,7 +925,12 @@ df_UC_short_no_scaffold_all
 checking if all chromosomes have count == 1
 
 ```{r}
-df_UC_short_no_scaffold_all %>% group_by(Strain) %>%  filter(Length == max(Length)) %>%  ungroup() %>%  pull(plasmids) %>%  table
+df_UC_short_no_scaffold_all %>%
+  group_by(Strain) %>%
+  filter(Length == max(Length)) %>%
+  ungroup() %>%
+  pull(plasmids) %>%
+  table()
 ```
 
 
@@ -1104,7 +1003,12 @@ df_UC_short_scaffold_all
 checking if all chromosomes have count == 1
 
 ```{r}
-df_UC_short_scaffold_all %>% group_by(Strain) %>%  filter(Length == max(Length)) %>%  ungroup() %>%  pull(plasmids) %>%  table
+df_UC_short_scaffold_all %>% 
+  group_by(Strain) %>% 
+  filter(Length == max(Length)) %>% 
+  ungroup() %>% 
+  pull(plasmids) %>% 
+  table()
 ```
 
 
@@ -1189,7 +1093,13 @@ build_short_FMP <- function(x) {
           is_lower_than_prev
       )
     ) %>% select(
-      -percent_diff,-next_max_length,-prev_max_length,-max_diff_next,-max_diff_prev,-is_lower_than_next,-is_lower_than_prev
+      -percent_diff,
+      -next_max_length,
+      -prev_max_length,
+      -max_diff_next,
+      -max_diff_prev,
+      -is_lower_than_next,
+      -is_lower_than_prev
     )
   
   if (!all(total_df$is_lower_than_neighbours)) {
@@ -1233,7 +1143,12 @@ df_FMP_short_all <- future_map_dfr(short_FMP[short_FMP != "DA63044"], ~ build_sh
 checking if all chromosomes have count == 1
 
 ```{r}
-df_FMP_short_all %>% group_by(Strain) %>%  filter(max_length == max(max_length)) %>%  ungroup() %>%  pull(plasmids) %>%  table
+df_FMP_short_all %>%
+  group_by(Strain) %>%
+  filter(max_length == max(max_length)) %>%
+  ungroup() %>%
+  pull(plasmids) %>%
+  table()
 ```
 
 ```{r}
@@ -1261,7 +1176,7 @@ plasmid_copy_number <- rbind(df_UC,
                              df_UC_short_scaffold,
                              df_FMP,
                              df_FMP_short) %>% 
-  rename(n.c.plasmids = plasmid.copy.number)
+  rename(plasmid.copy.number = "n.c.plasmids")
 ```
 
 ### Add to features strain
@@ -1306,7 +1221,7 @@ df_UC_FMP_all <-
 
 count_genes <- function(x) {
   path = paste0(
-    "/mnt/data/andrei/Data/HeteroR/results/annotations/",
+    annot_dir,
     x,
     "/prokka/",
     x,
@@ -1380,6 +1295,9 @@ count_genes <- function(x) {
   
 }
 
+# If keep DA63044, then
+# Error in data.frame(..., check.names = FALSE) :
+# arguments imply differing number of rows: 96, 87
 gene_counts_rgi <- future_map_dfr(strains[strains != "DA63044"], ~ count_genes(.))
 ```
 
@@ -1434,26 +1352,11 @@ If I assume that *oriC* is available only in circularized genomes then I might g
 
 3)  information on strandedness (gene orientation) is also in the gff files
 
-```{python}
-#| eval: FALSE
+**N.B.** gene orientation and distance to *oriC* are not possible to infer from our data!
 
-# This chunk is only for DA62886 gff file that was copied from Argos and
-# therefore has different record_id's than any other DA62886-related file
+Discard them in the following code.
 
-from BCBio import GFF
-from Bio import SeqIO
-
-in_file = "/mnt/data/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gbk"
-out_file = "/mnt/data/andrei/Data/HeteroR/results/annotations/DA62886/prokka/DA62886_genomic.gff"
-in_handle = open(in_file)
-out_handle = open(out_file, "w")
-
-GFF.write(SeqIO.parse(in_handle, "genbank"), out_handle)
-
-in_handle.close()
-out_handle.close()
-
-```
+Note on GFF paring:
 
 Here I read gff files using a custom function based on standard `read.delim()`
 
@@ -1479,7 +1382,8 @@ read_gff <- function(gff_filename) {
 }
 
 # get gff full paths using strain names vector
-gff_files <- map_chr(strains, ~ str_c("/mnt/data/andrei/Data/HeteroR/results/annotations/", ., "/prokka/", ., "_genomic.gff"))
+gff_files <-
+  map_chr(strains, ~ str_c(annot_dir, ., "/prokka/", ., "_genomic.gff"))
 
 # read gff files right in a tibble
 # it works quite long time
@@ -1494,10 +1398,11 @@ gff <- future_map_dfr(gff_files, ~ read_gff(.)) %>%
     located.on.plasmid = str_detect(seq.region, "_1$", negate = T),
     on.plasmid = if_else(located.on.plasmid, "yes", "no"),
     pos.strand = if_else(strand == "+", "yes", "no"),
-    gene.length = stop - start + 1 
+    gene.length = stop - start + 1
   ) %>%
-  rename("dist.to.oriC" = start) %>%
-  select(record_id, dist.to.oriC, pos.strand, on.plasmid, gene.length)
+  #rename("dist.to.oriC" = start) %>%
+  # dist.to.oriC, pos.strand have been removed from select()
+  select(record_id, on.plasmid, gene.length)
 
 gff
 ```
@@ -1510,7 +1415,8 @@ gff <- features %>%
   select(record_id, is.beta.lac) %>% 
   distinct() %>% 
   filter(is.beta.lac) %>% 
-  right_join(gff, by = "record_id")
+  right_join(gff, by = "record_id") %>% 
+  select(-is.beta.lac)
 
 gff
 ```
@@ -1519,6 +1425,8 @@ gff
 
 ```{r}
 features <- features %>% 
+  # add is.beta.lac again
+  # but now both TRUE/FALSE
   mutate(is.beta.lac = grepl("beta-lactamase", AMR.Gene.Family)) %>% 
   left_join(gff, by = "record_id")
 
@@ -1548,41 +1456,6 @@ gff <- features %>%
 
 All in three variants: on chromosome, on plasmids, both
 
-```{r, eval=FLASE}
-min_dist_oriC <- gff %>% 
-  group_by(strain, on.plasmid) %>% 
-  summarise(min.dist.oriC = min(dist.to.oriC)) %>% 
-  spread(key = "on.plasmid", value = "min.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
-  rename("min.dist.oriC.chrom" = no, "min.dist.oriC.plasmid" = yes) %>% 
-  mutate(min.dist.oriC = min.dist.oriC.chrom + min.dist.oriC.plasmid)
-
-med_dist_oriC <- gff %>% 
-group_by(strain, on.plasmid) %>% 
-  summarise(med.dist.oriC = median(dist.to.oriC)) %>% 
-  spread(key = "on.plasmid", value = "med.dist.oriC", fill = 0) %>% # FILL SHOULD BE NA BUT YOU CAN NOT ADD NA TO NUMBER
-  rename("med.dist.oriC.chrom" = no, "med.dist.oriC.plasmid" = yes) %>% 
-  mutate(med.dist.oriC = med.dist.oriC.chrom + med.dist.oriC.plasmid)
-
-# n_genes_plus_strand <- gff %>% 
-#   group_by(strain, on.plasmid) %>% 
-#   summarise(n.beta.lac.plus = sum(pos.strand == "yes")) %>% 
-#   spread(key = "on.plasmid", value = "n.beta.lac.plus", fill = 0) %>% 
-#   rename("n.beta.lac.plus.chrom" = no, "n.beta.lac.plus.plasmid" = yes) %>% 
-#   mutate(n.beta.lac.plus = n.beta.lac.plus.chrom + n.beta.lac.plus.plasmid)
-
-# genes on plasmids are always on plasmids
-# n_genes_plasmids <- gff %>% 
-#   group_by(strain) %>% 
-#   summarise(n.beta.lac.plasmid = sum(on.plasmid == "yes"))
-
-# features_strain <- list(features_strain, min_dist_oriC, med_dist_oriC, n_genes_plus_strand, n_genes_plasmids) %>% 
-#   reduce(left_join, by = "strain") %>% 
-#   mutate(n.beta.lac.chrom = n.beta.lac - n.beta.lac.plasmid) %>% 
-#   relocate(n.beta.lac.plasmid, n.beta.lac.chrom, .before = min.dist.oriC.chrom)
-
-head(features_strain)
-```
-
 Counting the resistance genes, let's take into account plasmids copy-number
 
 ```{r}
@@ -1608,7 +1481,7 @@ features_strain <-
             n_genes_plasmids, 
             by = "strain") %>%
   mutate(n.beta.lac.chrom = n.beta.lac - n.beta.lac.plasmid) %>%
-  relocate(n.beta.lac.plasmid, n.beta.lac.chrom, .before = min.dist.oriC.chrom)
+  relocate(n.beta.lac.plasmid, n.beta.lac.chrom)
 
 head(features_strain)
 ```
@@ -1628,15 +1501,15 @@ Also, repeat counts should be calculated separately for plasmid and chromosomal 
 # count number of rows per strains and on.plasmid
 # exclude non-beta-lac genes
 # according to the current repeat definition distinct() should not be used
-repeat_counts <- features %>% 
-  filter(is.beta.lac) %>% 
+repeat_counts <- features %>%
+  filter(is.beta.lac) %>%
   group_by(strain, on.plasmid) %>%
-  summarise("n.rep" = n()) %>% 
-  spread(key = "on.plasmid", value = "n.rep", fill = 0) %>% 
-  rename("n.rep.chrom" = no, "n.rep.plasmid" = yes) %>% 
-  mutate(n.rep.total = n.rep.chrom + n.rep.plasmid) %>% 
+  summarise("n.rep" = n()) %>%
+  spread(key = "on.plasmid", value = "n.rep", fill = 0) %>%
+  rename(no = "n.rep.chrom", 
+          yes = "n.rep.plasmid") %>%
+  mutate(n.rep.total = n.rep.chrom + n.rep.plasmid) %>%
   select(strain, n.rep.chrom, n.rep.plasmid, n.rep.total)
-
 
 # count number of repeats spanning center
 rep_counts_center <- features %>% 
@@ -1644,7 +1517,8 @@ rep_counts_center <- features %>%
   group_by(strain, on.plasmid) %>%
   summarise("n.rep.cen" = n()) %>% 
   spread(key = "on.plasmid", value = "n.rep.cen", fill = 0) %>% 
-  rename("n.rep.cen.chrom" = no, "n.rep.cen.plasmid" = yes) %>% 
+  rename(no = "n.rep.cen.chrom",
+         yes = "n.rep.cen.plasmid") %>% 
   mutate(n.rep.tot.cen = n.rep.cen.chrom + n.rep.cen.plasmid) %>% 
   select(strain, n.rep.tot.cen, n.rep.cen.chrom, n.rep.cen.plasmid)
 
@@ -1656,13 +1530,16 @@ repeat_counts_gene <- features %>%
   summarise("n.repeats.gene" = n())
 
 # join only those counts that are in filtered features
-features <- left_join(features, repeat_counts_gene, by = c("record_id", "on.plasmid") )%>% 
+features <- left_join(features, 
+                      repeat_counts_gene, 
+                      by = c("record_id", "on.plasmid")) %>% 
   relocate(n.repeats.gene, .before="ORF_ID")
 
 # add the rest
 features_strain <- list(features_strain, repeat_counts, rep_counts_center) %>% 
-  reduce(left_join, by = "strain")
+  purrr::reduce(left_join, by = "strain")
 
+features_strain
 ```
 
 ### Add repeat count, min length 100 bp
@@ -1675,7 +1552,8 @@ repeat_counts_strain_100 <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarise("n.rep.100" = n()) %>% 
   spread(key = "on.plasmid", value = "n.rep.100", fill = 0) %>% 
-  rename("strain" = strain, "n.rep.100.chrom" = no, "n.rep.100.plasmid" = yes) %>% 
+  rename(no = "n.rep.100.chrom", 
+         yes = "n.rep.100.plasmid") %>% 
   mutate(n.rep.100.total = n.rep.100.chrom + n.rep.100.plasmid) %>% 
   select(strain, n.rep.100.chrom, n.rep.100.plasmid, n.rep.100.total)
 
@@ -1688,13 +1566,13 @@ repeat_counts_strain_100_center <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarise("n.rep.100.cen" = n()) %>% 
   spread(key = "on.plasmid", value = "n.rep.100.cen", fill = 0) %>% 
-  rename("strain" = strain, "n.rep.100.cen.chrom" = no, "n.rep.100.cen.plasmid" = yes) %>% 
+  rename(no = "n.rep.100.cen.chrom", yes = "n.rep.100.cen.plasmid") %>% 
   mutate(n.rep.100.cen.tot = n.rep.100.cen.chrom + n.rep.100.cen.plasmid) %>% 
   select(strain, n.rep.100.cen.chrom, n.rep.100.cen.plasmid, n.rep.100.cen.tot)
 
 # join both with features_strain
 features_strain <- list(features_strain, repeat_counts_strain_100, repeat_counts_strain_100_center) %>% 
-  reduce(left_join, by = "strain")
+  purrr::reduce(left_join, by = "strain")
 
 #############################
 ## PER GENE
@@ -1715,7 +1593,8 @@ features <- left_join(features, repeat_counts_gene_100, by="record_id")
 features$n_repeats_gene_min100 <- ifelse(is.na(features$n_repeats_gene_min100), 0, features$n_repeats_gene_min100)
 
 # locate
-features <- features %>% relocate(n_repeats_gene_min100, .before="ORF_ID")
+features <- features %>% 
+  relocate(n_repeats_gene_min100, .before="ORF_ID")
 
 ##################################
 ## SHOW FEATURES STRAIN
@@ -1734,7 +1613,8 @@ repeat_counts_strain_500 <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarise("n.rep.500" = n()) %>% 
   spread(key = "on.plasmid", value = "n.rep.500", fill = 0) %>% 
-  rename(n.rep.500.chrom = no,  n.rep.500.plasmid = yes) %>% 
+  rename(no = "n.rep.500.chrom",  
+        yes = "n.rep.500.plasmid") %>% 
   mutate(n.rep.500.total = n.rep.500.chrom + n.rep.500.plasmid) %>% 
   select(strain, n.rep.500.chrom, n.rep.500.plasmid, n.rep.500.total)
 
@@ -1746,10 +1626,10 @@ repeat_counts_strain_500_center <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarise("n.rep.500.cen" = n()) %>% 
   spread(key = "on.plasmid", value = "n.rep.500.cen", fill = 0) %>% 
-  rename(n.rep.500.cen.chrom = no , n.rep.500.cen.plasmid = yes ) %>% 
+  rename(no = "n.rep.500.cen.chrom", 
+         yes = "n.rep.500.cen.plasmid") %>% 
   mutate(n.rep.500.cen.tot = n.rep.500.cen.chrom + n.rep.500.cen.plasmid)%>%
   select(strain, n.rep.500.cen.chrom, n.rep.500.cen.plasmid, n.rep.500.cen.tot)
-
 
 
 # join both with features_strain
@@ -1765,10 +1645,12 @@ bed_df contains the gene center
 
 ```{r}
 # get csv full paths using strain names vector
-repeats_centered_files <- map_chr(strains, ~ str_c("/mnt/data/andrei/Data/HeteroR/results/annotations/", ., "/repeats/", ., "_repeats_centered.csv"))
+repeats_centered_files <-
+  map_chr(strains,
+          ~ str_c(annot_dir, ., "/repeats/", ., "_repeats_centered.csv"))
 
 # I have to create an empty tibble to give the same names of the csv files 
-empty_tibble <-  tibble(
+empty_tibble <- tibble(
   record_id = NA,
   gene_center = NA,
   X = NA,
@@ -1786,20 +1668,23 @@ names(empty_tibble) <- c("record_id", "gene_center","X", "start_1", "end_1", "st
 # create a new read function that skips those adding an empty tibble
 read_csv_file <- possibly(read_csv, otherwise = empty_tibble)
 
-repeats_centered <- future_map_dfr(repeats_centered_files, ~ read_csv_file(., show_col_types = FALSE)) %>% 
+repeats_centered <-
+  future_map_dfr(repeats_centered_files,
+                 ~ read_csv_file(., show_col_types = FALSE)) %>%
   mutate(record_id = sub("_gene", "", record_id))
 
 repeats_centered <-
   right_join(repeats_centered, gff_with_counts, by = c("record_id", "strain")) %>%
-  mutate(
-    start_1 = if_else(start_1 > (gene_center - (gene.length / 2)), start_1, NA),
-    end_1 = if_else(start_1 > (gene_center - (gene.length / 2)), end_1, NA),
-    start_2 = if_else(end_2 < (gene_center + (gene.length / 2)), start_2, NA),
-    end_2 = if_else(end_2 < (gene_center + (gene.length / 2)), end_2, NA)
-  ) %>% filter(!is.na(start_1) |
-                 !is.na(start_2)) %>% group_by(strain) %>% 
-  summarise("n" =sum(n())) %>%
-   dplyr::rename(strain = strain, rep.in = n)
+  # mutate(
+  #   start_1 = if_else(start_1 > (gene_center - (gene.length / 2)), start_1, NA),
+  #   end_1 = if_else(start_1 > (gene_center - (gene.length / 2)), end_1, NA),
+  #   start_2 = if_else(end_2 < (gene_center + (gene.length / 2)), start_2, NA),
+  #   end_2 = if_else(end_2 < (gene_center + (gene.length / 2)), end_2, NA)) %>% 
+  # filter(!is.na(start_1) | !is.na(start_2)) %>% 
+  group_by(strain) %>%
+  summarise("n" = sum(n())) %>%
+  # dplyr::rename(strain = strain, rep.in = n) # what is this name? (AG)
+  dplyr::rename(strain = strain, rep.tot.cen = n)
 
 # add to features_strain 
 features_strain <- left_join(features_strain, repeats_centered, by =  "strain")
@@ -1823,9 +1708,9 @@ rep_len_sum_strain_split <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarise(med.tot.rep.len = median(total_repeat_length)) %>% 
   spread(key = "on.plasmid", value = "med.tot.rep.len", fill = 0) %>% 
-  rename("strain" = strain, 
-         "med.tot.rep.len.chrom" = no, 
-         "med.tot.rep.len.plasmid" = yes) %>% 
+  rename(strain = "strain", 
+         no = "med.tot.rep.len.chrom", 
+         yes = "med.tot.rep.len.plasmid") %>% 
   select(strain, med.tot.rep.len.chrom, med.tot.rep.len.plasmid)
 
 rep_len_sum_strain <- features %>% 
@@ -1838,7 +1723,7 @@ rep_len_sum_strain <- features %>%
 
 # join both with features_bl_strain
 features_strain <- list(features_strain, rep_len_sum_strain_split, rep_len_sum_strain) %>% 
-  reduce(left_join, by = "strain")
+  purrr::reduce(left_join, by = "strain")
 
 # per gene
 rep_len_sum <- features %>% 
@@ -1867,9 +1752,8 @@ med_rep_len_split <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarize(med.rep.len = median(repeat_length, na.rm = T)) %>% 
   spread(key = "on.plasmid", value = "med.rep.len", fill = 0) %>% 
-  rename("strain" = strain, 
-         "med.rep.len.chrom" = no, 
-         "med.rep.len.plasmid" = yes) %>% 
+  rename(no = "med.rep.len.chrom", 
+         yes = "med.rep.len.plasmid") %>% 
   select(strain, med.rep.len.chrom, med.rep.len.plasmid)
 
 med_rep_len <- features %>% 
@@ -1879,7 +1763,7 @@ med_rep_len <- features %>%
 
 # add both
 features_strain <- list(features_strain, med_rep_len_split, med_rep_len) %>% 
-  reduce(left_join, by="strain")
+  purrr::reduce(left_join, by="strain")
 
 
 head(features_strain)
@@ -1893,9 +1777,8 @@ max_rep_len_all_split <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarize(max.rep.len = max(repeat_length, na.rm = T)) %>% 
   spread(key = "on.plasmid", value = "max.rep.len", fill = 0) %>% 
-  rename("strain" = strain, 
-         "max.rep.len.chrom" = no, 
-         "max.rep.len.plasmid" = yes) %>% 
+  rename(no = "max.rep.len.chrom", 
+         yes = "max.rep.len.plasmid") %>% 
   select(strain, max.rep.len.chrom, max.rep.len.plasmid)
 
 max_rep_len_all <- features %>% 
@@ -1905,7 +1788,7 @@ max_rep_len_all <- features %>%
 
 # add both
 features_strain <- list(features_strain, max_rep_len_all_split, max_rep_len_all) %>% 
-  reduce(left_join, by = "strain")
+  purrr::reduce(left_join, by = "strain")
 
 # center spanning
 max_rep_len_cen_split <- features %>%
@@ -1914,9 +1797,8 @@ max_rep_len_cen_split <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarize(max.rep.len = max(repeat_length, na.rm = T)) %>% 
   spread(key = "on.plasmid", value = "max.rep.len", fill = 0) %>% 
-  rename("strain" = strain,
-         "max.rep.len.cen.chrom" = no, 
-         "max.rep.len.cen.plasmid" = yes) %>% 
+  rename(no = "max.rep.len.cen.chrom", 
+         yes = "max.rep.len.cen.plasmid") %>% 
   select(strain, max.rep.len.cen.chrom, max.rep.len.cen.plasmid)
 
 max_rep_len_cen <- features %>%
@@ -1927,7 +1809,7 @@ max_rep_len_cen <- features %>%
 
 # add both
 features_strain <- list(features_strain, max_rep_len_cen_split, max_rep_len_cen) %>% 
-  reduce(left_join, by="strain")
+  purrr::reduce(left_join, by="strain")
 
 head(features_strain)
 ```
@@ -1944,9 +1826,8 @@ med_ar_len_split <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarize(med.AR.len = median(AR_length, na.rm = T)) %>% 
   spread(key = "on.plasmid", value = "med.AR.len", fill = 0) %>% 
-  rename("strain" = strain, 
-         "med.AR.len.chrom" = no, 
-         "med.AR.len.plasmid" = yes) %>% 
+  rename(no = "med.AR.len.chrom", 
+         yes = "med.AR.len.plasmid") %>% 
   select(strain, med.AR.len.chrom, med.AR.len.plasmid)
 
 
@@ -1957,7 +1838,7 @@ med_ar_len <- features %>%
 
 # add
 features_strain <- list(features_strain, med_ar_len_split, med_ar_len) %>% 
-  reduce(left_join, by = "strain")
+  purrr::reduce(left_join, by = "strain")
 
 head(features_strain)
 ```
@@ -1971,9 +1852,8 @@ med_ar_len_cen_split <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarize(med.AR.len.cen = median(AR_length, na.rm = T)) %>% 
   spread(key = "on.plasmid", value = "med.AR.len.cen", fill = 0) %>% 
-  rename("strain" = strain, 
-         "med.AR.len.cen.chrom" = no, 
-         "med.AR.len.cen.plasmid" = yes) %>% 
+  rename(no = "med.AR.len.cen.chrom", 
+         yes = "med.AR.len.cen.plasmid") %>% 
   select(strain, med.AR.len.cen.chrom, med.AR.len.cen.plasmid)
 
 
@@ -1985,7 +1865,7 @@ med_ar_len_cen <- features %>%
 
 # add
 features_strain <- list(features_strain, med_ar_len_cen_split, med_ar_len_cen) %>% 
-  reduce(left_join, by = "strain")
+  purrr::reduce(left_join, by = "strain")
 
 
 head(features_strain)
@@ -2004,9 +1884,8 @@ min_ar_len_cen_split <- features %>%
   group_by(strain, on.plasmid) %>% 
   summarize(min.AR.len.cen = min(AR_length, na.rm = T)) %>% 
   spread(key = "on.plasmid", value = "min.AR.len.cen", fill = 0) %>% 
-  rename("strain" = strain, 
-         "min.AR.len.cen.chrom" = no, 
-         "min.AR.len.cen.plasmid" = yes) %>% 
+  rename(no = "min.AR.len.cen.chrom", 
+         yes = "min.AR.len.cen.plasmid") %>% 
   select(strain, min.AR.len.cen.chrom, min.AR.len.cen.plasmid)
 
 min_ar_len_cen <- features %>% 
@@ -2017,7 +1896,7 @@ min_ar_len_cen <- features %>%
 
 # add
 features_strain <- list(features_strain, min_ar_len_cen_split, min_ar_len_cen) %>% 
-  reduce(left_join, by = "strain")
+  purrr::reduce(left_join, by = "strain")
 
 head(features_strain)
 ```
@@ -2047,6 +1926,8 @@ In real life, every E.coli has at least 1 ampC gene on chromosome - the table ab
 # there are 21 types of AMR gene families, only one type's name contain ampC
 features_ampC <- features %>% 
   filter(str_detect(AMR.Gene.Family, "ampC"))
+
+dim(features_ampC)
 ```
 
 ### Repeat counts
@@ -2128,9 +2009,9 @@ med_ar_len <- function(features_selected, ar){
 }
 
 # apply them
-med_ar_len_split_ampC <- med_ar_len_split(features_ampC,"ampC")
+med_ar_len_split_ampC <- med_ar_len_split(features_ampC, "ampC")
 
-med_ar_len_ampC <- med_ar_len(features_ampC,"ampC")
+med_ar_len_ampC <- med_ar_len(features_ampC, "ampC")
 
 # add
 features_strain <-
@@ -2283,32 +2164,32 @@ select TEM strains
 TEM_rgi <- rgi %>% 
   filter(str_detect(Best_Hit_ARO, "TEM")) 
 
-TEM_strains <- TEM_rgi %>%  select(strain) %>%  unlist %>%  unname %>% unique
+TEM_strains <- TEM_rgi %>%
+  select(strain) %>%
+  unlist() %>%
+  unname() %>%
+  unique()
 ```
 
 extract sequences
 
 ```{r, eval=FALSE, message=F}
 library(Biostrings)
+
 tem_select <- function(x) {
   path <-
     paste0(
-      "/mnt/data/andrei/Data/HeteroR/results/annotations/",
+      annot_dir,
       x,
       "/prokka/",
       x,
       "_genomic.ffn"
     )
-  
-  
   header <-
     TEM_rgi %>%  filter(strain == x) %>%  select(ORF_ID) %>%  unlist %>% unname
-  
   fasta_seq <- readDNAStringSet(path)
-  
   out <-   fasta_seq[names(fasta_seq) %in% header]
   metadata(out) <- list(strain = x)
-  
   return(out)
 }
 
@@ -2625,15 +2506,15 @@ head(features_strain)
 ## IS elements
 
 ```{r}
-is_strains <- dir("/mnt/data/andrei/Data/HeteroR/results/isescan")
+is_strains <- dir(isescan_dir)
 is_strains <- is_strains[is_strains %in% strains]
 ```
 
-```{r message=FALSE}
+```{r, message=FALSE}
 read_isescan_csv <- function(strain_name) {
   path <-
     paste0(
-      "/mnt/data/andrei/Data/HeteroR/results/isescan/",
+      isescan_dir,
       strain_name,
       "/regions/regions_joined_final.fasta.csv"
     )
@@ -2664,25 +2545,64 @@ isescan_df$seqID <- str_remove_all(isescan_df$seqID, "_gene")
 isescan_df
 ```
 
+### ISEscan control
+
+```{r, fig.height=8}
+max_is_len <-
+  isescan_df %>%
+  filter(family != "new") %>%
+  group_by(strain) %>%
+  summarise(max.is.len = max(isLen)) %>%
+  arrange(-max.is.len)
+
+sus_strains <- max_is_len %>% 
+  slice_head(n = 10) %>% 
+  pull(strain)
+
+norm_strains <- max_is_len %>% 
+  slice_tail(n = 10) %>% 
+  pull(strain)
+
+plot_fun <- function(str_name) {
+  filter(isescan_df, strain == str_name) %>%
+    ggplot(aes(isLen, orfLen)) +
+    geom_point() +
+    ggtitle(str_name)
+}
+
+orf_len_plots <- map(c(sus_strains, norm_strains), ~ plot_fun(.))
+
+ggpubr::ggarrange(plotlist = orf_len_plots, nrow = 5, ncol = 2)
+```
+
+As you can see, the longest IS elements sometimes have too short ORFs, moreover they always code for many ORFs not related to Tn and they are never compound IS elements (various genes flanked by Tn domains). For deeper analysis see `isescan_control.qmd`.
+
+Such pseudo-IS (false positives) should be filtered out. Max length for IS and ORF = 2000 nt.
+
 ### per strain features
 
 ```{r}
+max_len_allowed <- 2000
+
+# filter the main IS table
+isescan_df <- isescan_df %>%
+  filter(family != "new",
+         isLen <= max_len_allowed,
+         orfLen <= max_len_allowed)
+
 # families per strain
 is_types <- isescan_df  %>%
-  dplyr::count(family, strain, name = "count") %>%
+  count(family, strain, name = "count") %>%
   group_by(strain) %>%
-  summarise(unique_count = n()) %>% 
-  dplyr::rename(n.is.fam = unique_count)
+  summarise(n.is.fam = n())
 
 # total amount of IS per strain
 is_all <- isescan_df  %>%
   group_by(strain) %>%
-  summarise(count = n()) %>%
-  dplyr::rename(n.is.tot = count)
+  summarise(n.is.tot = n())
 
 # per strain max length 
 max_len <- isescan_df %>% 
-  filter(family != "new" ) %>% 
   group_by(strain)%>%
   summarise(max.is.len = max(isLen)) 
 
@@ -2694,6 +2614,8 @@ families_pivot <- isescan_df %>%
 
 # min distance gene IS 
 # just considering useful distances, no IS inside of the gene
+# if features do not have 'gene.length', add it from gff: 
+# features <- features %>% left_join(gff %>% select(-on.plasmid), by = c("strain", "record_id"))
 min_distance_is_gene <-
   features %>% select(strain, record_id, gene.length, gene_center) %>%  
   distinct %>%  left_join((
@@ -2701,6 +2623,7 @@ min_distance_is_gene <-
   ),
   by = c("record_id", "strain")) %>%
   mutate(
+    
     is_gene_distance = abs(isCenter - gene_center),
     is_inside_gene = ifelse(is_gene_distance < (gene.length / 2), TRUE, FALSE)
   ) %>%  
@@ -2723,12 +2646,12 @@ interrupted_genes <-
   group_by(strain) %>%
   summarise(n.interrupted.genes = sum(as.numeric(is_inside_gene)))
 
-
 # add to feature_strain 
 features_strain <- 
   list(features_strain, is_types, max_len, families_pivot, is_all, min_distance_is_gene, interrupted_genes) %>% 
-  reduce(left_join, by = "strain") 
+  purrr::reduce(left_join, by = "strain") 
 
+dim(features_strain)
 ```
 
 Are there any genes that have the same insertion sequence family on both sides?
