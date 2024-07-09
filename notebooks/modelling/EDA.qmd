@@ -595,7 +595,7 @@ When number of BL genes is greater than 3, quite likely that the strain is HR or
 
 ```{r, eval = F}
 Fig_BL_greater_4 <- data_strain %>% 
-  mutate(n.beta.lac.4 > )
+  mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
   ggplot(aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha=0.97) +
   scale_fill_brewer(palette="Set1", name = "") +
