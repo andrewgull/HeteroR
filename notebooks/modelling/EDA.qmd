@@ -77,13 +77,12 @@ rsync ~/Data/HeteroR/results/tables/amr_types_strain.csv ./data
 Read features and classification labels
 
 ```{r, message=FALSE}
+# columns with oriC and plus-strand do not exist anymore
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
-  # mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  # relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
+  # outliers on the tree
   filter(!(strain %in% c("DA63246", "DA63068"))) %>% 
   mutate(chrom.status = factor(chrom.status)) %>% 
-  select(-contains("oriC")) %>% 
-  select(-contains("plus"))
+  relocate(strain, .before = n.beta.lac.plasmid)
 
 hr_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
   filter(!is.na(strain), resistance != "R")
@@ -148,11 +147,12 @@ N50 statistic comes only from Unicycler logs, that's why it is not available for
 I will remove it.
 
 ```{r}
-data_strain$N50 <- NULL
 # TEMPORARILY: remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
 # reasons for both are currently unclear
 data_strain$nc.beta.lac.plasmid <- NULL
 data_strain$n.beta.lac.chrom <- NULL
+
+dim(data_strain)
 ```
 
 ### n.plasmids outliers
@@ -191,7 +191,6 @@ cor_matrix <- data_strain %>%
   select(-c(
     strain,
     resistance,
-    n.beta.lac.4,
     chrom.status,
     contains(c("APH", "ANT", "PH", "CAT", "AAC", "SAT", "DHA", "qnr"), ignore.case = FALSE)
   )) %>%
@@ -595,7 +594,9 @@ Fig_BL_total
 When number of BL genes is greater than 3, quite likely that the strain is HR or R
 
 ```{r, eval = F}
-Fig_BL_greater_4 <- ggplot(data_strain, aes(n.beta.lac.4)) +
+Fig_BL_greater_4 <- data_strain %>% 
+  mutate(n.beta.lac.4 > )
+  ggplot(aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha=0.97) +
   scale_fill_brewer(palette="Set1", name = "") +
   labs(x = "number of β-lactamases", y = "proportion of strains") +
@@ -1117,7 +1118,6 @@ summary(glm(n.plasmids ~ resistance, data=data_strain, family = "poisson"))
 
 ```{r}
 data_strain %>% 
-  #filter(n.plasmids < 50) %>% 
   ggplot(aes(n.plasmids)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
   scale_fill_brewer(palette = "Set1", name = "")+
@@ -1397,9 +1397,9 @@ data_strain %>%
 ```{r}
 med_rep_len <- data_strain %>% 
   select(resistance, med.rep.len.chrom, med.rep.len.plasmid, med.rep.len) %>% 
-  rename('chromosome' = med.rep.len.chrom,
-         'plasmids' = med.rep.len.plasmid,
-         'total' = med.rep.len) %>% 
+  rename(med.rep.len.chrom = 'chromosome',
+         med.rep.len.plasmid = 'plasmids',
+         med.rep.len = 'total') %>% 
   gather("location", "median", 2:4)
 
 # how a median of 0 can appear in the table?
@@ -1640,9 +1640,9 @@ exp(coef(rep.count.regr))
 ```{r}
 ar_len <- data_strain %>% 
   select(resistance, med.AR.len.chrom, med.AR.len.plasmid, med.AR.len) %>% 
-  rename("chromosome" = med.AR.len.chrom,
-         "plasmids" = med.AR.len.plasmid,
-         "total" = med.AR.len) %>% 
+  rename(med.AR.len.chrom = "chromosome",
+         med.AR.len.plasmid = "plasmids",
+         med.AR.len = "total") %>% 
   gather("location", "ar.len", 2:4)
 
 
@@ -1969,11 +1969,11 @@ ggplot(data_strain %>% filter(med.AR.len.CTX > 0), aes(resistance, med.AR.len.CT
 
 ```{r}
 colnames <- data_strain %>% 
-  select(strain, resistance, new, contains("IS", ignore.case = FALSE)) %>% names()
+  select(strain, resistance, contains("IS", ignore.case = FALSE)) %>% names()
 
 Fig_IS_fam_prop <- data_strain %>% 
-  select(strain, resistance, new, contains("IS", ignore.case = FALSE)) %>% 
-  pivot_longer(cols = colnames[3:23], names_to = "is.family", values_to = "n") %>% 
+  select(strain, resistance,  contains("IS", ignore.case = FALSE)) %>% 
+  pivot_longer(cols = colnames[3:22], names_to = "is.family", values_to = "n") %>% 
   ggplot(aes(is.family, n)) +
   geom_col(aes(fill=resistance), position = "fill") +
   scale_fill_brewer(palette = "Set1", name = "") +
@@ -2107,7 +2107,7 @@ exp(coef(isfam_pois_fit))
 Fig_IS_gene_dist <- data_strain %>% 
   ggplot(aes(resistance, min_distance_is_gene)) +
   geom_violin(aes(fill=resistance), alpha=1)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
+  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1", name = "") +
   labs(x = "", y = "distance between IS and nearest RG, nt") +
