@@ -56,7 +56,7 @@ data_strain %>%
   count()
 ```
 
-Add n.beta.lac \>4
+Pre-preprocessing
 
 ```{r init processing}
 strains <- data_strain$strain
@@ -79,12 +79,6 @@ skim(data_strain) %>% yank("factor")
 ```
 
 We have unbalanced target class
-
-Number of not tested strains in the list I got from Karin
-
-```{r}
-hr_testing %>% filter(is.na(resistance))
-```
 
 # Data split
 
@@ -389,7 +383,7 @@ lr_base_res %>%
 ```{r}
 lr_base_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor1_Model26")
+  filter(.config == get_config_name(lr_base_res))
 ```
 
 
@@ -410,7 +404,7 @@ show_best(lr_base_yj_res)
 ```{r}
 lr_base_yj_res %>% 
   show_best(metric = "j_index") %>% 
-  filter(.config == "Preprocessor1_Model24")
+  filter(.config == best_config_name(lr_base_yj_res))
 ```
 
 The same model is the best
@@ -433,7 +427,7 @@ lr_base_orq_res %>%
 ```{r}
 lr_base_orq_res %>% 
   show_best(metric = "j_index") %>% 
-  filter(.config == "Preprocessor1_Model24")
+  filter(.config == best_config_name(lr_base_orq_res))
 ```
 
 ## PCA recipe
@@ -564,7 +558,7 @@ lsvm_ncorr_res %>%
 ```{r}
 lsvm_ncorr_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor06_Model1")
+  filter(.config == best_config_name(lsvm_ncorr_res))
 ```
 
 
@@ -586,7 +580,7 @@ lsvm_ncoryj_res %>%
 ```{r}
 lsvm_ncoryj_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor10_Model1")
+  filter(.config == best_config_name(lsvm_ncoryj_res))
 ```
 
 
@@ -607,7 +601,7 @@ lsvm_ncorq_res %>% show_best("roc_auc")
 ```{r}
 lsvm_ncorq_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor06_Model1")
+  filter(.config == best_config_name(lsvm_ncorq_res))
 ```
 
 
@@ -628,7 +622,7 @@ show_best(lsvm_pca_res, metric = "roc_auc")
 ```{r}
 lsvm_pca_res %>%
   show_best(metric = "j_index", n=50) %>% 
-  filter(.config == "Preprocessor1_Model02")
+  filter(.config == best_config_name(lsvm_pca_res))
 ```
 
 
@@ -736,7 +730,7 @@ psvm_ncorr_res %>%
 ```{r}
 psvm_ncorr_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor05_Model1")
+  filter(.config == best_config_name(psvm_ncorr_res))
 ```
 
 
@@ -757,7 +751,7 @@ show_best(psvm_ncoryj_res, metric = "roc_auc")
 ```{r}
 psvm_ncoryj_res %>%
   show_best(metric = "j_index", n = 15) %>% 
-  filter(.config == "Preprocessor05_Model1")
+  filter(.config == best_config_name(psvm_ncoryj_res))
 ```
 
 
@@ -779,7 +773,7 @@ psvm_ncorq_res %>%
 ```{r}
 psvm_ncorq_res %>% 
   show_best("j_index") %>% 
-  filter(.config == "Preprocessor05_Model1")
+  filter(.config == best_config_name(psvm_ncorq_res))
 ```
 
 
@@ -800,8 +794,8 @@ psvm_pca_res %>%
 
 ```{r}
 psvm_pca_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor2_Model05")
+  show_best("j_index", n = 50) %>% 
+  filter(.config == best_config_name(psvm_pca_res))
 ```
 
 
@@ -920,7 +914,7 @@ show_best(rbf_ncorr_res, metric = "roc_auc")
 ```{r}
 rbf_ncorr_res %>% 
   show_best(metric = "j_index") %>% 
-  filter(.config == "Preprocessor19_Model1")
+  filter(.config == best_config_name(rbf_ncorr_res))
 ```
 
 
@@ -941,7 +935,7 @@ show_best(rbf_ncoryj_res, metric = "roc_auc")
 ```{r}
 rbf_ncoryj_res %>% 
   show_best(metric = "j_index", n = 15) %>% 
-  filter(.config == "Preprocessor11_Model1")
+  filter(.config == best_config_name(rbf_ncoryj_res))
 ```
 
 
@@ -962,7 +956,7 @@ show_best(rbf_ncorq_res, metric = "roc_auc")
 ```{r}
 rbf_ncorq_res %>% 
   show_best(metric = "j_index") %>% 
-  filter(.config == "Preprocessor19_Model1")
+  filter(.config == best_config_name(rbf_ncorq_res))
 ```
 
 
@@ -982,7 +976,7 @@ show_best(rbf_pca_res, metric = "roc_auc")
 ```{r}
 rbf_pca_res %>% 
   show_best(metric = "j_index", n = 15) %>% 
-  filter(.config == "Preprocessor1_Model04")
+  filter(.config == best_config_name(rbf_pca_res))
 ```
 
 
@@ -1054,7 +1048,7 @@ rbf_comp <-
 rbf_posterior <-
   perf_mod(
     rbf_comp,
-    iter = 4000,
+    iter = 6000,
     seed = 100,
     refresh = 0,
     chains = 5,
@@ -1092,7 +1086,7 @@ rf_base_res %>%
 ```{r}
 rf_base_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor1_Model28")
+  filter(.config == best_config_name(rf_base_res))
 ```
 
 
@@ -1112,7 +1106,7 @@ rf_base_bor_res %>%
 ```{r}
 rf_base_bor_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor1_Model28")
+  filter(.config == best_config_name(rf_base_bor_res))
 ```
 
 
@@ -1216,7 +1210,7 @@ bt_base_res %>%
 ```{r}
 bt_base_res %>% 
   show_best(metric = "j_index", n = 50) %>% 
-  filter(.config == "Preprocessor1_Model05")
+  filter(.config == best_config_name(bt_base_res))
 ```
 
 
@@ -1363,7 +1357,7 @@ mlp_ncor_res %>%
 ```{r}
 mlp_ncor_res %>% 
   show_best("j_index") %>% 
-  filter(.config == "Preprocessor13_Model1")
+  filter(.config == best_config_name(mlp_ncor_res))
 ```
 
 
@@ -1385,7 +1379,7 @@ mlp_ncoryj_res %>%
 ```{r}
 mlp_ncoryj_res %>% 
   show_best("j_index") %>% 
-  filter(.config == "Preprocessor19_Model1")
+  filter(.config == best_config_name(mlp_ncoryj_res))
 ```
 
 
@@ -1407,7 +1401,7 @@ mlp_ncorq_res %>%
 ```{r}
 mlp_ncorq_res %>% 
   show_best(metric = "j_index") %>% 
-  filter(.config == "Preprocessor13_Model1")
+  filter(.config == best_config_name(mlp_ncorq_res))
 ```
 
 
@@ -1429,7 +1423,7 @@ mlp_pca_res %>%
 ```{r}
 mlp_pca_res %>% 
   show_best("j_index") %>% 
-  filter(.config == "Preprocessor2_Model03")
+  filter(.config == best_config_name(mlp_pca_res))
 ```
 
 
@@ -1452,7 +1446,7 @@ show_best(mlp_bag_ncorr_res, "roc_auc")
 ```{r}
 mlp_bag_ncorr_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor09_Model1")
+  filter(.config == best_config_name(mlp_bag_ncorr_res))
 ```
 
 
@@ -1473,7 +1467,7 @@ show_best(mlp_bag_ncoryj_res, metric = "roc_auc")
 ```{r}
 mlp_bag_ncoryj_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor19_Model1")
+  filter(.config == best_config_name(mlp_bag_ncoryj_res))
 ```
 
 
@@ -1494,7 +1488,7 @@ show_best(mlp_bag_ncorq_res, metric = "roc_auc")
 ```{r}
 mlp_bag_ncorq_res %>% 
   show_best("j_index", n = 15) %>% 
-  filter(.config == "Preprocessor09_Model1")
+  filter(.config == best_config_name(mlp_bag_ncorq_res))
 ```
 
 ## PCA
@@ -1513,8 +1507,8 @@ show_best(mlp_bag_pca_res, metric = "roc_auc")
 
 ```{r}
 mlp_bag_pca_res %>% 
-  show_best(metric = "j_index", n = 15) %>% 
-  filter(.config == "Preprocessor3_Model4")
+  show_best(metric = "j_index", n = 25) %>% 
+  filter(.config == best_config_name(mlp_bag_pca_res))
 ```
 
 
@@ -1625,11 +1619,11 @@ GBT Bayes
 ```{r comparison1}
 # you will need these two objects later
 best_resamples_list <- list(
-    lr_base_yj_res,
+    lr_base_orq_res,
     lsvm_ncorq_res,
     psvm_ncorq_res,
     rbf_ncorq_res,
-    mlp_bag_ncoryj_res,
+    mlp_bag_ncorr_res,
     bt_base_bres
   )
 best_resamples_names <- c(
@@ -1925,7 +1919,7 @@ lr_final <-
   run_last_fit("LR",
                lr_spec_blank,
                lr_spec_tuned,
-               recipe = base_yj_recipe,
+               recipe = base_orq_recipe,
                return_fit = TRUE)
 
 lr_final[[1]]
@@ -2061,6 +2055,30 @@ map2_dfr(
   ~ get_metrics(.x, .y)) %>%
   pivot_wider(names_from = model, values_from = .estimate)
 ```
+
+### MAE
+
+probabilistic error interpretation
+
+HR = 1, non-HR = 0
+
+then use standard MAE formula
+
+```{r}
+lr_final[[2]] %>%
+  collect_predictions() %>% 
+  mutate(score = if_else(resistance == "HR", 1, 0)) %>% 
+  mae(truth = score, estimate = .pred_HR)
+```
+
+```{r}
+gbt_base_final[[2]] %>%
+  collect_predictions() %>% 
+  mutate(score = if_else(resistance == "HR", 1, 0)) %>% 
+  mae(truth = score, estimate = .pred_HR)
+```
+
+This metric doesn't depend on the classification threshold.
 
 ## Probability cutoff adjustment by maximum j-index
 
@@ -2245,11 +2263,14 @@ lr_coeff_df <- lr_final[[2]] %>%
       grepl("beta", term) |
         grepl("transfer", term) |
         grepl("n.c.plasmids", term) |
+        grepl("n.plasmids", term) |
         grepl("APH6", term) |
         grepl("AAC3", term) | 
         grepl("ANT3", term) | 
+        grepl("APH3", term) |
         grepl(".dfr", term) | grepl(".sul", term) ~ "genes",
       grepl("linear", term) |
+        grepl("read.max.len", term) |
         grepl("coverage", term) ~ "technical"
     ),
     # make readable term names
@@ -2265,7 +2286,7 @@ lr_coeff_df <- lr_final[[2]] %>%
                   "max.rep.len" = "maximal repeat length",
                   "IS30" = "number of IS30 elements",
                   "med.AR.len.cen.plasmid" = "median length of AR spanning RG on plasmdis",
-                  "min.distance.is.gene" = "distance between IS element and closest resistance gene",
+                  "min.distance.is.gene" = "distance between IS element and closest RG",
                   "IS5" = "number of IS5 elements",
                   "ANT3" = "number of ANT3 genes",
                   "med.tot.rep.len.chrom" = "median repeat length on chromosome",
@@ -2304,7 +2325,21 @@ lr_coeff_df <- lr_final[[2]] %>%
                   "IS6" = "number of IS6 elements",
                   "IS66" = "number of IS66 elements",
                   "APH6" = "number of APH6 genes",
-                  "n.c.plasmids" = "copy number of plasmids"
+                  "n.c.plasmids" = "copy number of plasmids",
+                  "APH3" = "number of APH3 genes",
+                  "rep.tot.cen" = "number of repeat pairs spanning RG",
+                  "med.AR.len.chrom.ampC" = "median AR length around bla ampC genes on chromosomes",
+                  "n.plasmids" = "number of plasmids",
+                  "n.rep.plasmid.ampC" = "number of repeats around bla ampC genes on plasmids",
+                  "med.AR.len.plasmid.ampC" = "median AR length around bla ampC genes on plasmids",
+                  "n.rep.100.cen.tot" = "number of repeat pairs longer than 100 nt spanning RG",
+                  "n.rep.500.chrom" = "number of repeats longer than 500 nt on chromosomes",
+                  "max.rep.len.plasmid" = "maximal repeat length on plasmdis",
+                  "med.rep.len.chrom.ampC" = "median repeat length around bla ampC genes on chromosomes",
+                  "coverage" = "Nanopore coverage",
+                  "read.max.len" = "maximal Nanopore read length",
+                  
+                  
                   )) %>%
   filter(term != "(Intercept)")
 
@@ -2378,7 +2413,7 @@ Fig_LR_predictors_alt <-
     name =,
     direction = -1
   ) +
-  scale_y_break(c(4, 29), ticklabels = c(30)) +
+  scale_y_break(c(3, 29), ticklabels = c(30)) +
   theme(
     legend.position = "top",
     axis.text.x = element_text(
@@ -2405,7 +2440,6 @@ Fig_LR_predictors_alt
 ### Fit the model with selected (h)-params
 
 ```{r}
-
 bt <- boost_tree(
       trees = tune(),
       min_n = tune(),
@@ -2463,7 +2497,7 @@ vip_gbt <- model_parts(explainer_final,
                        type = "difference",
                        N = NULL)
 
-# 86 predictors
+# 90 predictors
 vip_gbt %>% group_by(variable) %>% summarise(m = median(dropout_loss))
 ```
 
@@ -2641,7 +2675,7 @@ ggsave(file="manuscript/images/Fig_GBT_predictors_alt.png", plot=Fig_GBT_predict
 Fig_GBT_predictors_alt
 ```
 
-The dashed line this figure shows the 1-AUC for the full model. Features farther to the right are more important, because permuting them results in higher AUC.
+The dashed line this figure shows the 1-AUC for the full model. Features farther to the right are more important, because permuting them results in dropped AUC.
 
 ### Local explanations
 
