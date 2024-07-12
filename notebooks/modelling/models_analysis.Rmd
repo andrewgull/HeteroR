@@ -316,6 +316,17 @@ There are two ways to tune hyper-parameters:
 
 # Rule-based prediction
 
+```{r}
+# function for MAE
+mae_4bl_model <- function(predictions) {
+  predictions %>% 
+  mutate(pred_score = if_else(pred == "nonHR", 0, 1),
+         resistance_score = if_else(resistance == "nonHR", 0, 1)) %>% 
+  mae(truth = resistance_score, estimate = pred_score)
+}
+```
+
+
 ## Performance on Train data
 
 ```{r base rule}
@@ -333,6 +344,13 @@ conf_mat(rule_pred, truth = resistance, estimate = pred) %>%
   summary()
 ```
 
+MAE
+
+```{r}
+mae_4bl_model(rule_pred)
+```
+
+
 ## performance on Test
 
 ```{r}
@@ -346,10 +364,17 @@ conf_mat(rule_pred, truth = resistance, estimate = pred) %>%
   summary()
 ```
 
-## performance on full data set
+MAE
 
 ```{r}
-rule_pred <- 
+mae_4bl_model(rule_pred)
+```
+
+
+## Performance on full data set
+
+```{r}
+rule_pred <-
   data_strain %>% 
   mutate(n.beta.lac.4 = if_else(n.beta.lac > 4, "yes", "no"),
     pred = as.factor(if_else(n.beta.lac.4 == "yes", "HR", "nonHR"))) %>% 
@@ -358,6 +383,13 @@ rule_pred <-
 conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
   summary()
 ```
+
+MAE
+
+```{r}
+mae_4bl_model(rule_pred)
+```
+
 
 # Penalized LR
 
