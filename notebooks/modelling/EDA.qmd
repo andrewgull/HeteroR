@@ -1634,6 +1634,15 @@ summary(rep.count.regr)
 exp(coef(rep.count.regr))
 ```
 
+### Repeat pairs spanning genes
+
+```{r}
+data_strain %>% 
+  ggplot(aes(resistance, rep.tot.cen)) +
+  geom_boxplot() +
+  coord_trans(y = "sqrt")
+```
+
 
 ## Amplifiable region size
 
