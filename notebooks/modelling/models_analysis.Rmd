@@ -43,9 +43,7 @@ The data sets are the same as in EDA
 
 ```{r read data}
 data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf")) %>% 
-    filter(!(strain %in% c("DA63246", "DA63068"))) %>%  
-  select(-contains("oriC")) %>% 
-  select(-contains("plus"))
+    filter(!(strain %in% c("DA63246", "DA63068")))
 
 hr_testing <- read_csv("data/heteroresistance_testing.csv") %>% 
   filter(!is.na(strain))
@@ -64,12 +62,11 @@ Add n.beta.lac \>4
 strains <- data_strain$strain
 
 data_strain <- data_strain %>% 
-  # mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>% 
-  # relocate(n.beta.lac.4, .before = "n.plasmids") %>% 
   filter(resistance != "R") %>% 
   mutate(resistance = factor(resistance, levels = c("HR", "nonHR")),
          chrom.status = factor(chrom.status))
-# TEMPORARILY: remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
+
+# remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
 # reasons for both are currently unclear
 data_strain$nc.beta.lac.plasmid <- NULL
 data_strain$n.beta.lac.chrom <- NULL
@@ -441,25 +438,7 @@ lr_base_orq_res %>%
 
 ## PCA recipe
 
-```{r lr pca}
-lr_pca_res <- read_wfset("models_llr.rds", "pca_LLR")
-
-autoplot(lr_pca_res)
-```
-
-### Best models
-
-```{r}
-lr_pca_res %>% 
-  show_best("roc_auc", n = 5)
-```
-
-```{r}
-lr_pca_res %>% 
-  show_best("j_index", n = 50) %>% 
-  filter(.config == "Preprocessor3_Model09")
-```
-
+Cancelled
 
 ## Compare preprocessors
 
@@ -1281,18 +1260,6 @@ autoplot(bt_base_bor_res)
 show_best(bt_base_bor_res)
 ```
 
-## Base recipe + Boruta + Bayesian search
-
-```{r, fig.width=10, eval=FALSE}
-bt_base_bor_bres <- readRDS(paste0(models_path, "base_bt_boruta_bres_light.rds"))
-
-autoplot(bt_base_bor_bres)
-```
-
-```{r, eval=FALSE}
-show_best(bt_base_bor_bres)
-```
-
 ## Comparison of the preprocessors
 
 ### ROCs
@@ -1302,14 +1269,12 @@ bt_best_res <- list(
     bt_base_res,
     bt_base_bres,
     bt_base_bor_res
-    #bt_base_bor_bres
   )
 
 bt_best_names <- c(
     "base",
     "base_bayes",
     "base_bor"
-    #"base_bor_bayes"
   )
 
 bt_rocs <-
@@ -1790,11 +1755,10 @@ LR is the simplest, MLP and GBT are significantly better in mean ROC AUC.
 ```{r comparison2}
 # calculate rocs
 top_models <- list(
-    lr_base_yj_res,
-    bt_base_bres,
-    mlp_bag_ncoryj_res)
+    lr_base_orq_res,
+    bt_base_bres)
 
-top_names <- c("LLR", "GBT", "MLP")
+top_names <- c("LLR", "GBT")
 
 roc3_df <-
   map2_dfr(top_models,
@@ -2009,47 +1973,6 @@ gbt_base_final <-
   )
 
 gbt_base_final[[1]]
-```
-
-## MLP final
-
-```{r}
-set.seed(100)
-
-mlp_bag_spec <- bag_mlp(
-      hidden_units = tune(),
-      penalty = tune(),
-      epochs = tune()) %>%
-      set_engine("nnet", num.threads = 8) %>%
-      set_mode("classification") %>%
-      translate()
-
-
-mlp_bag_tuned <- bag_mlp(
-  hidden_units = best_models[[3]]$hidden_units,
-  penalty = best_models[[3]]$penalty,
-  epochs = best_models[[3]]$epochs
-) %>% 
-  set_mode("classification") %>%
-  set_engine("nnet", num.threads = 4)
-
-corr_threshold_tuned <- best_models[[3]]$corr_tune
-
-ncorr_yj_recipe_tuned <-
-  update_corr_treshold(base_recipe = ncorr_yj_recipe,
-                       step_no = 8,
-                       corr_threshold = corr_threshold_tuned)
-
-mlp_bag_ncoryj_final <-
-  run_last_fit(
-    "MLP",
-    mlp_bag_spec,
-    mlp_bag_tuned,
-    recipe = ncorr_yj_recipe_tuned,
-    return_fit = TRUE
-  )
-
-mlp_bag_ncoryj_final[[1]]
 ```
 
 
@@ -2699,7 +2622,11 @@ vip_gbt <- vip_gbt %>%
       "max.rep.len.plasmid" = "maximal length of repeats on plasmids",
       "med.rep.len.plasmid" = "median length of repeats on plasmids",
       "n.rep.500.chrom" = "number of repeats longer than 500 nt on chromosomes",
-      "min_distance_is_gene" = "minimal distance between IS and the nearest RG"
+      "min_distance_is_gene" = "minimal distance between IS and the nearest RG",
+      "rep.tot.cen" = "number of repeat pairs spanning genes",
+      "n.beta.lac.chrom" = "number of bla genes on chromosomes",
+      "n.TEM.1" = "number of TEM-1 genes",
+      "chrom.status_linear" = "incomplete chromosome assembly"
   )
 )
    

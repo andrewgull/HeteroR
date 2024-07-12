@@ -35,8 +35,6 @@ data_strain <- data_strain %>%
 # strain "DA63246", "DA63068" clustered with E. fergusoniш and E. albertii on the tree
 # remove them
 data_strain <- data_strain %>%
-  # mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
-  # relocate(n.beta.lac.4, .before = "n.plasmids") %>%
   filter(resistance != "R",
          !(strain %in% c("DA63246", "DA63068"))) %>%
   mutate(
@@ -44,16 +42,12 @@ data_strain <- data_strain %>%
     chrom.status = factor(chrom.status)
   )
 
-data_strain$N50 <- NULL
-# TEMPORARILY: remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
+# remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
 # reasons for both are currently unclear
 data_strain$nc.beta.lac.plasmid <- NULL
 data_strain$n.beta.lac.chrom <- NULL
 # NA s to 0s
 data_strain[is.na(data_strain)] <- 0
-data_strain <- data_strain %>% 
-  select(-contains("oriC")) %>% 
-  select(-contains("plus"))
 
 #### SPLIT ####
 # same seed number as in modelling.Rmd
@@ -289,8 +283,7 @@ models_llr <-
     recipes_list = list(
       base = base_recipe,
       base_yj = base_yj_recipe,
-      base_orq = base_orq_recipe,
-      pca = pca_recipe
+      base_orq = base_orq_recipe
     )
   )
 ```
@@ -299,14 +292,14 @@ models_llr <-
 autoplot(models_llr, select_best= TRUE)
 ```
 
-```{r, fig.width=10, fig.height=8}
+```{r, fig.width=4, fig.height=12}
 autoplots <- map(models_llr$result, ~autoplot(.x))
 
 ggpubr::ggarrange(
   plotlist =  autoplots,
-  ncol = 2,
-  nrow = 2,
-  labels = c("Base", "Base+YJ", "Base+ORQ", "PCA"), font.label = list(size=12)
+  ncol = 1,
+  nrow = 3,
+  labels = c("Base", "Base+YJ", "Base+ORQ"), font.label = list(size=12)
 )
 ```
 
@@ -403,6 +396,10 @@ models_rf <- get_models_set(
 autoplot(models_rf, select_best = TRUE)
 ```
 
+```{r}
+rm(models_rf)
+```
+
 
 # BT
 
@@ -472,8 +469,11 @@ base_bt_bres <- get_bt_bres(file_path="~/Data/HeteroR/results/models/scheme12/mo
 show_best(base_bt_bres)
 ```
 
-```{r, eval=F}
+```{r, fig.width=12}
 autoplot(base_bt_bres)
 ```
 
+```{r}
+rm(bt_base_res, bt_base_bres, bt_base_bor_res)
+```
 
