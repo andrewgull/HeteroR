@@ -159,3 +159,12 @@ senspec_plot <- function(fit_obj, title="") {
     theme_minimal()
   return(sens_spec_j_plot)
 }
+
+# function to pick the best config name accordong to ROC AUC
+# so that you cna use it to get its J-index
+best_config_name <- function(resamples) {
+  resamples %>% 
+    show_best("roc_auc") %>% 
+    pull(.config) %>% 
+    pluck(1)
+}
