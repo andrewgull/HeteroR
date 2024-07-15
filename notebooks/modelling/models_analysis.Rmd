@@ -29,8 +29,8 @@ library(skimr)
 library(stacks)
 library(bestNormalize) # for ord QQ norm
 library(tidyposterior) # for Bayesian ANOVA
-#library(embed) # for UMAP
 library(finetune) # for win-loss tuning
+library(knitr)
 source("functions.R")
 
 # path for models
@@ -53,7 +53,8 @@ data_strain <- data_strain %>%
 
 data_strain %>% 
   group_by(resistance) %>% 
-  count()
+  count() %>% 
+  kable()
 ```
 
 Pre-preprocessing
@@ -72,10 +73,10 @@ data_strain$nc.beta.lac.plasmid <- NULL
 data_strain$n.beta.lac.chrom <- NULL
 data_strain$N50 <- NULL
 data_strain[is.na(data_strain)] <- 0
-```
 
-```{r}
-skim(data_strain) %>% yank("factor")
+skim(data_strain) %>% 
+  yank("factor") %>% 
+  kable()
 ```
 
 We have unbalanced target class
@@ -94,13 +95,15 @@ df_test <- testing(data_split)
 
 df_train %>% 
   count(resistance) %>% 
-  mutate(prop = n/sum(n))
+  mutate(prop = n/sum(n)) %>% 
+  kable()
 ```
 
 ```{r}
 df_test %>% 
   count(resistance) %>% 
-  mutate(prop = n/sum(n))
+  mutate(prop = n/sum(n)) %>% 
+  kable()
 ```
 
 # Preprocessing recipes
@@ -128,7 +131,12 @@ base_recipe %>% prep() %>% juice() %>% dim()
 Target class:
 
 ```{r}
-base_recipe %>% prep() %>% juice() %>% group_by(resistance) %>% count()
+base_recipe %>% 
+  prep() %>% 
+  juice() %>% 
+  group_by(resistance) %>% 
+  count() %>% 
+  kable()
 ```
 
 
@@ -281,7 +289,10 @@ base_boruta_recipe %>% prep() %>% juice() %>% ncol()
 base_yj_boruta_recipe <- base_yj_recipe %>% 
   step_select_boruta(all_predictors(), outcome = "resistance")
 
-base_yj_boruta_recipe %>% prep() %>% juice() %>% ncol()
+base_yj_boruta_recipe %>% 
+  prep() %>% 
+  juice() %>% 
+  ncol()
 ```
 
 
@@ -341,13 +352,15 @@ conf_mat(rule_pred, truth = resistance, estimate = pred)
 
 ```{r}
 conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
-  summary()
+  summary() %>% 
+  kable()
 ```
 
 MAE
 
 ```{r}
-mae_4bl_model(rule_pred)
+mae_4bl_model(rule_pred) %>% 
+  kable()
 ```
 
 
@@ -361,13 +374,15 @@ rule_pred <-
   select(pred, resistance)
 
 conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
-  summary()
+  summary() %>% 
+  kable()
 ```
 
 MAE
 
 ```{r}
-mae_4bl_model(rule_pred)
+mae_4bl_model(rule_pred) %>% 
+  kable()
 ```
 
 
@@ -381,13 +396,15 @@ rule_pred <-
   select(pred, resistance)
 
 conf_mat(rule_pred, truth = resistance, estimate = pred) %>% 
-  summary()
+  summary() %>% 
+  kable()
 ```
 
 MAE
 
 ```{r}
-mae_4bl_model(rule_pred)
+mae_4bl_model(rule_pred) %>% 
+  kable()
 ```
 
 
@@ -409,13 +426,14 @@ autoplot(lr_base_res)
 
 ```{r}
 lr_base_res %>% 
-  show_best("roc_auc", n = 5) 
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 lr_base_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == get_config_name(lr_base_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -430,13 +448,15 @@ autoplot(lr_base_yj_res)
 ### Best models
 
 ```{r}
-show_best(lr_base_yj_res)
+lr_base_yj_res %>%
+  show_best(metric = "roc_auc", n = 3) %>%
+  kable()
 ```
 
 ```{r}
 lr_base_yj_res %>% 
-  show_best(metric = "j_index") %>% 
-  filter(.config == best_config_name(lr_base_yj_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 The same model is the best
@@ -453,13 +473,14 @@ lr_base_orq_res %>% autoplot()
 
 ```{r}
 lr_base_orq_res %>%
-  show_best("roc_auc", n = 5)
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 lr_base_orq_res %>% 
-  show_best(metric = "j_index") %>% 
-  filter(.config == best_config_name(lr_base_orq_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 ## PCA recipe
@@ -546,7 +567,8 @@ autoplot(lr_posterior)
 ```{r}
 preproc_diff <- contrast_models(lr_posterior, seed = 100) 
 
-summary(preproc_diff)
+summary(preproc_diff) %>% 
+  kable()
 ```
 
 Columns `upper` and `lower` represent credible interval for the mean
@@ -584,13 +606,14 @@ autoplot(lsvm_ncorr_res)
 
 ```{r}
 lsvm_ncorr_res %>% 
-  show_best("roc_auc", n = 5)
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 lsvm_ncorr_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(lsvm_ncorr_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -606,13 +629,14 @@ autoplot(lsvm_ncoryj_res)
 
 ```{r}
 lsvm_ncoryj_res %>% 
-  show_best("roc_auc", n = 5)
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 lsvm_ncoryj_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(lsvm_ncoryj_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -627,13 +651,15 @@ autoplot(lsvm_ncorq_res)
 ### Best models
 
 ```{r}
-lsvm_ncorq_res %>% show_best("roc_auc")
+lsvm_ncorq_res %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 lsvm_ncorq_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(lsvm_ncorq_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -648,13 +674,14 @@ autoplot(lsvm_pca_res)
 ### Best models
 
 ```{r}
-show_best(lsvm_pca_res, metric = "roc_auc")
+show_best(lsvm_pca_res, metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 lsvm_pca_res %>%
-  show_best(metric = "j_index", n=50) %>% 
-  filter(.config == best_config_name(lsvm_pca_res))
+  show_best_j(n=50) %>% 
+  kable()
 ```
 
 
@@ -739,7 +766,8 @@ autoplot(lsvm_posterior)
 ```{r}
 lsvm_preproc_diff <- contrast_models(lsvm_posterior, seed = 100) 
 
-summary(lsvm_preproc_diff)
+summary(lsvm_preproc_diff) %>% 
+  kable()
 ```
 
 # Polynomial support vector machines (polySVM)
@@ -756,13 +784,14 @@ autoplot(psvm_ncorr_res)
 
 ```{r}
 psvm_ncorr_res %>% 
-  show_best("roc_auc", n = 5)
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 psvm_ncorr_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(psvm_ncorr_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -777,13 +806,14 @@ autoplot(psvm_ncoryj_res)
 ### Best models
 
 ```{r}
-show_best(psvm_ncoryj_res, metric = "roc_auc")
+show_best(psvm_ncoryj_res, metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 psvm_ncoryj_res %>%
-  show_best(metric = "j_index", n = 15) %>% 
-  filter(.config == best_config_name(psvm_ncoryj_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -799,13 +829,14 @@ autoplot(psvm_ncorq_res)
 
 ```{r}
 psvm_ncorq_res %>% 
-  show_best("roc_auc")
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 psvm_ncorq_res %>% 
-  show_best("j_index") %>% 
-  filter(.config == best_config_name(psvm_ncorq_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 
@@ -821,13 +852,14 @@ autoplot(psvm_pca_res)
 
 ```{r}
 psvm_pca_res %>% 
-  show_best("roc_auc")
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 psvm_pca_res %>% 
-  show_best("j_index", n = 50) %>% 
-  filter(.config == best_config_name(psvm_pca_res))
+  show_best_j(n = 50) %>% 
+  kable()
 ```
 
 
@@ -924,7 +956,8 @@ autoplot(psvm_posterior)
 ```{r}
 psvm_preproc_diff <- contrast_models(psvm_posterior, seed = 100) 
 
-summary(psvm_preproc_diff)
+summary(psvm_preproc_diff) %>% 
+  kable()
 ```
 
 # Radial Basis Function SVM
@@ -940,13 +973,14 @@ autoplot(rbf_ncorr_res)
 ### Best models
 
 ```{r}
-show_best(rbf_ncorr_res, metric = "roc_auc")
+show_best(rbf_ncorr_res, metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 rbf_ncorr_res %>% 
-  show_best(metric = "j_index") %>% 
-  filter(.config == best_config_name(rbf_ncorr_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 
@@ -961,12 +995,13 @@ autoplot(rbf_ncoryj_res)
 ### Best models
 
 ```{r}
-show_best(rbf_ncoryj_res, metric = "roc_auc")
+show_best(rbf_ncoryj_res, metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 rbf_ncoryj_res %>% 
-  show_best(metric = "j_index", n = 15) %>% 
+  show_best_j(n = 15) %>% 
   filter(.config == best_config_name(rbf_ncoryj_res))
 ```
 
@@ -982,13 +1017,14 @@ autoplot(rbf_ncorq_res)
 ### Best models
 
 ```{r}
-show_best(rbf_ncorq_res, metric = "roc_auc")
+show_best(rbf_ncorq_res, metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 rbf_ncorq_res %>% 
-  show_best(metric = "j_index") %>% 
-  filter(.config == best_config_name(rbf_ncorq_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 
@@ -1002,13 +1038,14 @@ autoplot(rbf_pca_res)
 
 
 ```{r}
-show_best(rbf_pca_res, metric = "roc_auc")
+show_best(rbf_pca_res, metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 rbf_pca_res %>% 
-  show_best(metric = "j_index", n = 15) %>% 
-  filter(.config == best_config_name(rbf_pca_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -1095,7 +1132,8 @@ autoplot(rbf_posterior)
 ```{r}
 rbf_preproc_diff <- contrast_models(rbf_posterior, seed = 100) 
 
-summary(rbf_preproc_diff)
+summary(rbf_preproc_diff) %>% 
+  kable()
 ```
 
 # Random Forest (RF)
@@ -1112,13 +1150,14 @@ autoplot(rf_base_res)
 
 ```{r}
 rf_base_res %>% 
-  show_best("roc_auc", n = 5)
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 rf_base_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(rf_base_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -1132,13 +1171,13 @@ autoplot(rf_base_bor_res)
 
 ```{r}
 rf_base_bor_res %>% 
-  show_best("roc_auc")
+  show_best("roc_auc", n = 3)
 ```
 
 ```{r}
 rf_base_bor_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(rf_base_bor_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -1214,7 +1253,8 @@ autoplot(rf_posterior)
 ```{r}
 rf_preproc_diff <- contrast_models(rf_posterior, seed = 100) 
 
-summary(rf_preproc_diff)
+summary(rf_preproc_diff) %>% 
+  kable()
 ```
 
 # Gradient Boosted Trees (GBT)
@@ -1236,12 +1276,13 @@ autoplot(bt_base_res)
 
 ```{r}
 bt_base_res %>% 
-  show_best(metric = "roc_auc")
+  show_best(metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 bt_base_res %>% 
-  show_best(metric = "j_index", n = 50) %>% 
+  show_best_j(n = 50) %>% 
   filter(.config == best_config_name(bt_base_res))
 ```
 
@@ -1261,15 +1302,13 @@ bt_base_bres %>%
 
 ```{r}
 bt_base_bres %>% 
-  show_best(metric = "roc_auc") 
+  show_best(metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 >Shrinkage (learning rate) is a gradient boosting regularization procedure that helps modify the update rule, which is aided by a parameter known as the learning rate. The use of learning rates below 0.1 produces improvements that are significant in the generalization of a model.
 
-```{r}
-bt_base_bres %>% 
-  show_best(metric = "j_index") 
-```
+No j-index available
 
 
 ## Base recipe + Boruta feature selection
@@ -1283,8 +1322,17 @@ autoplot(bt_base_bor_res)
 ### Best models
 
 ```{r}
-show_best(bt_base_bor_res)
+bt_base_bor_res %>%
+  show_best(metric = "roc_auc", n = 3) %>%
+  kable()
 ```
+
+```{r}
+bt_base_bor_res %>% 
+  show_best_j(n = 35) %>% 
+  kable()
+```
+
 
 ## Comparison of the preprocessors
 
@@ -1348,7 +1396,7 @@ bt_comp <-
 bt_posterior <-
   perf_mod(
     bt_comp,
-    iter = 4000,
+    iter = 6000,
     seed = 100,
     refresh = 0,
     chains = 5,
@@ -1363,7 +1411,8 @@ autoplot(bt_posterior)
 ```{r}
 bt_preproc_diff <- contrast_models(bt_posterior, seed = 100) 
 
-summary(bt_preproc_diff) 
+summary(bt_preproc_diff) %>% 
+  kable()
 ```
 
 # Multilayer perceptron (MLP)
@@ -1383,13 +1432,14 @@ autoplot(mlp_ncor_res)
 
 ```{r}
 mlp_ncor_res %>% 
-  show_best("roc_auc")
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 mlp_ncor_res %>% 
-  show_best("j_index") %>% 
-  filter(.config == best_config_name(mlp_ncor_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 
@@ -1405,13 +1455,14 @@ mlp_ncoryj_res %>% autoplot()
 
 ```{r}
 mlp_ncoryj_res %>% 
-  show_best("roc_auc")
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 mlp_ncoryj_res %>% 
-  show_best("j_index") %>% 
-  filter(.config == best_config_name(mlp_ncoryj_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 
@@ -1427,13 +1478,14 @@ mlp_ncorq_res %>% autoplot()
 
 ```{r}
 mlp_ncorq_res %>% 
-  show_best(metric = "roc_auc")
+  show_best(metric = "roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 mlp_ncorq_res %>% 
-  show_best(metric = "j_index") %>% 
-  filter(.config == best_config_name(mlp_ncorq_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 
@@ -1449,13 +1501,14 @@ mlp_pca_res %>% autoplot()
 
 ```{r}
 mlp_pca_res %>% 
-  show_best("roc_auc")
+  show_best("roc_auc", n = 3) %>% 
+  kable()
 ```
 
 ```{r}
 mlp_pca_res %>% 
-  show_best("j_index") %>% 
-  filter(.config == best_config_name(mlp_pca_res))
+  show_best_j(n = 5) %>% 
+  kable()
 ```
 
 
@@ -1472,13 +1525,15 @@ autoplot(mlp_bag_ncorr_res)
 ### Best models
 
 ```{r}
-show_best(mlp_bag_ncorr_res, "roc_auc")
+mlp_bag_ncorr_res %>%
+  show_best("roc_auc", n = 3) %>%
+  kable()
 ```
 
 ```{r}
 mlp_bag_ncorr_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(mlp_bag_ncorr_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -1493,13 +1548,15 @@ autoplot(mlp_bag_ncoryj_res)
 ### Best models
 
 ```{r}
-show_best(mlp_bag_ncoryj_res, metric = "roc_auc")
+mlp_bag_ncoryj_res %>%
+  show_best(metric = "roc_auc", n = 3) %>%
+  kable()
 ```
 
 ```{r}
 mlp_bag_ncoryj_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(mlp_bag_ncoryj_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 
@@ -1514,13 +1571,15 @@ autoplot(mlp_bag_ncorq_res)
 ### Best models
 
 ```{r}
-show_best(mlp_bag_ncorq_res, metric = "roc_auc")
+mlp_bag_ncorq_res %>%
+  show_best(metric = "roc_auc", n = 3) %>%
+  kable()
 ```
 
 ```{r}
 mlp_bag_ncorq_res %>% 
-  show_best("j_index", n = 15) %>% 
-  filter(.config == best_config_name(mlp_bag_ncorq_res))
+  show_best_j(n = 15) %>% 
+  kable()
 ```
 
 ## PCA
@@ -1534,13 +1593,15 @@ autoplot(mlp_bag_ncoryj_res)
 ### Best models
 
 ```{r}
-show_best(mlp_bag_pca_res, metric = "roc_auc")
+mlp_bag_pca_res %>%
+  show_best(metric = "roc_auc", n = 3) %>%
+  kable()
 ```
 
 ```{r}
 mlp_bag_pca_res %>% 
-  show_best(metric = "j_index", n = 25) %>% 
-  filter(.config == best_config_name(mlp_bag_pca_res))
+  show_best_j(n = 25) %>% 
+  kable()
 ```
 
 
@@ -1631,7 +1692,8 @@ autoplot(mlp_posterior)
 ```{r}
 mlp_preproc_diff <- contrast_models(mlp_posterior, seed = 100) 
 
-summary(mlp_preproc_diff)
+summary(mlp_preproc_diff) %>% 
+  kable()
 ```
 
 
@@ -1639,7 +1701,7 @@ summary(mlp_preproc_diff)
 
 One best from each group
 
-LR YJ
+LR ORQ
 rbfSVM ORQ
 linSVM ORQ
 polySVM ORQ
@@ -1745,7 +1807,8 @@ Fig_all_rocs_all_posterior
 ```{r}
 mod_diff <- contrast_models(mod_posterior, seed = 100) 
 
-summary(mod_diff)
+summary(mod_diff) %>% 
+  kable()
 ```
 
 Save this table
@@ -1758,17 +1821,23 @@ write_csv(summary(mod_diff), "manuscript/tables/contrast_all_models.csv" )
 ### Insignificant differences in mean AUCs:
 
 ```{r}
-summary(mod_diff) %>% filter(lower < 0, upper > 0)
+summary(mod_diff) %>%
+  filter(lower < 0, upper > 0) %>% 
+  kable()
 ```
 
 ### Significant differences in mean AUCs:
 
 ```{r}
-summary(mod_diff) %>% filter(lower < 0, upper < 0)
+summary(mod_diff) %>%
+  filter(lower < 0, upper < 0) %>% 
+  kable()
 ```
 
 ```{r}
-summary(mod_diff) %>% filter(lower > 0, upper > 0)
+summary(mod_diff) %>%
+  filter(lower > 0, upper > 0) %>% 
+  kable()
 ```
 
 
@@ -1869,7 +1938,8 @@ mod_diff <- contrast_models(mod_posterior, seed = 100)
 
 write_csv(summary(mod_diff), "manuscript/tables/contrast_top_models.csv" )
 
-summary(mod_diff)
+summary(mod_diff) %>% 
+  kable()
 ```
 
 # Final fit
@@ -2085,7 +2155,8 @@ map2_dfr(
   mod_finals,
   mod_labels,
   ~ get_metrics(.x, .y)) %>%
-  pivot_wider(names_from = model, values_from = .estimate)
+  pivot_wider(names_from = model, values_from = .estimate) %>% 
+  kable()
 ```
 
 ### MAE
@@ -2100,14 +2171,16 @@ then use standard MAE formula
 lr_final[[2]] %>%
   collect_predictions() %>% 
   mutate(score = if_else(resistance == "HR", 1, 0)) %>% 
-  mae(truth = score, estimate = .pred_HR)
+  mae(truth = score, estimate = .pred_HR) %>% 
+  kable()
 ```
 
 ```{r}
 gbt_base_final[[2]] %>%
   collect_predictions() %>% 
   mutate(score = if_else(resistance == "HR", 1, 0)) %>% 
-  mae(truth = score, estimate = .pred_HR)
+  mae(truth = score, estimate = .pred_HR) %>% 
+  kable()
 ```
 
 This metric doesn't depend on the classification threshold.
@@ -2147,7 +2220,8 @@ lr_final[[2]] %>%
   get_threshold() %>%
   filter(.metric == "j_index") %>%
   filter(.estimate == max(.estimate)) %>%
-  slice_tail()
+  slice_tail() %>% 
+  kable()
 ```
 
 ### GBT prob cutoff
@@ -2168,7 +2242,8 @@ gbt_base_final[[2]] %>%
   get_threshold() %>%
   filter(.metric == "j_index") %>%
   filter(.estimate == max(.estimate)) %>%
-  slice_tail()
+  slice_tail() %>% 
+  kable()
 ```
 
 ### LR and GBT prob cutoff together
@@ -2238,7 +2313,8 @@ map2_dfr(
   mod_labels,
   ~ get_metrics2(.x, .y)) %>%
   pivot_wider(names_from = model, values_from = .estimate) %>% 
-  select(-.estimator)
+  select(-.estimator) %>% 
+  kable()
 ```
 
 # Post-modelling analysis
@@ -2375,7 +2451,8 @@ lr_coeff_df <- lr_final[[2]] %>%
                   )) %>%
   filter(term != "(Intercept)")
 
-lr_coeff_df
+lr_coeff_df %>% 
+  kable()
 ```
 
 On the `odds.ratio` column: 
@@ -2390,7 +2467,8 @@ On the `odds.ratio` column:
 ```{r feat pos}
 lr_coeff_df %>% 
   filter(odds.ratio < 1.0) %>% 
-  select(term)
+  select(term) %>% 
+  kable()
 ```
 
 ### Predictors increasing the risk of HR
@@ -2398,7 +2476,8 @@ lr_coeff_df %>%
 ```{r feat neg}
 lr_coeff_df %>% 
   filter(odds.ratio >= 1.0) %>% 
-  select(term)
+  select(term) %>% 
+  kable()
 ```
 
 ### Plots
@@ -2530,7 +2609,10 @@ vip_gbt <- model_parts(explainer_final,
                        N = NULL)
 
 # 90 predictors
-vip_gbt %>% group_by(variable) %>% summarise(m = median(dropout_loss))
+vip_gbt %>% 
+  group_by(variable) %>% 
+  summarise(m = median(dropout_loss)) %>% 
+  kable()
 ```
 
 
@@ -2760,7 +2842,7 @@ tp_contrib <- show_contribution("DA63150")
 fp_contrib %>% arrange(-contribution)
 ```
 
-```{r}
+```{r, eval=FALSE}
 fp_contrib %>% 
   filter(variable_name != "") %>% 
   slice_max(order_by = abs(contribution), n = 20) %>% 
@@ -2771,7 +2853,7 @@ fp_contrib %>%
   ggtitle("DA63072")
 ```
 
-```{r}
+```{r, eval=FALSE}
 tp_contrib %>% 
   filter(variable_name != "") %>% 
   slice_max(order_by = abs(contribution), n = 20) %>% 
@@ -2783,13 +2865,11 @@ tp_contrib %>%
 ```
 
 
-
-
 ### SHAP
 
 TP and FP
 
-```{r, fig.width=10, fig.height=5}
+```{r, fig.width=10, fig.height=5, eval=FALSE}
 library(forcats)
 library(patchwork)
 
@@ -2850,7 +2930,7 @@ plot_shap_fp20 <- shap_fp %>%
 
 TN and FN
 
-```{r, fig.width=10, fig.height=5}
+```{r, fig.width=10, fig.height=5, eval=FALSE}
 shap_tn <- 
   predict_parts(
     explainer = explainer_final, 
