@@ -161,10 +161,18 @@ senspec_plot <- function(fit_obj, title="") {
 }
 
 # function to pick the best config name accordong to ROC AUC
-# so that you cna use it to get its J-index
+# so that you can use it to get its J-index
 best_config_name <- function(resamples) {
   resamples %>% 
     show_best("roc_auc") %>% 
     pull(.config) %>% 
     pluck(1)
+}
+
+# use the function above to extract the best j-index
+# for the same config that gives you best ROC
+show_best_j <- function(resamples, n) {
+  resamples %>% 
+  show_best(metric = "j_index", n = n) %>% 
+    filter(.config == best_config_name(resamples))
 }
