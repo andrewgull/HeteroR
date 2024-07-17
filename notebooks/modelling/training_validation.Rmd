@@ -1,8 +1,20 @@
 ---
 title: "Training and validation of models using workflowsets"
 author: "by M.R. & A.G."
-output: html_document
 date:  "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+    code_folding: hide
+    fig_width: 10
+    fig_height: 6
+    theme: journal
+    highlight: kate
+    toc_float: yes
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r, message=FALSE}
@@ -428,7 +440,7 @@ models_bt
 ```
 
 
-```{r, eval=F}
+```{r}
 get_bt_bres <- function(file_path) {
  
   if (!file.exists(file_path)) {
