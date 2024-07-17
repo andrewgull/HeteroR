@@ -2524,7 +2524,7 @@ Fig_LR_predictors_alt <-
     name =,
     direction = -1
   ) +
-  scale_y_break(c(3, 29), ticklabels = c(30)) +
+  scale_y_break(c(3, 28), ticklabels = c(29)) +
   theme(
     legend.position = "top",
     axis.text.x = element_text(
@@ -2604,7 +2604,7 @@ explainer_final <-
 
 vip_gbt <- model_parts(explainer_final, 
                        loss_function = loss_one_minus_auc,
-                       B = 50, 
+                       B = 500, 
                        type = "difference",
                        N = NULL)
 
@@ -2612,6 +2612,7 @@ vip_gbt <- model_parts(explainer_final,
 vip_gbt %>% 
   group_by(variable) %>% 
   summarise(m = median(dropout_loss)) %>% 
+  arrange(-m) %>% 
   kable()
 ```
 
@@ -2798,7 +2799,7 @@ their classification as HR
 
 #### Select FP/FN
 
-```{r}
+```{r, eval=FALSE}
 bt_model_final[[2]] %>% collect_predictions() %>% 
   mutate(FP = if_else(.pred_class == "HR" & resistance == "nonHR", "FP", NA),
          FN = if_else(.pred_class == "nonHR" & resistance == "HR", "FN", NA),
