@@ -1646,12 +1646,19 @@ data_strain %>%
 
 ## Amplifiable region size
 
+*A note on 0 nt long AR in the data.strain table*
+
+
+In data.strain table AR sizes for each strain are averaged across all repeat pairs in this strain, plus all NAs were replaced by 0s, which in turn means that every median AR that equals 0 is in fact either NA or a median of an array with many 0s, for example `median(c(0,0,0,0,5)) == 0`.
+
+AR of size 0 is non-existing AR and should be excluded form the analysis.
+
 ```{r}
 ar_len <- data_strain %>% 
   select(resistance, med.AR.len.chrom, med.AR.len.plasmid, med.AR.len) %>% 
-  rename(med.AR.len.chrom = "chromosome",
-         med.AR.len.plasmid = "plasmids",
-         med.AR.len = "total") %>% 
+  dplyr::rename(chromosome = med.AR.len.chrom,
+          plasmids = med.AR.len.plasmid,
+          total = med.AR.len) %>% 
   gather("location", "ar.len", 2:4)
 
 
@@ -1704,6 +1711,7 @@ Fig_rep_count_rep_len_AR_len
 
 ```{r}
 ar_len %>% 
+  filter(ar.len > 0) %>% 
   group_by(location, resistance) %>%
   summarise(median = median(ar.len))
 ```
@@ -1712,24 +1720,24 @@ ar_len %>%
 
 ```{r}
 ar_len_kw <- function(loc, ar_df = ar_len){
-  df <- ar_df %>% filter(location == loc)
+  df <- ar_df %>% filter(location == loc, ar.len > 0)
   return(kruskal.test(df$ar.len, df$resistance))
 }
 
-ar_len_kw("med.AR.len")
+ar_len_kw("total")
 ```
 
 ### Kruskal-Wallis test: plasmids
 
 ```{r}
-ar_len_kw("med.AR.len.plasmid")
+ar_len_kw("plasmids")
 ```
 
 
 ### Kruskal-Wallis test: chromosomes
 
 ```{r}
-ar_len_kw("med.AR.len.chrom")
+ar_len_kw("chromosome")
 ```
 
 ## ampC-type beta-lactamases
@@ -2067,6 +2075,50 @@ data_strain %>%
 ```{r}
 kruskal.test(data_strain$n.is.tot, data_strain$resistance)
 ```
+#### Correlation with nuber of beta-lactamases
+
+H1: number of IS per strain correlate with number of beta-lactamase genes, because the regions scanned for IS elements are taken around beta-lac genes and are overlapping, therefore making IS counts inflated.
+
+```{r}
+data_strain %>% 
+  ggplot(aes(n.beta.lac, n.is.tot)) +
+  geom_point(aes(color = resistance)) +
+  scale_color_brewer(palette = "Pastel1") +
+  theme_minimal()
+```
+
+Poisson regression: count Y ~ continuous X
+
+```{r}
+fit <- glm(n.beta.lac ~ n.is.tot + resistance, data = data_strain, family = "poisson")
+summary(fit)
+```
+
+exp() the coefficients:
+
+```{r}
+exp(coef(fit))
+```
+
+Correlation coefficient:
+
+- Kendall's tau
+
+```{r}
+cor.test(data_strain$n.beta.lac, 
+         data_strain$n.is.tot, 
+         method = "kendall")
+```
+
+- Spearman's rho
+
+```{r}
+cor.test(data_strain$n.beta.lac,
+         data_strain$n.is.tot,
+         method = "spearman",
+         exact = F)
+```
+
 
 ### Total family number
 
