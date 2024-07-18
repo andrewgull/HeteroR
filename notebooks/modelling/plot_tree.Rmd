@@ -11,13 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-```{r}
+```{r, message=FALSE}
 library(ggtree)
 library(treeio)
 
 coli_tree <- read.newick("/home/andrei/Data/HeteroR/results/phylogeny/tree/core_genome.contree", node.label = 'label')
 
 coli_tree_root <- root(coli_tree, outgroup = "E_albertii_KF1")
+
+hr_labels <- read.csv("data/heteroresistance_testing.csv", row.names = 1)
 
 str(coli_tree_root)
 ```
@@ -26,15 +28,8 @@ str(coli_tree_root)
 tibble::as_tibble(coli_tree_root$edge)
 ```
 
-```{r}
-hr_labels <- read.csv("data/heteroresistance_testing.csv", row.names = 1)
-hr_labels
-```
-
-
-```{r, fig.width=10, fig.height=12}
+```{r, fig.width=14, fig.height=20}
 tree_plot <- ggtree(coli_tree_root, branch.length = "") + 
-  #geom_tiplab(size=1.5, color="black") +
   geom_strip("DA63750", "DA63034", 
              barsize=2, color='darkred',
             label="B1", offset.text = 0.005, offset = -0.12, fontsize = 10) +
@@ -49,18 +44,17 @@ tree_plot <- ggtree(coli_tree_root, branch.length = "") +
   geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 2, color = "purple",
              label = "E", offset.text = 0.005, offset = -0.12, fontsize = 5)
 
-gheatmap(tree_plot, hr_labels, offset=.05, width=0.05, font.size=3, hjust=0) +
+gheatmap(tree_plot, hr_labels, offset=.05, width=0.05, font.size=3, hjust=0, colnames = FALSE) +
   ggplot2::scale_fill_manual(breaks=c("nonHR", "HR", "R"), 
         values=c("steelblue", "firebrick", "gold"), name="phenotype")
 ```
 
 
-```{r, fig.width=10, fig.height=10}
-tree_plot_circ <- ggtree(coli_tree_root, branch.length = "none") + 
-  #geom_tiplab(size=1.5, color="black") +
+```{r, fig.width=14, fig.height=20}
+tree_plot_clad <- ggtree(coli_tree_root, branch.length = "none") + 
   geom_strip("DA63750", "DA63034", 
              barsize=4, color='darkred',
-            label="B1", offset.text = 4, offset = 0.5, fontsize = 10) +
+            label="B1", offset.text = 2, offset = 0.5, fontsize = 10) +
   geom_strip("DA63090", "DA62946", barsize = 4, color = "blue",
              label = "A", offset.text = 2, offset = 0.5, fontsize = 10) +
   geom_strip("DA63836", "DA63628", barsize = 4, color = "magenta2",
@@ -72,7 +66,7 @@ tree_plot_circ <- ggtree(coli_tree_root, branch.length = "none") +
   geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 4, color = "purple",
              label = "E", offset.text = 2, offset = 0.5, fontsize = 10)
 
-gheatmap(tree_plot_circ, hr_labels, offset=9, width=0.05, font.size=3, hjust=0, colnames = FALSE) +
+gheatmap(tree_plot_clad, hr_labels, offset=9, width=0.05, font.size=3, hjust=0, colnames = FALSE) +
   ggplot2::scale_fill_manual(breaks=c("nonHR", "HR", "R"), 
         values=c("steelblue", "firebrick", "gold"), name="phenotype")
 ```
