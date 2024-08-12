@@ -9,9 +9,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Data: tree and labels
 
 ```{r, message=FALSE}
+# BiocManager is required
 library(ggtree)
 library(treeio)
 
@@ -19,36 +20,67 @@ coli_tree <- read.newick("/home/andrei/Data/HeteroR/results/phylogeny/tree/core_
 
 coli_tree_root <- root(coli_tree, outgroup = "E_albertii_KF1")
 
+# read in the HR classification labels
 hr_labels <- read.csv("data/heteroresistance_testing.csv", row.names = 1)
 
-str(coli_tree_root)
+# add reference strains
+ref_labels_df <- data.frame(row.names = coli_tree_root$tip.label[!grepl("DA", coli_tree_root$tip.label)], 'resistance' = rep("ref", 31))
+
+hr_labels <- 
 ```
 
 ```{r}
 tibble::as_tibble(coli_tree_root$edge)
 ```
 
+## Vertical phylogram
+
 ```{r, fig.width=14, fig.height=20}
-tree_plot <- ggtree(coli_tree_root, branch.length = "") + 
+tree_plot <- ggtree(coli_tree_root, branch.length = "", layout = "rectangular", ladderize = TRUE, size = 1) + 
   geom_strip("DA63750", "DA63034", 
-             barsize=2, color='darkred',
+             barsize=4, color='darkred',
             label="B1", offset.text = 0.005, offset = -0.12, fontsize = 10) +
-  geom_strip("DA63090", "DA62946", barsize = 2, color = "blue",
+  geom_strip("DA63090", "DA62946", barsize = 4, color = "blue",
              label = "A", offset.text = 0.005, offset = -0.12, fontsize = 10) +
-  geom_strip("DA63836", "DA63628", barsize = 2, color = "magenta2",
+  geom_strip("DA63836", "DA63628", barsize = 4, color = "magenta2",
              label = "D1", offset.text = 0.005, offset = -0.12, fontsize = 10) +
-  geom_strip("DA63974", "DA63328", barsize = 2, color = "darkorange",
+  geom_strip("DA63974", "DA63328", barsize = 4, color = "darkorange",
              label = "D2/F", offset.text = 0.005, offset = -0.12, fontsize = 10, extend = T) +
-  geom_strip("DA63268", "DA63010", barsize = 2, color = "darkgreen",
+  geom_strip("DA63268", "DA63010", barsize = 4, color = "darkgreen",
              label = "B2", offset.text = 0.005, offset = -0.12, fontsize = 10) +
-  geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 2, color = "purple",
-             label = "E", offset.text = 0.005, offset = -0.12, fontsize = 5)
+  geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 4, color = "purple",
+             label = "E", offset.text = 0.005, offset = -0.12, fontsize = 7)
 
 gheatmap(tree_plot, hr_labels, offset=.05, width=0.05, font.size=3, hjust=0, colnames = FALSE) +
   ggplot2::scale_fill_manual(breaks=c("nonHR", "HR", "R"), 
         values=c("steelblue", "firebrick", "gold"), name="phenotype")
 ```
 
+## Circular phylogram
+
+```{r, fig.width=14, fig.height=20}
+tree_circ <- ggtree(coli_tree_root, branch.length = "", layout = "circular") + 
+  geom_strip("DA63750", "DA63034", 
+             barsize=2, color='darkred',
+            label="B1", offset.text = 0.05, offset = -0.12, fontsize = 10) +
+  geom_strip("DA63090", "DA62946", barsize = 2, color = "blue",
+             label = "A", offset.text = 0.05, offset = -0.12, fontsize = 10) +
+  geom_strip("DA63836", "DA63628", barsize = 2, color = "magenta2",
+             label = "D1", offset.text = 0.05, offset = -0.12, fontsize = 10) +
+  geom_strip("DA63974", "DA63328", barsize = 2, color = "darkorange",
+             label = "D2/F", offset.text = 0.05, offset = -0.12, fontsize = 10, extend = F) +
+  geom_strip("DA63268", "DA63010", barsize = 2, color = "darkgreen",
+             label = "B2", offset.text = 0.05, offset = -0.12, fontsize = 10) +
+  geom_strip("O157_H7_Sakai", "O55_H7_CB9615", barsize = 2, color = "purple",
+             label = "E", offset.text = 0.05, offset = -0.12, fontsize = 10) 
+
+gheatmap(tree_circ, hr_labels, offset=.05, width=0.05, font.size=3, hjust=0, colnames = FALSE) +
+  ggplot2::scale_fill_manual(breaks=c("nonHR", "HR", "R"), 
+        values=c("steelblue", "firebrick", "gold"), name="phenotype")
+
+```
+
+## Vertical cladogram
 
 ```{r, fig.width=14, fig.height=20}
 tree_plot_clad <- ggtree(coli_tree_root, branch.length = "none") + 
