@@ -1,5 +1,5 @@
 ---
-title: "Exploratory Data Analysis of Pip/Tazo HR strains"
+title: "Exploratory Data Analysis of the HR detection data set"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 format: 
@@ -11,6 +11,7 @@ format:
     toc-location: left
     df-print: paged
     standalone: true
+    self-contained: true
     code-fold: true
 editor: source
 ---
@@ -36,33 +37,13 @@ my_colors <- RColorBrewer::brewer.pal(9, "Set1")[c(1,2)]
 
 # Intro
 
-Here I explore features of strains tested as HR and non-HR according to the most recent update from Karin.
-
-AB is Piperacillin/Tazobactam
+Here I explore features of strains tested as HR and non-HR.
 
 ------------------------------------------------------------------------
 
-# Read the data
+## Read the data
 
 Data set `data_strain` has been made earlier in `features.qmd`
-
-Look at target class distribution in full data set (500 strains)
-
-We have two classifications of HR:
-
-1.  Groups I and II are considered HR
-
-2.  Groups II and III are considered HR
-
-With the 1st classification and a single best model (XGBTree), I got decent results:
-
-|            |     |       |
-|------------|-----|-------|
-|            | HR  | nonHR |
-| HR pred    | 12  | 9     |
-| nonHR pred | 4   | 46    |
-
-So, the results below will look different depending on the classification scheme chosen!
 
 Copy the most up to date version of features tables to `data/`
 
@@ -98,16 +79,16 @@ strains <- data_strain$strain
 dim(data_strain)
 ```
 
-# Descriptive stats
+## Descriptive stats
 
-## Factors
+### Factors
 
 ```{r}
 skim(data_strain) %>% 
   yank("factor")
 ```
 
-### Target class distribution
+#### Target class distribution
 
 ```{r}
 data_strain %>% 
@@ -115,7 +96,7 @@ data_strain %>%
   count()
 ```
 
-## Circularity in tested strains
+### Circularity in tested strains
 
 ```{r}
 data_strain %>% 
@@ -129,11 +110,12 @@ data_strain %>%
   group_by(resistance, chrom.status) %>% 
   count() %>% 
   ggplot(aes(chrom.status, n)) +
-  geom_col(position = "dodge") + 
-  facet_grid(cols = vars(resistance))
+  geom_col(position = "dodge", fill="steelblue", alpha = 0.7) + 
+  facet_grid(cols = vars(resistance)) +
+  theme_bw()
 ```
 
-## Numerical
+### Numerical
 
 ```{r}
 skim(data_strain) %>% 
@@ -147,29 +129,15 @@ N50 statistic comes only from Unicycler logs, that's why it is not available for
 I will remove it.
 
 ```{r}
-# TEMPORARILY: remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
-# reasons for both are currently unclear
+# Remove n.beta.lac.chrom & nc.beta.lac.plasmid -> 1st one has negative numbers, 2nd one has many NAs
 data_strain$nc.beta.lac.plasmid <- NULL
 data_strain$n.beta.lac.chrom <- NULL
+data_strain[is.na(data_strain)] <- 0
 
 dim(data_strain)
 ```
 
-### n.plasmids outliers
-
-```{r}
-data_strain %>% 
-  filter(n.plasmids > 20) %>% 
-  select(strain, chrom.status, resistance, n.plasmids)
-```
-
-# NAs to 0s
-
-```{r}
-data_strain[is.na(data_strain)] <- 0
-```
-
-# Write the first processed version of the data set to shiny's data directory
+Write the first processed version of the data set to shiny's data directory
 
 ```{r, eval=FALSE}
 write.csv(data_strain, file = "EDA_app/data/features_strain.csv", row.names = FALSE)
@@ -179,27 +147,11 @@ All pre-processing will be done with `recipes`
 
 ------------------------------------------------------------------------
 
-# EDA
+# Data exploration starts here
 
 ## Correlation plot
 
-### As is
-
-```{r, fig.width=14, fig.height=10, warning=FALSE}
-# without resistance
-cor_matrix <- data_strain %>%
-  select(-c(
-    strain,
-    resistance,
-    chrom.status,
-    contains(c("APH", "ANT", "PH", "CAT", "AAC", "SAT", "DHA", "qnr"), ignore.case = FALSE)
-  )) %>%
-  cor(use = "pairwise.complete.obs", method = "spearman")
-
-corrplot::corrplot(cor_matrix, type = "upper", tl.col = "black", tl.cex = 0.6)
-```
-
-### ORQ Normalization
+With ORQ Normalization
 
 ```{r, fig.width=12, fig.height=12, warning=FALSE}
 orq_recipe <- recipe(resistance ~., data = data_strain) %>%
@@ -242,9 +194,6 @@ Fig_PCA <- pcayj_recipe %>%
   plot_validation_results(c("PC1", "PC2", "PC3", "PC4"), my_colors) +
   ggtitle("Principal Component Analysis")
 
-ggsave(file="manuscript/images/Fig_PCA.png", 
-       plot=Fig_PCA, width = 8, height=4, units = "in")
-
 Fig_PCA
 ```
 
@@ -266,8 +215,6 @@ var_df <- var_df %>%
 var_df
 ```
 
-10 PCs explain 70% of variation 18 PCs needed to explain 80% of variation 30 PCs needed to explain 90% of variation
-
 #### Plot
 
 ```{r, fig.width=12, fig.height=6}
@@ -278,7 +225,9 @@ var_df %>%
   geom_col(aes(fill = var_cum_sum)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, size = 15)) +
   scale_fill_continuous(type = "viridis") +
-  xlab("")
+  xlab("") +
+  ylab("explained variance") + 
+  labs(fill = "cumulative variance")
 ```
 
 ### Top loadings
@@ -293,115 +242,6 @@ data_pca %>%
   plot_top_loadings(component_number <= 6, n = 5) + 
   scale_fill_brewer(palette = "Paired") +
   ggtitle("Principal Components Decomposition")
-```
-
-## Polynomial k-basis PCA
-
-Kernel principal component analysis (kPCA) is an extension of a PCA analysis that conducts the calculations in a broader dimensionality defined by a kernel function
-
-```{r}
-kpcayj_recipe <- 
-  recipe(resistance ~ ., data = data_strain) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_YeoJohnson(all_numeric_predictors())  %>%
-  step_normalize(all_numeric_predictors()) %>%
-  step_kpca_poly(all_numeric_predictors(), num_comp = 9) %>% 
-  step_normalize(all_numeric_predictors())
-
-Fig_kPCA <- kpcayj_recipe %>% 
-  prep() %>% 
-  juice() %>% 
-  plot_validation_results(c("kPC1", "kPC2", "kPC3", "kPC4"), my_colors) +
-  ggtitle("Kernel Principal Component Analysis")
-
-ggsave(file="manuscript/images/Fig_kPCA.png", plot=Fig_kPCA, width = 8, height=4, units = "in")
-
-Fig_kPCA
-```
-
-## ICA - Independent Component Analysis
-
-```{r, message=FALSE, warning=FALSE}
-if (!require(fastICA)) 
-  install.packages("fastICA")
-
-ica_recipe <- 
-  recipe(resistance ~ ., data = data_strain) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_YeoJohnson(all_numeric_predictors())  %>%
-  step_normalize(all_numeric_predictors()) %>% 
-  step_ica(all_numeric_predictors(), num_comp = 5) %>% 
-  step_normalize(all_numeric_predictors())
-
-data_ica <- prep(ica_recipe, retain = TRUE)
-
-data_ica$template %>% 
-  plot_validation_results(c("IC1", "IC2", "IC3", "IC4"), my_) + 
-  ggtitle("Independent Component Analysis")
-```
-
-## Isomap Embedding
-
-```{r}
-# if (!require(dimRed)){
-#   install.packages("dimRed")
-# }
-# 
-# if (!require(RSpectra)){
-#   install.packages("RSpectra")
-# }
-
-isomap_recipe <- 
-  recipe(resistance ~ ., data = data_strain) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_YeoJohnson(all_numeric_predictors())  %>%
-  step_normalize(all_numeric_predictors()) %>% 
-  step_isomap(all_numeric_predictors(), num_terms = 5, neighbors = 10) %>% 
-  step_normalize(all_numeric_predictors())
-
-isomap_recipe %>% 
-  prep() %>% 
-  juice() %>% 
-  plot_validation_results(c("Isomap1", "Isomap2", "Isomap3", "Isomap4")) + 
-  ggtitle("Isomap Embedding")
-```
-
-## PLS
-
-it's a supervised version of PCA, be careful!
-
-```{r}
-# if (!require("BiocManager", quietly = TRUE))
-#     install.packages("BiocManager")
-# 
-# if (!require(mixOmics, quietly = TRUE))
-#   BiocManager::install("mixOmics")
-
-pls_recipe <- 
-  recipe(resistance ~ ., data = data_strain) %>%
-  update_role(strain, new_role = "ID") %>%
-  step_nzv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_YeoJohnson(all_numeric_predictors())  %>%
-  step_normalize(all_numeric_predictors()) %>% 
-  step_pls(all_numeric_predictors(), num_comp = 4, outcome = "resistance") %>% 
-  step_normalize(all_numeric_predictors())
-
-pls_recipe %>% 
-  prep() %>% 
-  juice() %>% 
-  plot_validation_results(c("PLS1", "PLS2", "PLS3")) + 
-  ggtitle("PLS")
 ```
 
 ## UMAP - uniform manifold approximation and projection
@@ -432,8 +272,6 @@ Fig_UMAPu <- umap_yj_recipe %>%
   juice() %>% 
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04"), my_colors) +
   ggtitle("")
-
-ggsave(file="manuscript/images/Fig_UMAPu.png", plot=Fig_UMAPu, width = 8, height=4, units = "in")
 
 Fig_UMAPu
 ```
@@ -466,8 +304,6 @@ Fig_UMAPs <- umap_sup_yj_recipe %>%
   plot_validation_results(c("UMAP01", "UMAP02", "UMAP03", "UMAP04"), my_colors) +
   ggtitle("") 
 
-ggsave(file="manuscript/images/Fig_UMAPs.png", plot=Fig_UMAPs, width = 8, height=4, units = "in")
-
 Fig_UMAPs
 ```
 
@@ -476,60 +312,6 @@ Fig_UMAPs
 The [answer](https://github.com/lmcinnes/umap/issues/122) of Leland McInnes himself:
 
 > As a non-linear manifold learning technique that ultimately works with metric spaces at its heart rather than feature based data UMAP doesn't really have a notion of explained variance the way algorithms like PCA do. A colleague is working on developing some alternative measures of how well an embedding has performed, but that is still preliminary work and we don't have any published code for that yet -- ultimately UMAP remains a research project with additional features and utilities still being developed.
-
-### Both plots
-
-```{r,fig.height=10, fig.width=10}
-Fig_dim_red_all <- ggarrange(Fig_UMAPu, Fig_UMAPs,
-                    labels = c("A", "B"),
-                    ncol = 1, nrow = 2, common.legend = TRUE)
-
-ggsave(file="manuscript/images/Fig_dimred_all.png", plot=Fig_dim_red_all, 
-       width = 8, height=8, units = "in")
-
-Fig_dim_red_all
-```
-
-## RG counts distribution
-
-### In strains tested for AMP
-
-```{r, eval=FALSE}
-rg_n_genes <- features %>% 
-  dplyr::select(strain, record_id) %>% 
-  distinct() %>% 
-  group_by(strain) %>% 
-  count()
-
-ggplot(rg_n_genes, aes(n)) + 
-  geom_histogram(fill = "steelblue", binwidth = 1) +
-  xlab("RG count") +
-  ylab("Strains count")
-```
-
-```{r}
-summary(rg_n_genes$n)
-```
-
-Same number as in the total data set.
-
-### In strains with beta-lactamases genes only
-
-```{r, eval=FALSE}
-betaL_n_genes <- features %>% 
-  filter(grepl("beta-lactamase", AMR.Gene.Family)) %>% 
-  select(strain, record_id) %>% 
-  distinct() %>% 
-  group_by(strain) %>% 
-  count()
-
-ggplot(betaL_n_genes, aes(n)) + 
-  geom_histogram(fill="steelblue", binwidth = 1)+
-  xlab("BL count")+
-  ylab("Strains count")
-
-```
-
 
 ## Gene presence
 
@@ -552,13 +334,6 @@ ggplot(data_strain, aes(n.beta.lac)) +
   scale_x_continuous(breaks = c(1,2,3,4,5,6))
 ```
 
-All strains contain at least one beta-lactamase gene
-
-```{r}
-data_strain %>% filter(n.beta.lac == 0)
-```
-
-
 ```{r}
 summary(data_strain$n.beta.lac)
 ```
@@ -575,7 +350,6 @@ Fig_BL_total <- ggplot(data_strain, aes(n.beta.lac)) +
   scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7)) +
   theme_minimal() +
   theme(axis.title.x = ggtext::element_markdown())
-
 
 ggsave(file="manuscript/images/Fig_BL_total.png", plot=Fig_BL_total,
        width = 8, height=4, units = "in")
@@ -787,7 +561,7 @@ ggsave(file="manuscript/images/Fig_ampC.png", plot=Fig_ampC, width = 8, height=4
 Fig_ampC
 ```
 
-```{r, fig.height=8, fig.width=6}
+```{r, fig.height=8, fig.width=6, eval=FALSE}
 legend <- get_legend(Fig_ampC)
 
 empty_plot_with_legend <- 
@@ -800,60 +574,9 @@ Fig_ <- ggarrange(Fig_6A + theme(legend.position = "bottom"),
                    #empty_plot_with_legend,
                    ncol = 1, nrow = 2, labels = c("A", "B"))
 
-ggsave(file="manuscript/images/Fig_6_TEM+ampC.png", plot=Fig_6, width = 8, height=8, units = "in")
+ggsave(file="manuscript/images/Fig_TEM+ampC.png", plot=Fig_6, width = 8, height=8, units = "in")
 
 Fig_6
-```
-
-Among strains having only ampC beta-lactamases, the majority is non-HR
-
-Among strains having non-ampC beta-lactamases majority is HR
-
-### ampC bar plot
-
-```{r}
-ggplot(data_strain, aes(ampC.type.beta.lactamase)) +
-  geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
-  scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("n ampC beta-lactamases") +
-  ylab("n strains") 
-```
-
-As proportion:
-
-```{r}
-ggplot(data_strain, aes(ampC.type.beta.lactamase)) +
-  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
-  scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("n ampC beta-lactamases") +
-  ylab("proportoion") 
-```
-
-### non-ampC bar plot
-
-```{r}
-ggplot(bl_type_count, aes(non.ampC)) +
-  geom_bar(aes(fill = resistance), position = "dodge", alpha = 1) +
-  scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("n non-ampC beta-lactamases") +
-  ylab("n strains") 
-```
-
-As proportion
-
-```{r}
-ggplot(bl_type_count, aes(non.ampC)) +
-  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
-  scale_fill_brewer(palette = "Set1", name = "") +
-  xlab("n non-ampC beta-lactamases") +
-  ylab("proportion") 
-```
-
-
-### Other TEM columns
-
-```{r}
-data_strain %>% select(contains("TEM", ignore.case=T)) %>% names()
 ```
 
 ### Repeat count without 0s
@@ -941,7 +664,7 @@ ggplot(amr_types_strain_td, aes(strain, AMR.type)) +
 
 #### Interactive version
 
-```{r, eval=F, fig.width=12, eval=FALSE}
+```{r, fig.width=12}
 library(plotly)
 
 vals <- scales::rescale(c(0:max(amr_types_strain_td$N)))
@@ -980,14 +703,6 @@ Fig_coverage <-
   labs(x = "", y = "sequencing coverage") +
   guides(fill = "none")
 
-ggsave(
-  file = "manuscript/images/Fig_coverage.png",
-  plot = Fig_coverage,
-  width = 8,
-  height = 4,
-  units = "in"
-)
-
 Fig_coverage
 ```
 
@@ -1025,9 +740,6 @@ Fig_longest_read <-
   labs(x = "", y = "longest read, nt") +
   guides(fill = "none")
 
-ggsave(file="manuscript/images/Fig_longest_read.png", 
-       plot=Fig_longest_read, width = 8, height=4, units = "in")
-
 Fig_longest_read
 ```
 
@@ -1036,29 +748,6 @@ Fig_longest_read
 ```{r}
 kruskal.test(data_strain$read.max.len, data_strain$resistance)
 ```
-
-### Fig 3A & 3B
-
-```{r, fig.height=8, fig.width=5}
-Fig_nanopore <- ggarrange(
-  Fig_coverage,
-  Fig_longest_read,
-  labels = c("A", "B"),
-  ncol = 1,
-  nrow = 2
-)
-
-ggsave(
-  file = "manuscript/images/Fig_coverage_read_length.png",
-  plot = Fig_nanopore,
-  width = 8,
-  height = 8,
-  units = "in"
-)
-
-Fig_nanopore
-```
-
 
 ## Read length vs Coverage
 
@@ -1112,17 +801,6 @@ data_strain %>% group_by(resistance) %>% summarise(median=median(n.plasmids))
 
 ```{r}
 summary(glm(n.plasmids ~ resistance, data=data_strain, family = "poisson"))
-```
-
-### Bar plot - filtered version
-
-```{r}
-data_strain %>% 
-  ggplot(aes(n.plasmids)) +
-  geom_bar(aes(fill = resistance), position = "fill", alpha = 1) +
-  scale_fill_brewer(palette = "Set1", name = "")+
-  xlab("n plasmids") +
-  ylab("n strains")
 ```
 
 ### Plasmids vs Coverage
@@ -1311,95 +989,14 @@ exp(coef(pois_fit))
 
 'linearity' increases `n.c.plasmids`
 
-## Median total repeat length
-
-```{r}
-med_rep_len <- data_strain %>% 
-  select(resistance, med.tot.rep.len.chrom, med.tot.rep.len.plasmid, med.tot.rep.len) %>% 
-  gather("location", "med.len", 2:4) 
-
-facet_names <- c("med.tot.rep.len.chrom" = "chromosome",
-                 "med.tot.rep.len.plasmid" = "plasmids",
-                 "med.tot.rep.len" = "total")
-
-med_rep_len %>% 
-  filter(med.len > 0) %>% 
-  ggplot(aes(resistance, med.len)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
-  facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
-  ylab("avg repeat length") +
-  xlab("") +
-  guides(fill = "none") 
-```
-
-```{r}
-med_rep_len %>% 
-  filter(location=="med.tot.rep.len.plasmid",
-         med.len > 0) %>% 
-  group_by(resistance) %>% 
-  summarise(median = median(med.len))
-```
-
-### Average total
-
-```{r}
-data_strain %>% 
-  filter(med.tot.rep.len > 0) %>% 
-  ggplot(aes(resistance, med.tot.rep.len)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
-  ylab("med repeat length") +
-  xlab("") +
-  guides(fill = "none")
-```
-
-### Average on chromosome
-
-```{r}
-data_strain %>% 
-  filter(med.tot.rep.len.chrom > 0) %>% 
-  ggplot(aes(resistance, med.tot.rep.len.chrom)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
-  ylab("med repeat length") +
-  xlab("") +
-  guides(fill = "none")
-```
-
-### Average on plasmids
-
-```{r}
-data_strain %>% 
-  filter(med.tot.rep.len.plasmid > 0) %>% 
-  ggplot(aes(resistance, med.tot.rep.len.plasmid)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
-  ylab("med repeat length") +
-  xlab("") +
-  guides(fill = "none")
-```
-
 ## Median repeat length
 
 ```{r}
 med_rep_len <- data_strain %>% 
   select(resistance, med.rep.len.chrom, med.rep.len.plasmid, med.rep.len) %>% 
-  rename(med.rep.len.chrom = 'chromosome',
-         med.rep.len.plasmid = 'plasmids',
-         med.rep.len = 'total') %>% 
+  dplyr::rename('chromosome' = "med.rep.len.chrom" ,
+         'plasmids' = "med.rep.len.plasmid",
+          'total' = "med.rep.len") %>% 
   gather("location", "median", 2:4)
 
 # how a median of 0 can appear in the table?
@@ -1433,25 +1030,9 @@ Fig_med_rep_len <-
   guides(fill = "none") +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_med_rep_len.png", 
-       plot=Fig_med_rep_len, width = 8, height=4, units = "in")
-
 Fig_med_rep_len
 ```
 
-```{r}
-med_rep_len %>% 
-  filter(location == "plasmids") %>% 
-  ggplot(aes(resistance, median)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
-  ylab("median repeat length") +
-  xlab("") +
-  guides(fill = "none")
-```
 
 ```{r}
 med_rep_len %>% 
@@ -1518,18 +1099,6 @@ max_rep_len %>%
   summarise(median = median(max.len))
 ```
 
-```{r}
-ggplot(max_rep_len %>% filter(location == "max.rep.len.plasmid"), aes(resistance, max.len)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(aes(fill = resistance), alpha = 0.2, notch = F, varwidth = T, outlier.shape = NA) +
-  geom_jitter(alpha = 0.2, width = 0.05, height = 0.1, size = 0.8) +
-  scale_fill_brewer(palette = "Pastel1") +
-  coord_trans(y = "sqrt") +
-  ylab("max repeat length") +
-  xlab("") +
-  guides(fill = "none")
-```
-
 ## Repeat counts
 
 ```{r}
@@ -1566,57 +1135,13 @@ Fig_rep_count <-
   guides(fill = "none") +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_rep_count.png", 
-       plot=Fig_rep_count, width = 8, height=4, units = "in")
-
 Fig_rep_count
 ```
 
-```{r}
-rep_count %>% 
-  filter(location == "n.rep.plasmid") %>%
-  ggplot(aes(resistance, n.rep)) +
-  geom_violin(aes(fill = resistance), alpha = 0.7) +
-  geom_boxplot(
-    aes(fill = resistance),
-    alpha = 0.2,
-    notch = F,
-    varwidth = T,
-    outlier.shape = NA
-  ) +
-  geom_jitter(
-    alpha = 0.2,
-    width = 0.05,
-    height = 0.1,
-    size = 0.8
-  ) +
-  scale_fill_brewer(palette = "Pastel1") +
-  #coord_trans(y = "sqrt") +
-  ylab("n repeats") +
-  xlab("") +
-  guides(fill = "none")
-```
 
 ```{r}
 rep_count %>% 
-  filter(location == "n.rep.plasmid",
-         n.rep > 0) %>% 
-  group_by(resistance) %>% 
-  summarise(median = median(n.rep))
-```
-
-```{r}
-rep_count %>% 
-  filter(location == "n.rep.plasmid") %>% 
-  group_by(resistance) %>% 
-  summarise(median = median(n.rep))
-```
-
-
-```{r}
-rep_count %>% 
-  filter(location == "n.rep.total") %>% 
-  group_by(resistance) %>% 
+  group_by(location, resistance) %>% 
   summarise(median = median(n.rep))
 ```
 
@@ -1634,15 +1159,6 @@ summary(rep.count.regr)
 exp(coef(rep.count.regr))
 ```
 
-### Repeat pairs spanning genes
-
-```{r}
-data_strain %>% 
-  ggplot(aes(resistance, rep.tot.cen)) +
-  geom_boxplot() +
-  coord_trans(y = "sqrt")
-```
-
 
 ## Amplifiable region size
 
@@ -1653,7 +1169,7 @@ In data.strain table AR sizes for each strain are averaged across all repeat pai
 
 AR of size 0 is non-existing AR and should be excluded form the analysis.
 
-```{r}
+```{r, warning=FALSE}
 ar_len <- data_strain %>% 
   select(resistance, med.AR.len.chrom, med.AR.len.plasmid, med.AR.len) %>% 
   dplyr::rename(chromosome = med.AR.len.chrom,
@@ -1689,23 +1205,9 @@ Fig_AR_len <- ar_len %>%
   guides(fill = "none") +
   theme_minimal()
   
-ggsave(file="manuscript/images/Fig_AR_len.png", plot=Fig_AR_len, 
-       width = 8, height=4, units = "in")
-
 Fig_AR_len
 ```
 
-
-```{r,fig.height=8, fig.width=6}
-Fig_rep_count_rep_len_AR_len <- ggarrange(Fig_rep_count, Fig_med_rep_len, Fig_AR_len,
-                    labels = c("A", "B", "C"),
-                    ncol = 1, nrow = 3)
-
-ggsave(file="manuscript/images/Fig_rep_count_rep_len_AR_len.png", 
-       plot=Fig_rep_count_rep_len_AR_len, width = 8, height=10, units = "in")
-
-Fig_rep_count_rep_len_AR_len
-```
 
 ### Medians
 
@@ -1740,245 +1242,20 @@ ar_len_kw("plasmids")
 ar_len_kw("chromosome")
 ```
 
-## ampC-type beta-lactamases
 
-Statistics based on BL of ampC-type only
+### Final plot (repeats + AR)
 
-### Total repeat count
+```{r,fig.height=8, fig.width=6}
+Fig_rep_count_rep_len_AR_len <- ggarrange(Fig_rep_count, Fig_med_rep_len, Fig_AR_len,
+                    labels = c("A", "B", "C"),
+                    ncol = 1, nrow = 3)
 
-#### As a box plot
+ggsave(file="manuscript/images/Fig_rep_count_rep_len_AR_len.png", 
+       plot=Fig_rep_count_rep_len_AR_len, width = 8, height=10, units = "in")
 
-`n.rep.total.ampC` was removed from the table created in `features.qmd` in the new table and are replaced with `n.rep.plasmid.ampC` and `n.rep.chrom.ampC` whose sum would be equal to `n.rep.total.ampC` and therefore redundant. We reintroduce it here since the table `data_strain` will be used only here in this notebook.
-
-```{r}
-data_strain <- data_strain %>% mutate(n.rep.total.ampC = n.rep.plasmid.ampC + n.rep.chrom.ampC )
+Fig_rep_count_rep_len_AR_len
 ```
 
-```{r, fig.width=8, fig.height=4, warning=FALSE}
-library(patchwork)
-
-y_max <- max(data_strain %>% select(n.rep.total.ampC, n.rep.chrom.ampC,n.rep.plasmid.ampC))
-
-p1 <- ggplot(data_strain, aes(resistance, n.rep.total.ampC))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("total")+
-  ylab("N")+ xlab("") +
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.ampC))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("chromosomal")+
-  ylab("") + xlab("") +
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.ampC))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("plasmid")+
-  ylab("") + xlab("") + 
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p1 + p2 + p3+ 
-  plot_annotation(title = 'ampC-type BL repeat count')
-
-```
-
-#### As distributions
-
-```{r, fig.width=6, fig.height=4}
-ggplot(data_strain, aes(n.rep.total.ampC))+
-  geom_area(aes(fill=resistance), stat="bin", alpha=0.6)+
-  scale_fill_brewer(palette="Set1")+
-  ggtitle("ampC-type BL: total repeat count distribution")+
-  xlab("number of repeats")+
-  ylab("number of strains")
-```
-
-### Median repeat length
-
-```{r, fig.width=6, fig.height=4}
-ggplot(data_strain %>% filter(med.rep.len.ampC > 0), aes(resistance, med.rep.len.ampC))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  coord_trans(y="sqrt") +
-  ggtitle("ampC-type BL: median repeat length")+
-  ylab("length")+
-  guides(fill="none")
-```
-
-### Median AR size
-
-```{r}
-ggplot(data_strain %>% filter(med.AR.len.ampC > 0), aes(resistance, med.AR.len.ampC))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  coord_trans(y="sqrt") +
-  ggtitle("ampC-type BL: median AR size")+
-  ylab("AR size")+
-  guides(fill="none")
-
-```
-
-TEM - like above
-
-```{r}
-data_strain <- data_strain %>% mutate(n.rep.total.TEM = n.rep.plasmid.TEM + n.rep.chrom.TEM )
-```
-
-```{r, fig.width=8, fig.height=4, warning=FALSE}
-
-y_max <- max(data_strain %>% select(n.rep.total.TEM, n.rep.chrom.TEM,n.rep.plasmid.TEM))
-
-p1 <- ggplot(data_strain, aes(resistance, n.rep.total.TEM))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("total")+
-  ylab("N")+ xlab("") +
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.TEM))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("chromosomal")+
-  ylab("") + xlab("") +
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.TEM))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("plasmid")+
-  ylab("") + xlab("") + 
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p1 + p2 + p3+ 
-  plot_annotation(title = 'TEM-type BL repeat count')
-```
-
-### Median repeat length
-
-```{r, fig.width=6, fig.height=4}
-ggplot(data_strain %>% filter(med.rep.len.TEM > 0), aes(resistance, med.rep.len.TEM ))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  coord_trans(y="sqrt") +
-  ggtitle("TEM C-type BL: median repeat length")+
-  ylab("length")+
-  guides(fill="none")
-```
-
-### Median AR size
-
-```{r}
-ggplot(data_strain %>% filter(med.AR.len.TEM > 0), aes(resistance, med.AR.len.TEM))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  coord_trans(y="sqrt") +
-  ggtitle("TEM-type BL: median AR size")+
-  ylab("AR size")+
-  guides(fill="none")
-
-```
-
-CTX - like above
-
-```{r}
-data_strain <- data_strain %>% mutate(n.rep.total.CTX = n.rep.plasmid.CTX + n.rep.chrom.CTX )
-```
-
-```{r, fig.width=8, fig.height=4, warning=FALSE}
-
-y_max <- max(data_strain %>% select(n.rep.total.CTX, n.rep.chrom.CTX,n.rep.plasmid.CTX))
-
-p1 <- ggplot(data_strain, aes(resistance, n.rep.total.CTX))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("total")+
-  ylab("N")+ xlab("") +
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p2 <- ggplot(data_strain, aes(resistance, n.rep.chrom.CTX))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("chromosomal")+
-  ylab("") + xlab("") +
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p3 <- ggplot(data_strain, aes(resistance, n.rep.plasmid.CTX))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  ggtitle("plasmid")+
-  ylab("") + xlab("") + 
-  guides(fill="none") +
-  ylim(0,y_max)
-
-p1 + p2 + p3+ 
-  plot_annotation(title = 'CTX-type BL repeat count')
-```
-
-### Median repeat length
-
-```{r, fig.width=6, fig.height=4}
-ggplot(data_strain %>% filter(med.rep.len.CTX > 0), aes(resistance, med.rep.len.CTX ))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  coord_trans(y="sqrt") +
-  ggtitle("CTX C-type BL: median repeat length")+
-  ylab("length")+
-  guides(fill="none")
-```
-
-### Median AR size
-
-```{r}
-ggplot(data_strain %>% filter(med.AR.len.CTX > 0), aes(resistance, med.AR.len.CTX))+
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1")+
-  coord_trans(y="sqrt") +
-  ggtitle("CTX-type BL: median AR size")+
-  ylab("AR size")+
-  guides(fill="none")
-
-```
 
 ## IS sequences
 
@@ -2020,9 +1297,6 @@ Fig_IS_max_len <- data_strain %>%
   guides(fill="none") +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_IS_max_len.png", plot=Fig_IS_max_len, 
-       width = 8, height=4, units = "in")
-
 Fig_IS_max_len
 ```
 
@@ -2056,9 +1330,6 @@ Fig_IS_copies <- data_strain %>%
   guides(fill="none") +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_IS_copies.png", plot=Fig_IS_copies, 
-       width = 8, height=4, units = "in")
-
 Fig_IS_copies
 ```
 
@@ -2075,7 +1346,7 @@ data_strain %>%
 ```{r}
 kruskal.test(data_strain$n.is.tot, data_strain$resistance)
 ```
-#### Correlation with nuber of beta-lactamases
+#### Correlation with number of beta-lactamases
 
 H1: number of IS per strain correlate with number of beta-lactamase genes, because the regions scanned for IS elements are taken around beta-lac genes and are overlapping, therefore making IS counts inflated.
 
@@ -2135,8 +1406,6 @@ Fig_IS_families <- data_strain %>%
   guides(fill="none") +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_IS_families.png", plot=Fig_IS_families, width = 8, height=4, units = "in")
-
 Fig_IS_families
 ```
 
@@ -2176,8 +1445,6 @@ Fig_IS_gene_dist <- data_strain %>%
   theme(axis.text.y = element_text(size = 2)) +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_IS_gene_dist.png", plot=Fig_IS_gene_dist, width = 8, height=4, units = "in")
-
 Fig_IS_gene_dist
 ```
 
@@ -2194,7 +1461,6 @@ data_strain %>%
 ```{r}
 kruskal.test(data_strain$min_distance_is_gene, data_strain$resistance)
 ```
-
 
 ### All four plots together
 
@@ -2218,17 +1484,3 @@ data_strain %>%
 kruskal.test(data_strain$min_distance_is_gene, data_strain$resistance)
 ```
 
-### Interrupted genes
-
-```{r}
-data_strain %>% 
-  ggplot(aes(resistance, n.interrupted.genes)) +
-  geom_violin(aes(fill=resistance), alpha=0.7)+
-  geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
-  geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
-  scale_fill_brewer(palette = "Pastel1") +
-  ylab("N interrupted genes") +
-  guides(fill="none")
-```
-
-Too few observations to compare.
