@@ -1,5 +1,5 @@
 ---
-title: "Modelling PTZ HR"
+title: "Analysis of models"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 output:
@@ -426,7 +426,7 @@ autoplot(lr_base_res)
 
 ```{r}
 lr_base_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -473,7 +473,7 @@ lr_base_orq_res %>% autoplot()
 
 ```{r}
 lr_base_orq_res %>%
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -606,7 +606,7 @@ autoplot(lsvm_ncorr_res)
 
 ```{r}
 lsvm_ncorr_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -629,7 +629,7 @@ autoplot(lsvm_ncoryj_res)
 
 ```{r}
 lsvm_ncoryj_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -784,7 +784,7 @@ autoplot(psvm_ncorr_res)
 
 ```{r}
 psvm_ncorr_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -829,7 +829,7 @@ autoplot(psvm_ncorq_res)
 
 ```{r}
 psvm_ncorq_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -852,7 +852,7 @@ autoplot(psvm_pca_res)
 
 ```{r}
 psvm_pca_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -1150,7 +1150,7 @@ autoplot(rf_base_res)
 
 ```{r}
 rf_base_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -1171,7 +1171,7 @@ autoplot(rf_base_bor_res)
 
 ```{r}
 rf_base_bor_res %>% 
-  show_best("roc_auc", n = 3)
+  show_best(metric = "roc_auc", n = 3)
 ```
 
 ```{r}
@@ -1432,7 +1432,7 @@ autoplot(mlp_ncor_res)
 
 ```{r}
 mlp_ncor_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -1455,7 +1455,7 @@ mlp_ncoryj_res %>% autoplot()
 
 ```{r}
 mlp_ncoryj_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -1501,7 +1501,7 @@ mlp_pca_res %>% autoplot()
 
 ```{r}
 mlp_pca_res %>% 
-  show_best("roc_auc", n = 3) %>% 
+  show_best(metric = "roc_auc", n = 3) %>% 
   kable()
 ```
 
@@ -1526,7 +1526,7 @@ autoplot(mlp_bag_ncorr_res)
 
 ```{r}
 mlp_bag_ncorr_res %>%
-  show_best("roc_auc", n = 3) %>%
+  show_best(metric = "roc_auc", n = 3) %>%
   kable()
 ```
 
@@ -1718,7 +1718,8 @@ best_resamples_list <- list(
     psvm_ncorq_res,
     rbf_ncorq_res,
     mlp_bag_ncorr_res,
-    bt_base_bres
+    bt_base_bres,
+    rf_base_res
   )
 best_resamples_names <- c(
     "LLR",
@@ -1726,7 +1727,8 @@ best_resamples_names <- c(
     "poly SVM",
     "rbf SVM",
     "MLP BAG",
-    "GBT"
+    "GBT",
+    "RF"
   )
 
 # calculate rocs
@@ -1744,9 +1746,6 @@ Fig_all_rocs <- roc_df %>%
   scale_color_brewer(palette="Dark2") +
   theme_minimal() +
   theme(legend.title = element_blank())
-
-ggsave(file="manuscript/images/Fig_all_ROCs.png", 
-       plot=Fig_all_rocs, width = 8, height=4, units = "in")
 
 Fig_all_rocs
 ```
@@ -1784,11 +1783,10 @@ Fig_all_posterior <- autoplot(mod_posterior) +
     unit = "pt"
   ))
 
-ggsave(file="manuscript/images/Fig_all_posterior.png", 
-       plot=Fig_all_posterior, width = 8, height=4, units = "in")
-
 Fig_all_posterior
 ```
+
+For the manuscript:
 
 ```{r, fig.width=8}
 Fig_all_rocs_all_posterior <- ggarrange(Fig_all_rocs, Fig_all_posterior,
@@ -1796,7 +1794,7 @@ Fig_all_rocs_all_posterior <- ggarrange(Fig_all_rocs, Fig_all_posterior,
                     ncol = 2, nrow = 1, common.legend = TRUE,
                     legend = "bottom")
 
-ggsave(file="manuscript/images/Fig_all_rocs_all_posterior.png", 
+ggsave(file="manuscript/images/Fig_all_rocs_all_posterior.pdf", 
        plot=Fig_all_rocs_all_posterior, width = 8, height=4, units = "in")
 
 Fig_all_rocs_all_posterior
@@ -1869,9 +1867,6 @@ Fig_top_rocs <- roc3_df %>%
   scale_color_brewer(palette = "Set1") +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_top_rocs.png", 
-       plot=Fig_top_rocs, width = 8, height=4, units = "in")
-
 Fig_top_rocs
 ```
 
@@ -1913,9 +1908,6 @@ Fig_top_posterior <- autoplot(mod_posterior) +
   scale_color_brewer(palette = "Set1") +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_top_posterior.png", 
-       plot=Fig_top_posterior, width = 8, height=4, units = "in")
-
 Fig_top_posterior
 ```
 
@@ -1924,9 +1916,6 @@ Fig_top_rocs_top_posterior <- ggarrange(Fig_top_rocs, Fig_top_posterior,
                     labels = c("A", "B"),
                     ncol = 2, nrow = 1, common.legend = TRUE,
                     legend = "bottom")
-
-ggsave(file="manuscript/images/Fig_top_rocs_top_posterior.png", 
-       plot=Fig_top_rocs_top_posterior, width = 8, height=4, units = "in")
 
 Fig_top_rocs_top_posterior
 ```
@@ -1992,7 +1981,7 @@ update_corr_treshold <- function(base_recipe, step_no, corr_threshold) {
 }
 
 # best models
-best_models <- map(top_models, ~select_best(., "roc_auc"))
+best_models <- map(top_models, ~select_best(., metric = "roc_auc"))
 ```
 
 ## LR final
@@ -2206,9 +2195,6 @@ ggarrange(plotlist = senspec_plots,
 ```{r}
 Fig_LR_prob_cutoff <- senspec_plot(lr_final[[2]], "LR")
 
-ggsave(file="manuscript/images/Fig_LR_prob_cutoff.png", 
-       plot=Fig_LR_prob_cutoff, width = 8, height=4, units = "in")
-
 Fig_LR_prob_cutoff
 ```
 
@@ -2229,9 +2215,6 @@ lr_final[[2]] %>%
 ```{r}
 Fig_GBT_prob_cutoff <- senspec_plot(gbt_base_final[[2]], "GBT")
 
-ggsave(file="manuscript/images/Fig_GBT_prob_cutoff.png", 
-       plot=Fig_GBT_prob_cutoff, width = 8, height=4, units = "in")
-
 Fig_GBT_prob_cutoff
 ```
 
@@ -2248,13 +2231,15 @@ gbt_base_final[[2]] %>%
 
 ### LR and GBT prob cutoff together
 
+For the manuscript
+
 ```{r, fig.width=12}
 Fig_LR_GBT_prob_cutoff <- ggarrange(plotlist = senspec_plots[1:2],
                   nrow = 1,
                   ncol = 2,
                   common.legend = T)
 
-ggsave(file="manuscript/images/Fig_LR_GBT_prob_cutoff.png", 
+ggsave(file="manuscript/images/Fig_LR_GBT_prob_cutoff.pdf", 
        plot=Fig_LR_GBT_prob_cutoff, width = 8, height=4, units = "in")
 
 Fig_LR_GBT_prob_cutoff
@@ -2502,13 +2487,12 @@ Fig_LR_predictors <- lr_coeff_df %>%
   ylab("odds ratio") +
   coord_flip()
 
-ggsave(file="manuscript/images/Fig_LR_predictors.png", plot=Fig_LR_predictors, 
-       width = 10, height=6, units = "in")
-
 Fig_LR_predictors
 ```
 
 Alternative 1: categories of predictors + a break
+
+For the manucsript
 
 ```{r, fig.width=8, fig.height=6}
 library(ggbreak) # for y/x axis break
@@ -2538,7 +2522,7 @@ Fig_LR_predictors_alt <-
   theme_minimal() +
   theme(legend.title = element_blank())
 
-ggsave(file="manuscript/images/Fig_LR_predictors_alt.png", 
+ggsave(file="manuscript/images/Fig_LR_predictors_alt.pdf", 
        plot=Fig_LR_predictors_alt, width = 8, height=8, units = "in")
 
 Fig_LR_predictors_alt
@@ -2562,7 +2546,7 @@ bt <- boost_tree(
       set_engine("lightgbm", num.threads = 8) %>%
       set_mode("classification") %>% translate()
 
-bt_best_param <- select_best(bt_base_bres, "roc_auc")
+bt_best_param <- select_best(bt_base_bres, metric = "roc_auc")
 bt_model_final <- finalize_model(bt, bt_best_param)
 
 # I need processed data
@@ -2622,9 +2606,6 @@ vip_gbt %>%
 Fig_GBT_predictors <- 
   plot(vip_gbt) +
   ggtitle("", "")
-
-
-ggsave(file="manuscript/images/Fig_GBT_predictors.png", plot=Fig_GBT_predictors, width = 9, height=12, units = "in")
 
 Fig_GBT_predictors
 ```
@@ -2785,7 +2766,7 @@ Fig_GBT_predictors_alt <-
   ggplot_imp(vip_gbt) +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_GBT_predictors_alt.png", plot=Fig_GBT_predictors_alt, width = 9, height=12, units = "in")
+ggsave(file="manuscript/images/Fig_GBT_predictors_alt.pdf", plot=Fig_GBT_predictors_alt, width = 9, height=12, units = "in")
 
 Fig_GBT_predictors_alt
 ```
