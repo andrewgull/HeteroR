@@ -30,7 +30,7 @@ make_pr <- function(mod_res, title, filtering_metric="roc_auc"){
 # Bayesian ANOVA
 # function to get a name of the best preprocessor from your resample
 best_preprocessor <- function(res_obj) {
-  res_obj %>% select_best("roc_auc") %>% pull(.config)
+  res_obj %>% select_best(metric = "roc_auc") %>% pull(.config)
 }
 
 # function to make a df with AUCs from the best preproc
@@ -164,7 +164,7 @@ senspec_plot <- function(fit_obj, title="") {
 # so that you can use it to get its J-index
 best_config_name <- function(resamples) {
   resamples %>% 
-    show_best("roc_auc") %>% 
+    show_best(metric = "roc_auc") %>% 
     pull(.config) %>% 
     pluck(1)
 }
