@@ -1,5 +1,5 @@
 ---
-title: "Exploratory Data Analysis of the HR detection data set"
+title: "Exploratory Data Analysis"
 author: "by A.G."
 date: "last update: `r format(Sys.Date(), format = '%d %B %Y')`"
 format: 
@@ -351,7 +351,7 @@ Fig_BL_total <- ggplot(data_strain, aes(n.beta.lac)) +
   theme_minimal() +
   theme(axis.title.x = ggtext::element_markdown())
 
-ggsave(file="manuscript/images/Fig_BL_total.png", plot=Fig_BL_total,
+ggsave(file="manuscript/images/Fig_BL_total.pdf", plot=Fig_BL_total,
        width = 8, height=4, units = "in")
 
 Fig_BL_total
@@ -377,7 +377,7 @@ Fig_BL_greater_4 <- data_strain %>%
   scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme_minimal()
 
-ggsave(file="manuscript/images/Fig_BL_greater_4.png", plot=Fig_BL_greater_4, 
+ggsave(file="manuscript/images/Fig_BL_greater_4.pdf", plot=Fig_BL_greater_4, 
        width = 8, height=4, units = "in")
 
 Fig_BL_greater_4
@@ -399,7 +399,7 @@ Fig_TEM <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   theme_minimal() +
   theme(axis.title.x = ggtext::element_markdown())
 
-ggsave(file="manuscript/images/Fig_TEM.png", plot=Fig_TEM, 
+ggsave(file="manuscript/images/Fig_TEM.pdf", plot=Fig_TEM, 
        width = 8, height=4, units = "in")
 
 Fig_TEM
@@ -417,7 +417,7 @@ Fig_BL_TEM <- ggarrange(
   common.legend = TRUE
 )
 
-ggsave(file="manuscript/images/Fig_BL_TEM.png", 
+ggsave(file="manuscript/images/Fig_BL_TEM.pdf", 
        plot=Fig_BL_TEM, width = 10, height=8, units = "in")
 
 Fig_BL_TEM
@@ -472,8 +472,6 @@ Fig_BL_plasmid <- data_strain %>%
   #scale_x_continuous(breaks = c(0,1,2,3,4,5,6)) +
   xlab("n β-lactamases on plasmids") +
   ylab("proportion")
-
-ggsave(file="manuscript/images/Fig_BL_plasmid.png", plot=Fig_BL_plasmid, width = 8, height=4, units = "in")
 
 Fig_BL_plasmid
 ```
@@ -556,8 +554,6 @@ Fig_ampC <- ggplot(bl_type_count_tidy, aes(gene, sum))+
   ylab("proportion")+
   scale_x_discrete(labels = c("ampC", "non-ampC"))
 
-ggsave(file="manuscript/images/Fig_ampC.png", plot=Fig_ampC, width = 8, height=4, units = "in")
-
 Fig_ampC
 ```
 
@@ -573,8 +569,6 @@ Fig_ <- ggarrange(Fig_6A + theme(legend.position = "bottom"),
                    Fig_6B + theme(legend.position = "none"),
                    #empty_plot_with_legend,
                    ncol = 1, nrow = 2, labels = c("A", "B"))
-
-ggsave(file="manuscript/images/Fig_TEM+ampC.png", plot=Fig_6, width = 8, height=8, units = "in")
 
 Fig_6
 ```
@@ -1250,7 +1244,7 @@ Fig_rep_count_rep_len_AR_len <- ggarrange(Fig_rep_count, Fig_med_rep_len, Fig_AR
                     labels = c("A", "B", "C"),
                     ncol = 1, nrow = 3)
 
-ggsave(file="manuscript/images/Fig_rep_count_rep_len_AR_len.png", 
+ggsave(file="manuscript/images/Fig_rep_count_rep_len_AR_len.pdf", 
        plot=Fig_rep_count_rep_len_AR_len, width = 8, height=10, units = "in")
 
 Fig_rep_count_rep_len_AR_len
@@ -1268,14 +1262,17 @@ colnames <- data_strain %>%
 Fig_IS_fam_prop <- data_strain %>% 
   select(strain, resistance,  contains("IS", ignore.case = FALSE)) %>% 
   pivot_longer(cols = colnames[3:22], names_to = "is.family", values_to = "n") %>% 
-  ggplot(aes(is.family, n)) +
+  # summarize before plotting to avoid stripes on the bars
+  group_by(resistance, is.family) %>% 
+  summarise(N = sum(n)) %>% 
+  ggplot(aes(is.family, N)) +
   geom_col(aes(fill=resistance), position = "fill") +
   scale_fill_brewer(palette = "Set1", name = "") +
   labs(x = NULL, y = "proportion of strains") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) 
 
-ggsave(file="manuscript/images/Fig_IS_fam_prop.png", plot=Fig_IS_fam_prop, 
+ggsave(file="manuscript/images/Fig_IS_fam_prop.pdf", plot=Fig_IS_fam_prop, 
        width = 8, height=4, units = "in")
 
 Fig_IS_fam_prop
@@ -1469,7 +1466,7 @@ Fig_IS_all <- ggarrange(Fig_IS_max_len, Fig_IS_gene_dist, Fig_IS_families, Fig_I
                     labels = c("A", "B", "C", "D"),
                     ncol = 2, nrow = 2)
 
-ggsave(file="manuscript/images/Fig_IS_all.png", plot=Fig_IS_all, width = 8, height=8, units = "in")
+ggsave(file="manuscript/images/Fig_IS_all.pdf", plot=Fig_IS_all, width = 8, height=8, units = "in")
 
 Fig_IS_all
 ```
