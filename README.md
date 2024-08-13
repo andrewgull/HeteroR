@@ -1,23 +1,52 @@
-# Sequence based detection of unstable antibiotic heteroresistance
+# Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
-The pipeline is created using [Snakemake](https://snakemake.readthedocs.io/en/stable)
+The pipelines are created using [Snakemake](https://snakemake.readthedocs.io/en/stable)
 
-Data analysis and modelling were performed using R and *tidyverse*.
+Data analysis and modelling are performed using R and *tidyverse*.
 
-## Main workflow
+## Snakemake pipelines
+
+### Main pipeline
+
+File: `workflow/snakefile.smk`
+
+Purpose: assembling and annotating *E. coli* genomes (resistance genes, IS elements, direct repeats)
+
+Configuration file: `workflow/config.yaml`
+
+DAG:
 
 ![main dag](images/dag.png)
 
-## Data analysis / ML workflow
+### Phylogeny pipeline
 
-see 
+File: `workflow/phylogeny.smk`
 
-`notebooks/modelling/training_and_validation.Rmd`, 
+Purpose: phylogenetic analysis of the samples including 27 reference strains.
 
-`notebooks/modelling/EDA.qmd`,
+Configuration file: `workflow/config_phylogeny.yaml`
 
-`notebooks/modelling/features.qmd`
+### Analysis of mutants
 
-## Mutants analysis workflow
+File: `mutants.smk`
+
+Purpose: analysis of the HR mutants.
+
+Configuration file: `workflow/config_mutants.yaml`
+
+DAG: 
 
 ![mut dag](images/dag_mutants.png)
+
+## Data analysis and machine learning
+
+For feature generation see `notebooks/modelling/features.qmd`.
+
+For exploratory data analysis of the features, see file `notebooks/modelling/EDA.qmd`,
+
+For training and validation procedures, see `notebooks/modelling/training_and_validation.Rmd`,
+
+For analysis of the models, see `notebooks/modelling/models_analysis.Rmd`
+
+Features table: `notebooks/modelling/data/features_strain.csv`
+
