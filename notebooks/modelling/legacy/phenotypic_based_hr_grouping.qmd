@@ -21,13 +21,13 @@ library(tidymodels)
 library(themis)
 library(embed)
 library(bonsai)
-source("functions.R")
+source("../functions.R")
 fit_save_path <- "~/Data/HeteroR/results/models/scheme13/"
 ```
 
 
 ```{r}
-data_strain <- read_csv("data/features_strain.csv", na = c("NA", "-Inf"), show_col_types = F) %>% 
+data_strain <- read_csv("../data/features_strain.csv", na = c("NA", "-Inf"), show_col_types = F) %>%
   filter(strain != "DA63310") %>%  
   select(-contains("oriC")) %>% 
   select(-contains("plus")) %>% 
@@ -42,7 +42,7 @@ data_strain[is.na(data_strain)] <- 0
 Here I will assign HR/nonHR classes based on phenotype, not on clinical breakpoint.
 
 ```{r}
-res_groups <- read_csv("data/resistance_testing_groups.csv", show_col_types = F) %>% 
+res_groups <- read_csv("../data/resistance_testing_groups.csv", show_col_types = F) %>%
   mutate(group = if_else(is.na(group), "NA", group)) %>% 
   filter(group != "R",
          group != "CONT.",

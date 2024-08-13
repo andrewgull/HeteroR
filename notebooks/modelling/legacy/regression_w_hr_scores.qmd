@@ -18,7 +18,7 @@ library(poissonreg)
 ```{r}
 testing_results <-
   read_csv(
-    "data/heteroresistance_testing_scores.csv",
+    "../data/heteroresistance_testing_scores.csv",
     col_names = FALSE,
     show_col_types = F
   ) %>%
@@ -93,7 +93,7 @@ testing_results %>%
 ## Quick modelling
 
 ```{r}
-data_strain <- readr::read_csv("data/features_strain.csv",
+data_strain <- readr::read_csv("../data/features_strain.csv",
                                na = c("NA", "-Inf"),
                                show_col_types = FALSE)
 
@@ -280,7 +280,7 @@ rank_results(models_res_set, rank_metric = "ccc", select_best = TRUE) %>%
 ## Inferential analysis
 
 ```{r}
-data_strain <- readr::read_csv("data/features_strain.csv",
+data_strain <- readr::read_csv("../data/features_strain.csv",
                                na = c("NA", "-Inf"),
                                show_col_types = FALSE)
 
