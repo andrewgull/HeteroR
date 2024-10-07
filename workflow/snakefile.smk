@@ -12,52 +12,6 @@ rule all:
     input:
         expand("results/final/{strain}_all.done", strain=config['strains'])
 
-# quality check of raw short reads
-rule qc_illumina_raw:
-    input:
-        script = "workflow/scripts/run_qualcheck.R",
-        fastq = "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz"
-    output:
-        "results/qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv"
-    threads: 18
-    message: "executing FastQC with {threads} threads on {wildcards.strain} raw Illumina files"
-    log: "results/logs/{strain}_illumina_qc.log"
-    conda: "envs/rscripts.yaml"
-    params: fastqc_path=config["fastqc_path"]
-    shell:
-        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastqc_path} -t {threads} &> {log}"
-
-# quality check of trimmed short reads
-rule qc_illumina_trimmed:
-    input:
-        script = "workflow/scripts/run_qualcheck.R",
-        fastq = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz"
-    output:
-        "results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv"
-    threads: 18
-    message: "executing FastQC with {threads} threads on {wildcards.strain} trimmed Illumina files"
-    log: "results/logs/{strain}_trimmed_qc.log"
-    conda: "envs/rscripts.yaml"
-    params: fastqc_path=config["fastqc_path"]
-    shell:
-        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastqc_path} -t {threads} &> {log}"
-
-# quality check for raw long reads
-# later only reads shorter than 1000 bp are removed
-rule qc_nanopore_raw:
-    input:
-        script = "workflow/scripts/run_qualcheck.R",
-        fastq = "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
-    output:
-        "results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv"
-    threads: 18
-    message: "executing FastQC with {threads} threads on {wildcards.strain} raw Nanopore files"
-    log: "results/logs/{strain}_nanopore_qc.log"
-    conda: "envs/rscripts.yaml"
-    params: fastqc_path=config["fastqc_path"]
-    shell:
-        "Rscript {input.script} -f {input.fastq} -o {output} -e {params.fastqc_path} -t {threads} &> {log}"
-
 # Automated short read trimming
 # fastp parameters:
         # -q, --qualified_quality_phred
@@ -99,18 +53,14 @@ rule trim_illumina:
 # simple trimming of long reads: only reads shorter than 1000 bp are removed
 # previous 'smart' filtering was removed
 rule filter_nanopore:
-    input:
-        "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
-    output:
-        "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
-    message:
-        "executing filtlong on {wildcards.strain} long reads"
+    input: "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
+    output: "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+    message: "executing filtlong on {wildcards.strain} long reads"
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
     threads: 18
     params: min_len=config["min_nanopore_length"]
-    shell:
-        "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
+    shell: "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
 # Make an assembly with Unicycler or FLye-Medaka-Polypolish
 rule adaptive_hybrid_assembly:
@@ -130,7 +80,7 @@ rule adaptive_hybrid_assembly:
     conda: "envs/hybrid_assembly.yaml"
     params: basecaller=config["basecaller"], genome_size=config["genome_size"], coverage=config["coverage"], genome_length=config["genome_length"], cov_threshold=config["cov_threshold"]
     script:
-        "scripts/adaptive_hybrid_assembly.py"
+        "scripts/adaptive_hybrid_assembly.py &> {log}"
 
 # assembly quality control
 rule qc_assembly:
@@ -141,6 +91,7 @@ rule qc_assembly:
         directory("results/qualcheck_assembly/{strain}")
     threads: 18
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
+    log: "results/logs/{strain}_ass_qc.log"
     conda: "envs/busco_quast.yaml"
     params: tax_dataset=config["tax_dataset"]
     script:
@@ -217,6 +168,7 @@ rule assembly_summary:
     params: position=config["position"]
     message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
     log: "results/logs/{strain}_assembly_summary.log"
+    conda: "envs/pythonbio.yaml"
     script:
         "scripts/assembly_summary.py"
 
@@ -230,8 +182,8 @@ rule merge_assemblies:
     threads: 1
     message: "joining Unicycler assembly and SPAdes plasmid assembly together, strain {wildcards.strain}"
     log: "results/logs/{strain}_joiner.log"
-    script:
-        "scripts/join_two_fastas.py"
+    conda: "envs/pythonbio.yaml"
+    script: "scripts/join_two_fastas.py &> {log}"
 
 # Annotate merged assembly
 rule assembly_annotation:
@@ -253,14 +205,13 @@ rule assembly_annotation:
 
 # Change default names in GBK files to compatible with assembly's sequence IDs
 rule rename_annotations:
-    input:
-        "results/annotations/{strain}/prokka"
-    output:
-        "results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk"
-    params:
-        filename="{strain}_genomic.gbk"
-    script:
-        "scripts/rename_genomic_gbk.py"
+    input: "results/annotations/{strain}/prokka"
+    output: "results/annotations/{strain}/prokka_renamed/{strain}_genomic.gbk"
+    params: filename="{strain}_genomic.gbk"
+    message: "renaming {wildcards.strain} annotations"
+    log: "results/logs/{strain}_rename_annot.log"
+    conda: "envs/pythonbio.yaml"
+    script: "scripts/rename_genomic_gbk.py &> {log}"
 
 # Annotate tRNAs separately
 rule trna_annotation:
@@ -288,10 +239,11 @@ rule join_annotations:
     input:
         prokka="results/annotations/{strain}/prokka",
         trnascan="results/annotations/{strain}/trna/trna_seq.fasta"
-    output:
-        "results/annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
-    script:
-        "scripts/join_two_fastas.py"
+    output: "results/annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
+    message: "joining {wildcards.strain} annotations"
+    log: "results/logs/{strain}_join_annot.log"
+    conda: "envs/pythonbio.yaml"
+    script: "scripts/join_two_fastas.py &> {log}"
 
 # Map short reads onto the joined assemblies to get coverage
 rule genome_coverage:
@@ -337,11 +289,12 @@ rule rg_annotation:
     input:
         "results/resistance_genes/{strain}/rgi_table.txt",
         "results/annotations/{strain}/prokka"
-    output:
-        "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
+    output: "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
+    message: "annotating {wildcards.strain} resistance genes"
+    log: "results/logs/{strain}_rgi_annot.log"
+    conda: "envs/pythonbio.yaml"
     params: filter_criterion=config["filter_criterion"]
-    script:
-        "scripts/rgi2gff.py"
+    script: "scripts/rgi2gff.py &> {log}"
 
 # make bed files with coords of regions around the resistance genes to find repeats in them
 rule regions_coords:
@@ -355,9 +308,9 @@ rule regions_coords:
        "results/direct_repeats/{strain}/regions/regions_overlapping_3_end.bed"
     message: "creating BED files for RGs flanking regions in {wildcards.strain} assembly"
     log: "results/logs/{strain}_getbed.log"
+    conda: "envs/pythonbio.yaml"
     params: span=config["span"], min_plasmid_size=config["min_plasmid_size"]
-    script:
-        "scripts/flanking_regions.py"
+    script: "scripts/flanking_regions.py &> {log}"
 
 # retrieve regions as fasta according to their coordinates
 # bed tools returns an empty file if a bed file is empty
@@ -373,14 +326,14 @@ rule regions_seqs:
         right="results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta"
     message: "retrieving regions' sequences from {wildcards.strain} assembly"
     log: "results/logs/{strain}_bedtools.log"
-    conda: "varcalling-env"
+    conda: "envs/varcalling.yaml"
     shell:
         "samtools faidx {input.assembly} &&"
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_normal} -nameOnly -fo {output.normal} &> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_5_end} -nameOnly -fo {output.left} &>> {log}; "
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_3_end} -nameOnly -fo {output.right} &>> {log}"
 
-# join regions' ends overlapping 5'/3'-ends
+# join regions' ends overlapping 5' or 3'-ends
 rule ends_overlaps:
     input:
         "results/direct_repeats/{strain}/regions/regions_within.fasta",
@@ -392,8 +345,8 @@ rule ends_overlaps:
         "results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta"
     message: "joining regions overlapping chromosome ends in {wildcards.strain} assembly"
     log: "results/logs/{strain}_join_ends.log"
-    script:
-        "scripts/join_ends.py"
+    conda: "envs/pythonbio.yaml"
+    script: "scripts/join_ends.py &> {log}"
 
 # merge fasta files with the regions into a single file
 rule merge_regions:
@@ -401,12 +354,11 @@ rule merge_regions:
         normal="results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
         left_joined="results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
         right_joined="results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta"
-    output:
-        "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
+    output: "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
     message: "concatenating regions from {wildcards.strain} assembly"
     log: "results/logs/{strain}_concatenate_regions.txt"
-    shell:
-        "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
+    conda: ""
+    shell: "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
 
 # find direct repeat pairs in the regions
 rule direct_repeats:
@@ -433,9 +385,10 @@ rule dr_annotation:
         "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
         "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff"
     message: "executing GFF_parser.py on {wildcards.strain} perfect repeats data"
-    params: min_len=config["min_repeat_length"]
     log: "results/logs/{strain}_gff_perfect.log"
-    script: "scripts/GRF_parser.py"
+    conda: "envs/pythonbio.yaml"
+    params: min_len=config["min_repeat_length"]
+    script: "scripts/GRF_parser.py &> {log}"
 
 # make a table with repeats coordinates, remove duplicates
 rule dr_table:
@@ -445,18 +398,19 @@ rule dr_table:
         "results/annotations/{strain}/repeats/{strain}_repeats.csv"
     message: "making CSV files for repeat pairs in strain {wildcards.strain}"
     log: "results/logs/{strain}_repeats_csv.log"
-    script: "scripts/make_repeat_tables.py"
+    conda: "envs/pythonbio.yaml"
+    script: "scripts/make_repeat_tables.py &> {log}"
 
 # join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
 rule dr_summary:
     input:
         expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
         expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"])
-    output:
-        "results/tables/repeats_summary.csv"
-    log: "results/logs/repeat_summary.log"
+    output: "results/tables/repeats_summary.csv"
     message: "making summary table with repeat coordinates for all strains"
-    script: "scripts/make_repeat_summary_table.py"
+    log: "results/logs/repeat_summary.log"
+    conda: "envs/pythonbio.yaml"
+    script: "scripts/make_repeat_summary_table.py &> {log}"
 
 rule isescan:
     input: "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
@@ -471,9 +425,6 @@ rule isescan:
 rule final:
     input:
         qc_ass="results/qualcheck_assembly/{strain}",
-        qc_ill_raw="results/qualcheck_reads/{strain}/Illumina/{strain}_summary.tsv",
-        qc_ill_trim="results/qualcheck_reads/{strain}/Illumina_trimmed/{strain}_summary.tsv",
-        qc_nan_raw="results/qualcheck_reads/{strain}/Nanopore/{strain}_summary.tsv",
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
         assembly="results/assemblies/{strain}",
         assembly_joined="results/assemblies_joined/{strain}/assembly.fasta",
