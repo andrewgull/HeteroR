@@ -28,12 +28,14 @@ rule create_links:
            r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz"
     output: r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}_1.fastq.gz",
             r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}_2.fastq.gz"
-    shell: "ln -s {input.r1} {output.r2} && ln -s {input.r2} {output.r2}"
+    log: "results/logs/{parent}_links.log"
+    shell: "ln -s {input.r1} {output.r2} && ln -s {input.r2} {output.r2} 2> {log}"
 
 rule make_reference:
     input: "results/annotations/{parent}/prokka/{parent}_genomic.gff"
     output: "results/mutants/variants/{parent}/reference.fasta"
-    shell: "sed -n '/##FASTA/,${{p}}' {input} | sed '1d' > {output}"
+    log: "results/logs/{parent}_ref.log"
+    shell: "sed -n '/##FASTA/,${{p}}' {input} | sed '1d' > {output} 2> {log}"
 
 rule mapping_mutant:
     input: r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
@@ -210,7 +212,8 @@ rule collect_all_IS:
     input:
        expand("results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna", parent=config['parents'])
     output: "results/mutants/ismapper/query_collection.fasta"
-    shell: "cat {input} > {output}"
+    log: "results/logs/collect_all_is.log"
+    shell: "cat {input} > {output} 2> {log}"
 
 rule find_best_IS:
     input: script="workflow/scripts/find_best_IS_examples.R",
@@ -225,13 +228,15 @@ rule extract_IS_headers:
     input: table="results/mutants/ismapper/best_IS_representatives.tsv",
            collection="results/mutants/ismapper/query_collection.fasta"
     output: "results/mutants/ismapper/best_IS_representatives_IDs.txt"
-    shell: "while IFS=$'\t' read -r col1 col2 _; do grep $col1 {input.collection} | grep $col2 >> {output}; done < {input.table} && sed -i 's/>//g' {output}"
+    log: "results/logs/is_headers.log"
+    shell: "while IFS=$'\t' read -r col1 col2 _; do grep $col1 {input.collection} | grep $col2 >> {output}; done < {input.table} && sed -i 's/>//g' {output} 2> {log}"
 
 rule extract_best_IS:
     input: id_file = "results/mutants/ismapper/best_IS_representatives_IDs.txt",
            collection="results/mutants/ismapper/query_collection.fasta"
     output: "results/mutants/ismapper/best_IS_from_each_family.fasta"
-    shell: "seqkit grep -n -f {input.id_file} {input.collection} -o {output}"
+    log: "results/logs/best_is.log"
+    shell: "seqkit grep -n -f {input.id_file} {input.collection} -o {output} &> {log}"
 
 rule map_new_insertions:
     input: is_queries="results/mutants/ismapper/best_IS_from_each_family.fasta",
