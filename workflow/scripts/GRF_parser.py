@@ -10,6 +10,7 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
 import pandas as pd
 from BCBio import GFF
 import os
+import sys
 
 
 def parse_grf_output_w_ranges(header):
@@ -105,32 +106,35 @@ def main(input_assembly, input_grf, min_len):
 
 
 if __name__ == '__main__':
-    # DEFINE INPUTS AND OUTPUTS
-    # in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
-    # in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
-    # out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
-    # grf_out_filename = "perfect.spacer.id"  # IT CAN BE CHANGED
-    strain = snakemake.input[1].split("/")[-2]
-    in_perfect = os.path.join(snakemake.input[0], "perfect.spacer.id")
-    in_imperfect = os.path.join(snakemake.input[0], "imperfect.id")
-    in_assembly = os.path.join(snakemake.input[1], strain + "_genomic.faa")
-    out_gff_perfect = snakemake.output[0]
-    out_gff_imperfect = snakemake.output[1]
-    # set minimal repeat length
-    min_repeat_length = int(snakemake.params[0])
+    # open log
+    with open(snakemake.log[0], "w") as f:
+        sys.stderr = sys.stdout = f
+        # DEFINE INPUTS AND OUTPUTS
+        # in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
+        # in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
+        # out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
+        # grf_out_filename = "perfect.spacer.id"  # IT CAN BE CHANGED
+        strain = snakemake.input[1].split("/")[-2]
+        in_perfect = os.path.join(snakemake.input[0], "perfect.spacer.id")
+        in_imperfect = os.path.join(snakemake.input[0], "imperfect.id")
+        in_assembly = os.path.join(snakemake.input[1], strain + "_genomic.faa")
+        out_gff_perfect = snakemake.output[0]
+        out_gff_imperfect = snakemake.output[1]
+        # set minimal repeat length
+        min_repeat_length = int(snakemake.params[0])
 
-    # create gff records from perfect.spacer.id
-    gff_records_perfect = main(in_assembly, in_perfect, min_len=min_repeat_length)
-    # remove records (genes) with 0 repeats
-    gff_records_perfect = [rec for rec in gff_records_perfect if len(rec.features) > 0]
-    # write to a GFF file
-    with open(out_gff_perfect, 'w') as out:
-        GFF.write(recs=gff_records_perfect, out_handle=out, include_fasta=False)
+        # create gff records from perfect.spacer.id
+        gff_records_perfect = main(in_assembly, in_perfect, min_len=min_repeat_length)
+        # remove records (genes) with 0 repeats
+        gff_records_perfect = [rec for rec in gff_records_perfect if len(rec.features) > 0]
+        # write to a GFF file
+        with open(out_gff_perfect, 'w') as out:
+            GFF.write(recs=gff_records_perfect, out_handle=out, include_fasta=False)
 
-    # create gff records from imperfect.id
-    gff_records_imperfect = main(in_assembly, in_imperfect, min_len=min_repeat_length)
-    # remove records (genes) with 0 repeats
-    gff_records_imperfect = [rec for rec in gff_records_imperfect if len(rec.features) > 0]
-    # write them to a file
-    with open(out_gff_imperfect, 'w') as out:
-        GFF.write(recs=gff_records_imperfect, out_handle=out, include_fasta=False)
+        # create gff records from imperfect.id
+        gff_records_imperfect = main(in_assembly, in_imperfect, min_len=min_repeat_length)
+        # remove records (genes) with 0 repeats
+        gff_records_imperfect = [rec for rec in gff_records_imperfect if len(rec.features) > 0]
+        # write them to a file
+        with open(out_gff_imperfect, 'w') as out:
+            GFF.write(recs=gff_records_imperfect, out_handle=out, include_fasta=False)

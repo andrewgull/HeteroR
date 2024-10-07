@@ -1,5 +1,6 @@
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
+import sys
 
 
 def join_ends(side_dict, normal_dict, left=True):
@@ -41,41 +42,45 @@ output_normal = snakemake.output[0]
 output_5_end = snakemake.output[1]
 output_3_end = snakemake.output[2]
 
-# read sequences
-normal_records = SeqIO.to_dict(SeqIO.parse(input_normal, "fasta"))
-left_records = SeqIO.to_dict(SeqIO.parse(input_left, "fasta"))
-right_records = SeqIO.to_dict(SeqIO.parse(input_right, "fasta"))
+# open log file
+with open(snakemake.log[0], "w") as f:
+    sys.stderr = sys.stdout = f
 
-# CASE 1 (the most probable): normal is non-empty, left and right are empty
-if len(normal_records) > 0 & len(left_records) == 0 & len(right_records) == 0:
-    # write essentially the same file, snakemake will detect these outputs
-    joined_5_end = list()
-    joined_3_end = list()
-    # NORMAL STAYS THE SAME
-# CASE 2 (less probable): normal and left are non-empty, right is empty
-elif len(normal_records) > 0 & len(left_records) > 0 & len(right_records) == 0:
-    joined_5_end = join_ends(left_records, normal_records, left=True)
-    joined_3_end = list()
-    for key in left_records.keys():
-        dropped = normal_records.drop(key, None)
-# CASE 3 (same probability): normal and right are non-empty, left is empty
-elif len(normal_records) > 0 & len(right_records) > 0 & len(left_records) == 0:
-    joined_3_end = join_ends(right_records, normal_records, left=False)
-    joined_5_end = list()
-    for key in right_records.keys():
-        dropped = normal_records.drop(key, None)
-# CASE 4 (unlikely to happen): all three dicts are non-empty
-elif len(normal_records) > 0 & len(right_records) > 0 & len(left_records) > 0:
-    joined_5_end = join_ends(left_records, normal_records, left=True)
-    joined_3_end = join_ends(right_records, normal_records, left=False)
-    keys_to_drop = set(list(left_records.keys()) + list(right_records.keys()))
-    for key in keys_to_drop:
-        dropped = normal_records.drop(key, None)
-else:  # should not happen
-    joined_5_end = list()
-    joined_3_end = list()
+    # read sequences
+    normal_records = SeqIO.to_dict(SeqIO.parse(input_normal, "fasta"))
+    left_records = SeqIO.to_dict(SeqIO.parse(input_left, "fasta"))
+    right_records = SeqIO.to_dict(SeqIO.parse(input_right, "fasta"))
 
-# write outputs
-SeqIO.write(list(normal_records.values()), output_normal, "fasta")
-SeqIO.write(joined_5_end, output_5_end, "fasta")
-SeqIO.write(joined_3_end, output_3_end, "fasta")
+    # CASE 1 (the most probable): normal is non-empty, left and right are empty
+    if len(normal_records) > 0 & len(left_records) == 0 & len(right_records) == 0:
+        # write essentially the same file, snakemake will detect these outputs
+        joined_5_end = list()
+        joined_3_end = list()
+        # NORMAL STAYS THE SAME
+    # CASE 2 (less probable): normal and left are non-empty, right is empty
+    elif len(normal_records) > 0 & len(left_records) > 0 & len(right_records) == 0:
+        joined_5_end = join_ends(left_records, normal_records, left=True)
+        joined_3_end = list()
+        for key in left_records.keys():
+            dropped = normal_records.drop(key, None)
+    # CASE 3 (same probability): normal and right are non-empty, left is empty
+    elif len(normal_records) > 0 & len(right_records) > 0 & len(left_records) == 0:
+        joined_3_end = join_ends(right_records, normal_records, left=False)
+        joined_5_end = list()
+        for key in right_records.keys():
+            dropped = normal_records.drop(key, None)
+    # CASE 4 (unlikely to happen): all three dicts are non-empty
+    elif len(normal_records) > 0 & len(right_records) > 0 & len(left_records) > 0:
+        joined_5_end = join_ends(left_records, normal_records, left=True)
+        joined_3_end = join_ends(right_records, normal_records, left=False)
+        keys_to_drop = set(list(left_records.keys()) + list(right_records.keys()))
+        for key in keys_to_drop:
+            dropped = normal_records.drop(key, None)
+    else:  # should not happen
+        joined_5_end = list()
+        joined_3_end = list()
+
+    # write outputs
+    SeqIO.write(list(normal_records.values()), output_normal, "fasta")
+    SeqIO.write(joined_5_end, output_5_end, "fasta")
+    SeqIO.write(joined_3_end, output_3_end, "fasta")

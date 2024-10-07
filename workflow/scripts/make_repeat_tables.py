@@ -16,8 +16,10 @@ def make_repeats_df(spacer_file, strain_index=0):
     return spacer_df
 
 
-# snakemake.input[0] looks like "results/direct_repeats/{strain}/repeats_no_mismatch/perfect.spacer.id"
-in_file = os.path.join(snakemake.input[0], "perfect.spacer.id")
-repeat_df = make_repeats_df(in_file, strain_index=2)
-repeat_df.drop_duplicates(inplace=True)
-repeat_df.to_csv(snakemake.output[0])
+if __name__ == '__main__':
+    with open(snakemake.log[0], "w") as f:
+        sys.stderr = sys.stdout = f
+        in_file = os.path.join(snakemake.input[0], "perfect.spacer.id")
+        repeat_df = make_repeats_df(in_file, strain_index=2)
+        repeat_df.drop_duplicates(inplace=True)
+        repeat_df.to_csv(snakemake.output[0])
