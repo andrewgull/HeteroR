@@ -73,29 +73,22 @@ rule adaptive_hybrid_assembly:
         draft_dir = directory("results/drafts/{strain}"),
         polish_dir = directory("results/polished/{strain}")
     threads: 18
-    message:
-        "executing assembly script with {threads} threads on {wildcards.strain} reads"
-    log:
-        "results/logs/{strain}_assembly.log"
+    message: "executing assembly script with {threads} threads on {wildcards.strain} reads"
+    log: "results/logs/{strain}_assembly.log"
     conda: "envs/hybrid_assembly.yaml"
     params: basecaller=config["basecaller"], genome_size=config["genome_size"], coverage=config["coverage"], genome_length=config["genome_length"], cov_threshold=config["cov_threshold"]
-    script:
-        "scripts/adaptive_hybrid_assembly.py &> {log}"
+    script: "scripts/adaptive_hybrid_assembly.py"
 
 # assembly quality control
 rule qc_assembly:
-    input:
-        "results/assemblies/{strain}",
-        "resources/busco_downloads"
-    output:
-        directory("results/qualcheck_assembly/{strain}")
+    input: "results/assemblies/{strain}", "resources/busco_downloads"
+    output: directory("results/qualcheck_assembly/{strain}")
     threads: 18
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
-    log: "results/logs/{strain}_ass_qc.log"
+    log: "results/logs/{strain}_assembly_qc.log"
     conda: "envs/busco_quast.yaml"
     params: tax_dataset=config["tax_dataset"]
-    script:
-        "scripts/QC_assembly.py"
+    script: "scripts/QC_assembly.py"
 
 # mapping of short reads on the assembly
 rule map_back:
@@ -147,8 +140,7 @@ rule additional_plasmid_assembly:
     input:
         r1 = "results/mapping/{strain}/unmapped_1.fastq",
         r2 = "results/mapping/{strain}/unmapped_2.fastq"
-    output:
-        directory("results/plasmids/{strain}")
+    output: directory("results/plasmids/{strain}")
     threads: 18
     message: "executing SPAdes in plasmid mode with {threads} threads on unmapped reads of {wildcards.strain}"
     log: "results/logs/{strain}_spades.log"
@@ -162,15 +154,13 @@ rule assembly_summary:
     input:
         "results/assemblies/{strain}",
         "results/plasmids/{strain}"
-    output:
-         "results/assemblies_joined/{strain}/summary.tsv"
+    output: "results/assemblies_joined/{strain}/summary.tsv"
     threads: 1
     params: position=config["position"]
     message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
     log: "results/logs/{strain}_assembly_summary.log"
     conda: "envs/pythonbio.yaml"
-    script:
-        "scripts/assembly_summary.py"
+    script: "scripts/assembly_summary.py"
 
 # merging Unicycler and SPAdes assemblies into single file
 rule merge_assemblies:
@@ -183,7 +173,7 @@ rule merge_assemblies:
     message: "joining Unicycler assembly and SPAdes plasmid assembly together, strain {wildcards.strain}"
     log: "results/logs/{strain}_joiner.log"
     conda: "envs/pythonbio.yaml"
-    script: "scripts/join_two_fastas.py &> {log}"
+    script: "scripts/join_two_fastas.py"
 
 # Annotate merged assembly
 rule assembly_annotation:
@@ -211,7 +201,7 @@ rule rename_annotations:
     message: "renaming {wildcards.strain} annotations"
     log: "results/logs/{strain}_rename_annot.log"
     conda: "envs/pythonbio.yaml"
-    script: "scripts/rename_genomic_gbk.py &> {log}"
+    script: "scripts/rename_genomic_gbk.py"
 
 # Annotate tRNAs separately
 rule trna_annotation:
@@ -243,7 +233,7 @@ rule join_annotations:
     message: "joining {wildcards.strain} annotations"
     log: "results/logs/{strain}_join_annot.log"
     conda: "envs/pythonbio.yaml"
-    script: "scripts/join_two_fastas.py &> {log}"
+    script: "scripts/join_two_fastas.py"
 
 # Map short reads onto the joined assemblies to get coverage
 rule genome_coverage:
@@ -294,7 +284,7 @@ rule rg_annotation:
     log: "results/logs/{strain}_rgi_annot.log"
     conda: "envs/pythonbio.yaml"
     params: filter_criterion=config["filter_criterion"]
-    script: "scripts/rgi2gff.py &> {log}"
+    script: "scripts/rgi2gff.py"
 
 # make bed files with coords of regions around the resistance genes to find repeats in them
 rule regions_coords:
@@ -310,7 +300,7 @@ rule regions_coords:
     log: "results/logs/{strain}_getbed.log"
     conda: "envs/pythonbio.yaml"
     params: span=config["span"], min_plasmid_size=config["min_plasmid_size"]
-    script: "scripts/flanking_regions.py &> {log}"
+    script: "scripts/flanking_regions.py"
 
 # retrieve regions as fasta according to their coordinates
 # bed tools returns an empty file if a bed file is empty
@@ -346,7 +336,7 @@ rule ends_overlaps:
     message: "joining regions overlapping chromosome ends in {wildcards.strain} assembly"
     log: "results/logs/{strain}_join_ends.log"
     conda: "envs/pythonbio.yaml"
-    script: "scripts/join_ends.py &> {log}"
+    script: "scripts/join_ends.py"
 
 # merge fasta files with the regions into a single file
 rule merge_regions:
@@ -357,7 +347,6 @@ rule merge_regions:
     output: "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
     message: "concatenating regions from {wildcards.strain} assembly"
     log: "results/logs/{strain}_concatenate_regions.txt"
-    conda: ""
     shell: "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
 
 # find direct repeat pairs in the regions
@@ -388,7 +377,7 @@ rule dr_annotation:
     log: "results/logs/{strain}_gff_perfect.log"
     conda: "envs/pythonbio.yaml"
     params: min_len=config["min_repeat_length"]
-    script: "scripts/GRF_parser.py &> {log}"
+    script: "scripts/GRF_parser.py"
 
 # make a table with repeats coordinates, remove duplicates
 rule dr_table:
@@ -399,7 +388,7 @@ rule dr_table:
     message: "making CSV files for repeat pairs in strain {wildcards.strain}"
     log: "results/logs/{strain}_repeats_csv.log"
     conda: "envs/pythonbio.yaml"
-    script: "scripts/make_repeat_tables.py &> {log}"
+    script: "scripts/make_repeat_tables.py"
 
 # join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
 rule dr_summary:
@@ -410,7 +399,7 @@ rule dr_summary:
     message: "making summary table with repeat coordinates for all strains"
     log: "results/logs/repeat_summary.log"
     conda: "envs/pythonbio.yaml"
-    script: "scripts/make_repeat_summary_table.py &> {log}"
+    script: "scripts/make_repeat_summary_table.py"
 
 rule isescan:
     input: "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
