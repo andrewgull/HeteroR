@@ -2,7 +2,7 @@
 # source: github.com/andrewgull/HeteroR
 # configfile: specify via command line
 # example command: snakemake --use-conda --cores 14 --configfile config.yaml --resources mem_mb=10000
-# to get DAG: snakemake --dag results/final/DA63360_all.done | dot -Tpng > dag.png
+# to get DAG: snakemake --dag results/final/DA63360_all.done | dot -Tpng > images/dag.png
 
 from snakemake.io import touch, directory, temp, expand
 
@@ -50,8 +50,7 @@ rule trim_illumina:
         "--cut_right {params.r} --length_required {params.l} --trim_front1 {params.f} --low_complexity_filter "
         "--html {output.report_html} --json {output.report_json} &> {log}"
 
-# simple trimming of long reads: only reads shorter than 1000 bp are removed
-# previous 'smart' filtering was removed
+# simple trimming of long reads
 rule filter_nanopore:
     input: "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
     output: "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
@@ -62,7 +61,7 @@ rule filter_nanopore:
     params: min_len=config["min_nanopore_length"]
     shell: "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
-# Make an assembly with Unicycler or FLye-Medaka-Polypolish
+# Make an assembly with Unicycler or FLye-Medaka-Polypolish depending on Nanopore coverage
 rule adaptive_hybrid_assembly:
     input:
         short_reads_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
