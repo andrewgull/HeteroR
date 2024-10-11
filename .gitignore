@@ -1,6 +1,7 @@
 *.csv
 *.html
 *.log
+*.sif
 *.Rhistory
 *.RData
 results/
