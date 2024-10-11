@@ -42,6 +42,7 @@ rule trim_illumina:
     message: "executing fastp with {threads} threads on {wildcards.strain} short reads"
     log: "results/logs/{strain}_fastp.log"
     conda: "envs/fastp.yaml"
+    container: "containers/fastp.sif"
     params: q=config["quality"], W=config["window_size"], r=config["cut_right"], l=config["length_required"], f=config["trim_front"]
     shell:
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} "
@@ -57,6 +58,7 @@ rule filter_nanopore:
     message: "executing filtlong on {wildcards.strain} long reads"
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
+    container: "containers/filtlong.sif"
     threads: 18
     params: min_len=config["min_nanopore_length"]
     shell: "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
@@ -75,6 +77,7 @@ rule adaptive_hybrid_assembly:
     message: "executing assembly script with {threads} threads on {wildcards.strain} reads"
     log: "results/logs/{strain}_assembly.log"
     conda: "envs/hybrid_assembly.yaml"
+    container: "containers/hybrid_assembly.sif"
     params: basecaller=config["basecaller"], genome_size=config["genome_size"], coverage=config["coverage"], genome_length=config["genome_length"], cov_threshold=config["cov_threshold"]
     script: "scripts/adaptive_hybrid_assembly.py"
 
@@ -86,6 +89,7 @@ rule qc_assembly:
     message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_assembly_qc.log"
     conda: "envs/busco_quast.yaml"
+    container: "containers/assembly_qc.sif"
     params: tax_dataset=config["tax_dataset"]
     script: "scripts/QC_assembly.py"
 
@@ -103,6 +107,7 @@ rule map_back:
     log: mem = "results/logs/{strain}_bwa_mem.log",
          index = "results/logs/{strain}_bwa_index.log"
     conda: "envs/bwa.yaml"
+    container: "containers/bwa.sif"
     shell:
         "bwa index {input.assembly_dir}/assembly.fasta &> {log.index} && "
         "bwa mem -t {threads} {input.assembly_dir}/assembly.fasta {input.short_read_1} {input.short_read_2} -o {output} &> {log.mem}"
@@ -117,6 +122,7 @@ rule sort_mapping:
     message: "executing SAMTOOLS: VIEW-SORT with {threads} threads on {wildcards.strain} mapping file"
     log: "results/logs/{strain}_samtools.log"
     conda: "envs/samtools.yaml"
+    container: "containers/samtools.sif"
     shell:
         "samtools view -b {input} | samtools sort -o {output} -O BAM -@ {threads} &> {log} && samtools index {output}"
 
@@ -131,6 +137,7 @@ rule collect_unmapped:
     message: "executing SAMTOOLS: VIEW-FASTQ with {threads} threads on {wildcards.strain} BAM file"
     log: "results/logs/{strain}_unmapped.log"
     conda: "envs/samtools.yaml"
+    container: "containers/samtools.sif"
     shell:
         "samtools view -@ {threads} -u -f 12 -F 256 {input} | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
 
@@ -144,6 +151,7 @@ rule additional_plasmid_assembly:
     message: "executing SPAdes in plasmid mode with {threads} threads on unmapped reads of {wildcards.strain}"
     log: "results/logs/{strain}_spades.log"
     conda: "envs/spades.yaml"
+    container: "containers/spades.sif"
     shell:
         # || true prevents the rule from failing when spades throws an error; this happens when unmapped files are too small
         "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log} || true"
@@ -158,7 +166,8 @@ rule assembly_summary:
     params: position=config["position"]
     message: "summarizing unicycler and SPAdes assemblies of strain {wildcards.strain}"
     log: "results/logs/{strain}_assembly_summary.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     script: "scripts/assembly_summary.py"
 
 # merging Unicycler and SPAdes assemblies into single file
@@ -171,7 +180,8 @@ rule merge_assemblies:
     threads: 1
     message: "joining Unicycler assembly and SPAdes plasmid assembly together, strain {wildcards.strain}"
     log: "results/logs/{strain}_joiner.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     script: "scripts/join_two_fastas.py"
 
 # Annotate merged assembly
@@ -185,6 +195,7 @@ rule assembly_annotation:
     message: "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
     log: "results/logs/{strain}_prokka.log"
     conda: "envs/prokka.yaml"
+    container: "containers/prokka.sif"
     params: centre=config["centre"], minlen=config["minlen"], genus=config["genus"], species=config["species"]
     shell:
         # skip tRNAs search?
@@ -199,7 +210,8 @@ rule rename_annotations:
     params: filename="{strain}_genomic.gbk"
     message: "renaming {wildcards.strain} annotations"
     log: "results/logs/{strain}_rename_annot.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     script: "scripts/rename_genomic_gbk.py"
 
 # Annotate tRNAs separately
@@ -219,6 +231,7 @@ rule trna_annotation:
     message: "executing tRNAScan-SE with {threads} threads on full assembly of {wildcards.strain} strain"
     log: "results/logs/{strain}_trnascan.log"
     conda: "envs/trnascan.yaml"
+    container: "containers/trnascan.sif"
     shell:
         "tRNAscan-SE -B --forceow -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input} &> {log}"
@@ -231,7 +244,8 @@ rule join_annotations:
     output: "results/annotations/{strain}/joined/annotation.fasta"  # it's not supposed to be used as input for RGI tool
     message: "joining {wildcards.strain} annotations"
     log: "results/logs/{strain}_join_annot.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     script: "scripts/join_two_fastas.py"
 
 # Map short reads onto the joined assemblies to get coverage
@@ -251,6 +265,7 @@ rule genome_coverage:
          samtools_index="results/logs/{strain}_genome_coverage_samtools_index.log",
          samtools_depth="results/logs/{strain}_genome_coverage_samtools_depth.log"
     conda: "envs/hybrid_assembly.yaml"
+    container: "containers/hybrid_assembly.sif"
     shell: "bwa index {input.assembly} &> {log.bwa_index} && bwa mem -t {threads} {input.assembly} {input.fastq1} "
            "{input.fastq2} 2> {log.bwa_mem} | samtools sort -@ {threads} -o {output.bam} &> {log.samtools_sort} && "
            "samtools index {output.bam} &> {log.samtools_index} && "
@@ -268,6 +283,7 @@ rule resistance_genes:
     message: "executing RGI with {threads} threads on predicted genes/proteins from {wildcards.strain}"
     log: "results/logs/{strain}_rgi.log"
     conda: "envs/rgi.yaml"
+    container: "containers/rgi.sif"
     shell:
         "output=$(echo '{output}' | cut -d'.' -f 1) && "
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
@@ -281,7 +297,7 @@ rule rg_annotation:
     output: "results/annotations/{strain}/resistance_genes/{strain}_resistance_genes.gbk"
     message: "annotating {wildcards.strain} resistance genes"
     log: "results/logs/{strain}_rgi_annot.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
     params: filter_criterion=config["filter_criterion"]
     script: "scripts/rgi2gff.py"
 
@@ -297,7 +313,8 @@ rule regions_coords:
        "results/direct_repeats/{strain}/regions/regions_overlapping_3_end.bed"
     message: "creating BED files for RGs flanking regions in {wildcards.strain} assembly"
     log: "results/logs/{strain}_getbed.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     params: span=config["span"], min_plasmid_size=config["min_plasmid_size"]
     script: "scripts/flanking_regions.py"
 
@@ -315,7 +332,8 @@ rule regions_seqs:
         right="results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta"
     message: "retrieving regions' sequences from {wildcards.strain} assembly"
     log: "results/logs/{strain}_bedtools.log"
-    conda: "envs/varcalling.yaml"
+    conda: "envs/bedtools.yaml"
+    container: "containers/bedtools.sif"
     shell:
         "samtools faidx {input.assembly} &&"
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_normal} -nameOnly -fo {output.normal} &> {log}; "
@@ -334,7 +352,8 @@ rule ends_overlaps:
         "results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta"
     message: "joining regions overlapping chromosome ends in {wildcards.strain} assembly"
     log: "results/logs/{strain}_join_ends.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     script: "scripts/join_ends.py"
 
 # merge fasta files with the regions into a single file
@@ -346,6 +365,7 @@ rule merge_regions:
     output: "results/direct_repeats/{strain}/regions/regions_joined_final.fasta"
     message: "concatenating regions from {wildcards.strain} assembly"
     log: "results/logs/{strain}_concatenate_regions.txt"
+    container: "containers/base.sif"
     shell: "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
 
 # find direct repeat pairs in the regions
@@ -358,6 +378,7 @@ rule direct_repeats:
     message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf_perfect.log"
     conda: "envs/grf.yaml"
+    container: "containers/grf.sif"
     params: mode=config["mode"], min_size=config["min_size"], format=config["format"], mism=config["mism"], seed_mism=config["seed_mism"], max_dist=config["max_dist"], min_dist=config["min_dist"]
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
@@ -374,7 +395,8 @@ rule dr_annotation:
         "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff"
     message: "executing GFF_parser.py on {wildcards.strain} perfect repeats data"
     log: "results/logs/{strain}_gff_perfect.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     params: min_len=config["min_repeat_length"]
     script: "scripts/GRF_parser.py"
 
@@ -386,7 +408,8 @@ rule dr_table:
         "results/annotations/{strain}/repeats/{strain}_repeats.csv"
     message: "making CSV files for repeat pairs in strain {wildcards.strain}"
     log: "results/logs/{strain}_repeats_csv.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     script: "scripts/make_repeat_tables.py"
 
 # join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
@@ -397,7 +420,8 @@ rule dr_summary:
     output: "results/tables/repeats_summary.csv"
     message: "making summary table with repeat coordinates for all strains"
     log: "results/logs/repeat_summary.log"
-    conda: "envs/pythonbio.yaml"
+    conda: "envs/biopython.yaml"
+    container: "containers/biopython.sif"
     script: "scripts/make_repeat_summary_table.py"
 
 rule isescan:
@@ -406,6 +430,7 @@ rule isescan:
     threads: 18
     message: "executing ISEScan on {wildcards.strain}"
     conda: "envs/isescan.yaml"
+    container: "containers/isescan.sif"
     log: "results/logs/{strain}_isescan.log"
     shell: "isescan.py --seqfile {input} --output {output} --nthread {threads} &> {log}"
 
