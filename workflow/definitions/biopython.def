@@ -1,0 +1,37 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%help 
+   BioPython, pandas, numpy & bcbio-gff container with miniconda
+
+%post
+    apt update && apt -y upgrade
+    apt -y install \
+    build-essential \
+    wget \
+    bzip2 \
+    ca-certificates \
+    libglib2.0-0 \
+    libxext6 \
+    libsm6 \
+    libxrender1 \
+    git
+    rm -rf /var/lib/apt/lists/*
+    apt clean
+    
+    #Installing Miniconda
+    wget -c https://repo.anaconda.com/miniconda/Miniconda3-py39_23.1.0-1-Linux-x86_64.sh
+    /bin/bash Miniconda3-py39_23.1.0-1-Linux-x86_64.sh -bfp /usr/local
+    
+    # Custom conda packages
+    conda install \
+    python=3.9.16 \
+    biopython=1.81 \
+    pandas=1.5.3 \
+    numpy=1.24.2 \
+    bcbio-gff=0.7.0 \
+    -c bioconda \
+    -c conda-forge
+    
+    # To free some space:
+    conda clean --tarballs --yes
