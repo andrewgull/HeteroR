@@ -10,9 +10,11 @@ Data analysis and modelling are performed using R and *tidyverse*.
 
 File: `workflow/snakefile.smk`
 
-Purpose: assembling and annotating *E. coli* genomes (resistance genes, IS elements, direct repeats)
+Purpose: assembling and annotating *E. coli* genomes (resistance genes, IS elements, direct repeats) from both short and long sequencing reads.
 
 Configuration file: `workflow/config.yaml`
+
+To run the pipeline short and long reads should be in `resources/data_raw/{strain}/short/` and `resources/data_raw/{strain}/long/` directories.
 
 DAG:
 
@@ -50,3 +52,4 @@ For analysis of the models, see `notebooks/modelling/models_analysis.Rmd`
 
 Features table: `notebooks/modelling/data/features_strain.csv`
 
+Strains will be available from SRA under BioProject PRJNA1165464
