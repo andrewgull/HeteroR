@@ -28,13 +28,13 @@ rule all:
         # different from its next base (base[i] != base[i+1]).
         # -f, --trim_front1
         # trimming how many bases in front of read1, default is 0 (int [=0])
-rule trim_illumina:
+rule trim_short:
     input:
-        short_read_1 = "resources/data_raw/{strain}/Illumina/renamed/{strain}_1.fq.gz",
-        short_read_2 = "resources/data_raw/{strain}/Illumina/renamed/{strain}_2.fq.gz"
+        short_read_1 = "resources/data_raw/{strain}/short/renamed/{strain}_1.fq.gz",
+        short_read_2 = "resources/data_raw/{strain}/short/renamed/{strain}_2.fq.gz"
     output:
-        short_read_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        short_read_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
+        short_read_1 = "results/data_filtered/{strain}/short/{strain}_1.fq.gz",
+        short_read_2 = "results/data_filtered/{strain}/short/{strain}_2.fq.gz",
         report_html = "results/qualcheck_reads/fastp_reports/{strain}_report.html",
         report_json = "results/qualcheck_reads/fastp_reports/{strain}_report.json"
     wildcard_constraints: strain="DA[0-9]*"
@@ -52,23 +52,23 @@ rule trim_illumina:
         "--html {output.report_html} --json {output.report_json} &> {log}"
 
 # simple trimming of long reads
-rule filter_nanopore:
-    input: "resources/data_raw/{strain}/Nanopore/{strain}_all.fastq.gz"
-    output: "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+rule filter_long:
+    input: "resources/data_raw/{strain}/long/{strain}_all.fastq.gz"
+    output: "results/data_filtered/{strain}/long/{strain}_all.fastq.gz"
     message: "executing filtlong on {wildcards.strain} long reads"
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
     container: "containers/filtlong.sif"
     threads: 18
-    params: min_len=config["min_nanopore_length"]
+    params: min_len=config["min_long_length"]
     shell: "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
-# Make an assembly with Unicycler or FLye-Medaka-Polypolish depending on Nanopore coverage
+# Make an assembly with Unicycler or FLye-Medaka-Polypolish depending on long coverage
 rule adaptive_hybrid_assembly:
     input:
-        short_reads_1 = "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        short_reads_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz",
-        long_reads = "results/data_filtered/{strain}/Nanopore/{strain}_all.fastq.gz"
+        short_reads_1 = "results/data_filtered/{strain}/short/{strain}_1.fq.gz",
+        short_reads_2 = "results/data_filtered/{strain}/short/{strain}_2.fq.gz",
+        long_reads = "results/data_filtered/{strain}/long/{strain}_all.fastq.gz"
     output:
         assembly_dir = directory("results/assemblies/{strain}"),
         draft_dir = directory("results/drafts/{strain}"),
@@ -97,8 +97,8 @@ rule qc_assembly:
 rule map_back:
     input:
         assembly_dir = "results/assemblies/{strain}",
-        short_read_1= "results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        short_read_2 = "results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz"
+        short_read_1= "results/data_filtered/{strain}/short/{strain}_1.fq.gz",
+        short_read_2 = "results/data_filtered/{strain}/short/{strain}_2.fq.gz"
     output:
         # an output file marked as temp is deleted after all rules that use it as an input are completed
         temp("results/mapping/{strain}/assembly.sam")
@@ -252,8 +252,8 @@ rule join_annotations:
 rule genome_coverage:
     input:
         assembly="results/assemblies_joined/{strain}/assembly.fasta",
-        fastq1="results/data_filtered/{strain}/Illumina/{strain}_1.fq.gz",
-        fastq2="results/data_filtered/{strain}/Illumina/{strain}_2.fq.gz"
+        fastq1="results/data_filtered/{strain}/short/{strain}_1.fq.gz",
+        fastq2="results/data_filtered/{strain}/short/{strain}_2.fq.gz"
     output:
         bam=temp("results/genome_coverage/{strain}/assembly.bam"),
         depth="results/genome_coverage/{strain}/depth.txt"
