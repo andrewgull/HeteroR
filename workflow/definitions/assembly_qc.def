@@ -27,7 +27,7 @@ From: ubuntu:22.04
     conda install \
     busco=5.2.2 \
     quast=5.0.2 \
-    python=3.7 \
+    python=3.7.12 \
     -c bioconda \
     -c conda-forge
     
