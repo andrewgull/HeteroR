@@ -42,6 +42,8 @@ DAG:
 
 ## Data analysis and machine learning
 
+*To get the same versions of packages, use* `renv::restore()`
+
 For feature generation see `notebooks/modelling/features.qmd`.
 
 For exploratory data analysis of the features, see file `notebooks/modelling/EDA.qmd`,
@@ -52,4 +54,6 @@ For analysis of the models, see `notebooks/modelling/models_analysis.Rmd`
 
 Features table: `notebooks/modelling/data/features_strain.csv`
 
-Strains will be available from SRA under BioProject PRJNA1165464
+## Raw reads availability
+
+The raw sequencing reads used in this project will be available from NCBI's SRA under BioProject PRJNA1165464
