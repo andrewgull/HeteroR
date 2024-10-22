@@ -1,8 +1,26 @@
 # Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
-The pipelines are created using [Snakemake](https://snakemake.readthedocs.io/en/stable)
+This repository contains code and certain types data for the project published in %journalname%.
 
-Data analysis and modelling are performed using R and *tidyverse*.
+The pipelines are created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v7.32.4
+
+Data analysis was performed using *R* v4.4.1 and machine learning was performed using *tidymodels* v1.2.0.
+
+To reproduce the main analysis (genomes assembly and anotation), you have to run the main pipeline
+
+with this command to use conda environments:
+
+```
+snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-conda 
+```
+
+or with this command to use Apptainer containers instead:
+
+```
+snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-singularity
+```
+
+for more details on posiible options and installation of snakemake (number of threads, running on computer clusters, installing snakemake environment etc, see the official [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/))
 
 ## Snakemake pipelines
 
@@ -42,17 +60,19 @@ DAG:
 
 ## Data analysis and machine learning
 
-*To get the same versions of packages, use* `renv::restore()`
+R package *renv* was used to achieve reproducibility of the analysis in the `notebooks`
 
-For feature generation see `notebooks/modelling/features.qmd`.
+To get the same versions of packages, use `renv::restore()` and then you can run code in the notebooks:
 
-For exploratory data analysis of the features, see file `notebooks/modelling/EDA.qmd`,
+ - For feature generation - `notebooks/modelling/features.qmd`.
 
-For training and validation procedures, see `notebooks/modelling/training_and_validation.Rmd`,
+ - For exploratory data analysis of the features - `notebooks/modelling/EDA.qmd`,
 
-For analysis of the models, see `notebooks/modelling/models_analysis.Rmd`
+ - For training and validation procedures - `notebooks/modelling/training_and_validation.Rmd`,
 
-Features table: `notebooks/modelling/data/features_strain.csv`
+ - For analysis of the models - `notebooks/modelling/models_analysis.Rmd`
+
+The final features table used for training/validating and testing is here: `notebooks/modelling/data/features_strain.csv`
 
 ## Raw reads availability
 
