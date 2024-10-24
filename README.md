@@ -2,78 +2,70 @@
 
 This repository contains code and certain types data for the project published in %journalname%.
 
-The pipelines are created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v7.32.4
+The pipelines were created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v7.32.4
 
-Data analysis was performed using *R* v4.4.1 and machine learning was performed using *tidymodels* v1.2.0.
+Data analysis was performed using *R* v4.4.1 and machine learning was performed using [tidymodels](https://www.tidymodels.org/) v1.2.0.
 
-To reproduce the main analysis (genomes assembly and anotation), you have to run the main pipeline
+## How to run the main analysis
 
-with this command to use conda environments:
+First, ensure that the raw (short and long) reads are placed in `resources/data_raw/{strain}/short/` and `resources/data_raw/{strain}/long/` directories inside the project's directory.
+
+After this is done, you can run the main pipeline (genome assembly, anotation of resistance genes, repeats and insertion sequences):
+
+a) with this command to use conda environments:
 
 ```
+# navigate to the project's directory
 snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-conda 
 ```
 
-or with this command to use Apptainer containers instead:
+or  
+
+b) with this command to use Apptainer containers instead:
 
 ```
+# navigate to the project's directory
 snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-singularity
 ```
 
-for more details on posiible options and installation of snakemake (number of threads, running on computer clusters, installing snakemake environment etc, see the official [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/))
+for more details on installation of snakemake and available options (number of threads, running on computer clusters etc), see the official [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/)
 
-## Snakemake pipelines
+Then you can run the three R notebooks:
 
-### Main pipeline
+1. generate features table: `notebooks/modelling/features.qmd` (it is already available in `notebooks/modelling/data/features_strain.csv`)
+2. (optional) exploratory data anlysis: `notebooks/modelling/EDA.qmd`
+3. run training and validation:`notebooks/modelling/training_and_validation.Rmd`
+4. comparison and analysis of the models: `notebooks/modelling/models_analysis.Rmd`
 
-File: `workflow/snakefile.smk`
+To install the same versions of R packages as were used in these notebooks, install *renv* package first and then run `renv::restore()` ([here](https://rstudio.github.io/renv/index.html) you can find *renv* documentation).
 
-Purpose: assembling and annotating *E. coli* genomes (resistance genes, IS elements, direct repeats) from both short and long sequencing reads.
+## How to run additional analyses
 
-Configuration file: `workflow/config.yaml`
+### Phylogenetic analysis
 
-To run the pipeline short and long reads should be in `resources/data_raw/{strain}/short/` and `resources/data_raw/{strain}/long/` directories.
+```
+snakemake --snakefile workflow/phylogeny.smk --configfile workflow/config_phylogeny.yaml --use-conda 
+```
 
-DAG:
+**NB**: 27 reference strain are required.
+
+### Analysis of the HR mutants
+
+```
+# analysis of the HR mutants
+snakemake --snakefile workflow/mutants.smk --configfile workflow/config_mutants.yaml --use-conda 
+```
+
+## Raw data availability
+
+The raw sequencing reads used in this project are available from NCBI's SRA under BioProjects PRJNA1165464 and PRJNA1083935.
+
+## Rule graphs
+
+1. The main analysis
 
 ![main dag](images/dag.png)
 
-### Phylogeny pipeline
-
-File: `workflow/phylogeny.smk`
-
-Purpose: phylogenetic analysis of the samples including 27 reference strains.
-
-Configuration file: `workflow/config_phylogeny.yaml`
-
-### Analysis of mutants
-
-File: `mutants.smk`
-
-Purpose: analysis of the HR mutants.
-
-Configuration file: `workflow/config_mutants.yaml`
-
-DAG: 
+2. HR mutants analysis
 
 ![mut dag](images/dag_mutants.png)
-
-## Data analysis and machine learning
-
-R package *renv* was used to achieve reproducibility of the analysis in the `notebooks`
-
-To get the same versions of packages, use `renv::restore()` and then you can run code in the notebooks:
-
- - For feature generation - `notebooks/modelling/features.qmd`.
-
- - For exploratory data analysis of the features - `notebooks/modelling/EDA.qmd`,
-
- - For training and validation procedures - `notebooks/modelling/training_and_validation.Rmd`,
-
- - For analysis of the models - `notebooks/modelling/models_analysis.Rmd`
-
-The final features table used for training/validating and testing is here: `notebooks/modelling/data/features_strain.csv`
-
-## Raw reads availability
-
-The raw sequencing reads used in this project will be available from NCBI's SRA under BioProject PRJNA1165464
