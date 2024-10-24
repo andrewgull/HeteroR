@@ -1,20 +1,39 @@
 *.csv
 *.html
 *.log
+
+# container files
 *.sif
+
+# R files
 *.Rhistory
 *.RData
-results/
+.Rproj.user
+.RDataFiles
+
+# results
+results/a*/
+results/coverage/
+results/data_filtered/
+results/final/
+results/logs/
+results/mapping/
+results/plasmids/
+results/qualcheck_*/
+results/resistance_genes/
+
+# my presentation made with quarto
 notebooks/presentation/
+
+# all raw files
 resources/
+
+# the rest
 .idea/
 workflow/scripts/__pycache__/
 **/*_cache/
 **/*_files/
-.Rproj.user
-.RDataFiles
 .snakemake
-.idea
 .ipynb_checkpoints
 *.js
 notebooks/unicycler_crash/
