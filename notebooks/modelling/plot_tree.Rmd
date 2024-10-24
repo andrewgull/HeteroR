@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggtree)
 library(treeio)
 
-coli_tree <- read.newick("/home/andrei/Data/HeteroR/results/phylogeny/tree/core_genome.contree", node.label = 'label')
+coli_tree <- read.newick("../../results/phylogeny/tree/core_genome.contree", node.label = 'label')
 
 coli_tree_root <- root(coli_tree, outgroup = "E_albertii_KF1")
 
