@@ -14,7 +14,7 @@ After this is done, you can run the main pipeline (genome assembly, anotation of
 
 a) with this command to use conda environments:
 
-```
+```bash
 # navigate to the project's directory
 snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-conda 
 ```
@@ -23,7 +23,7 @@ or
 
 b) with this command to use Apptainer containers instead:
 
-```
+```bash
 # navigate to the project's directory
 snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-singularity
 ```
@@ -43,7 +43,7 @@ To install the same versions of R packages as were used in these notebooks, inst
 
 ### Phylogenetic analysis
 
-```
+```bash
 snakemake --snakefile workflow/phylogeny.smk --configfile workflow/config_phylogeny.yaml --use-conda 
 ```
 
@@ -51,7 +51,7 @@ snakemake --snakefile workflow/phylogeny.smk --configfile workflow/config_phylog
 
 ### Analysis of the HR mutants
 
-```
+```bash
 # analysis of the HR mutants
 snakemake --snakefile workflow/mutants.smk --configfile workflow/config_mutants.yaml --use-conda 
 ```
@@ -63,9 +63,6 @@ The raw sequencing reads used in this project are available from NCBI's SRA unde
 ## Rule graphs
 
 1. The main analysis
-
 ![main dag](images/dag.png)
-
 2. HR mutants analysis
-
 ![mut dag](images/dag_mutants.png)
