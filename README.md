@@ -62,7 +62,7 @@ The raw sequencing reads used in this project are available from NCBI's SRA unde
 
 ## Models and features table
 
-The pre-compiled featers table is available here: `notebooks/modelling/data/features_strain.csv`
+The pre-compiled features table is available here: `notebooks/modelling/data/features_strain.csv`
 
 The final models (trained LLR and GBT) are available here: `notebooks/modelling/models/llr_final.rds` & `notebooks/modelling/models/gbt_final.rds`
 
