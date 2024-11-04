@@ -413,7 +413,7 @@ Fig_BL_TEM <- ggarrange(
   Fig_TEM,
   ncol = 1,
   nrow = 2,
-  labels = c("A", "B"),
+  labels = c("a", "b"),
   common.legend = TRUE
 )
 
@@ -1241,7 +1241,7 @@ ar_len_kw("chromosome")
 
 ```{r,fig.height=8, fig.width=6}
 Fig_rep_count_rep_len_AR_len <- ggarrange(Fig_rep_count, Fig_med_rep_len, Fig_AR_len,
-                    labels = c("A", "B", "C"),
+                    labels = c("a", "b", "c"),
                     ncol = 1, nrow = 3)
 
 ggsave(file="manuscript/images/Fig_rep_count_rep_len_AR_len.pdf", 
@@ -1463,7 +1463,7 @@ kruskal.test(data_strain$min_distance_is_gene, data_strain$resistance)
 
 ```{r,fig.height=8, fig.width=9}
 Fig_IS_all <- ggarrange(Fig_IS_max_len, Fig_IS_gene_dist, Fig_IS_families, Fig_IS_copies,
-                    labels = c("A", "B", "C", "D"),
+                    labels = c("a", "b", "c", "d"),
                     ncol = 2, nrow = 2)
 
 ggsave(file="manuscript/images/Fig_IS_all.pdf", plot=Fig_IS_all, width = 8, height=8, units = "in")

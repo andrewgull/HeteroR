@@ -1790,7 +1790,7 @@ For the manuscript:
 
 ```{r, fig.width=8}
 Fig_all_rocs_all_posterior <- ggarrange(Fig_all_rocs, Fig_all_posterior,
-                    labels = c("A", "B"),
+                    labels = c("a", "b"),
                     ncol = 2, nrow = 1, common.legend = TRUE,
                     legend = "bottom")
 
