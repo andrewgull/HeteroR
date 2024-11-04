@@ -39,7 +39,7 @@ Then you can run the three R notebooks:
 
 To install the same versions of R packages as were used in these notebooks, install *renv* package first and then run `renv::restore()` ([here](https://rstudio.github.io/renv/index.html) you can find *renv* documentation).
 
-## How to run additional analyses
+## How to run the additional analyses
 
 ### Phylogenetic analysis
 
@@ -59,6 +59,12 @@ snakemake --snakefile workflow/mutants.smk --configfile workflow/config_mutants.
 ## Raw data availability
 
 The raw sequencing reads used in this project are available from NCBI's SRA under BioProjects PRJNA1165464 and PRJNA1083935.
+
+## Models and features table
+
+The pre-compiled featers table is available here: `notebooks/modelling/data/features_strain.csv`
+
+The final models (trained LLR and GBT) are available here: `notebooks/modelling/models/llr_final.rds` & `notebooks/modelling/models/gbt_final.rds`
 
 ## Rule graphs
 
