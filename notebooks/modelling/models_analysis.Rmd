@@ -2016,6 +2016,13 @@ lr_final <-
 lr_final[[1]]
 ```
 
+Save the model to a file
+
+```{r save final llr}
+lr_final[[2]] %>% 
+  extract_fit_engine() %>%
+  readr::write_rds(paste0(models_path, "llr_final.rds"))
+```
 
 
 ## GBT final
@@ -2060,6 +2067,13 @@ gbt_base_final <-
 gbt_base_final[[1]]
 ```
 
+Save the model to a file
+
+```{r save final gbt}
+gbt_base_final[[2]] %>% 
+  extract_fit_engine() %>%
+  readr::write_rds(paste0(models_path, "gbt_final.rds"))
+```
 
 ## ROCs
 
