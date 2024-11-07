@@ -147,10 +147,10 @@ rule filter_variant_annotation:
            gff = "results/mutants/variants/{parent}/annotated_variants.gff"
     output: "results/mutants/variants/{parent}/genes_with_variants.tsv"
     message: "Filtering annotated GFF/VCF in {wildcards.parent} mutant"
-    log: "results/logs/{parent}_filter_variant_annotation.log"
+    log: "results/logs/{parent}_filter_gff_annotations.log"
     conda: "envs/rscripts.yaml"
     container: "containers/rscripts.sif"
-    shell: "Rscript {input.script} -i {input.gff} -o {output} &> {log}"
+    shell: "scripts/filter_gff_annotations.R"
 
 rule depth_mutant:
     input: "results/mutants/variants/{parent}/mutant_mapped.bam"
