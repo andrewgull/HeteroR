@@ -143,14 +143,13 @@ rule variant_annotation:
            "bedtools annotate -i {output.gff_clean} -files {output.vcf} > {output.gff_annotated} 2> {log.annotate}"
 
 rule filter_variant_annotation:
-    input: script = "workflow/scripts/filter_gff_annotations.R",
-           gff = "results/mutants/variants/{parent}/annotated_variants.gff"
+    input: "results/mutants/variants/{parent}/annotated_variants.gff"
     output: "results/mutants/variants/{parent}/genes_with_variants.tsv"
     message: "Filtering annotated GFF/VCF in {wildcards.parent} mutant"
     log: "results/logs/{parent}_filter_gff_annotations.log"
     conda: "envs/rscripts.yaml"
     container: "containers/rscripts.sif"
-    shell: "scripts/filter_gff_annotations.R"
+    script: "scripts/filter_gff_annotations.R"
 
 rule depth_mutant:
     input: "results/mutants/variants/{parent}/mutant_mapped.bam"
