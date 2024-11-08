@@ -9,6 +9,9 @@
 #
 #####################################################################
 
+#### OPEN LOG ####
+sink(snakemake@log[[1]])
+
 #### LIBRARIES ####
 suppressPackageStartupMessages(library(dplyr))
 library(stringr)
@@ -53,3 +56,6 @@ gff2tsv <- function(input_gff, output_tsv) {
 #### RUN ####
 gff2tsv(snakemake@input[[1]], snakemake@output[[1]])
 print("Script completed successfully.")
+
+#### CLOSE LOG ####
+sink()
