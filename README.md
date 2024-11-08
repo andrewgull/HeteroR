@@ -47,7 +47,7 @@ To install the same versions of R packages as were used in these notebooks, inst
 snakemake --snakefile workflow/phylogeny.smk --configfile workflow/config_phylogeny.yaml --use-conda 
 ```
 
-**NB**: 27 reference strain are required.
+**NB**: 31 reference strain are required (see the publication for reference numbers).
 
 ### Analysis of the HR mutants
 
