@@ -344,7 +344,7 @@ summary(data_strain$n.beta.lac)
 ```{r}
 Fig_BL_total <- ggplot(data_strain, aes(n.beta.lac)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 0.97) +
-  scale_fill_brewer(palette = "Set1", name = "") +
+  scale_fill_brewer(palette = "Set1", name = "", labels=c("HR", "non-HR")) +
   labs(x = "number of *bla* genes",
        y = "proportion of strains") +
   scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7)) +
@@ -372,7 +372,7 @@ Fig_BL_greater_4 <- data_strain %>%
   mutate(n.beta.lac.4 = factor(ifelse(n.beta.lac > 4, "yes", "no"))) %>%
   ggplot(aes(n.beta.lac.4)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha=0.97) +
-  scale_fill_brewer(palette="Set1", name = "") +
+  scale_fill_brewer(palette="Set1", name = "", labels=c("HR", "non-HR")) +
   labs(x = "number of β-lactamases", y = "proportion of strains") +
   scale_x_discrete(labels = c("no" = "≤4", "yes" = ">4")) +
   theme_minimal()
@@ -393,8 +393,8 @@ As proportion:
 ```{r}
 Fig_TEM <- ggplot(data_strain, aes(TEM.beta.lactamase)) +
   geom_bar(aes(fill = resistance), position = "fill", alpha = 0.97) +
-  scale_fill_brewer(palette = "Set1", name = "") +
-  labs(x = "number of *bla*<sub>*TEM*</sub> genes", 
+  scale_fill_brewer(palette = "Set1", name = "", labels=c("HR", "non-HR")) +
+  labs(x = "number of *bla*<sub>TEM</sub> genes", 
        y = "proportion of strains") +
   theme_minimal() +
   theme(axis.title.x = ggtext::element_markdown())
@@ -1017,6 +1017,7 @@ Fig_med_rep_len <-
     size = 0.8
   ) +
   scale_fill_brewer(palette = "Pastel1") +
+  scale_x_discrete(labels=c("HR", "non-HR")) +
   coord_trans(y = "log") +
   facet_grid(cols = vars(location)) +
   labs(x = "", y = "median repeat length, nt") +
@@ -1124,6 +1125,7 @@ Fig_rep_count <-
     size = 0.8
   ) +
   scale_fill_brewer(palette = "Pastel1", name = "") +
+  scale_x_discrete(labels=c("HR", "non-HR")) +
   facet_grid(cols = vars(location), labeller = as_labeller(facet_names)) +
   labs(x = "", y = "number of repeats") +
   guides(fill = "none") +
@@ -1193,6 +1195,7 @@ Fig_AR_len <- ar_len %>%
   scale_fill_brewer(palette = "Pastel1") +
   scale_y_continuous(labels = label_log(base = 10),
                      breaks = c(1, 10000, 100000)) +
+  scale_x_discrete(labels=c("HR", "non-HR")) +
   facet_grid(cols = vars(location)) +
   theme(panel.grid.minor = element_line(size = 0)) +
   labs(x = "", y = "median AR length, nt") +
@@ -1267,7 +1270,7 @@ Fig_IS_fam_prop <- data_strain %>%
   summarise(N = sum(n)) %>% 
   ggplot(aes(is.family, N)) +
   geom_col(aes(fill=resistance), position = "fill") +
-  scale_fill_brewer(palette = "Set1", name = "") +
+  scale_fill_brewer(palette = "Set1", name = "", labels = c("HR", "non-HR")) +
   labs(x = NULL, y = "proportion of strains") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) 
@@ -1289,6 +1292,7 @@ Fig_IS_max_len <- data_strain %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1", name = "") +
+  scale_x_discrete(labels = c("HR", "non-HR")) +
   coord_trans(y="sqrt") +
   labs(x = "", y = "length of the longest IS element, nt") +
   guides(fill="none") +
@@ -1322,6 +1326,7 @@ Fig_IS_copies <- data_strain %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1") +
+  scale_x_discrete(labels = c("HR", "non-HR")) +
   coord_trans(y="sqrt") +
   labs(y = "number of IS copies", x = "") +
   guides(fill="none") +
@@ -1399,6 +1404,7 @@ Fig_IS_families <- data_strain %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = T, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1") +
+  scale_x_discrete(labels = c("HR", "non-HR")) +
   labs(y = "number of IS families", x = "") +
   guides(fill="none") +
   theme_minimal()
@@ -1437,6 +1443,7 @@ Fig_IS_gene_dist <- data_strain %>%
   geom_boxplot(aes(fill=resistance), alpha=0.2, notch = F, varwidth = T)+
   geom_jitter(alpha=0.2, width=0.15, height = 0.1)+
   scale_fill_brewer(palette = "Pastel1", name = "") +
+  scale_x_discrete(labels = c("HR", "non-HR")) +
   labs(x = "", y = "distance between IS and nearest RG, nt") +
   guides(fill="none") +
   theme(axis.text.y = element_text(size = 2)) +
