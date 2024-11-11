@@ -9,59 +9,8 @@
 #
 #########################################################################
 
-library(optparse)
-
-# CLI parsing
-option_list <- list(
-    make_option(c("-i", "--input"),
-                type = "character",
-                default = NULL,
-                help = "TSV file with per position sequence depth",
-                metavar = "path"),
-    make_option(c("-b", "--output_bed"),
-                type = "character",
-                default = NULL,
-                help = "BED output file with coordinates of over-covered regions",
-                metavar = "path"),
-    make_option(c("-l", "--output_plot"),
-                type = "character",
-                default = NULL,
-                help = "PNG output file with coverage plots",
-                metavar = "path"),
-    make_option(c("-z", "--threshold"),
-                type = "integer",
-                default = 2,
-                help = "threshold to filter candidate regions (in SD units)",
-                metavar = "int"
-    ),
-    make_option(c("-w", "--window"),
-                type = "integer",
-                default = 1000,
-                help = "Window size to calculate coverage",
-                metavar = "int")
-)
-
-opt_parser <- OptionParser(option_list = option_list)
-opt <- parse_args(opt_parser)
-
-if (is.null(opt$input)){
- print_help(opt_parser)
- stop("Input file must be provided", call. = FALSE)
-}
-if (is.null(opt$output_bed)){
- print_help(opt_parser)
- stop("Output file (BED) must be provided", call. = FALSE)
-}
-if (is.null(opt$output_plot)){
- print_help(opt_parser)
- stop("Output file (PNG) must be provided", call. = FALSE)
-}
-
-input_depth_file <- opt$input
-output_bed_file <- opt$output_bed
-output_plot_file <- opt$output_plot
-z_threshold <- opt$threshold
-win_len <- opt$window
+#### OPEN LOG ####
+sink(snakemake@log[[1]])
 
 #### LIBRARIES ####
 library(data.table)
@@ -70,9 +19,9 @@ library(purrr)
 library(dplyr)
 library(ggpubr)
 
-
-
-# function to calculate raw depth in windows of selected size and normalize it
+### FUNCTIONS ####
+# calculate raw depth in windows of selected size
+# and normalize it
 normalize_depth <- function(depth_dt, contig_name, window_size = 1000) {
   depth_contig <- depth_dt[V1 == contig_name,
   ][, window := 1 + (V2 - 1) %/% window_size
@@ -81,7 +30,7 @@ normalize_depth <- function(depth_dt, contig_name, window_size = 1000) {
   return(unique(depth_contig, by = c("V1", "window")))
 }
 
-# function to make BED file from normalized depth
+# make a BED file from normalized depth
 make_bed <- function(depth_dt, window_size) {
   bed <- depth_dt[, start := V2 - 1
   ][, end := start + window_size
@@ -95,37 +44,63 @@ make_bed <- function(depth_dt, window_size) {
   return(bed)
 }
 
-# function to make a plot of coverage per window
+# make a plot of coverage per window
 plot_coverage <- function(df, title, z_line) {
   ggplot(df, aes(window, z)) +
-  geom_point(size = 0.2) +
-  geom_hline(yintercept = z_line, color = "red") +
-  ggtitle(title)
+    geom_point(size = 0.2) +
+    geom_hline(yintercept = z_line, color = "red") +
+    ggtitle(title)
 }
 
-# main function
-main <- function(depth_dt, window_length = 1000, z_threshold = 2) {
+# get normalized depth per contig, filter them & convert to BED
+depth2bed <- function(depth_dt, window_len = 1000, z_threshold = 2) {
   # available contig names
   contigs <- unique(depth_dt, by = "V1")[, V1]
   # get normalized depth for each contig
-  depth_norm_list <- map(contigs, ~ normalize_depth(depth, ., window_size = window_length))
-  # make list plots
-  depth_plots <- map2(depth_norm_list, contigs, ~ plot_coverage(.x, .y, z_threshold))
+  depth_norm_list <- map(contigs,
+                         ~ normalize_depth(depth, ., window_size = window_len))
+  # make list of coverage plots
+  depth_plots <- map2(depth_norm_list,
+                      contigs,
+                      ~ plot_coverage(.x, .y, z_threshold))
   # filter normalized depth
   depth_norm_filtered <- bind_rows(depth_norm_list)[z >= z_threshold, ]
   # turn the filtered depth into a bed file (keep in mind the 0-based indexing!)
-  bed <- make_bed(depth_norm_filtered, window_size = window_length)
-
+  bed <- make_bed(depth_norm_filtered, window_size = window_len)
   return(list(bed, depth_plots))
 }
 
-# Apply the functions above
-depth <- fread(input_depth_file, sep = "\t")
-bed_and_plots <- main(depth, window_length = win_len, z_threshold = z_threshold)
-# write files on the disc
-fwrite(bed_and_plots[[1]], output_bed_file, sep = "\t", col.names = FALSE)
-# arrange plots
-n_plots <- length(bed_and_plots[[2]])
-plots <- ggarrange(plotlist = bed_and_plots[[2]], ncol = 1, nrow = n_plots)
-ggsave(filename = output_plot_file, plot = plots, width = 14, height=2*n_plots)
+# apply the functions above
+main <- function(input_depth_file, win_len, z_score,
+                 output_bed_file, output_plot_file) {
+  # read depth file
+  depth <- fread(input_depth_file, sep = "\t")
+  beds_and_plots <- depth2bed(depth,
+                              window_len = win_len,
+                              z_threshold = z_score)
+  # save BED files
+  fwrite(beds_and_plots[[1]],
+         output_bed_file,
+         sep = "\t",
+         col.names = FALSE)
+  # arrange and save plots
+  n_plots <- length(beds_and_plots[[2]])
+  plots <- ggarrange(plotlist = beds_and_plots[[2]],
+                     ncol = 1,
+                     nrow = n_plots)
+  ggsave(filename = output_plot_file,
+         plot = plots, width = 14,
+         height = 2 * n_plots)
+}
+
+#### RUN #####
+main(input_depth_file = snakemake@input[[1]],
+     win_len = snakemake@config[["window_size"]],
+     z_score = snakemake@config[["z_threshold"]],
+     output_bed_file = snakemake@output[[1]],
+     output_plot_file = snakemake@output[[2]])
+
 print("Script finished, no errors.")
+
+#### CLOSE LOG ####
+sink()
