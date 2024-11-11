@@ -162,16 +162,15 @@ rule depth_mutant:
     shell: "samtools depth -@ {threads} {input} | gzip -c > {output} 2> {log}"
 
 rule find_amplified_regions:
-    input: script = "workflow/scripts/find_amplifications.R",
-           depth = "results/mutants/amplifications/{parent}/mutant_depth.tsv.gz"
+    input: "results/mutants/amplifications/{parent}/mutant_depth.tsv.gz"
     output: bed = "results/mutants/amplifications/{parent}/amplifications_windows.bed",
             plot = "results/mutants/amplifications/{parent}/genome_coverage.png"
-    message: "Looking for over-covered windows in {wildcards.parent} mutant genome"
+    message: "Looking for windows with increased coverage in {wildcards.parent} mutant genome"
     log: "results/logs/{parent}_amplifications.log"
     conda: "envs/rscripts.yaml"
     container: "containers/rscripts.sif"
     params: z = config["z_threshold"], w = config["window_size"]
-    shell: "Rscript {input.script} -i {input.depth} -b {output.bed} -l {output.plot} -z {params.z} -w {params.w} &> {log}"
+    script: "scripts/find_amplifications.R"
 
 rule merge_amplified_regions:
     input: "results/mutants/amplifications/{parent}/amplifications_windows.bed"
