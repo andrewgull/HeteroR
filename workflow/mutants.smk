@@ -216,14 +216,15 @@ rule relative_coverage_mutant:
 rule relative_coverage_parent:
     input: depth = "results/mutants/copy_number/{parent}/parent_depth.tsv.gz", # this one is from mapping of parental reads
            ref= "results/mutants/variants/{parent}/reference.fasta",
-           script = "workflow/scripts/relative_coverage.R"
+           strain_name = "{wildcards.parent}",
+           label = "parent"
     output: "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv"
     message: "Calculating relative coverage on {wildcards.parent} parent"
     log: "results/logs/{parent}/relative_coverage_parent.log"
     conda: "envs/biostring.yaml"
     container: "containers/biostrings.sif"
     params: min_len = config["min_contig_len"]
-    shell: "Rscript {input.script} -d {input.depth} -r {input.ref} -o {output} -m {params.min_len} -l parent -s {wildcards.parent} &> {log}"
+    script: "scripts/relative_coverage.R"
 
 rule collect_all_IS:
     input:
