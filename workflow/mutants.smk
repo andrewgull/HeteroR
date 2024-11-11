@@ -192,14 +192,13 @@ rule annotate_amplified_regions:
     shell: "touch {output}; bedtools annotate -i {input.gff} -files {input.bed} | grep -v '0.000000' 1>> {output} 2> {log}"
 
 rule filter_annotated_amplified_regions:
-    input: script = "workflow/scripts/filter_gff_annotations.R",
-           gff = "results/mutants/amplifications/{parent}/amplifications_annotated.gff"
+    input: "results/mutants/amplifications/{parent}/amplifications_annotated.gff"
     output: "results/mutants/amplifications/{parent}/amplifications_annotated_filtered.tsv"
     message: "Filtering annotated amplifications in {wildcards.parent} mutant"
     log: "results/logs/{parent}_filter_amplification_annotation.log"
     conda: "envs/rscripts.yaml"
     container: "containers/rscripts.sif"
-    shell: "Rscript {input.script} -i {input.gff} -o {output} &> {log}"
+    script: "scripts/filter_gff_annotations.R"
 
 rule relative_coverage_mutant:
     input: depth = "results/mutants/amplifications/{parent}/mutant_depth.tsv.gz", # this one is from mapping of mutant reads
