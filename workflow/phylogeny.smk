@@ -56,10 +56,22 @@ rule phylogenetic_tree:
         "-T AUTO -ntmax {threads} --prefix {params.prefix} -B {params.bootstrap} -alrt {params.alrt} -bnni --safe &> {log}; "
         "[ -d {output} ] || mkdir {output}; mv {params.prefix}.* {output}"
 
+rule plot_tree:
+    input: tree_dir = "results/phylogeny/tree"
+           labels = "notebooks/modelling/data/heteroresistance_testing.csv"
+    output: "results/phylogeny/tree/core_genome_tree.pdf"
+    message: "plotting the core gneome tree"
+    log: "results/log/plot_tree.log"
+    conda: "envs/plottreer.yaml"
+    params: filename = config["filename"], width = config["width"],
+            height = ["height"], units = config["units"],
+            outgroup = config["outgroup"]
+    script: "scripts/plot_tree.R"
+
 rule final:
     input:
-        annot="results/annotations/{strain}/prokka/{strain}_genomic.gff",
-        pan="results/phylogeny/core_genome",
-        tree="results/phylogeny/tree"
+        annot = "results/annotations/{strain}/prokka/{strain}_genomic.gff",
+        pan = "results/phylogeny/core_genome",
+        plot = "results/phylogeny/tree/core_genome_tree.pdf"
     output: touch("results/phylogeny/final/{strain}_all.done")
     shell: "echo 'DONE'"
