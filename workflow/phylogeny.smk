@@ -1,7 +1,9 @@
-# a pipeline to build a core-genome alignment and a phylogentic tree based on it.
-# the config includes outgroups amd does not include non-tested strains
-# outgroup genomes/annotations should be in results
+#######################################################################################################
+# this pipeline is for building a core-genome alignment and a phylogentic tree based on it.
+# the config file (config_phylogeny.yaml) containes outgroups our strains and reference genomes (n=31)
+# the reference genomes (assemblies) must be placed to results/assemblies_joined
 # the config should contain parameters for PROKKA
+#######################################################################################################
 
 from snakemake.io import touch, expand, directory
 

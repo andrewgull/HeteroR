@@ -1,5 +1,9 @@
-from snakemake.io import touch, directory, temp, expand
+#####################################################################################
+# pipeline for analysis of mutants as part of the heteroresistance detection project
+# author: Andrei Guliaev
+#####################################################################################
 
+from snakemake.io import touch, directory, temp, expand
 
 # Rule to join together all inputs and outputs
 rule all:

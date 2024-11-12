@@ -1,8 +1,9 @@
-# a pipeline got Hetero-resistance project
+##############################################################################################
+# the main pipeline for the Hetero-resistance project
 # source: github.com/andrewgull/HeteroR
-# configfile: specify via command line
-# example command: snakemake --use-conda --cores 14 --configfile config.yaml --resources mem_mb=10000
-# to get DAG: snakemake --dag results/final/DA63360_all.done | dot -Tpng > images/dag.png
+# author: Andrei Guliaev
+# this pipeline assembles genomes, annotates resistance genes, direct repeats and IS elements
+##############################################################################################
 
 from snakemake.io import touch, directory, temp, expand
 
