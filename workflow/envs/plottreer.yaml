@@ -1,0 +1,7 @@
+name: plot-tree-r-env
+channels:
+  - bioconda
+dependencies:
+  - r-ggplot2=3.5.1
+  - bioconductor-treeio=1.26.0
+  - bioconductor-ggtree=3.10.0
