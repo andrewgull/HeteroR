@@ -516,3 +516,10 @@ species: "coli"
 bootstrap: 1000
 alrt: 1000
 prefix: "core_genome"
+
+# rule plot_tree
+filename: "core_genome.contree"
+outgroup: "E_albertii_KF1"
+width: 8
+height: 12
+units: "in"
