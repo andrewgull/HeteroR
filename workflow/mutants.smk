@@ -235,14 +235,13 @@ rule collect_all_IS:
     shell: "cat {input} > {output} 2> {log}"
 
 rule find_best_IS:
-    input: script="workflow/scripts/find_best_IS_examples.R",
-           dir_path="results/isescan/" # trailing / is important!
+    input: "results/isescan/" # trailing / is important!
     output: "results/mutants/ismapper/best_IS_representatives.tsv"
     message: "Looking for best representatives of each IS family"
     log: "results/logs/mutants_best_IS.log"
     conda: "envs/rscripts.yaml"
     container: "containers/biostrings.sif"
-    shell: "Rscript {input.script} -i {input.dir_path} -o {output} > {log}"
+    script: "scripts/find_best_IS_examples.R"
 
 rule extract_IS_headers:
     input: table="results/mutants/ismapper/best_IS_representatives.tsv",
