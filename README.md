@@ -12,20 +12,22 @@ First, ensure that the raw (short and long) reads are placed in `resources/data_
 
 After this is done, you can run the main pipeline (genome assembly, anotation of resistance genes, repeats and insertion sequences):
 
-a) with this command to use conda environments:
+a) with this command to use *only* conda environments:
 
 ```bash
 # navigate to the project's directory
-snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-conda 
+# substitute %number_of_threads% with a number you want to use
+snakemake --snakefile workflow/snakefile.smk --use-conda --cores %number_of_threads%
 ```
 
 or  
 
-b) with this command to use Apptainer containers instead:
+b) with this command to use conda environments inside Apptainer containers:
 
 ```bash
 # navigate to the project's directory
-snakemake --snakefile workflow/snakefile.smk --configfile workflow/config.yaml --use-singularity
+# substitute %number_of_threads% with a number you want to use
+snakemake --snakefile workflow/snakefile.smk --use-conda --use-singularity --cores %number_of_threads%
 ```
 
 for more details on installation of snakemake and available options (number of threads, running on computer clusters etc), see the official [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/)
