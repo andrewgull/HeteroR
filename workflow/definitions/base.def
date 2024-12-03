@@ -1,8 +1,0 @@
-Bootstrap: docker
-From: ubuntu:22.04
-
-%help 
-   Base Ubuntu image
-
-%post
-    apt update && apt -y upgrade
