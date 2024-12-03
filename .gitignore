@@ -2,9 +2,6 @@
 *.html
 *.log
 
-# container files
-*.sif
-
 # R files
 *.Rhistory
 *.RData
