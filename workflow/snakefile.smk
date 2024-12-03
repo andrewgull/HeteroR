@@ -7,34 +7,25 @@
 
 from snakemake.io import touch, directory, temp, expand
 
+
+#### Singularity setup ####
+
 # this container defines the underlying OS for each job when using the workflow
 # with --use-conda --use-singularity
 container: "docker://continuumio/miniconda3"
 
-# config file for this pipeline
+
+#### Config file for this pipeline ####
 configfile: "configs/config.yaml"
 
-# Rule to join together all inputs and outputs
+
+#### Rules ####
+
 rule all:
     input:
         expand("results/final/{strain}_all.done", strain=config['strains'])
 
 # Automated short read trimming
-# fastp parameters:
-        # -q, --qualified_quality_phred
-        # the quality value that a base is qualified. Default 15 means phred quality >=Q15 is qualified. (int [=15])
-        # -W, --cut_window_size
-        # the window size option shared by cut_front, cut_tail or cut_sliding. Range: 1~1000, default: 4 (int [=4])
-        # -r, --cut_right
-        # move a sliding window from front to tail, if meet one window with mean quality < threshold,
-        # drop the bases in the window and the right part, and then stop.
-        # -l, --length_required
-        # reads shorter than length_required will be discarded, default is 15. (int [=15])
-        # -y, --low_complexity_filter
-        # enable low complexity filter. The complexity is defined as the percentage of base that is
-        # different from its next base (base[i] != base[i+1]).
-        # -f, --trim_front1
-        # trimming how many bases in front of read1, default is 0 (int [=0])
 rule trim_short:
     input:
         short_read_1 = "resources/data_raw/{strain}/short/renamed/{strain}_1.fq.gz",
