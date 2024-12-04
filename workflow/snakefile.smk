@@ -18,12 +18,14 @@ container: "docker://continuumio/miniconda3"
 #### Config file for this pipeline ####
 configfile: "configs/config.yaml"
 
+# read strain names
+strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
 #### Rules ####
 
 rule all:
     input:
-        expand("results/final/{strain}_all.done", strain=config['strains'])
+        expand("results/final/{strain}_all.done", strain=strains['strains'])
 
 # Automated short read trimming
 rule trim_short:
