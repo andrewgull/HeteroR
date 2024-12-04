@@ -6,6 +6,7 @@
 ##############################################################################################
 
 from snakemake.io import touch, directory, temp, expand
+import pandas as pd
 
 
 #### Singularity setup ####
