@@ -6,10 +6,26 @@
 #######################################################################################################
 
 from snakemake.io import touch, expand, directory
+import pandas as pd
+
+#### Singularity setup ####
+
+# this container defines the underlying OS for each job when using the workflow
+# with --use-conda --use-singularity
+container: "docker://continuumio/miniconda3"
+
+
+#### Config file for this pipeline ####
+configfile: "configs/config_phylogeny.yaml"
+
+# read strain names
+strains = pd.read_csv(config["strains"], dtype={"strains": str})
+
+#### Rules ####
 
 rule all:
     input:
-        expand("results/phylogeny/final/{strain}_all.done", strain=config['strains'])
+        expand("results/phylogeny/final/{strain}_all.done", strain=strains['strains'])
 
 rule annotate:
     # proteins (prodigal) and rRNA (barrnap)
