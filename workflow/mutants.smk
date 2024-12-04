@@ -4,6 +4,7 @@
 #####################################################################################
 
 from snakemake.io import touch, directory, temp, expand
+import pandas as pd
 
 #### Singularity setup ####
 
@@ -15,12 +16,14 @@ container: "docker://continuumio/miniconda3"
 #### Config file for this pipeline ####
 configfile: "configs/config_mutants.yaml"
 
+# read strain names
+strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
 #### Rules ####
 
 rule all:
     input:
-        expand("results/mutants/final/{parent}_all.done", parent=config['parents'])
+        expand("results/mutants/final/{parent}_all.done", parent=strains['strains'])
 
 rule trim_reads:
     input: 
