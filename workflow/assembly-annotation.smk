@@ -17,7 +17,7 @@ container: "docker://continuumio/miniconda3"
 
 
 #### Config file for this pipeline ####
-configfile: "configs/config.yaml"
+configfile: "configs/config_assembly_annotation.yaml"
 
 # read strain names
 strains = pd.read_csv(config["strains"], dtype={"strains": str})
