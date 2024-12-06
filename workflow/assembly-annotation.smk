@@ -31,8 +31,8 @@ rule all:
 # Automated short read trimming
 rule trim_short:
     input:
-        short_read_1 = "resources/data_raw/{strain}/short/renamed/{strain}_1.fq.gz",
-        short_read_2 = "resources/data_raw/{strain}/short/renamed/{strain}_2.fq.gz"
+        short_read_1 = "resources/data_raw/{strain}/short/{strain}_1.fq.gz",
+        short_read_2 = "resources/data_raw/{strain}/short/{strain}_2.fq.gz"
     output:
         short_read_1 = "results/data_filtered/{strain}/short/{strain}_1.fq.gz",
         short_read_2 = "results/data_filtered/{strain}/short/{strain}_2.fq.gz",
