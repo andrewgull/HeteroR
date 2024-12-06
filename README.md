@@ -31,7 +31,7 @@ This project contains 3 pipelines:
 ```bash
 # use both conda and Apptainer
 # substitute $N with a number you want to use
-snakemake --snakefile workflow/snakefile.smk --use-conda --use-singularity --cores $N
+snakemake --snakefile workflow/assembly-annotation.smk --use-conda --use-singularity --cores $N
 ```
 
 or
@@ -39,7 +39,7 @@ or
 ```bash
 # use only conda
 # substitute $N with a number you want to use
-snakemake --snakefile workflow/snakefile.smk --use-conda --cores $N
+snakemake --snakefile workflow/assembly-annotation.smk --use-conda --cores $N
 ```
 
 After the main pipeline has finished, you can run the three R notebooks (but not necessarily all of them):
