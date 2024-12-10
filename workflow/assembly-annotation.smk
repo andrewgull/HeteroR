@@ -22,6 +22,9 @@ configfile: "configs/config_assembly_annotation.yaml"
 # read strain names
 strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
+# read raw reads path
+raw_path = config["raw_path"]
+
 #### Rules ####
 
 rule all:
@@ -31,8 +34,8 @@ rule all:
 # Automated short read trimming
 rule trim_short:
     input:
-        short_read_1 = "resources/data_raw/{strain}/short/{strain}_1.fq.gz",
-        short_read_2 = "resources/data_raw/{strain}/short/{strain}_2.fq.gz"
+        short_read_1 = lambda wildcards: f"{raw_path}/{wildcards.strain}_1.fq.gz",
+        short_read_2 = lambda wildcards: f"{raw_path}/{wildcards.strain}_2.fq.gz"
     output:
         short_read_1 = "results/data_filtered/{strain}/short/{strain}_1.fq.gz",
         short_read_2 = "results/data_filtered/{strain}/short/{strain}_2.fq.gz",
@@ -53,8 +56,8 @@ rule trim_short:
 
 # simple trimming of long reads
 rule filter_long:
-    input: "resources/data_raw/{strain}/long/{strain}_all.fastq.gz"
-    output: "results/data_filtered/{strain}/long/{strain}_all.fastq.gz"
+    input: lambda wildcards: f"{raw_path}/{wildcards.strain}.fastq.gz"
+    output: "results/data_filtered/{strain}/long/{strain}.fastq.gz"
     message: "executing filtlong on {wildcards.strain} long reads"
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
@@ -67,7 +70,7 @@ rule adaptive_hybrid_assembly:
     input:
         short_reads_1 = "results/data_filtered/{strain}/short/{strain}_1.fq.gz",
         short_reads_2 = "results/data_filtered/{strain}/short/{strain}_2.fq.gz",
-        long_reads = "results/data_filtered/{strain}/long/{strain}_all.fastq.gz"
+        long_reads = "results/data_filtered/{strain}/long/{strain}.fastq.gz"
     output:
         assembly_dir = directory("results/assemblies/{strain}"),
         draft_dir = directory("results/drafts/{strain}"),
