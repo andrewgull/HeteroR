@@ -82,17 +82,6 @@ rule adaptive_hybrid_assembly:
     params: basecaller=config["basecaller"], genome_size=config["genome_size"], coverage=config["coverage"], genome_length=config["genome_length"], cov_threshold=config["cov_threshold"]
     script: "scripts/adaptive_hybrid_assembly.py"
 
-# assembly quality control
-rule qc_assembly:
-    input: "results/assemblies/{strain}", "resources/busco_downloads"
-    output: directory("results/qualcheck_assembly/{strain}")
-    threads: 18
-    message: "executing BUSCO and QUAST with {threads} threads on {wildcards.strain} assembly"
-    log: "results/logs/{strain}_assembly_qc.log"
-    conda: "envs/busco_quast.yaml"
-    params: tax_dataset=config["tax_dataset"]
-    script: "scripts/QC_assembly.py"
-
 # mapping of short reads on the assembly
 rule map_back:
     input:
@@ -416,7 +405,6 @@ rule isescan:
 # join outputs together
 rule final:
     input:
-        qc_ass="results/qualcheck_assembly/{strain}",
         trnascan="results/annotations/{strain}/trna/trna_gen.txt",
         assembly="results/assemblies/{strain}",
         assembly_joined="results/assemblies_joined/{strain}/assembly.fasta",
