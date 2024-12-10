@@ -1,6 +1,9 @@
 # list of strains
 strains: "configs/strains_main.txt"
 
+# path to raw read files
+raw_path: "resources/raw"
+
 # rule trim_illumina params
 quality: "20"
 window_size: "4"
