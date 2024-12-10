@@ -20,7 +20,7 @@ This project contains 3 pipelines:
 
 2. navigate to this directory and download the repository using: `git clone https://github.com/andrewgull/HeteroR`
 
-3. place the raw data (short and long reads) to `resources/data_raw/{strain_name}/short/` and `resources/data_raw/{strain_name}/long/`
+3. create `resources/raw/` and place the raw data (short and long reads) there. Naming convention: long reads have `.fastq.gz` extension and short reads have `.fq.gz`extension.
 
 4. install [conda/mamba](https://github.com/conda-forge/miniforge#mambaforge) and [snakemake](https://snakemake.readthedocs.io/en/stable)
 
