@@ -1,4 +1,8 @@
+# strain names
 strains: "configs/strains_mutants.csv"
+
+# raw reads (mutants) path
+raw_path: "resources/raw/mutants"
  
 # qual and BGI-adapters trimming
 trim_front: 10
