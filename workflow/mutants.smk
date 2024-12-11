@@ -19,6 +19,9 @@ configfile: "configs/config_mutants.yaml"
 # read strain names
 strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
+# read raw mutants reads location
+raw_path = config["raw_path"]
+
 #### Rules ####
 
 rule all:
@@ -27,8 +30,8 @@ rule all:
 
 rule trim_reads:
     input: 
-        r1 = "resources/data_raw/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
-        r2 = "resources/data_raw/{parent}/Illumina/mutants/{parent}m_2.fq.gz"
+        r1 = lambda wildcards: f"{raw_path}/{wildcards.parent}m_1.fq.gz",
+        r2 = lambda wildcards: f"{raw_path}/{wildcards.parent}m_2.fq.gz"
     output:
         r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
         r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz"
