@@ -16,6 +16,8 @@ This project contains 3 pipelines:
 
 ## How to run the assembly-annotation pipeline (1)
 
+0. if you want to use Apptainer/Singularity to run the analyises (recommended), ensure that you have [Apptainer installed](https://apptainer.org/docs/admin/main/installation.html).
+
 1. create a directory for your project (in all following steps, we will assume that you are inside of that directory).
 
 2. navigate to this directory and download the repository using: `git clone https://github.com/andrewgull/HeteroR`
@@ -30,17 +32,11 @@ This project contains 3 pipelines:
 
 ```bash
 # use both conda and Apptainer
-# substitute $N with a number you want to use
+# substitute $N with a number of threads you want to use
 snakemake --snakefile workflow/assembly-annotation.smk --use-conda --use-singularity --cores $N
 ```
 
-or
-
-```bash
-# use only conda
-# substitute $N with a number you want to use
-snakemake --snakefile workflow/assembly-annotation.smk --use-conda --cores $N
-```
+note: remove `--use-singularity` if you want to use only conda environments.
 
 After the main pipeline has finished, you can run the three R notebooks (but not necessarily all of them):
 
@@ -55,18 +51,34 @@ To ensure that you use the same versions of R packages as were used in these not
 
 ### Analysis of the HR mutants (2)
 
+1. place mutant read files in `resources/raw/mutants`. Naming convention: `{parent_strain_name}_[1,2].fq.gz`
+
+2. run the pipeline with the following command:
+
 ```bash
 # analysis of the HR mutants
+# substitute $N with a number of threads you want to use
 snakemake --snakefile workflow/mutants.smk --use-conda --use-singularity --cores $N
 ```
 
+remove `--use-singularity` if you want to use only conda environments.
+
 ### Phylogenetic analysis (3)
 
+1. place the genomes (assemblies) of the 31 reference strains in `results/assemblies_joined/`. The names of these strains are provided in `configs/strains_phylogeny.txt`. Each genome should be placed in its own directory named accordig to this list of strains. Each assembly file should be named `assembly.fasta` (the same way as with the 474 collection strains from the pipeline (1)).
+
+2. run the following command:
+
 ```bash
+# substitute $N with a number of threads you want to use
 snakemake --snakefile workflow/phylogeny.smk --use-conda --use-singularity --cores $N
 ```
 
-**NB**: 31 reference strain are required (see the publication for reference numbers).
+remove `--use-singularity` if you want to use only conda environments.
+
+**NB**: to find NCBI accession numbers of the reference strains, see the publication's supplementary table 3 (Table S3).
+
+You can change the reference strain names provided in the strain list to whichever suits you better.
 
 ## Configuration & Settings
 
@@ -74,15 +86,17 @@ Lists of strain names used in each of the pipelines can be found in `configs/str
 
 Settings of each software tool used can be found in `configs/config_*.yaml` files.
 
+Software versions are specified in yaml files located in `workflow/envs`.
+
 ## Raw data availability
 
 The raw sequencing reads used in this project are available from NCBI's SRA under BioProjects PRJNA1165464 and PRJNA1083935.
 
 ## Models and features table
 
-The pre-compiled features table is available here: `notebooks/modelling/data/features_strain.csv`
+The pre-compiled features table is available in `notebooks/modelling/data/features_strain.csv`
 
-The final models (trained LLR and GBT) are available here: `notebooks/modelling/models/llr_final.rds` & `notebooks/modelling/models/gbt_final.rds`
+The final models (trained LLR and GBT) are available in `notebooks/modelling/models`.
 
 ## Rule graphs
 
