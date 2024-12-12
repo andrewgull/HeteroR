@@ -30,8 +30,8 @@ rule all:
 
 rule trim_reads:
     input: 
-        r1 = lambda wildcards: f"{raw_path}/{wildcards.parent}m_1.fq.gz",
-        r2 = lambda wildcards: f"{raw_path}/{wildcards.parent}m_2.fq.gz"
+        r1 = lambda wildcards: f"{raw_path}/{wildcards.parent}_1.fq.gz",
+        r2 = lambda wildcards: f"{raw_path}/{wildcards.parent}_2.fq.gz"
     output:
         r1 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
         r2 = "results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz"
