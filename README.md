@@ -20,13 +20,21 @@ This project contains 3 pipelines:
 
 1. create a directory for your project (in all following steps, we will assume that you are inside of that directory).
 
-2. navigate to this directory and download the repository using: `git clone https://github.com/andrewgull/HeteroR`
+2. navigate to this directory and download the repository using:
+
+```bash
+git clone https://github.com/andrewgull/HeteroR
+```
 
 3. create `resources/raw/` and place the raw data (short and long reads) there. Naming convention: long reads have `.fastq.gz` extension and short reads have `.fq.gz`extension.
 
 4. install [conda/mamba](https://github.com/conda-forge/miniforge#mambaforge) and [snakemake](https://snakemake.readthedocs.io/en/stable)
 
-5. activate snakemake environment: `conda activate snakemake`
+5. activate snakemake environment:
+
+```bash
+conda activate snakemake
+```
 
 6. run the pipeline using this command:
 
