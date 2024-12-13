@@ -1,9 +1,11 @@
-# script to make a csv
+'''
+script to make a table with direct repeats
+and save it as as a CSV file
+'''
 import sys
-sys.path.append("/home/andrei/GitProjects/HeteroR/workflow/scripts")
+import os
 from GRF_parser import parse_grf_output_no_ranges
 import pandas as pd
-import os
 
 
 def make_repeats_df(spacer_file, strain_index=0):
