@@ -79,7 +79,8 @@ rule adaptive_hybrid_assembly:
     message: "executing assembly script with {threads} threads on {wildcards.strain} reads"
     log: "results/logs/{strain}_assembly.log"
     conda: "envs/hybrid_assembly.yaml"
-    params: basecaller=config["basecaller"], genome_size=config["genome_size"], coverage=config["coverage"], genome_length=config["genome_length"], cov_threshold=config["cov_threshold"]
+    params: basecaller=config["basecaller"], genome_size=config["genome_size"], coverage=config["coverage"],
+            genome_length=config["genome_length"], cov_threshold=config["cov_threshold"]
     script: "scripts/adaptive_hybrid_assembly.py"
 
 # mapping of short reads on the assembly
@@ -178,7 +179,8 @@ rule assembly_annotation:
     message: "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
     log: "results/logs/{strain}_prokka.log"
     conda: "envs/prokka.yaml"
-    params: centre=config["centre"], minlen=config["minlen"], genus=config["genus"], species=config["species"]
+    params: centre=config["centre"], minlen=config["minlen"],
+            genus=config["genus"], species=config["species"]
     shell:
         # skip tRNAs search?
         "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix {wildcards.strain}_genomic --centre {params.centre} --genus {params.genus} "
@@ -351,7 +353,9 @@ rule direct_repeats:
     message: "executing GRF with {threads} threads on {wildcards.strain} assembly"
     log: "results/logs/{strain}_grf_perfect.log"
     conda: "envs/grf.yaml"
-    params: mode=config["mode"], min_size=config["min_size"], format=config["format"], mism=config["mism"], seed_mism=config["seed_mism"], max_dist=config["max_dist"], min_dist=config["min_dist"]
+    params: mode=config["mode"], min_size=config["min_size"], format=config["format"],
+            mism=config["mism"], seed_mism=config["seed_mism"],
+            max_dist=config["max_dist"], min_dist=config["min_dist"]
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
