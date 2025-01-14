@@ -213,7 +213,7 @@ rule relative_coverage_mutant:
     output: "results/mutants/copy_number/{parent}/relative_coverage_mutant.tsv"
     message: "Calculating relative coverage on {wildcards.parent} mutants"
     log: "results/logs/{parent}/relative_coverage_mutants.log"
-    conda: "envs/biostring.yaml"
+    conda: "envs/biostrings.yaml"
     params: min_len = config["min_contig_len"]
     script: "scripts/relative_coverage.R"
 
@@ -225,7 +225,7 @@ rule relative_coverage_parent:
     output: "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv"
     message: "Calculating relative coverage on {wildcards.parent} parent"
     log: "results/logs/{parent}/relative_coverage_parent.log"
-    conda: "envs/biostring.yaml"
+    conda: "envs/biostrings.yaml"
     params: min_len = config["min_contig_len"]
     script: "scripts/relative_coverage.R"
 
