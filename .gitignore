@@ -45,4 +45,6 @@ notebooks/modelling/manuscript/
 
 # modelling files
 notebooks/modelling/legacy/
-notebooks/modelling/renv/
+
+# other notebooks
+notebooks/assemblies_summary/
