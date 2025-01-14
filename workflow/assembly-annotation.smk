@@ -389,8 +389,8 @@ rule dr_table:
 # join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
 rule dr_summary:
     input:
-        expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=config["strains"]),
-        expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=config["strains"])
+        expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=strains['strains']),
+        expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=strains['strains'])
     output: "results/tables/repeats_summary.csv"
     message: "making summary table with repeat coordinates for all strains"
     log: "results/logs/repeat_summary.log"
