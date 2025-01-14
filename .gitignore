@@ -1,9 +1,27 @@
-*.csv
+# general
+*.fasta
+*.gff
+*.vcf
+*.bcf
 *.html
+*.pdf
 *.log
+*.tsv
+.idea/
+workflow/scripts/__pycache__/
+**/*_cache/
+**/*_files/
+.snakemake
+.ipynb_checkpoints
+*.js
+.DS_Store
+
+# the raw files
+resources/
 
 # R files
-*.Rhistory
+.Rhistory
+.Rprofile
 *.RData
 .Rproj.user
 .RDataFiles
@@ -22,23 +40,9 @@ results/resistance_genes/
 # my presentation made with quarto
 notebooks/presentation/
 
-# all raw files
-resources/
+# manuscript related files
+notebooks/modelling/manuscript/
 
-# the rest
-.idea/
-workflow/scripts/__pycache__/
-**/*_cache/
-**/*_files/
-.snakemake
-.ipynb_checkpoints
-*.js
-notebooks/unicycler_crash/
-notebooks/regulon_db/
-notebooks/sequencing_files/
-notebooks/rgi_output/
-notebooks/modelling/data/*.gz
-notebooks/EDA_app/data/
-notebooks/modelling/manuscript/images/
-.DS_Store
-/notebooks/modelling/manuscript/
+# modelling files
+notebooks/modelling/legacy/
+notebooks/modelling/renv/
