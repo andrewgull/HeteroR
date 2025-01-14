@@ -73,7 +73,7 @@ rule phylogenetic_tree:
         "[ -d {output} ] || mkdir {output}; mv {params.prefix}.* {output}"
 
 rule plot_tree:
-    input: tree_dir = "results/phylogeny/tree"
+    input: tree_dir = "results/phylogeny/tree",
            labels = "notebooks/modelling/data/heteroresistance_testing.csv"
     output: "results/phylogeny/tree/core_genome_tree.pdf"
     message: "plotting the core gneome tree"
