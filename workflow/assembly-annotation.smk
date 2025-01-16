@@ -62,7 +62,7 @@ rule filter_long:
     log: "results/logs/{strain}_filtlong.log"
     conda: "envs/filtlong.yaml"
     threads: 18
-    params: min_len=config["min_long_length"]
+    params: min_len=config["min_nanopore_length"]
     shell: "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
 # Make an assembly with Unicycler or FLye-Medaka-Polypolish depending on long coverage
