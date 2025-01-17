@@ -1,6 +1,6 @@
 # Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
-This repository contains code and certain types data for the project published in %journalname%.
+This repository contains code and data for the heteroresistance detection project published in %journalname%.
 
 The pipelines were created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v8.23.1
 
@@ -14,9 +14,13 @@ This project contains 3 pipelines:
 
 - (3) to run core-genome based phylogeny
 
+The pipelines have been tested on Ubuntu 22.04 with conda v23.1.0 and mamba v1.1.0
+
 ## How to run the assembly-annotation pipeline (1)
 
-0. if you want to use Apptainer/Singularity to run the analyises (recommended), ensure that you have [Apptainer installed](https://apptainer.org/docs/admin/main/installation.html).
+**N.B.** hybrid assembly will not work if your system doesn't have *libgsl.so.25* and *libcblas.so.3* (both required by bcftools which is required by medaka=1.6.0)
+
+0. if you want to use Apptainer/Singularity to run the analyises, ensure that you have [Apptainer installed](https://apptainer.org/docs/admin/main/installation.html).
 
 1. create a directory for your project (in all following steps, we will assume that you are inside of that directory).
 
@@ -26,7 +30,14 @@ This project contains 3 pipelines:
 git clone https://github.com/andrewgull/HeteroR
 ```
 
-3. create `resources/raw/` and place the raw data (short and long reads) there. Naming convention: long reads have `.fastq.gz` extension and short reads have `.fq.gz`extension.
+3. create directory for raw reads
+
+```bash
+mkdir -p resources/raw/
+```
+
+4. 
+download the raw data (PRJNA1165464) to this directory. Naming convention: long reads have `.fastq.gz` extension and paired short reads have `.fq.gz`extension.
 
 4. install [conda/mamba](https://github.com/conda-forge/miniforge#mambaforge) and [snakemake](https://snakemake.readthedocs.io/en/stable)
 
@@ -39,12 +50,11 @@ conda activate snakemake
 6. run the pipeline using this command:
 
 ```bash
-# use both conda and Apptainer
 # substitute $N with a number of threads you want to use
-snakemake --snakefile workflow/assembly-annotation.smk --use-conda --use-singularity --cores $N
+snakemake --snakefile workflow/assembly-annotation.smk --use-conda  --cores $N
 ```
 
-note: remove `--use-singularity` if you want to use only conda environments.
+note: add `--use-singularity` if you want to run the analysis inside a container.
 
 After the main pipeline has finished, you can run the three R notebooks (but not necessarily all of them):
 
