@@ -1,6 +1,7 @@
-name: uni-fl-md-pp-env
+name: hybrid-assembly-env
 channels:
   - bioconda
+  - anaconda
 dependencies:
   - flye=2.9.1
   - medaka=1.6.0
