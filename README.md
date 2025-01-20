@@ -2,7 +2,7 @@
 
 This repository contains code and data for the heteroresistance detection project published in %journalname%.
 
-The pipelines were created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v8.23.1
+The pipelines were created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v7.32.4
 
 Data analysis was performed using *R* v4.4.1 and machine learning was performed using [tidymodels](https://www.tidymodels.org/) v1.2.0.
 
@@ -14,47 +14,68 @@ This project contains 3 pipelines:
 
 - (3) to run core-genome based phylogeny
 
-The pipelines have been tested on Ubuntu 22.04 with conda v23.1.0 and mamba v1.1.0
+The pipelines have been tested on Ubuntu 22.04.5 with conda v23.1.0 and mamba v1.1.0
+
+**Important notes**
+
+(1) Hybrid assembly script will not work if your system doesn't have *libgsl.so.25* and *libcblas.so.3* (both required by bcftools which is required by medaka=1.6.0).
+For some reason, the wrong versions of these libraries are installed by conda when solving the environment. In such case use files in `workflow/libs` - copy or link them to the environment's `lib` directory.
+
+(2) If you choose to run the pipelines in containers, be ready that some environments may not be resolved. Although, everything worked on 'vanilla' Ubuntu 22.04.5. 
+Maybe try only conda environments first. If it works, then no need to use containers.
 
 ## How to run the assembly-annotation pipeline (1)
 
-**N.B.** hybrid assembly will not work if your system doesn't have *libgsl.so.25* and *libcblas.so.3* (both required by bcftools which is required by medaka=1.6.0)
-
-0. if you want to use Apptainer/Singularity to run the analyises, ensure that you have [Apptainer installed](https://apptainer.org/docs/admin/main/installation.html).
-
-1. create a directory for your project (in all following steps, we will assume that you are inside of that directory).
-
-2. navigate to this directory and download the repository using:
+1. download the repository using:
 
 ```bash
 git clone https://github.com/andrewgull/HeteroR
 ```
 
-3. create directory for raw reads
+Navigate to the `HeteroR` directory (in all following steps, we will assume that you are inside this directory).
+
+3. create a directory for raw reads
 
 ```bash
 mkdir -p resources/raw/
 ```
 
-4. 
-download the raw data (PRJNA1165464) to this directory. Naming convention: long reads have `.fastq.gz` extension and paired short reads have `.fq.gz`extension.
+4. download the raw reads (in NCBI's SRA database: PRJNA1165464) to this directory. Naming convention: long reads have `.fastq.gz` extension and paired short reads have `.fq.gz`extension.
+By default reads downloaded from SRA have names like "SRR followed by 8 digits", this projects assumes theat all the read files are named after the in-house naming scheme which is "DA followed by 6 digits".
+To determine how the SRR numbers correspond to DA numbers, refer to the table `configs/da_srr_mapping.csv`.
 
-4. install [conda/mamba](https://github.com/conda-forge/miniforge#mambaforge) and [snakemake](https://snakemake.readthedocs.io/en/stable)
+5. One more piece of data you need is [CARD database](https://card.mcmaster.ca/). You can download the newest version using:
 
-5. activate snakemake environment:
+```bash
+wget https://card.mcmaster.ca/latest/data
+```
+
+and then following the instructions on the CARD website on how to get the actual database.
+
+OR you can use the version *we used* for this project which is in `localDB.tgz` archive. Just unpack it and make sure it's inside the project's directory, i.e. inside `HeteroR`:
+
+```bash
+tar -xf localDB.tgz
+```
+
+The corresponding step of the pipleine will find this database and use it for resistance gene identification.
+
+6. install [conda/mamba](https://github.com/conda-forge/miniforge#mambaforge) and [snakemake](https://snakemake.readthedocs.io/en/stable)
+
+7. activate snakemake environment:
 
 ```bash
 conda activate snakemake
 ```
 
-6. run the pipeline using this command:
+8. run the pipeline using this command:
 
 ```bash
 # substitute $N with a number of threads you want to use
 snakemake --snakefile workflow/assembly-annotation.smk --use-conda  --cores $N
 ```
 
-note: add `--use-singularity` if you want to run the analysis inside a container.
+note: add `--use-singularity` if you want to run the analysis inside a container (check the **Importnatn notes** above!).
 
 After the main pipeline has finished, you can run the three R notebooks (but not necessarily all of them):
 
@@ -69,7 +90,7 @@ To ensure that you use the same versions of R packages as were used in these not
 
 ### Analysis of the HR mutants (2)
 
-1. place mutant read files in `resources/raw/mutants`. Naming convention: `{parent_strain_name}_[1,2].fq.gz`
+1. place mutant read files in `resources/raw/mutants`. Naming convention: `{parent_strain_name}_[1,2].fq.gz`. To determine parental strains of the mutants, refer to the file `configs/parent_mutant_srr_mapping.csv`
 
 2. run the pipeline with the following command:
 
