@@ -25,13 +25,6 @@ def join_ends(side_dict, normal_dict, left=True):
         joined_ends_list.append(joined_record)
     return joined_ends_list
 
-
-# in test directory
-# /home/andrei/Data/HeteroR/test_dir/bed_seqkit
-# input_normal = "regions_normal.fasta"
-# input_left = "regions_left.fasta"
-# input_right = "regions_right.fasta"
-
 # input files
 input_normal = snakemake.input[0]
 input_left = snakemake.input[1]

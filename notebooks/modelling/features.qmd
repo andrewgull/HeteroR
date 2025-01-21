@@ -28,16 +28,17 @@ This is a notebook for creating various features and their exploration
 
 # Paths and other constants
 
-```{r constants}
-annot_dir <- "/mnt/data/andrei/Data/HeteroR/results/annotations/"
-rep_bed_dir <- "/mnt/data/andrei/Data/HeteroR/results/direct_repeats/"
-res_genes_dir <- "/mnt/data/andrei/Data/HeteroR/results/resistance_genes/"
-coverage_table <- "/mnt/data/andrei/Data/HeteroR/results/coverage/strains_475.tsv"
-ass_joined_path <- "/mnt/data/andrei/Data/HeteroR/results/assemblies_joined/"
-coverage_dir <- "/mnt/data/andrei/Data/HeteroR/results/genome_coverage/"
-isescan_dir <- "/mnt/data/andrei/Data/HeteroR/results/isescan/"
+Change the following paths:
 
-# load("/mnt/data/andrei/Data/HeteroR/notebooks/features.RData")
+```{r constants}
+annot_dir <- "HeteroR/results/annotations/"
+rep_bed_dir <- "HeteroR/results/direct_repeats/"
+res_genes_dir <- "HeteroR/results/resistance_genes/"
+ass_joined_path <- "HeteroR/results/assemblies_joined/"
+coverage_dir <- "HeteroR/results/genome_coverage/"
+isescan_dir <- "HeteroR/results/isescan/"
+# this table will be compiled later (see the lines 493-500)
+coverage_table <- "results/coverage/strains_coverage.tsv"
 ```
 
 # Making a table with features
@@ -55,7 +56,7 @@ How many strains with annotated repeats we have?
 ```{r, message=FALSE}
 # a new way of getting repeat data frame across all strains
 strains <-
-  dir("/mnt/data/andrei/Data/HeteroR/results/direct_repeats")
+  dir(rep_bed_dir)
 
 # read lab testing data and filter out R strains
 lab_testing <- read_csv("data/heteroresistance_testing.csv") %>%
@@ -481,10 +482,11 @@ I've decided to add Nanopore's `coverage` and `max_len` to features. This data c
 
 Check on the pairs plot from assemblies summary and coverage analysis to find out why.
 
-```{bash, eval=FALSE}
-# run from within ~/Data/HeteroR
-workflow/scripts/coverage_cli.py resources/strain_lists/strains_475.txt 5131220 results/coverage/strains_475.tsv filtered
+```{bash}
+# run this script inside ./HeteroR
+workflow/scripts/coverage_cli.py configs/strains_main.txt 5131220 results/coverage/strains_coverage.tsv filtered
 ```
+
 
 Read the coverage table
 

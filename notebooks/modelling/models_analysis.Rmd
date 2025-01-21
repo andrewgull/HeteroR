@@ -34,8 +34,12 @@ library(knitr)
 source("functions.R")
 
 # path for models
-models_path <- "~/Data/HeteroR/results/models/scheme12/"
+models_path <- "models/"
 ```
+
+There are two model objects published along with this code: `models/llr_final.rds` and `models/gbt_final.rds`
+
+Use them in order to skip the training/validation/testing process.
 
 # Read and process data
 

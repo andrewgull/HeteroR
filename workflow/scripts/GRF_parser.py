@@ -109,11 +109,7 @@ if __name__ == '__main__':
     # open log
     with open(snakemake.log[0], "w") as f:
         sys.stderr = sys.stdout = f
-        # DEFINE INPUTS AND OUTPUTS
-        # in_spacers = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_perfect_repeats_GRF_test/perfect.spacer.id"
-        # in_assembly = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_assembly.fasta"
-        # out_gff = "/home/andrei/Data/HeteroR/test_dir/GRF/DA62886_repeats.gff"
-        # grf_out_filename = "perfect.spacer.id"  # IT CAN BE CHANGED
+        # DEFINE INPUTS AND OUTPUT
         strain = snakemake.input[1].split("/")[-2]
         in_perfect = os.path.join(snakemake.input[0], "perfect.spacer.id")
         in_imperfect = os.path.join(snakemake.input[0], "imperfect.id")
