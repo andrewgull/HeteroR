@@ -47,12 +47,12 @@ Data set `data_strain` has been made earlier in `features.qmd`
 
 Copy the most up to date version of features tables to `data/`
 
-```{bash, eval=FALSE}
-#| eval: FALSE
-# should work but might need fixing because of changed absolute path
-rsync ~/Data/HeteroR/results/tables/features.csv.gz ./data
-rsync ~/Data/HeteroR/results/tables/features_strain.csv ./data
-rsync ~/Data/HeteroR/results/tables/amr_types_strain.csv ./data
+Don't forget to use correct paths!
+
+```{bash}
+rsync HeteroR/results/tables/features.csv.gz ./data
+rsync HeteroR/results/tables/features_strain.csv ./data
+rsync HeteroR/results/tables/amr_types_strain.csv ./data
 ```
 
 Read features and classification labels
@@ -135,12 +135,6 @@ data_strain$n.beta.lac.chrom <- NULL
 data_strain[is.na(data_strain)] <- 0
 
 dim(data_strain)
-```
-
-Write the first processed version of the data set to shiny's data directory
-
-```{r, eval=FALSE}
-write.csv(data_strain, file = "EDA_app/data/features_strain.csv", row.names = FALSE)
 ```
 
 All pre-processing will be done with `recipes`
@@ -622,24 +616,12 @@ data_strain %>%
 
 ### AMR types in each strain
 
-highlight BLs somehow!
-
 ```{r, fig.width=20, fig.height=6}
 # I read in amr type counts form the table made in features.qmd
-
 amr_types_strain <- read_csv("data/amr_types_strain.csv", show_col_types = FALSE)
 
 # make tidy for ggplot
 amr_types_strain_td <- gather(amr_types_strain, key = "AMR.type", value = "N", 2:ncol(amr_types_strain))
-
-# amr_gene_types <- features %>%
-#   select(strain, record_id, AMR.Gene.Family) %>% 
-#   distinct() %>% 
-#   filter(!is.na(AMR.Gene.Family)) %>% 
-#   mutate(AMR.Gene.Family = sub("\\'+)$", "')", AMR.Gene.Family))
-# 
-# amr_gene_types_count <-
-#   amr_gene_types %>% group_by(strain, AMR.Gene.Family) %>% count()
 
 # make a plot
 ggplot(amr_types_strain_td, aes(strain, AMR.type)) + 
@@ -655,23 +637,6 @@ ggplot(amr_types_strain_td, aes(strain, AMR.type)) +
 ```
 
 *ampC* is present in every strain
-
-#### Interactive version
-
-```{r, fig.width=12}
-library(plotly)
-
-vals <- scales::rescale(c(0:max(amr_types_strain_td$N)))
-o <- order(vals, decreasing = FALSE)
-cols <- scales::col_numeric("Blues", domain = NULL)(vals)
-colz <- setNames(data.frame(vals[o], cols[o]), NULL)
-fig <- plot_ly(z = amr_types_strain_td$N, 
-               x = amr_types_strain_td$strain, 
-               y = amr_types_strain_td$AMR.type, 
-               type = "heatmap", 
-               colorscale = colz)
-fig
-```
 
 ## Coverage
 

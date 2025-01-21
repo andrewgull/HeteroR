@@ -31,7 +31,12 @@ library(ggplot2)
 source("functions.R")
 ```
 
+
 # Data 
+
+There are two model objects published along with this code: `models/llr_final.rds` and `models/gbt_final.rds`
+
+Use them in order to skip the training/validation/testing process.
 
 ```{r}
 data_strain <- readr::read_csv("data/features_strain.csv",
@@ -288,9 +293,10 @@ get_models_set <- function(file_path, model_specs_list, recipes_list) {
 # LLR 
 
 ```{r}
+# if file_path doesn't exist, training and validation will start
 models_llr <-
   get_models_set(
-    file_path = "~/Data/HeteroR/results/models/scheme12/models_llr.rds",
+    file_path = "",
     model_spec = list(LLR = lr1),
     recipes_list = list(
       base = base_recipe,
@@ -326,9 +332,10 @@ rm(models_llr)
 Linear, polynomial and radial-basis function
 
 ```{r}
+# if file_path doesn't exist, training and validation will start
 models_svm <-
   get_models_set(
-    file_path = "~/Data/HeteroR/results/models/scheme12/models_svm.rds",
+    file_path = "",
     model_specs_list = list(
       linSVM = lsvm,
       polySVM = psvm,
@@ -369,8 +376,9 @@ rm(models_svm)
 # MLP
 
 ```{r}
+# if file_path doesn't exist, training and validation will start
 models_mlp <- get_models_set(
-  file_path = "~/Data/HeteroR/results/models/scheme12/models_mlp.rds",
+  file_path = "",
   model_specs_list = list(MLP = mlp_nnet,
                           MLP_BAG = mlp_bag),
   recipes_list = list(
@@ -396,8 +404,9 @@ rm(models_mlp)
 # RF
 
 ```{r}
+# if file_path doesn't exist, training and validation will start
 models_rf <- get_models_set(
-  file_path = "~/Data/HeteroR/results/models/scheme12/models_rf.rds",
+  file_path = "",
   model_specs_list = list(RF = rf),
   recipes_list = list(base = base_recipe,
                       base_boruta = base_boruta_recipe)
@@ -418,8 +427,9 @@ rm(models_rf)
 Use LightGBM
 
 ```{r}
+# if file_path doesn't exist, training and validation will start
 models_bt <- get_models_set(
-  file_path = "~/Data/HeteroR/results/models/scheme12/models_bt.rds",
+  file_path = "",
   model_specs_list = list(BT = bt),
   recipes_list = list(base = base_recipe,
                       base_boruta = base_boruta_recipe)
@@ -476,7 +486,8 @@ get_bt_bres <- function(file_path) {
   return(base_bt_bres)
 }
 
-base_bt_bres <- get_bt_bres(file_path="~/Data/HeteroR/results/models/scheme12/models_bt_bres.rds")
+# if file_path doesn't exist, training and validation will start
+base_bt_bres <- get_bt_bres(file_path="")
 
 show_best(base_bt_bres)
 ```
