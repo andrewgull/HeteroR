@@ -41,7 +41,7 @@ mkdir -p resources/raw/
 ```
 
 4. download the raw reads (in NCBI's SRA database: PRJNA1165464) to this directory. Naming convention: long reads have `.fastq.gz` extension and paired short reads have `.fq.gz`extension.
-By default reads downloaded from SRA have names like "SRR followed by 8 digits", this projects assumes theat all the read files are named after the in-house naming scheme which is "DA followed by 6 digits".
+By default reads downloaded from SRA have names like "SRR followed by 8 digits", this project assumes theat all the read files are named after the in-house naming scheme which is "DA followed by 6 digits".
 To determine how the SRR numbers correspond to DA numbers, refer to the table `configs/da_srr_mapping.csv`.
 
 5. One more piece of data you need is [CARD database](https://card.mcmaster.ca/). You can download the newest version using:
@@ -50,7 +50,7 @@ To determine how the SRR numbers correspond to DA numbers, refer to the table `c
 wget https://card.mcmaster.ca/latest/data
 ```
 
-and then following the instructions on the CARD website on how to get the actual database.
+and then follow the instructions on the CARD website on how to get the actual database.
 
 OR you can use the version *we used* for this project which is in `localDB.tgz` archive. Just unpack it and make sure it's inside the project's directory, i.e. inside `HeteroR`:
 
