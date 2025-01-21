@@ -46,7 +46,6 @@ def make_bed(collection, score):
     # drop NaNs
     bed_3 = bed_3[bed_3.range_end.notnull()]
     # join them
-    # bed = pd.concat([bed_normal, bed_5, bed_3])
     return bed_normal, bed_5, bed_3
 
 
@@ -147,19 +146,6 @@ def get_contig_name(gff_rec_obj, assembly_obj):
     contig_name = dict_ass_lengths_names[len(gff_rec_obj)]
     return contig_name
 
-# cd /home/andrei/Data/HeteroR/test_dir/GRF
-# VARIABLES TEST NON CIRCULAR CHROMOSOME
-# in_rgi = "DA62886_rgi_table.txt"
-# in_gff = "DA62886_genomic.gff"
-# in_assembly = "DA62886_assembly.fasta"
-# regions_bed_output = "regions_output.bed"
-# regions_fasta_output = "regions_output.fasta"
-#
-# # VARIABLES TEST CIRCULAR EVERYTHING
-# in_rgi_circ = "DA63004_rgi_table.txt"
-# in_gff_circ = "DA63004_genomic.gff"
-# in_assembly_circ = "DA63004_assembly.fasta"
-
 
 # VARIABLES FOR SNAKEMAKE
 in_assembly = snakemake.input[0]
@@ -181,14 +167,10 @@ with open(snakemake.log[0], "w") as log:
         is_polypolish = False
     # rgi results - resistance information
     rgi = pd.read_csv(in_rgi, sep="\t")
-    # rgi["Cut_Off"].unique()
     # some genes are 'Loose', leave 'Strict' and 'Perfect' only
     rgi_notLoose = rgi[rgi["Cut_Off"] != "Loose"]
     with open(in_gff) as f:
         gff = [rec for rec in GFF.parse(f) if len(rec.seq) >= min_plasmid_size]
-    # gff_ids = [rec.id.split("_")[-1] for rec in gff]
-    # read joined assembly file as dict
-    # assembly = SeqIO.to_dict(SeqIO.parse(in_assembly, "fasta"))
     # filter it because not all the records present in GFF
     # but you can not filter by ID because IDs coming from SPAdes (if it finished successfully) are different from
     # IDs coming from Unicycler
