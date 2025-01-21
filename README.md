@@ -24,7 +24,7 @@ For some reason, the wrong versions of these libraries are installed by conda wh
 (2) If you choose to run the pipelines in containers, be ready that some environments may not be resolved. Although, everything worked on 'vanilla' Ubuntu 22.04.5. 
 Maybe try only conda environments first. If it works, then no need to use containers.
 
-## How to run the assembly-annotation pipeline (1)
+## How to run the assembly-annotation pipeline (1) + ML
 
 1. download the repository using:
 
@@ -75,7 +75,7 @@ conda activate snakemake
 snakemake --snakefile workflow/assembly-annotation.smk --use-conda  --cores $N
 ```
 
-note: add `--use-singularity` if you want to run the analysis inside a container (check the **Importnatn notes** above!).
+note: add `--use-singularity` if you want to run the analysis inside a container (check the **Important notes** above!).
 
 After the main pipeline has finished, you can run the three R notebooks (but not necessarily all of them):
 
