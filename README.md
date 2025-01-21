@@ -115,7 +115,7 @@ snakemake --snakefile workflow/phylogeny.smk --use-conda --use-singularity --cor
 
 remove `--use-singularity` if you want to use only conda environments.
 
-**NB**: to find NCBI accession numbers of the reference strains, see the publication's supplementary table 3 (Table S3).
+**NB**: to find NCBI accession numbers of the reference strains, refer to file `configs/reference_strains.csv`.
 
 You can change the reference strain names provided in the strain list to whichever suits you better.
 
