@@ -79,10 +79,10 @@ note: add `--use-singularity` if you want to run the analysis inside a container
 
 After the main pipeline has finished, you can run the three R notebooks (but not necessarily all of them):
 
-1. to generate features table: `notebooks/modelling/features.qmd` (it is already available in `notebooks/modelling/data/features_strain.csv`)
-2. for exploratory data anlysis: `notebooks/modelling/EDA.qmd`
-3. to run training and validation:`notebooks/modelling/training_and_validation.Rmd`
-4. for comparison and analysis of the models: `notebooks/modelling/models_analysis.Rmd`
+1. to generate features table: `notebooks/modelling/features.qmd` (also, a pre-compiled table is available here `notebooks/modelling/data/features_strain.csv`)
+2. for exploratory data anlysis: `notebooks/modelling/EDA.qmd` (pre-compiled HTML file is available here `notebooks/modelling/EDA.html.gz`)
+3. to run training and validation:`notebooks/modelling/training_and_validation.Rmd` (pre-compiled HTML file is available here `notebooks/modelling/training_and_validation.html.gz`)
+4. for comparison and analysis of the models: `notebooks/modelling/models_analysis.Rmd` (pre-compiled HTML file is available here `notebooks/modelling/models_analysis.html.gz`)
 
 To ensure that you use the same versions of R packages as were used in these notebooks, install *renv* package and run `renv::restore()` ([here](https://rstudio.github.io/renv/index.html) you can find *renv* documentation).
 
@@ -129,7 +129,7 @@ Software versions are specified in yaml files located in `workflow/envs`.
 
 ## Raw data availability
 
-The raw sequencing reads used in this project are available from NCBI's SRA under BioProjects PRJNA1165464 and PRJNA1083935.
+The raw sequencing reads used in this project are available from NCBI's SRA under BioProjects PRJNA1165464 (474 parental strains), PRJNA1083935 and PRJNA1160527 (mutants).
 
 ## Models and features table
 
