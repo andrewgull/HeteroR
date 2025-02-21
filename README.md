@@ -1,6 +1,6 @@
 # Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
-This repository contains code and data for the heteroresistance detection project published in %journalname%.
+This repository contains code and data for the heteroresistance detection project [published](https://www.sciencedirect.com/science/article/pii/S2352396425000623) in eBioMedicine.
 
 The pipelines were created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v7.32.4
 
