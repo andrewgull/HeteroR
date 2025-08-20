@@ -1,4 +1,4 @@
-[![Snakemake](https://img.shields.io/badge/snakemake-≥7.32.4-brightgreen.svg?style=flat-square)](https://snakemake.bitbucket.io)
+[![Snakemake](https://img.shields.io/badge/snakemake-7.32.4-blue.svg?style=flat-square)](https://snakemake.bitbucket.io)  ![tidymodels](https://img.shields.io/badge/tidymodels-1.2.0-blue) ![R](https://img.shields.io/badge/R-4.4.1-blue)
 
 # Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
