@@ -1,3 +1,5 @@
+[![Snakemake](https://img.shields.io/badge/snakemake-≥7.32.4-brightgreen.svg?style=flat-square)](https://snakemake.bitbucket.io)
+
 # Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
 This repository contains code and data for the heteroresistance detection project [published](https://www.sciencedirect.com/science/article/pii/S2352396425000623) in eBioMedicine.
