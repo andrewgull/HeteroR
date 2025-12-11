@@ -1,0 +1,3 @@
+include: "assembly-annotation.smk"
+include: "phylogeny.smk"
+include: "mutation_analysis.smk"
