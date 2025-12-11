@@ -8,13 +8,6 @@
 from snakemake.io import touch, expand, directory
 import pandas as pd
 
-#### Singularity setup ####
-
-
-# this container defines the underlying OS for each job when using the workflow
-# with --use-conda --use-singularity
-container: "docker://continuumio/miniconda3"
-
 
 #### Config file for this pipeline ####
 configfile: "configs/config_phylogeny.yaml"
