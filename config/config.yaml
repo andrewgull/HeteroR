@@ -1,0 +1,5 @@
+# choose which part of the pipeline to run
+run_workflow:
+  assembly_annotation: True
+  mutants: False
+  phylogeny: False
