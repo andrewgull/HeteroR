@@ -18,6 +18,7 @@ workflow/scripts/__pycache__/
 
 # the raw files
 resources/
+data/
 
 # R files
 .Rhistory
