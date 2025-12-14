@@ -1,3 +1,33 @@
-include: "assembly-annotation.smk"
-include: "phylogeny.smk"
-include: "mutation_analysis.smk"
+
+configfile: "config/config.yaml"
+
+
+# List of final inputs to collect
+final_inputs = []
+
+# Conditionally include Workflow A
+if config.get("assembly_annotation", True):
+
+    include: "rules/assembly-annotation.smk"
+
+    final_inputs.extend(expand("results/annotations/{strain}/trna/trna_gen.txt", strain=strains["strains"]))
+
+
+# Conditionally include Workflow B
+if config.get("phylogeny", False):
+
+    include: "rules/phylogeny.smk"
+
+    final_inputs.append("results/output_from_B.txt")
+
+
+if config.get("mutants", False):
+
+    include: "rules/mutants.smk"
+
+    final_inputs.append("results/output_from_mutants.txt")
+
+
+rule all:
+    input:
+        final_inputs,
