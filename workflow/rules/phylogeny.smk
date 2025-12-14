@@ -10,7 +10,7 @@ import pandas as pd
 
 
 #### Config file for this pipeline ####
-configfile: "configs/config_phylogeny.yaml"
+configfile: "config/config_phylogeny.yaml"
 
 
 # read strain names

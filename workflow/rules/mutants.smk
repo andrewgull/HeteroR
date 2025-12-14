@@ -8,7 +8,7 @@ import pandas as pd
 
 
 #### Config file for this pipeline ####
-configfile: "configs/config_mutants.yaml"
+configfile: "config/config_mutants.yaml"
 
 
 # read strain names

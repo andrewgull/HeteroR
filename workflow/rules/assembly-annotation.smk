@@ -10,7 +10,7 @@ import pandas as pd
 
 
 #### Config file for this pipeline ####
-configfile: "configs/config_assembly_annotation.yaml"
+configfile: "config/config_assembly_annotation.yaml"
 
 
 # read strain names
@@ -22,9 +22,9 @@ raw_path = config["raw_path"]
 #### Rules ####
 
 
-rule all:
-    input:
-        expand("results/final/{strain}_all.done", strain=strains["strains"]),
+# rule all:
+#     input:
+#         expand("results/final/{strain}_all.done", strain=strains["strains"]),
 
 
 # Automated short read trimming
