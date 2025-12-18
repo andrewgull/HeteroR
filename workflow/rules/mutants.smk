@@ -1,4 +1,4 @@
-configfile: "config/config_mutants.yaml"
+configfile: "config/mutants.yaml"
 
 
 parents = pd.read_csv(config["parents"], dtype={"parents": str})
@@ -457,4 +457,4 @@ rule final:
 
 
 onsuccess:
-    print("Workflow finished, no errors")
+    print("Mutants workflow finished, no errors")

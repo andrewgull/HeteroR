@@ -1,4 +1,4 @@
-configfile: "config/config_assembly.yaml"
+configfile: "config/assembly.yaml"
 
 
 strains = pd.read_csv(config["strains"], dtype={"strains": str})

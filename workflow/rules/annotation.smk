@@ -1,4 +1,4 @@
-configfile: "config/config_annotation.yaml"
+configfile: "config/annotation.yaml"
 
 strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
