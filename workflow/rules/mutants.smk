@@ -12,8 +12,8 @@ rule trim_mutants:
         r1=lambda wildcards: f"{mutants_path}/{wildcards.parent}_1.fq.gz",
         r2=lambda wildcards: f"{mutants_path}/{wildcards.parent}_2.fq.gz",
     output:
-        r1="results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
-        r2="results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz",
+        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}m_1.fq.gz",
+        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}m_2.fq.gz",
     threads: 10
     message:
         "trimming front ends of the {wildcards.parent} reads"
@@ -38,8 +38,8 @@ if config.get("trim_parents", False):
             r1=lambda wildcards: f"{parents_path}/{wildcards.parent}_1.fq.gz",
             r2=lambda wildcards: f"{parents_path}/{wildcards.parent}_2.fq.gz",
         output:
-            r1="results/data_filtered/{parent}/Illumina/{parent}_1.fq.gz",
-            r2="results/data_filtered/{parent}/Illumina/{parent}_2.fq.gz",
+            r1="results/data_filtered/{parent}/short_reads/{parent}_1.fq.gz",
+            r2="results/data_filtered/{parent}/short_reads/{parent}_2.fq.gz",
         threads: 10
         message:
             "trimming front ends of the {wildcards.parent} reads"
@@ -60,11 +60,11 @@ if config.get("trim_parents", False):
 rule create_links:
     # required for ISmapper - it recognizes files only if 'fastq.gz' is in the name
     input:
-        r1="results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
-        r2="results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz",
+        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}m_1.fq.gz",
+        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}m_2.fq.gz",
     output:
-        r1="results/data_filtered/{parent}/Illumina/mutants/{parent}_1.fastq.gz",
-        r2="results/data_filtered/{parent}/Illumina/mutants/{parent}_2.fastq.gz",
+        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}_1.fastq.gz",
+        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}_2.fastq.gz",
     log:
         "results/logs/{parent}_links.log",
     shell:
@@ -84,8 +84,8 @@ rule make_reference:
 
 rule mapping_mutant:
     input:
-        r1="results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
-        r2="results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz",
+        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}m_1.fq.gz",
+        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}m_2.fq.gz",
         ref="results/mutants/variants/{parent}/reference.fasta",
     output:
         sam=temp("results/mutants/variants/{parent}/mutant_mapped.sam"),
@@ -121,8 +121,8 @@ rule sorting_mutant:
 rule mapping_parent:
     # use the same reference file as for the mutant
     input:
-        r1="results/data_filtered/{parent}/Illumina/{parent}_1.fq.gz",
-        r2="results/data_filtered/{parent}/Illumina/{parent}_2.fq.gz",
+        r1="results/data_filtered/{parent}/short_reads/{parent}_1.fq.gz",
+        r2="results/data_filtered/{parent}/short_reads/{parent}_2.fq.gz",
         ref="results/mutants/variants/{parent}/reference.fasta",
     output:
         sam=temp("results/mutants/copy_number/{parent}/parent_mapped.sam"),
@@ -426,8 +426,8 @@ rule map_new_insertions:
     input:
         is_queries="results/mutants/ismapper/best_IS_from_each_family.fasta",
         parent_ref="results/mutants/variants/{parent}/reference.fasta",
-        mut_reads_1="results/data_filtered/{parent}/Illumina/mutants/{parent}_1.fastq.gz",
-        mut_reads_2="results/data_filtered/{parent}/Illumina/mutants/{parent}_2.fastq.gz",
+        mut_reads_1="results/data_filtered/{parent}/short_reads/mutants/{parent}_1.fastq.gz",
+        mut_reads_2="results/data_filtered/{parent}/short_reads/mutants/{parent}_2.fastq.gz",
     output:
         directory("results/mutants/ismapper/new_insertions/{parent}"),
     threads: 10
