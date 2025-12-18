@@ -1,5 +1,6 @@
 # choose which part of the pipeline to run
-run_assembly: True
+run_assembly: False
+run_annotation: False
 run_mutants: False
 run_phylogeny: False
 
