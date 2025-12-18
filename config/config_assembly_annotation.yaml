@@ -2,7 +2,7 @@
 strains: "config/strains_test.txt"
 
 # path to raw read files
-raw_path: "data/"
+reads_path: "data/parents"
 
 # rule trim_illumina params
 quality: "20"

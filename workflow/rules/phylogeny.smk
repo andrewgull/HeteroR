@@ -19,9 +19,9 @@ strains = pd.read_csv(config["strains"], dtype={"strains": str})
 #### Rules ####
 
 
-rule all:
-    input:
-        expand("results/phylogeny/final/{strain}_all.done", strain=strains["strains"]),
+# rule all:
+#     input:
+#         expand("results/phylogeny/final/{strain}_all.done", strain=strains["strains"]),
 
 
 rule annotate:
@@ -116,6 +116,6 @@ rule final:
         pan="results/phylogeny/core_genome",
         plot="results/phylogeny/tree/core_genome_tree.pdf",
     output:
-        touch("results/phylogeny/final/{strain}_all.done"),
+        touch("results/final/{strain}_phylogeny_all.done"),
     shell:
         "echo 'DONE'"

@@ -1,5 +1,7 @@
 # choose which part of the pipeline to run
-run_workflow:
-  assembly_annotation: True
-  mutants: False
-  phylogeny: False
+run_assembly: True
+run_mutants: False
+run_phylogeny: False
+
+# if assembly has been run before mutants, set this to False
+trim_parents: True

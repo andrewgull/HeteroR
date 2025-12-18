@@ -1,5 +1,5 @@
 # strain names
-strains: "configs/strains_phylogeny.txt"
+strains: "config/strains_phylogeny.txt"
 
 # rule annotate params
 centre: "UU"

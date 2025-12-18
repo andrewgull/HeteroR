@@ -1,8 +1,9 @@
 # strain names
-strains: "configs/strains_mutants.csv"
+parents: "config/mutants_test.txt"
 
 # raw reads (mutants) path
-raw_path: "resources/raw/mutants"
+mutants_path: "data/mutants"
+parents_path: "data/parents"
  
 # qual and BGI-adapters trimming
 trim_front: 10

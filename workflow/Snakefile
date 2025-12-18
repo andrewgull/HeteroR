@@ -1,3 +1,6 @@
+from snakemake.io import touch, expand, directory
+import pandas as pd
+
 
 configfile: "config/config.yaml"
 
@@ -5,27 +8,26 @@ configfile: "config/config.yaml"
 # List of final inputs to collect
 final_inputs = []
 
-# Conditionally include Workflow A
-if config.get("assembly_annotation", True):
+
+if config.get("run_assembly", True):
 
     include: "rules/assembly-annotation.smk"
 
-    final_inputs.extend(expand("results/annotations/{strain}/trna/trna_gen.txt", strain=strains["strains"]))
+    final_inputs.extend(expand("results/final/{strain}_assembly_annotation_all.done", strain=strains["strains"]))
 
 
-# Conditionally include Workflow B
-if config.get("phylogeny", False):
-
-    include: "rules/phylogeny.smk"
-
-    final_inputs.append("results/output_from_B.txt")
-
-
-if config.get("mutants", False):
+if config.get("run_mutants", False):
 
     include: "rules/mutants.smk"
 
-    final_inputs.append("results/output_from_mutants.txt")
+    final_inputs.extend(expand("results/final/{parent}_mutants_all.done", parent=parents["parents"]))
+
+
+if config.get("run_phylogeny", False):
+
+    include: "rules/phylogeny.smk"
+
+    final_inputs.extend(expand("results/final/{strain}_phylogeny_all.done", strain=strains["strains"]))
 
 
 rule all:

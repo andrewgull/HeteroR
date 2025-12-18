@@ -1,37 +1,15 @@
-##############################################################################################
-# the main pipeline for the Hetero-resistance project
-# source: github.com/andrewgull/HeteroR
-# author: Andrei Guliaev
-# this pipeline assembles genomes, annotates resistance genes, direct repeats and IS elements
-##############################################################################################
-
-from snakemake.io import touch, directory, temp, expand
-import pandas as pd
-
-
-#### Config file for this pipeline ####
 configfile: "config/config_assembly_annotation.yaml"
 
 
-# read strain names
 strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
-# read raw reads path
-raw_path = config["raw_path"]
-
-#### Rules ####
+reads_path = config["reads_path"]
 
 
-# rule all:
-#     input:
-#         expand("results/final/{strain}_all.done", strain=strains["strains"]),
-
-
-# Automated short read trimming
 rule trim_short:
     input:
-        short_read_1=lambda wildcards: f"{raw_path}/{wildcards.strain}_1.fq.gz",
-        short_read_2=lambda wildcards: f"{raw_path}/{wildcards.strain}_2.fq.gz",
+        short_read_1=lambda wildcards: f"{reads_path}/{wildcards.strain}_1.fq.gz",
+        short_read_2=lambda wildcards: f"{reads_path}/{wildcards.strain}_2.fq.gz",
     output:
         short_read_1="results/data_filtered/{strain}/short/{strain}_1.fq.gz",
         short_read_2="results/data_filtered/{strain}/short/{strain}_2.fq.gz",
@@ -63,7 +41,7 @@ rule trim_short:
 # simple trimming of long reads
 rule filter_long:
     input:
-        lambda wildcards: f"{raw_path}/{wildcards.strain}.fastq.gz",
+        lambda wildcards: f"{reads_path}/{wildcards.strain}.fastq.gz",
     output:
         "results/data_filtered/{strain}/long/{strain}.fastq.gz",
     message:
@@ -569,7 +547,7 @@ rule final:
         depth="results/genome_coverage/{strain}/depth.txt",
         isescan="results/isescan/{strain}",
     output:
-        touch("results/final/{strain}_all.done"),
+        touch("results/final/{strain}_assembly_annotation_all.done"),
     shell:
         "echo 'DONE'"
 
