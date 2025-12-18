@@ -11,9 +11,16 @@ final_inputs = []
 
 if config.get("run_assembly", True):
 
-    include: "rules/assembly-annotation.smk"
+    include: "rules/assembly.smk"
 
-    final_inputs.extend(expand("results/final/{strain}_assembly_annotation_all.done", strain=strains["strains"]))
+    final_inputs.extend(expand("results/final/{strain}_assembly_all.done", strain=strains["strains"]))
+
+
+if config.get("run_annotation", False):
+
+    include: "rules/annotation.smk"
+
+    final_inputs.extend(expand("results/final/{strain}_annotation_all.done", strain=strains["strains"]))
 
 
 if config.get("run_mutants", False):
