@@ -1,34 +1,16 @@
-#####################################################################################
-# pipeline for analysis of mutants as part of the heteroresistance detection project
-# author: Andrei Guliaev
-#####################################################################################
-
-from snakemake.io import touch, directory, temp, expand
-import pandas as pd
-
-
-#### Config file for this pipeline ####
 configfile: "config/config_mutants.yaml"
 
 
-# read strain names
-strains = pd.read_csv(config["strains"], dtype={"strains": str})
+parents = pd.read_csv(config["parents"], dtype={"parents": str})
 
-# read raw mutants reads location
-raw_path = config["raw_path"]
-
-#### Rules ####
+mutants_path = config["mutants_path"]
+parents_path = config["parents_path"]
 
 
-rule all:
+rule trim_mutants:
     input:
-        expand("results/mutants/final/{parent}_all.done", parent=strains["strains"]),
-
-
-rule trim_reads:
-    input:
-        r1=lambda wildcards: f"{raw_path}/{wildcards.parent}_1.fq.gz",
-        r2=lambda wildcards: f"{raw_path}/{wildcards.parent}_2.fq.gz",
+        r1=lambda wildcards: f"{mutants_path}/{wildcards.parent}_1.fq.gz",
+        r2=lambda wildcards: f"{mutants_path}/{wildcards.parent}_2.fq.gz",
     output:
         r1="results/data_filtered/{parent}/Illumina/mutants/{parent}m_1.fq.gz",
         r2="results/data_filtered/{parent}/Illumina/mutants/{parent}m_2.fq.gz",
@@ -47,6 +29,32 @@ rule trim_reads:
         "fastp --in1 {input.r1} --in2 {input.r2} --out1 {output.r1} --out2 {output.r2} --thread {threads} "
         "--trim_front1 {params.f} --trim_front2 {params.f} --adapter_sequence {params.adapter1} "
         "--adapter_sequence_r2 {params.adapter2} &> {log}"
+
+
+if config.get("trim_parents", False):
+
+    rule trim_parents:
+        input:
+            r1=lambda wildcards: f"{parents_path}/{wildcards.parent}_1.fq.gz",
+            r2=lambda wildcards: f"{parents_path}/{wildcards.parent}_2.fq.gz",
+        output:
+            r1="results/data_filtered/{parent}/Illumina/{parent}_1.fq.gz",
+            r2="results/data_filtered/{parent}/Illumina/{parent}_2.fq.gz",
+        threads: 10
+        message:
+            "trimming front ends of the {wildcards.parent} reads"
+        log:
+            "results/logs/{parent}_parents_trimming.log",
+        conda:
+            "envs/fastp.yaml"
+        params:
+            f=config["trim_front"],
+            adapter1=config["adapter1"],
+            adapter2=config["adapter2"],
+        shell:
+            "fastp --in1 {input.r1} --in2 {input.r2} --out1 {output.r1} --out2 {output.r2} --thread {threads} "
+            "--trim_front1 {params.f} --trim_front2 {params.f} --adapter_sequence {params.adapter1} "
+            "--adapter_sequence_r2 {params.adapter2} &> {log}"
 
 
 rule create_links:
@@ -329,10 +337,8 @@ rule relative_coverage_mutant:
     input:
         depth="results/mutants/amplifications/{parent}/mutant_depth.tsv.gz",  # this one is from mapping of mutant reads
         ref="results/mutants/variants/{parent}/reference.fasta",
-        strain_name="{wildcards.parent}",
-        label="mutant",
     output:
-        "results/mutants/copy_number/{parent}/relative_coverage_mutant.tsv",
+        rel_cov="results/mutants/copy_number/{parent}/relative_coverage_mutant.tsv",
     message:
         "Calculating relative coverage on {wildcards.parent} mutants"
     log:
@@ -341,6 +347,7 @@ rule relative_coverage_mutant:
         "envs/biostrings.yaml"
     params:
         min_len=config["min_contig_len"],
+        label="mutant",
     script:
         "scripts/relative_coverage.R"
 
@@ -349,10 +356,8 @@ rule relative_coverage_parent:
     input:
         depth="results/mutants/copy_number/{parent}/parent_depth.tsv.gz",  # this one is from mapping of parental reads
         ref="results/mutants/variants/{parent}/reference.fasta",
-        strain_name="{wildcards.parent}",
-        label="parent",
     output:
-        "results/mutants/copy_number/{parent}/relative_coverage_parent.tsv",
+        rel_cov="results/mutants/copy_number/{parent}/relative_coverage_parent.tsv",
     message:
         "Calculating relative coverage on {wildcards.parent} parent"
     log:
@@ -361,13 +366,14 @@ rule relative_coverage_parent:
         "envs/biostrings.yaml"
     params:
         min_len=config["min_contig_len"],
+        label="parent",
     script:
         "scripts/relative_coverage.R"
 
 
 rule collect_all_IS:
     input:
-        expand("results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna", parent=config["parents"]),
+        expand("results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna", parent=parents["parents"]),
     output:
         "results/mutants/ismapper/query_collection.fasta",
     log:
@@ -378,6 +384,7 @@ rule collect_all_IS:
 
 rule find_best_IS:
     input:
+        # TODO: must be file
         "results/isescan/",  # trailing / is important!
     output:
         "results/mutants/ismapper/best_IS_representatives.tsv",
@@ -444,7 +451,7 @@ rule final:
         rel_cov_parent="results/mutants/copy_number/{parent}/relative_coverage_parent.tsv",
         new_insert="results/mutants/ismapper/new_insertions/{parent}",
     output:
-        touch("results/mutants/final/{parent}_all.done"),
+        touch("results/final/{parent}_mutants_all.done"),
     shell:
         "echo 'DONE'"
 
