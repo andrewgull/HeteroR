@@ -23,7 +23,7 @@ rule trim_short:
     log:
         "results/logs/{strain}_fastp.log",
     conda:
-        "envs/fastp.yaml"
+        "../envs/fastp.yaml"
     container:
         config.get("default_container", "")
     params:
@@ -51,7 +51,7 @@ rule filter_long:
     log:
         "results/logs/{strain}_filtlong.log",
     conda:
-        "envs/filtlong.yaml"
+        "../envs/filtlong.yaml"
     container:
         config.get("default_container", "")
     threads: 18
@@ -77,7 +77,7 @@ rule adaptive_hybrid_assembly:
     log:
         "results/logs/{strain}_assembly.log",
     conda:
-        "envs/hybrid_assembly.yaml"
+        "../envs/hybrid_assembly.yaml"
     container:
         config.get("assembly_container", "")
     params:
@@ -87,7 +87,7 @@ rule adaptive_hybrid_assembly:
         genome_length=config.get("genome_length", ""),
         cov_threshold=config.get("cov_threshold", ""),
     script:
-        "scripts/adaptive_hybrid_assembly.py"
+        "../scripts/adaptive_hybrid_assembly.py"
 
 
 # mapping of short reads on the assembly
@@ -106,7 +106,7 @@ rule map_back:
         mem="results/logs/{strain}_bwa_mem.log",
         index="results/logs/{strain}_bwa_index.log",
     conda:
-        "envs/bwa.yaml"
+        "../envs/bwa.yaml"
     container:
         config.get("default_container", "")
     shell:
@@ -126,7 +126,7 @@ rule sort_mapping:
     log:
         "results/logs/{strain}_samtools.log",
     conda:
-        "envs/samtools.yaml"
+        "../envs/samtools.yaml"
     container:
         config.get("default_container", "")
     shell:
@@ -146,7 +146,7 @@ rule collect_unmapped:
     log:
         "results/logs/{strain}_unmapped.log",
     conda:
-        "envs/samtools.yaml"
+        "../envs/samtools.yaml"
     container:
         config.get("default_container", "")
     shell:
@@ -166,7 +166,7 @@ rule additional_plasmid_assembly:
     log:
         "results/logs/{strain}_spades.log",
     conda:
-        "envs/spades.yaml"
+        "../envs/spades.yaml"
     container:
         config.get("default_container", "")
     shell:
@@ -189,11 +189,11 @@ rule assembly_summary:
     log:
         "results/logs/{strain}_assembly_summary.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
     container:
         config.get("biopython_container", "")
     script:
-        "scripts/assembly_summary.py"
+        "../scripts/assembly_summary.py"
 
 
 # merging Unicycler and SPAdes assemblies into single file
@@ -209,11 +209,11 @@ rule merge_assemblies:
     log:
         "results/logs/{strain}_joiner.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
     container:
         config.get("biopython_container", "")
     script:
-        "scripts/join_two_fastas.py"
+        "../scripts/join_two_fastas.py"
 
 
 # join outputs together
