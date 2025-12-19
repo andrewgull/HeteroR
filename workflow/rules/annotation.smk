@@ -1,5 +1,6 @@
 configfile: "config/annotation.yaml"
 
+
 strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
 reads_path = config["reads_path"]
@@ -17,14 +18,15 @@ rule genome_annotation:
     log:
         "results/logs/{strain}_prokka.log",
     conda:
-        "envs/prokka.yaml"
+        "../envs/prokka.yaml"
+    container:
+        config.get("annotation_container", None)
     params:
-        centre=config["centre"],
-        minlen=config["minlen"],
-        genus=config["genus"],
-        species=config["species"],
+        centre=config.get("centre", "centre_name"),
+        minlen=config.get("minlen", 200),
+        genus=config.get("genus", "genus_name"),
+        species=config.get("species", "species_name"),
     shell:
-        # skip tRNAs search?
         "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix {wildcards.strain}_genomic --centre {params.centre} --genus {params.genus} "
         "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
         "--mincontiglen {params.minlen} {input} &> {log}"
@@ -43,14 +45,15 @@ rule rename_annotations:
     log:
         "results/logs/{strain}_rename_annot.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     script:
-        "scripts/rename_genomic_gbk.py"
+        "../scripts/rename_genomic_gbk.py"
 
 
 # Annotate tRNAs separately
 rule trna_annotation:
-    # tRNA genes only - tRNAScan-SE
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
     output:
@@ -67,7 +70,7 @@ rule trna_annotation:
     log:
         "results/logs/{strain}_trnascan.log",
     conda:
-        "envs/trnascan.yaml"
+        "../envs/trnascan.yaml"
     shell:
         "tRNAscan-SE -B --forceow -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input} &> {log}"
@@ -85,9 +88,11 @@ rule join_annotations:
     log:
         "results/logs/{strain}_join_annot.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     script:
-        "scripts/join_two_fastas.py"
+        "../scripts/join_two_fastas.py"
 
 
 # Map short reads onto the joined assemblies to get coverage
@@ -109,7 +114,9 @@ rule genome_coverage:
         samtools_index="results/logs/{strain}_genome_coverage_samtools_index.log",
         samtools_depth="results/logs/{strain}_genome_coverage_samtools_depth.log",
     conda:
-        "envs/hybrid_assembly.yaml"
+        "../envs/bwa.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "bwa index {input.assembly} &> {log.bwa_index} && bwa mem -t {threads} {input.assembly} {input.fastq1} "
         "{input.fastq2} 2> {log.bwa_mem} | samtools sort -@ {threads} -o {output.bam} &> {log.samtools_sort} && "
@@ -124,14 +131,16 @@ rule resistance_genes:
     input:
         "results/annotations/{strain}/prokka",
     output:
-        "results/resistance_genes/{strain}/rgi_table.txt",  # IT'S JUST A PREFIX!
+        "results/resistance_genes/{strain}/rgi_table.txt",
     threads: 18
     message:
         "executing RGI with {threads} threads on predicted genes/proteins from {wildcards.strain}"
     log:
         "results/logs/{strain}_rgi.log",
     conda:
-        "envs/rgi.yaml"
+        "../envs/rgi.yaml"
+    container:
+        config.get("annotation_container", None)
     shell:
         "output=$(echo '{output}' | cut -d'.' -f 1) && "
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
@@ -150,11 +159,13 @@ rule rg_annotation:
     log:
         "results/logs/{strain}_rgi_annot.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     params:
-        filter_criterion=config["filter_criterion"],
+        filter_criterion=config.get("filter_criterion", "Loose"),
     script:
-        "scripts/rgi2gff.py"
+        "../scripts/rgi2gff.py"
 
 
 # make bed files with coords of regions around the resistance genes to find repeats in them
@@ -172,12 +183,14 @@ rule regions_coords:
     log:
         "results/logs/{strain}_getbed.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     params:
-        span=config["span"],
-        min_plasmid_size=config["min_plasmid_size"],
+        span=config.get("span", 100000),
+        min_plasmid_size=config.get("min_plasmid_size", 1000),
     script:
-        "scripts/flanking_regions.py"
+        "../scripts/flanking_regions.py"
 
 
 # retrieve regions as fasta according to their coordinates
@@ -197,7 +210,9 @@ rule regions_seqs:
     log:
         "results/logs/{strain}_bedtools.log",
     conda:
-        "envs/bedtools.yaml"
+        "../envs/bedtools.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "samtools faidx {input.assembly} &&"
         "bedtools getfasta -fi {input.assembly} -bed {input.bed_normal} -nameOnly -fo {output.normal} &> {log}; "
@@ -220,9 +235,11 @@ rule ends_overlaps:
     log:
         "results/logs/{strain}_join_ends.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     script:
-        "scripts/join_ends.py"
+        "../scripts/join_ends.py"
 
 
 # merge fasta files with the regions into a single file
@@ -237,6 +254,8 @@ rule merge_regions:
         "concatenating regions from {wildcards.strain} assembly"
     log:
         "results/logs/{strain}_concatenate_regions.txt",
+    container:
+        config.get("default_container", None)
     shell:
         "cat {input.normal} {input.left_joined} {input.right_joined} > {output} 2> {log}"
 
@@ -253,15 +272,17 @@ rule direct_repeats:
     log:
         "results/logs/{strain}_grf_perfect.log",
     conda:
-        "envs/grf.yaml"
+        "../envs/grf.yaml"
+    container:
+        config.get("annotation_container", None)
     params:
-        mode=config["mode"],
-        min_size=config["min_size"],
-        format=config["format"],
-        mism=config["mism"],
-        seed_mism=config["seed_mism"],
-        max_dist=config["max_dist"],
-        min_dist=config["min_dist"],
+        mode=config.get("mode", 2),
+        min_size=config.get("min_size", 20),
+        format=config.get("format", 1),
+        mism=config.get("mism", 0),
+        seed_mism=config.get("seed_mism", 0),
+        max_dist=config.get("max_dist", 20500),
+        min_dist=config.get("min_dist", 100),
     shell:
         "grf-main -i {input} -c {params.mode} -o {output} -t {threads} --min_tr {params.min_size} -f {params.format} "
         "--max_mismatch {params.mism} --seed_mismatch {params.seed_mism} --max_space {params.max_dist} --min_space {params.min_dist} &> {log} "
@@ -281,11 +302,13 @@ rule dr_annotation:
     log:
         "results/logs/{strain}_gff_perfect.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     params:
-        min_len=config["min_repeat_length"],
+        min_len=config.get("min_repeat_length", 20),
     script:
-        "scripts/GRF_parser.py"
+        "../scripts/GRF_parser.py"
 
 
 # make a table with repeats coordinates, remove duplicates
@@ -299,16 +322,24 @@ rule dr_table:
     log:
         "results/logs/{strain}_repeats_csv.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     script:
-        "scripts/make_repeat_tables.py"
+        "../scripts/make_repeat_tables.py"
 
 
 # join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
 rule dr_summary:
     input:
-        expand("results/annotations/{strain}/repeats/{strain}_repeats.csv", strain=strains["strains"]),
-        expand("results/direct_repeats/{strain}/regions/regions_within.bed", strain=strains["strains"]),
+        expand(
+            "results/annotations/{strain}/repeats/{strain}_repeats.csv",
+            strain=strains["strains"],
+        ),
+        expand(
+            "results/direct_repeats/{strain}/regions/regions_within.bed",
+            strain=strains["strains"],
+        ),
     output:
         "results/tables/repeats_summary.csv",
     message:
@@ -316,9 +347,11 @@ rule dr_summary:
     log:
         "results/logs/repeat_summary.log",
     conda:
-        "envs/biopython.yaml"
+        "../envs/biopython.yaml"
+    container:
+        config.get("biopython_container", None)
     script:
-        "scripts/make_repeat_summary_table.py"
+        "../scripts/make_repeat_summary_table.py"
 
 
 rule isescan:
@@ -330,7 +363,9 @@ rule isescan:
     message:
         "executing ISEScan on {wildcards.strain}"
     conda:
-        "envs/isescan.yaml"
+        "../envs/isescan.yaml"
+    container:
+        config.get("annotation_container", None)
     log:
         "results/logs/{strain}_isescan.log",
     shell:
