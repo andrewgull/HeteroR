@@ -8,6 +8,7 @@
 *.log
 *.tsv
 .idea/
+.keras/
 workflow/scripts/__pycache__/
 **/*_cache/
 **/*_files/
@@ -37,6 +38,9 @@ results/mapping/
 results/plasmids/
 results/qualcheck_*/
 results/resistance_genes/
+results/drafts/
+results/polished/
+results/isescan/
 
 # my presentation made with quarto
 notebooks/presentation/
