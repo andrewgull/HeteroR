@@ -9,6 +9,7 @@ ARG ENV_NAME=default
 # Install tools using micromamba
 # We install to /tmp/env to avoid permission issues in the build container
 RUN micromamba create -y -p /tmp/env -c bioconda -c conda-forge \
+    bedtools=2.31.1 \
     bwa=0.7.17 \
     fastp=0.20.1 \
     filtlong=0.2.1 \
