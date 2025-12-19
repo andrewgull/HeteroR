@@ -24,12 +24,14 @@ rule trim_short:
         "results/logs/{strain}_fastp.log",
     conda:
         "envs/fastp.yaml"
+    container:
+        config.get("default_container", "")
     params:
-        q=config["quality"],
-        W=config["window_size"],
-        r=config["cut_right"],
-        l=config["length_required"],
-        f=config["trim_front"],
+        q=config.get("quality", ""),
+        W=config.get("window_size", ""),
+        r=config.get("cut_right", ""),
+        l=config.get("length_required", ""),
+        f=config.get("trim_front", ""),
     shell:
         "fastp --in1 {input.short_read_1} --in2 {input.short_read_2} --out1 {output.short_read_1} "
         "--out2 {output.short_read_2} "
@@ -50,9 +52,11 @@ rule filter_long:
         "results/logs/{strain}_filtlong.log",
     conda:
         "envs/filtlong.yaml"
+    container:
+        config.get("default_container", "")
     threads: 18
     params:
-        min_len=config["min_nanopore_length"],
+        min_len=config.get("min_nanopore_length", ""),
     shell:
         "filtlong --min_length {params.min_len} {input} 2> {log} | pigz -c -p {threads} > {output}"
 
@@ -74,12 +78,14 @@ rule adaptive_hybrid_assembly:
         "results/logs/{strain}_assembly.log",
     conda:
         "envs/hybrid_assembly.yaml"
+    container:
+        config.get("assembly_container", "")
     params:
-        basecaller=config["basecaller"],
-        genome_size=config["genome_size"],
-        coverage=config["coverage"],
-        genome_length=config["genome_length"],
-        cov_threshold=config["cov_threshold"],
+        basecaller=config.get("basecaller", ""),
+        genome_size=config.get("genome_size", ""),
+        coverage=config.get("coverage", ""),
+        genome_length=config.get("genome_length", ""),
+        cov_threshold=config.get("cov_threshold", ""),
     script:
         "scripts/adaptive_hybrid_assembly.py"
 
@@ -101,6 +107,8 @@ rule map_back:
         index="results/logs/{strain}_bwa_index.log",
     conda:
         "envs/bwa.yaml"
+    container:
+        config.get("default_container", "")
     shell:
         "bwa index {input.assembly_dir}/assembly.fasta &> {log.index} && "
         "bwa mem -t {threads} {input.assembly_dir}/assembly.fasta {input.short_read_1} {input.short_read_2} -o {output} &> {log.mem}"
@@ -119,6 +127,8 @@ rule sort_mapping:
         "results/logs/{strain}_samtools.log",
     conda:
         "envs/samtools.yaml"
+    container:
+        config.get("default_container", "")
     shell:
         "samtools view -b {input} | samtools sort -o {output} -O BAM -@ {threads} &> {log} && samtools index {output}"
 
@@ -137,6 +147,8 @@ rule collect_unmapped:
         "results/logs/{strain}_unmapped.log",
     conda:
         "envs/samtools.yaml"
+    container:
+        config.get("default_container", "")
     shell:
         "samtools view -@ {threads} -u -f 12 -F 256 {input} | samtools fastq -1 {output.r1} -2 {output.r2} -@ {threads} &> {log}"
 
@@ -155,6 +167,8 @@ rule additional_plasmid_assembly:
         "results/logs/{strain}_spades.log",
     conda:
         "envs/spades.yaml"
+    container:
+        config.get("default_container", "")
     shell:
         # || true prevents the rule from failing when spades throws an error; this happens when unmapped files are too small
         "spades.py --plasmid -1 {input.r1} -2 {input.r2} -t {threads} -o {output} &> {log} || true"
@@ -176,6 +190,8 @@ rule assembly_summary:
         "results/logs/{strain}_assembly_summary.log",
     conda:
         "envs/biopython.yaml"
+    container:
+        config.get("biopython_container", "")
     script:
         "scripts/assembly_summary.py"
 
@@ -194,6 +210,8 @@ rule merge_assemblies:
         "results/logs/{strain}_joiner.log",
     conda:
         "envs/biopython.yaml"
+    container:
+        config.get("biopython_container", "")
     script:
         "scripts/join_two_fastas.py"
 
