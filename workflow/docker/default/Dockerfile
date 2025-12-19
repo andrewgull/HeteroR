@@ -14,6 +14,7 @@ RUN micromamba create -y -p /tmp/env -c bioconda -c conda-forge \
     filtlong=0.2.1 \
     pigz=2.6 \
     samtools=1.13 \
+    seqkit=2.0.0 \
     spades=3.15.3 \
     && micromamba clean --all --yes
 
