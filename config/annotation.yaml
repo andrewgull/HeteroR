@@ -1,5 +1,5 @@
 # list of strains
-strains: "config/strains_test.txt"
+strains: "config/strain_lists/strains_test.txt"
 
 # path to raw read files
 reads_path: "data/parents"

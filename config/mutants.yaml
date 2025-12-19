@@ -1,5 +1,5 @@
 # strain names
-parents: "config/mutants_test.txt"
+parents: "config/strain_lists/mutants_test.txt"
 
 # raw reads (mutants) path
 mutants_path: "data/mutants"
