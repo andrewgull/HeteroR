@@ -2,7 +2,7 @@
 strains: "config/strain_lists/strains_test.txt"
 
 # path to raw read files
-reads_path: "data/parents"
+reads_path: "/mnt/data/andrei/Data/strains_collection/resources/reads"
 
 # rule assembly_annotation params
 centre: "UU"
