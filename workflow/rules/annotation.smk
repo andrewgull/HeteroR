@@ -127,8 +127,6 @@ rule genome_coverage:
 
 
 # Find resistance genes
-# it ignores tRNAs
-# to get RGI data base, run: rgi load --card_json ./card_database/card.json --local
 rule resistance_genes:
     input:
         "results/annotations/{strain}/prokka",
