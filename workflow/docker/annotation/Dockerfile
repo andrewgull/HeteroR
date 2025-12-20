@@ -13,6 +13,8 @@ RUN conda install -c conda-forge conda-pack conda-libmamba-solver && \
     trnascan-se=2.0.9 \
     perl=5.32.1 \
     isescan=1.7.2.3 \
+    ismapper=2.0.2 \
+    setuptools \
     genericrepeatfinder=1.0
 
 # The runtime-stage image; we can use Debian as the
