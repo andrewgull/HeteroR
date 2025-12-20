@@ -11,6 +11,7 @@ RUN conda install -c conda-forge conda-pack conda-libmamba-solver && \
     conda config --set solver libmamba && \
     conda create --name ${ENV_NAME} -c bioconda -c conda-forge \
     trnascan-se=2.0.9 \
+    perl=5.32.1 \
     isescan=1.7.2.3 \
     genericrepeatfinder=1.0
 
@@ -29,4 +30,4 @@ LABEL version=${VERSION}
 LABEL env=${ENV_NAME}
    
 COPY --from=build /opt/conda/envs/${ENV_NAME}/ /opt/conda/envs/${ENV_NAME}/
-ENV PATH=${PATH}:/opt/conda/envs/${ENV_NAME}/bin
+ENV PATH=/opt/conda/envs/${ENV_NAME}/bin:${PATH}
