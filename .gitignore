@@ -9,6 +9,8 @@
 *.tsv
 .idea/
 .keras/
+.parallel/
+.cache/
 workflow/scripts/__pycache__/
 **/*_cache/
 **/*_files/
@@ -41,6 +43,13 @@ results/resistance_genes/
 results/drafts/
 results/polished/
 results/isescan/
+results/tables/
+results/genome_coverage/
+results/direct_repeats/
+results/annotations/
+results/assemblies/
+results/assemblies_joined/
+localDB/
 
 # my presentation made with quarto
 notebooks/presentation/
