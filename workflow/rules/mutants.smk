@@ -479,7 +479,7 @@ rule map_new_insertions:
     conda:
         "../envs/ismapper.yaml"
     container:
-        config.get("ismapper_container", None)
+        config.get("default_container", None)
     shell:
         "ismap --queries {input.is_queries} --reads {input.mut_reads_1} {input.mut_reads_2} "
         "--reference {input.parent_ref} --t {threads} --output_dir {output} &> {log}"
