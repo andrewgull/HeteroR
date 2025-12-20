@@ -51,6 +51,7 @@ results/direct_repeats/
 results/annotations/
 results/assemblies/
 results/assemblies_joined/
+results/mutants/
 localDB/
 
 # my presentation made with quarto
