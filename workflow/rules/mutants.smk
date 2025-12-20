@@ -59,20 +59,18 @@ if config.get("trim_parents", False):
             "--adapter_sequence_r2 {params.adapter2} &> {log}"
 
 
-rule create_links:
+rule rename_mutant_files:
     # required for ISmapper - it recognizes files only if 'fastq.gz' is in the name
     input:
         r1="results/data_filtered/{parent}/short/mutants/{parent}m_1.fq.gz",
         r2="results/data_filtered/{parent}/short/mutants/{parent}m_2.fq.gz",
     output:
-        r1="results/data_filtered/{parent}/short/mutants/{parent}_1.fastq.gz",
-        r2="results/data_filtered/{parent}/short/mutants/{parent}_2.fastq.gz",
+        r1=temp("results/data_filtered/{parent}/short/mutants/{parent}_1.fastq.gz"),
+        r2=temp("results/data_filtered/{parent}/short/mutants/{parent}_2.fastq.gz"),
     log:
         "results/logs/{parent}_links.log",
-    container:
-        config.get("default_container", None)
     shell:
-        "ln -s {input.r1} {output.r1} && ln -s {input.r2} {output.r2} 2> {log}"
+        "cp {input.r1} {output.r1} && cp {input.r2} {output.r2} 2> {log}"
 
 
 rule make_reference:
@@ -448,7 +446,16 @@ rule extract_IS_headers:
     log:
         "results/logs/is_headers.log",
     shell:
-        "while IFS=$'\t' read -r col1 col2 _; do grep $col1 {input.collection} | grep $col2 >> {output}; done < {input.table} && sed -i 's/>//g' {output} 2> {log}"
+        r"""
+        ( set -euo pipefail
+        : > {output}  # ensure output exists
+        while IFS=$'\t' read -r col1 col2 _; do
+            # search header lines only, match as fixed strings, allow no-match without failing
+            grep -F ">" {input.collection} | grep -F "$col1" | grep -F "$col2" >> {output} || true
+        done < {input.table}
+        sed -i 's/>//g' {output}
+        ) 2> {log}
+        """
 
 
 rule extract_best_IS:
@@ -481,7 +488,7 @@ rule map_new_insertions:
     conda:
         "../envs/ismapper.yaml"
     container:
-        config.get("default_container", None)
+        config.get("annotation_container", None)
     shell:
         "ismap --queries {input.is_queries} --reads {input.mut_reads_1} {input.mut_reads_2} "
         "--reference {input.parent_ref} --t {threads} --output_dir {output} &> {log}"
