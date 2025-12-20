@@ -20,7 +20,7 @@ rule genome_annotation:
     conda:
         "../envs/prokka.yaml"
     container:
-        config.get("annotation_container", None)
+        config.get("prokka_container", None)
     params:
         centre=config.get("centre", "centre_name"),
         minlen=config.get("minlen", 200),
@@ -71,6 +71,8 @@ rule trna_annotation:
         "results/logs/{strain}_trnascan.log",
     conda:
         "../envs/trnascan.yaml"
+    container:
+        config.get("annotation_container", None)
     shell:
         "tRNAscan-SE -B --forceow -o {output.general} -f {output.struct} -s {output.iso} -m {output.stats} -b {output.bed} "
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input} &> {log}"
@@ -140,7 +142,7 @@ rule resistance_genes:
     conda:
         "../envs/rgi.yaml"
     container:
-        config.get("annotation_container", None)
+        config.get("rgi_container", None)
     shell:
         "output=$(echo '{output}' | cut -d'.' -f 1) && "
         "rgi main --input_sequence {input}/{wildcards.strain}_genomic.faa --output_file $output  "
