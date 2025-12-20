@@ -16,8 +16,7 @@ RUN micromamba create -y -p /tmp/env -c bioconda -c conda-forge \
     pigz=2.6 \
     samtools=1.13 \
     seqkit=2.0.0 \
-    spades=3.15.3 \
-    && micromamba clean --all --yes
+    spades=3.15.3
 
 # The runtime-stage image
 FROM debian:bookworm-slim AS runtime
