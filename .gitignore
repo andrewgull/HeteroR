@@ -18,6 +18,8 @@ workflow/scripts/__pycache__/
 .ipynb_checkpoints
 *.js
 .DS_Store
+*.bt2
+fastp.*
 
 # the raw files
 resources/
