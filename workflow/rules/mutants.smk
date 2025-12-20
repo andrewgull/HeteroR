@@ -68,7 +68,9 @@ rule create_links:
         r1="results/data_filtered/{parent}/short/mutants/{parent}_1.fastq.gz",
         r2="results/data_filtered/{parent}/short/mutants/{parent}_2.fastq.gz",
     log:
-        "../results/logs/{parent}_links.log",
+        "results/logs/{parent}_links.log",
+    container:
+        config.get("default_container", None)
     shell:
         "ln -s {input.r1} {output.r2} && ln -s {input.r2} {output.r2} 2> {log}"
 
