@@ -22,6 +22,7 @@ RUN micromamba create -y -p /opt/conda/envs/${CONDA_ENV} -c bioconda -c conda-fo
     r-dplyr=1.1.4 \
     r-data.table=1.14.8 \
     r-ggpubr=0.6.0 \
+    r-readr=2.1.5 \
     r-r.utils=2.12.3 \
     r-purrr=1.0.2 \
     && micromamba clean --all --yes
