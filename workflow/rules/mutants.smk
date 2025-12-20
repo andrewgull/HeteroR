@@ -12,8 +12,8 @@ rule trim_mutants:
         r1=lambda wildcards: f"{mutants_path}/{wildcards.parent}_1.fq.gz",
         r2=lambda wildcards: f"{mutants_path}/{wildcards.parent}_2.fq.gz",
     output:
-        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}m_1.fq.gz",
-        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}m_2.fq.gz",
+        r1="results/data_filtered/{parent}/short/mutants/{parent}m_1.fq.gz",
+        r2="results/data_filtered/{parent}/short/mutants/{parent}m_2.fq.gz",
     threads: 10
     message:
         "trimming front ends of the {wildcards.parent} reads"
@@ -21,6 +21,8 @@ rule trim_mutants:
         "results/logs/{parent}_mutants_trimming.log",
     conda:
         "../envs/fastp.yaml"
+    container:
+        config.get("default_container", None)
     params:
         f=config.get("trim_front"),
         adapter1=config.get("adapter1"),
@@ -38,8 +40,8 @@ if config.get("trim_parents", False):
             r1=lambda wildcards: f"{parents_path}/{wildcards.parent}_1.fq.gz",
             r2=lambda wildcards: f"{parents_path}/{wildcards.parent}_2.fq.gz",
         output:
-            r1="results/data_filtered/{parent}/short_reads/{parent}_1.fq.gz",
-            r2="results/data_filtered/{parent}/short_reads/{parent}_2.fq.gz",
+            r1="results/data_filtered/{parent}/short/{parent}_1.fq.gz",
+            r2="results/data_filtered/{parent}/short/{parent}_2.fq.gz",
         threads: 10
         message:
             "trimming front ends of the {wildcards.parent} reads"
@@ -60,11 +62,11 @@ if config.get("trim_parents", False):
 rule create_links:
     # required for ISmapper - it recognizes files only if 'fastq.gz' is in the name
     input:
-        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}m_1.fq.gz",
-        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}m_2.fq.gz",
+        r1="results/data_filtered/{parent}/short/mutants/{parent}m_1.fq.gz",
+        r2="results/data_filtered/{parent}/short/mutants/{parent}m_2.fq.gz",
     output:
-        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}_1.fastq.gz",
-        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}_2.fastq.gz",
+        r1="results/data_filtered/{parent}/short/mutants/{parent}_1.fastq.gz",
+        r2="results/data_filtered/{parent}/short/mutants/{parent}_2.fastq.gz",
     log:
         "../results/logs/{parent}_links.log",
     shell:
@@ -84,8 +86,8 @@ rule make_reference:
 
 rule mapping_mutant:
     input:
-        r1="results/data_filtered/{parent}/short_reads/mutants/{parent}m_1.fq.gz",
-        r2="results/data_filtered/{parent}/short_reads/mutants/{parent}m_2.fq.gz",
+        r1="results/data_filtered/{parent}/short/mutants/{parent}m_1.fq.gz",
+        r2="results/data_filtered/{parent}/short/mutants/{parent}m_2.fq.gz",
         ref="results/mutants/variants/{parent}/reference.fasta",
     output:
         sam=temp("results/mutants/variants/{parent}/mutant_mapped.sam"),
@@ -97,6 +99,8 @@ rule mapping_mutant:
         index="results/logs/{parent}_reference_index.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "bowtie2-build {input.ref} index &> {log.index} && "
         "bowtie2 -p {threads} -x index -1 {input.r1} -2 {input.r2} -S {output.sam} &> {log.mapping}"
@@ -114,6 +118,8 @@ rule sorting_mutant:
         "results/logs/{parent}_mutant_reads_sorting.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "samtools sort -@ {threads} {input} > {output} 2> {log}"
 
@@ -121,8 +127,8 @@ rule sorting_mutant:
 rule mapping_parent:
     # use the same reference file as for the mutant
     input:
-        r1="results/data_filtered/{parent}/short_reads/{parent}_1.fq.gz",
-        r2="results/data_filtered/{parent}/short_reads/{parent}_2.fq.gz",
+        r1="results/data_filtered/{parent}/short/{parent}_1.fq.gz",
+        r2="results/data_filtered/{parent}/short/{parent}_2.fq.gz",
         ref="results/mutants/variants/{parent}/reference.fasta",
     output:
         sam=temp("results/mutants/copy_number/{parent}/parent_mapped.sam"),
@@ -134,6 +140,8 @@ rule mapping_parent:
         index="results/logs/{parent}_parent_reference_index.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "bowtie2-build {input.ref} index &> {log.index} && "
         "bowtie2 -p {threads} -x index -1 {input.r1} -2 {input.r2} -S {output.sam} &> {log.mapping}"
@@ -151,6 +159,8 @@ rule sorting_parent:
         "results/logs/{parent}_parent_reads_sorting.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "samtools sort -@ {threads} {input} > {output} 2> {log}"
 
@@ -167,6 +177,8 @@ rule depth_parent:
         "results/logs/{parent}_bam_parent_depth.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "samtools depth -@ {threads} {input} | gzip -c > {output} 2> {log}"
 
@@ -185,6 +197,8 @@ rule variant_calling:
         mpileup="results/logs/{parent}_mpileup.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     params:
         max_depth=config.get("max_depth"),
         ploidy=config.get("ploidy"),
@@ -206,6 +220,8 @@ rule variant_filtering:
         "results/logs/{parent}_variant_filtering.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     params:
         dist=config.get("indel_dist"),
         qual=config.get("quality"),
@@ -231,6 +247,8 @@ rule variant_annotation:
         annotate="results/logs/{parent}_variant_annotation.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "bcftools view {input.bcf} > {output.vcf}  2> {log.view} && "
         "sed '/##FASTA/,$d' {input.gff} > {output.gff_clean} 2> {log.sed} && "
@@ -248,6 +266,8 @@ rule filter_variant_annotation:
         "results/logs/{parent}_filter_gff_annotations.log",
     conda:
         "../envs/rscripts.yaml"
+    container:
+        config.get("rscripts_container", None)
     script:
         "../scripts/filter_gff_annotations.R"
 
@@ -264,6 +284,8 @@ rule depth_mutant:
         "results/logs/{parent}_bam_depth.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "samtools depth -@ {threads} {input} | gzip -c > {output} 2> {log}"
 
@@ -280,6 +302,8 @@ rule find_amplified_regions:
         "results/logs/{parent}_amplifications.log",
     conda:
         "../envs/rscripts.yaml"
+    container:
+        config.get("rscripts_container", None)
     params:
         z=config.get("z_threshold"),
         w=config.get("window_size"),
@@ -298,6 +322,8 @@ rule merge_amplified_regions:
         "results/logs/{parent}_merging.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "bedtools merge -i {input} > {output} 2> {log}"
 
@@ -314,6 +340,8 @@ rule annotate_amplified_regions:
         "results/logs/{parent}_annotate_amplifications.log",
     conda:
         "../envs/varcalling.yaml"
+    container:
+        config.get("default_container", None)
     shell:
         "touch {output}; bedtools annotate -i {input.gff} -files {input.bed} | grep -v '0.000000' 1>> {output} 2> {log}"
 
@@ -329,6 +357,8 @@ rule filter_annotated_amplified_regions:
         "results/logs/{parent}_filter_amplification_annotation.log",
     conda:
         "../envs/rscripts.yaml"
+    container:
+        config.get("rscripts_container", None)
     script:
         "../scripts/filter_gff_annotations.R"
 
@@ -345,6 +375,8 @@ rule relative_coverage_mutant:
         "results/logs/{parent}/relative_coverage_mutants.log",
     conda:
         "../envs/biostrings.yaml"
+    container:
+        config.get("biostrings_container", None)
     params:
         min_len=config.get("min_contig_len"),
         label="mutant",
@@ -364,6 +396,8 @@ rule relative_coverage_parent:
         "results/logs/{parent}/relative_coverage_parent.log",
     conda:
         "../envs/biostrings.yaml"
+    container:
+        config.get("biostrings_container", None)
     params:
         min_len=config.get("min_contig_len"),
         label="parent",
@@ -397,6 +431,8 @@ rule find_best_IS:
         "results/logs/mutants_best_IS.log",
     conda:
         "../envs/rscripts.yaml"
+    container:
+        config.get("rscripts_container", None)
     script:
         "../scripts/find_best_IS_examples.R"
 
@@ -421,6 +457,8 @@ rule extract_best_IS:
         "results/mutants/ismapper/best_IS_from_each_family.fasta",
     log:
         "results/logs/best_is.log",
+    container:
+        config.get("default_container", None)
     shell:
         "seqkit grep -n -f {input.id_file} {input.collection} -o {output} &> {log}"
 
@@ -429,8 +467,8 @@ rule map_new_insertions:
     input:
         is_queries="results/mutants/ismapper/best_IS_from_each_family.fasta",
         parent_ref="results/mutants/variants/{parent}/reference.fasta",
-        mut_reads_1="results/data_filtered/{parent}/short_reads/mutants/{parent}_1.fastq.gz",
-        mut_reads_2="results/data_filtered/{parent}/short_reads/mutants/{parent}_2.fastq.gz",
+        mut_reads_1="results/data_filtered/{parent}/short/mutants/{parent}_1.fastq.gz",
+        mut_reads_2="results/data_filtered/{parent}/short/mutants/{parent}_2.fastq.gz",
     output:
         directory("results/mutants/ismapper/new_insertions/{parent}"),
     threads: 10
@@ -440,6 +478,8 @@ rule map_new_insertions:
         "results/logs/{parent}_ISmapper.log",
     conda:
         "../envs/ismapper.yaml"
+    container:
+        config.get("ismapper_container", None)
     shell:
         "ismap --queries {input.is_queries} --reads {input.mut_reads_1} {input.mut_reads_2} "
         "--reference {input.parent_ref} --t {threads} --output_dir {output} &> {log}"
