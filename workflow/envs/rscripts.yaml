@@ -10,3 +10,4 @@ dependencies:
   - r-ggpubr=0.6.0
   - r-r.utils=2.12.3
   - r-purrr=1.0.2
+  - r-readr=2.1.5
