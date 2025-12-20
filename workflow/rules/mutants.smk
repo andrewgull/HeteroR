@@ -72,7 +72,7 @@ rule create_links:
     container:
         config.get("default_container", None)
     shell:
-        "ln -s {input.r1} {output.r2} && ln -s {input.r2} {output.r2} 2> {log}"
+        "ln -s {input.r1} {output.r1} && ln -s {input.r2} {output.r2} 2> {log}"
 
 
 rule make_reference:
@@ -294,7 +294,7 @@ rule depth_mutant:
 
 rule find_amplified_regions:
     input:
-        "results/mutants/amplifications/{parent}/mutant_depth.tsv.gz",
+        depth="results/mutants/amplifications/{parent}/mutant_depth.tsv.gz",
     output:
         bed="results/mutants/amplifications/{parent}/amplifications_windows.bed",
         plot="results/mutants/amplifications/{parent}/genome_coverage.png",
