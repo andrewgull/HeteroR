@@ -6,7 +6,6 @@ dependencies:
   - r-ggplot2=3.4.4
   - r-stringr=1.5.1
   - r-dplyr=1.1.4
-  - r-optparse=1.7.1
   - r-data.table=1.14.8
   - r-ggpubr=0.6.0
   - r-r.utils=2.12.3
