@@ -1,4 +1,5 @@
-[![Snakemake](https://img.shields.io/badge/snakemake-7.32.4-blue.svg?style=flat-square)](https://snakemake.bitbucket.io)  ![tidymodels](https://img.shields.io/badge/tidymodels-1.2.0-blue) ![R](https://img.shields.io/badge/R-4.4.1-blue)
+[![Snakemake](https://img.shields.io/badge/snakemake-7.32.4-blue.svg?style=flat-square)](https://snakemake.bitbucket.io)  ![tidymodels](https://img.shields.io/badge/tidymodels-1.2.0-blue) ![R](https://img.shields.io/badge/R-4.4.1-blue) ![docker](https://img.shields.io/badge/Docker-26.1.3-blue) ![singularity](https://img.shields.io/badge/singularity-1.3.4-blue)
+
 
 # Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
@@ -8,7 +9,7 @@ The pipelines were created using [Snakemake](https://snakemake.readthedocs.io/en
 
 Data analysis was performed using *R* v4.4.1 and machine learning was performed using [tidymodels](https://www.tidymodels.org/) v1.2.0.
 
-This project contains 3 pipelines:
+This project contains 3 workflows:
 
 - (1) to run hybrid assembly of genomes and annotation of resistance genes, direct repeats and IS elements.
 
