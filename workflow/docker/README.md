@@ -1,6 +1,6 @@
 # Containers
 
-This directory has the Dockerfiles used to build the containers for the analysis pipelines. These containers ensure reproducibility by locking down specific versions of software.
+This directory has the Dockerfiles used to build the local containers for the analysis pipelines. It also makes use of external containers from [StaphB](https://hub.docker.com/u/staphb). These containers ensure reproducibility by locking down specific versions of software.
 
 ## Available Containers
 
@@ -12,6 +12,9 @@ This directory has the Dockerfiles used to build the containers for the analysis
 | **biostrings** | R-based sequence manipulation | `R`, `biostrings`, `dplyr` |
 | **card_rgi** | Resistance gene identification | `rgi` |
 | **default** | General purpose utilities | `bedtools`, `bcftools`, `bowtie2`, `bwa`, `fastp`, `filtlong`, `pigz`, `samtools`, `seqkit`, `spades` |
+| **iqtree2** (StaphB) | Phylogenomic software | `iqtree2 v2.3.1` |
+| **prokka** (StaphB) | Rapid prokaryotic genome annotation | `prokka v1.14.6` |
+| **roary** (StaphB) | High speed pangenome pipeline | `roary v3.13.0` |
 | **rscripts** | Data wrangling and plotting | `R`, `ggplot2`, `dplyr`, `data.table`, `ggpubr`, `readr` |
 
 ## Prerequisites
