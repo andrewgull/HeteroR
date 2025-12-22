@@ -25,6 +25,8 @@ RUN micromamba create -y -p /opt/conda/envs/${CONDA_ENV} -c bioconda -c conda-fo
     r-readr=2.1.5 \
     r-r.utils=2.12.3 \
     r-purrr=1.0.2 \
+    bioconductor-treeio=1.26.0 \
+    bioconductor-ggtree=3.10.0 \
     && micromamba clean --all --yes
 
 # The runtime-stage image
