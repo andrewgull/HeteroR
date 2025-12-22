@@ -86,7 +86,7 @@ rule plot_tree:
     conda:
         "../envs/plottreer.yaml"
     container:
-        config.get("plot_tree_container", None)
+        config.get("rscripts_container", None)
     params:
         filename=config.get("filename", "core_tree"),
         width=config.get("width", 10),
