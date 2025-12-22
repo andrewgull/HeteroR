@@ -1,6 +1,6 @@
-# Docker Environments
+# Containers
 
-This directory contains the Dockerfiles used to build the container environments for the Snakemake pipeline. These containers ensure reproducibility by locking down specific versions of software.
+This directory has the Dockerfiles used to build the containers for the analysis pipelines. These containers ensure reproducibility by locking down specific versions of software.
 
 ## Available Containers
 
