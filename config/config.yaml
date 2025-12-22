@@ -5,8 +5,15 @@ run_mutants: False
 run_phylogeny: False
 
 # if assembly has been run before mutants, set this to False
-trim_parents: True
+trim_parents: False
 
-default_container: "resources/singularity/default.sif"
-biopython_container: "resources/singularity/biopython.sif"
-assembly_container: "resources/singularity/assembly.sif"
+default_container: "resources/apptainer/default.sif"
+biopython_container: "resources/apptainer/biopython.sif"
+assembly_container: "resources/apptainer/assembly.sif"
+annotation_container: "resources/apptainer/annotation.sif"
+rgi_container: "resources/apptainer/card_rgi.sif"
+rscripts_container: "resources/apptainer/rscripts.sif"
+biostrings_container: "resources/apptainer/biostrings.sif"
+prokka_container: "docker://staphb/prokka:1.14.6"
+iqtree_container: "docker://staphb/iqtree2:2.3.1"
+roary_container: "docker://staphb/roary:3.13.0"
