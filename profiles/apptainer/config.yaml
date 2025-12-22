@@ -1,0 +1,7 @@
+cores: 10
+rerun-incomplete: True
+software-deployment-method: apptainer
+singularity-args: "--cleanenv --bind ${PWD}/config/,${PWD}/results/"
+envvars:
+  APPTAINER_CACHEDIR: ${PWD}/.apptainer/cache
+  APPTAINER_TMPDIR: ${PWD}/.apptainer/tmp

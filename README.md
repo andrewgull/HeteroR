@@ -1,85 +1,82 @@
-[![Snakemake](https://img.shields.io/badge/snakemake-7.32.4-blue.svg?style=flat-square)](https://snakemake.bitbucket.io)  ![tidymodels](https://img.shields.io/badge/tidymodels-1.2.0-blue) ![R](https://img.shields.io/badge/R-4.4.1-blue)
+[![Snakemake](https://img.shields.io/badge/snakemake->=7.32.4-blue.svg?style=flat-square)](https://snakemake.bitbucket.io)  ![tidymodels](https://img.shields.io/badge/tidymodels-1.2.0-blue) ![R](https://img.shields.io/badge/R-4.4.1-blue) ![docker](https://img.shields.io/badge/Docker-26.1.3-blue) ![singularity](https://img.shields.io/badge/singularity-1.3.4-blue)
+
 
 # Machine learning detection of unstable antibiotic heteroresistance in *E. coli*
 
-This repository contains code and data for the heteroresistance detection project [published](https://www.sciencedirect.com/science/article/pii/S2352396425000623) in eBioMedicine.
+This project contains 4 workflows:
 
-The pipelines were created using [Snakemake](https://snakemake.readthedocs.io/en/stable) v7.32.4
+- (1) to run hybrid assembly of genomes using both long and short sequencing reads;
 
-Data analysis was performed using *R* v4.4.1 and machine learning was performed using [tidymodels](https://www.tidymodels.org/) v1.2.0.
+- (2) to run annotation of resistance genes, direct repeats and IS elements;
 
-This project contains 3 pipelines:
+- (3) to run genetic analysis of heteroresistant mutants;
 
-- (1) to run hybrid assembly of genomes and annotation of resistance genes, direct repeats and IS elements.
+- (4) to run core-genome based phylogeny.
 
-- (2) to run analysis of HR mutants
+And several R notebooks to do machine learning, EDA and model comparison.
 
-- (3) to run core-genome based phylogeny
+## How to run the workflows
 
-The pipelines have been tested on Ubuntu 22.04.5 with conda v23.1.0 and mamba v1.1.0
+### Prerequisites
 
-**Important notes**
+Snakemake workflow management system is required to run the workflows. Refer to the [official documentation](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html) for installation instructions.
+The safest way to reproduce the results is to run the analysis inside containers. To build the required Singularuty/Apptainer containers [read this](workflow/docker/README.md). If you opt to not use containers, Snakemake will install and deploy all required software automatically using [Mamba](https://mamba.readthedocs.io/en/latest/index.html).
 
-(1) Hybrid assembly script will not work if your system doesn't have *libgsl.so.25* and *libcblas.so.3* (both required by bcftools which is required by medaka=1.6.0).
-For some reason, the wrong versions of these libraries are installed by conda when solving the environment. In such case use files in `workflow/libs` - copy or link them to the environment's `lib` directory.
-
-(2) If you choose to run the pipelines in containers, be ready that some environments may not be resolved. Although, everything worked on 'vanilla' Ubuntu 22.04.5. 
-Maybe try only conda environments first. If it works, then no need to use containers.
-
-## How to run the assembly-annotation pipeline (1) + ML
-
-1. download the repository using:
+To download the code to your computer, clone the repository:
 
 ```bash
 git clone https://github.com/andrewgull/HeteroR
 ```
 
-Navigate to the `HeteroR` directory (in all following steps, we will assume that you are inside this directory).
+Then navigate to the `HeteroR` directory (in the following steps, we will assume that you are inside this directory).
 
-3. create a directory for raw reads
+### Data
 
-```bash
-mkdir -p resources/raw/
-```
-
-4. download the raw reads (in NCBI's SRA database: PRJNA1165464) to this directory. Naming convention: long reads have `.fastq.gz` extension and paired short reads have `.fq.gz`extension.
+1. The sequencing reads used for this project are deposited in [NCBI SRA](https://www.ncbi.nlm.nih.gov/sra?db=sra) database under project number **PRJNA1165464**.
+Important naming convention: long reads have `.fastq.gz` extension and paired short reads have `.fq.gz`extension.
 By default reads downloaded from SRA have names like "SRR followed by 8 digits", this project assumes theat all the read files are named after the in-house naming scheme which is "DA followed by 6 digits".
-To determine how the SRR numbers correspond to DA numbers, refer to the table `configs/da_srr_mapping.csv`.
+To determine how the SRR numbers correspond to DA numbers, refer to the table in SRA Run Selector or to `configs/da_srr_mapping.csv`.
+The sequencing data can be placed anywhere on your computer.
 
-5. One more piece of data you need is [CARD database](https://card.mcmaster.ca/). You can download the newest version using:
-
-```bash
-wget https://card.mcmaster.ca/latest/data
-```
-
-and then follow the instructions on the CARD website on how to get the actual database.
-
-OR you can use the version *we used* for this project which is in `localDB.tgz` archive. Just unpack it and make sure it's inside the project's directory, i.e. inside `HeteroR`:
+2. One more piece of data you need is [CARD database](https://card.mcmaster.ca/). You can use the version *we used* for this project which is in `localDB.tgz` archive. Just unpack it and make sure it's inside the project's directory, i.e. inside `HeteroR`:
 
 ```bash
 tar -xf localDB.tgz
 ```
 
-The corresponding step of the pipleine will find this database and use it for resistance gene identification.
-
-6. install [conda/mamba](https://github.com/conda-forge/miniforge#mambaforge) and [snakemake](https://snakemake.readthedocs.io/en/stable)
-
-7. activate snakemake environment:
+Alternatively, you can download the newest version of the database from the CARD website:
 
 ```bash
-conda activate snakemake
+wget https://card.mcmaster.ca/latest/data
 ```
 
-8. run the pipeline using this command:
+If you choose to do so, the final results of the analysis might look a little different.
+
+### Running the workflows
+Once you have installed snakemake and downloaded the data (and built the containers), you can run the workflows.
+
+Execution of the workflows is governed by the configuration files in the `configs` directory. The main `config.yaml` defines which workflow to run and where to find the container files.
+
+
+To run the assembly pipeline, use this command:
 
 ```bash
-# substitute $N with a number of threads you want to use
-snakemake --snakefile workflow/assembly-annotation.smk --use-conda  --cores $N
+snakemake --config run_assembly=True --use-apptainer --apptainer-args "--bind /path/to/data" --cores 10
 ```
 
-note: add `--use-singularity` if you want to run the analysis inside a container (check the **Important notes** above!).
+Then you can run the annotation pipeline:
 
-After the main pipeline has finished, you can run the three R notebooks (but not necessarily all of them):
+```bash
+snakemake --config run_annotation=True --use-apptainer --apptainer-args "--bind /path/to/data" --cores 10
+``` 
+
+Alternatively, you can use the apptainer profile config file `profiles/apptainer/config.yaml` to avoid typing apptainer args every time:
+
+```bash
+snakemake --config run_annotation=True --profile profiles/apptainer
+```
+
+After these pipelines have finished, you can run the three R notebooks (but not necessarily all of them):
 
 1. to generate features table: `notebooks/modelling/features.qmd` (also, a pre-compiled table is available here `notebooks/modelling/data/features_strain.csv`)
 2. for exploratory data anlysis: `notebooks/modelling/EDA.qmd` (pre-compiled HTML file is available here `notebooks/modelling/EDA.html.gz`)
@@ -88,60 +85,53 @@ After the main pipeline has finished, you can run the three R notebooks (but not
 
 To ensure that you use the same versions of R packages as were used in these notebooks, install *renv* package and run `renv::restore()` ([here](https://rstudio.github.io/renv/index.html) you can find *renv* documentation).
 
-## How to run the additional analyses
+#### Mutants and phylogenetic analysis
 
-### Analysis of the HR mutants (2)
-
-1. place mutant read files in `resources/raw/mutants`. Naming convention: `{parent_strain_name}_[1,2].fq.gz`. To determine parental strains of the mutants, refer to the file `configs/parent_mutant_srr_mapping.csv`
-
-2. run the pipeline with the following command:
+Overall, the idea is the same - just set the workflow name to `True`(and don't run more than one workflow at a time):
 
 ```bash
-# analysis of the HR mutants
-# substitute $N with a number of threads you want to use
-snakemake --snakefile workflow/mutants.smk --use-conda --use-singularity --cores $N
+# mutants
+snakemake --config run_mutants=True --profile profiles/apptainer
+# phylogeny
+snakemake --config run_phylogeny=True --profile profiles/apptainer
 ```
 
-remove `--use-singularity` if you want to use only conda environments.
+**NB**: to find NCBI accession numbers of the reference strains used for the phylogenetic analysis, refer to file `configs/reference_strains.csv`.
 
-### Phylogenetic analysis (3)
+## Data availability
 
-1. place the genomes (assemblies) of the 31 reference strains in `results/assemblies_joined/`. The names of these strains are provided in `configs/strains_phylogeny.txt`. Each genome should be placed in its own directory named accordig to this list of strains. Each assembly file should be named `assembly.fasta` (the same way as with the 474 collection strains from the pipeline (1)).
+The raw sequencing reads used in this project are available from NCBI SRA under BioProjects 
 
-2. run the following command:
-
-```bash
-# substitute $N with a number of threads you want to use
-snakemake --snakefile workflow/phylogeny.smk --use-conda --use-singularity --cores $N
-```
-
-remove `--use-singularity` if you want to use only conda environments.
-
-**NB**: to find NCBI accession numbers of the reference strains, refer to file `configs/reference_strains.csv`.
-
-You can change the reference strain names provided in the strain list to whichever suits you better.
-
-## Configuration & Settings
-
-Lists of strain names used in each of the pipelines can be found in `configs/strains_*.txt` files.
-
-Settings of each software tool used can be found in `configs/config_*.yaml` files.
-
-Software versions are specified in yaml files located in `workflow/envs`.
-
-## Raw data availability
-
-The raw sequencing reads used in this project are available from NCBI's SRA under BioProjects PRJNA1165464 (474 parental strains), PRJNA1083935 and PRJNA1160527 (mutants).
+- **PRJNA1165464** (474 parental strains), 
+- **PRJNA1083935** and **PRJNA1160527** (mutants).
 
 ## Models and features table
 
-The pre-compiled features table is available in `notebooks/modelling/data/features_strain.csv`
+The pre-compiled features table is available under `notebooks/modelling/data/features_strain.csv`
 
-The final models (trained LLR and GBT) are available in `notebooks/modelling/models`.
+The final models (trained LLR and GBT) are available under `notebooks/modelling/models`.
 
 ## Rule graphs
 
-1. The main analysis
-![main dag](images/dag.png)
-2. HR mutants analysis
-![mut dag](images/dag_mutants.png)
+1. Assembly
+
+![assembly dag](images/assembly.png)
+
+2. Annotation
+
+![annotation dag](images/annotation.png)
+
+3. Mutants
+
+![mutants dag](images/mutants.png)
+
+4. Phylogeny
+
+![phylogeny dag](images/phylogeny.png)
+
+**Read this in case the assembly script crashes due to system library problems**
+
+(1) Hybrid assembly script will not work if your system doesn't have *libgsl.so.25* and *libcblas.so.3* (both required by bcftools which is required by medaka=1.6.0).
+For some reason, the wrong versions of these libraries are installed by conda when solving the environment. In such case use files in `workflow/libs` - copy or link them to the environment's `lib` directory.
+
+This *should not* be a problem if you use containers.

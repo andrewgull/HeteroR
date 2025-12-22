@@ -58,7 +58,7 @@ depth2bed <- function(depth_dt, window_len = 1000, z_threshold = 2) {
   contigs <- unique(depth_dt, by = "V1")[, V1]
   # get normalized depth for each contig
   depth_norm_list <- map(contigs,
-                         ~ normalize_depth(depth, ., window_size = window_len))
+                         ~ normalize_depth(depth_dt, ., window_size = window_len))
   # make list of coverage plots
   depth_plots <- map2(depth_norm_list,
                       contigs,
@@ -94,11 +94,11 @@ main <- function(input_depth_file, win_len, z_score,
 }
 
 #### RUN #####
-main(input_depth_file = snakemake@input[[1]],
-     win_len = snakemake@config[["window_size"]],
-     z_score = snakemake@config[["z_threshold"]],
-     output_bed_file = snakemake@output[[1]],
-     output_plot_file = snakemake@output[[2]])
+main(input_depth_file = snakemake@input[["depth"]],
+     win_len = snakemake@params[["w"]],
+     z_score = snakemake@params[["z"]],
+     output_bed_file = snakemake@output[["bed"]],
+     output_plot_file = snakemake@output[["plot"]])
 
 print("Script finished, no errors.")
 

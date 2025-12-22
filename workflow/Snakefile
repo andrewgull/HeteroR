@@ -1,0 +1,42 @@
+from snakemake.io import touch, expand, directory
+import pandas as pd
+
+
+configfile: "config/config.yaml"
+
+
+# List of final inputs to collect
+final_inputs = []
+
+
+if config.get("run_assembly", True):
+
+    include: "rules/assembly.smk"
+
+    final_inputs.extend(expand("results/final/{strain}_assembly_all.done", strain=strains["strains"]))
+
+
+if config.get("run_annotation", False):
+
+    include: "rules/annotation.smk"
+
+    final_inputs.extend(expand("results/final/{strain}_annotation_all.done", strain=strains["strains"]))
+
+
+if config.get("run_mutants", False):
+
+    include: "rules/mutants.smk"
+
+    final_inputs.extend(expand("results/final/{parent}_mutants_all.done", parent=parents["parents"]))
+
+
+if config.get("run_phylogeny", False):
+
+    include: "rules/phylogeny.smk"
+
+    final_inputs.extend(expand("results/final/{strain}_phylogeny_all.done", strain=strains["strains"]))
+
+
+rule all:
+    input:
+        final_inputs,

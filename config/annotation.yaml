@@ -1,0 +1,30 @@
+# list of strains
+strains: "config/strain_lists/strains_test.txt"
+
+# path to raw read files
+reads_path: "/mnt/data/andrei/Data/strains_collection/resources/reads"
+
+# rule assembly_annotation params
+centre: "UU"
+minlen: "200"
+genus: "Escherichia"
+species: "coli"
+
+# rule rg_annotation params
+filter_criterion: "Loose"
+
+# rule regions_coords params
+span: 100000
+min_plasmid_size: 1000
+
+# rule direct_repeats params
+mode: 2
+min_size: 20
+format: 1
+mism: 0
+seed_mism: 0
+max_dist: 205000
+min_dist: 100
+
+# rule dr_annotation params
+min_repeat_length: 20

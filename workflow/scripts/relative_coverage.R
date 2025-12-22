@@ -68,16 +68,16 @@ main <- function(cov_table, filename) {
 
 #### RUN ####
 coverage_table <- parse_depth(
-  depth_path = snakemake@input[[1]],
-  ref_path = snakemake@input[[2]],
-  strain = snakemake@input[[3]],
-  label = snakemake@input[[4]],
-  min_con_len = snakemake@config[["min_contig_len"]]
+  depth_path = snakemake@input[["depth"]],
+  ref_path = snakemake@input[["ref"]],
+  strain = snakemake@wildcards[["parent"]],
+  label = snakemake@params[["label"]],
+  min_con_len = snakemake@params[["min_len"]]
 )
 
 # save it
 main(cov_table = coverage_table,
-     filename = snakemake@output[[1]])
+     filename = snakemake@output[["rel_cov"]])
 
 print("Finished, no errors.")
 

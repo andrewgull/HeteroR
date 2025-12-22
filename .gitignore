@@ -8,6 +8,9 @@
 *.log
 *.tsv
 .idea/
+.keras/
+.parallel/
+.cache/
 workflow/scripts/__pycache__/
 **/*_cache/
 **/*_files/
@@ -15,9 +18,12 @@ workflow/scripts/__pycache__/
 .ipynb_checkpoints
 *.js
 .DS_Store
+*.bt2
+fastp.*
 
 # the raw files
 resources/
+data/
 
 # R files
 .Rhistory
@@ -36,6 +42,17 @@ results/mapping/
 results/plasmids/
 results/qualcheck_*/
 results/resistance_genes/
+results/drafts/
+results/polished/
+results/isescan/
+results/tables/
+results/genome_coverage/
+results/direct_repeats/
+results/annotations/
+results/assemblies/
+results/assemblies_joined/
+results/mutants/
+localDB/
 
 # my presentation made with quarto
 notebooks/presentation/

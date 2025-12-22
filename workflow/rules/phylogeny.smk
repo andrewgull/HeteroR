@@ -1,30 +1,10 @@
-#######################################################################################################
-# this pipeline is for building a core-genome alignment and a phylogentic tree based on it.
-# the config file (config_phylogeny.yaml) containes outgroups our strains and reference genomes (n=31)
-# the reference genomes (assemblies) must be placed to results/assemblies_joined
-# the config should contain parameters for PROKKA
-#######################################################################################################
-
-from snakemake.io import touch, expand, directory
-import pandas as pd
+configfile: "config/phylogeny.yaml"
 
 
-#### Config file for this pipeline ####
-configfile: "configs/config_phylogeny.yaml"
-
-
-# read strain names
 strains = pd.read_csv(config["strains"], dtype={"strains": str})
 
-#### Rules ####
 
-
-rule all:
-    input:
-        expand("results/phylogeny/final/{strain}_all.done", strain=strains["strains"]),
-
-
-rule annotate:
+rule annotate_genes:
     # proteins (prodigal) and rRNA (barrnap)
     input:
         "results/assemblies_joined/{strain}/assembly.fasta",
@@ -50,7 +30,7 @@ rule annotate:
 
 rule core_genome:
     input:
-        expand("results/annotations/{strain}/prokka/{strain}_genomic.gff", strain=config["strains"]),
+        expand("results/annotations/{strain}/prokka/{strain}_genomic.gff", strain=strains["strains"]),
     output:
         directory("results/phylogeny/core_genome/"),
     threads: 14
@@ -116,6 +96,6 @@ rule final:
         pan="results/phylogeny/core_genome",
         plot="results/phylogeny/tree/core_genome_tree.pdf",
     output:
-        touch("results/phylogeny/final/{strain}_all.done"),
+        touch("results/final/{strain}_phylogeny_all.done"),
     shell:
         "echo 'DONE'"
