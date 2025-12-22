@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-CONTAINERS=( "assembly" "annotation" "biopython" "card_rgi" "default" )
+CONTAINERS=( "assembly" "annotation" "biopython" "biostrings" "card_rgi" "default" "rscripts" )
 OUTPUT_DIR="resources/apptainer"
 
 # Check if the output directory exists, if not, create it
