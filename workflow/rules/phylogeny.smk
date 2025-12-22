@@ -10,18 +10,20 @@ rule annotate_genes:
         "results/assemblies_joined/{strain}/assembly.fasta",
     output:
         directory("results/annotations/{strain}/prokka"),
-    threads: 18
+    threads: 10
     message:
         "executing PROKKA with {threads} threads on full assembly of {wildcards.strain}"
     log:
         "results/logs/{strain}_prokka.log",
     conda:
-        "envs/prokka.yaml"
+        "../envs/prokka.yaml"
+    container:
+        config.get("prokka_container", None)
     params:
-        centre=config["centre"],
-        minlen=config["minlen"],
-        genus=config["genus"],
-        species=config["species"],
+        centre=config.get("centre", "centre_name"),
+        minlen=config.get("minlen", 200),
+        genus=config.get("genus", "genus_name"),
+        species=config.get("species", "species_name"),
     shell:
         "prokka --addgenes --addmrna --compliant --notrna --outdir {output} --prefix {wildcards.strain}_genomic --centre {params.centre} --genus {params.genus} "
         "--species {params.species} --strain {wildcards.strain} --kingdom Bacteria --cpus {threads} "
@@ -33,15 +35,16 @@ rule core_genome:
         expand("results/annotations/{strain}/prokka/{strain}_genomic.gff", strain=strains["strains"]),
     output:
         directory("results/phylogeny/core_genome/"),
-    threads: 14
+    threads: 10
     message:
         "executing basic roary"
     log:
         "results/logs/roary.log",
     conda:
-        "envs/roary.yaml"
+        "../envs/roary.yaml"
+    container:
+        config.get("roary_container", None)
     shell:
-        # check options
         "roary -f {output} -p {threads} -e -n -v {input} &> {log}"
 
 
@@ -50,17 +53,19 @@ rule phylogenetic_tree:
         alignment="results/phylogeny/core_genome",
     output:
         directory("results/phylogeny/tree"),
-    threads: 14
+    threads: 10
     message:
         "executing IQTree on core gene alignment"
     log:
         "results/logs/iqtree.log",
     conda:
-        "envs/iqtree.yaml"
+        "../envs/iqtree.yaml"
+    container:
+        config.get("iqtree_container", None)
     params:
-        bootstrap=config["bootstrap"],
-        alrt=config["alrt"],
-        prefix=config["prefix"],
+        bootstrap=config.get("bootstrap", 1000),
+        alrt=config.get("alrt", 1000),
+        prefix=config.get("prefix", "core_tree"),
     shell:
         # no partitions here, otherwise it will take forever
         "iqtree -s {input.alignment}/core_gene_alignment.aln --seqtype DNA -m GTR+I+G "
@@ -79,15 +84,17 @@ rule plot_tree:
     log:
         "results/log/plot_tree.log",
     conda:
-        "envs/plottreer.yaml"
+        "../envs/plottreer.yaml"
+    container:
+        config.get("plot_tree_container", None)
     params:
-        filename=config["filename"],
-        width=config["width"],
-        height=["height"],
-        units=config["units"],
-        outgroup=config["outgroup"],
+        filename=config.get("filename", "core_tree"),
+        width=config.get("width", 10),
+        height=config.get("height", 10),
+        units=config.get("units", "in"),
+        outgroup=config.get("outgroup", "outgroup"),
     script:
-        "scripts/plot_tree.R"
+        "../scripts/plot_tree.R"
 
 
 rule final:
