@@ -1,6 +1,6 @@
 import os
+from typing import Any
 
-# --- Config Validation ---
 
 def validate_config(config):
     """
@@ -32,13 +32,13 @@ def validate_config(config):
     # Mutant workflow requirements
     if config.get("run_mutants", False):
         if "parents" not in config:
-            raise ValueError("Config error: 'parents' path is required for mutant workflow.")
+            raise ValueError("Config error: a file with parental strains is required for mutant workflow.")
         if not os.path.exists(config["parents"]):
-            raise FileNotFoundError(f"Config error: 'parents' file not found at '{config['parents']}'.")
+            raise FileNotFoundError(f"Config error: parental strains file not found at '{config['parents']}'.")
         if "mutants_path" not in config:
             raise ValueError("Config error: 'mutants_path' is required for mutant workflow.")
-        if "parents_path" not in config:
-            raise ValueError("Config error: 'parents_path' is required for mutant workflow.")
+        if "reads_path" not in config:
+            raise ValueError("Config error: 'reads_path' is required for mutant workflow.")
 
 # Execute validation
 validate_config(config)
