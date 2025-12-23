@@ -1,15 +1,10 @@
 configfile: "config/assembly.yaml"
 
 
-strains = pd.read_csv(config["strains"], dtype={"strains": str})
-
-reads_path = config["reads_path"]
-
-
 rule trim_short:
     input:
-        short_read_1=lambda wildcards: f"{reads_path}/{wildcards.strain}_1.fq.gz",
-        short_read_2=lambda wildcards: f"{reads_path}/{wildcards.strain}_2.fq.gz",
+        short_read_1=lambda wildcards: f"{config['reads_path']}/{wildcards.strain}_1.fq.gz",
+        short_read_2=lambda wildcards: f"{config['reads_path']}/{wildcards.strain}_2.fq.gz",
     output:
         short_read_1="results/data_filtered/{strain}/short/{strain}_1.fq.gz",
         short_read_2="results/data_filtered/{strain}/short/{strain}_2.fq.gz",
@@ -43,7 +38,7 @@ rule trim_short:
 # simple trimming of long reads
 rule filter_long:
     input:
-        lambda wildcards: f"{reads_path}/{wildcards.strain}.fastq.gz",
+        lambda wildcards: f"{config['reads_path']}/{wildcards.strain}.fastq.gz",
     output:
         "results/data_filtered/{strain}/long/{strain}.fastq.gz",
     message:

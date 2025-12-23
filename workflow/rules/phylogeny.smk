@@ -1,9 +1,6 @@
 configfile: "config/phylogeny.yaml"
 
 
-strains = pd.read_csv(config["strains"], dtype={"strains": str})
-
-
 rule annotate_genes:
     # proteins (prodigal) and rRNA (barrnap)
     input:
@@ -32,7 +29,7 @@ rule annotate_genes:
 
 rule core_genome:
     input:
-        expand("results/annotations/{strain}/prokka/{strain}_genomic.gff", strain=strains["strains"]),
+        expand("results/annotations/{strain}/prokka/{strain}_genomic.gff", strain=get_strains(config)),
     output:
         directory("results/phylogeny/core_genome/"),
     threads: 10

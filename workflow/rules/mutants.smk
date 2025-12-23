@@ -1,16 +1,10 @@
 configfile: "config/mutants.yaml"
 
 
-parents = pd.read_csv(config["parents"], dtype={"parents": str})
-
-mutants_path = config["mutants_path"]
-parents_path = config["parents_path"]
-
-
 rule trim_mutants:
     input:
-        r1=lambda wildcards: f"{mutants_path}/{wildcards.parent}_1.fq.gz",
-        r2=lambda wildcards: f"{mutants_path}/{wildcards.parent}_2.fq.gz",
+        r1=lambda wildcards: f"{config['mutants_path']}/{wildcards.parent}_1.fq.gz",
+        r2=lambda wildcards: f"{config['mutants_path']}/{wildcards.parent}_2.fq.gz",
     output:
         r1="results/data_filtered/{parent}/short/mutants/{parent}m_1.fq.gz",
         r2="results/data_filtered/{parent}/short/mutants/{parent}m_2.fq.gz",
@@ -37,8 +31,8 @@ if config.get("trim_parents", False):
 
     rule trim_parents:
         input:
-            r1=lambda wildcards: f"{parents_path}/{wildcards.parent}_1.fq.gz",
-            r2=lambda wildcards: f"{parents_path}/{wildcards.parent}_2.fq.gz",
+            r1=lambda wildcards: f"{config['reads_path']}/{wildcards.parent}_1.fq.gz",
+            r2=lambda wildcards: f"{config['reads_path']}/{wildcards.parent}_2.fq.gz",
         output:
             r1="results/data_filtered/{parent}/short/{parent}_1.fq.gz",
             r2="results/data_filtered/{parent}/short/{parent}_2.fq.gz",
@@ -411,7 +405,7 @@ rule collect_all_IS:
     input:
         expand(
             "results/isescan/{parent}/regions/regions_joined_final.fasta.is.fna",
-            parent=parents["parents"],
+            parent=get_parents(config),
         ),
     output:
         "results/mutants/ismapper/query_collection.fasta",

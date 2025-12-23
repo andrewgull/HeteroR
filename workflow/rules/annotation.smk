@@ -1,11 +1,6 @@
 configfile: "config/annotation.yaml"
 
 
-strains = pd.read_csv(config["strains"], dtype={"strains": str})
-
-reads_path = config["reads_path"]
-
-
 rule genome_annotation:
     # proteins (prodigal) and rRNA (barrnap)
     input:
@@ -101,8 +96,8 @@ rule join_annotations:
 rule genome_coverage:
     input:
         assembly="results/assemblies_joined/{strain}/assembly.fasta",
-        fastq1="results/data_filtered/{strain}/short/{strain}_1.fq.gz",
-        fastq2="results/data_filtered/{strain}/short/{strain}_2.fq.gz",
+        fastq1=lambda wildcards: f"{config['reads_path']}/{wildcards.strain}_1.fq.gz",
+        fastq2=lambda wildcards: f"{config['reads_path']}/{wildcards.strain}_2.fq.gz",
     output:
         bam=temp("results/genome_coverage/{strain}/assembly.bam"),
         depth="results/genome_coverage/{strain}/depth.txt",
@@ -334,11 +329,11 @@ rule dr_summary:
     input:
         expand(
             "results/annotations/{strain}/repeats/{strain}_repeats.csv",
-            strain=strains["strains"],
+            strain=get_strains(config),
         ),
         expand(
             "results/direct_repeats/{strain}/regions/regions_within.bed",
-            strain=strains["strains"],
+            strain=get_strains(config),
         ),
     output:
         "results/tables/repeats_summary.csv",
