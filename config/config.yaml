@@ -1,4 +1,5 @@
 # choose which part of the pipeline to run
+# use --config flag to override these values
 run_assembly: False
 run_annotation: False
 run_mutants: False
@@ -7,13 +8,15 @@ run_phylogeny: False
 # if assembly has been run before mutants, set this to False
 trim_parents: False
 
-# strain names and data
+# files with strain names
 strains: "config/strain_lists/strains_test.txt"
-reads_path: "data/parents"
-
 parents: "config/strain_lists/parents_test.txt"
+
+# paths to raw sequencing data
+reads_path: "data/parents"
 mutants_path: "data/mutants"
 
+# container images
 default_container: "resources/apptainer/default.sif"
 biopython_container: "resources/apptainer/biopython.sif"
 assembly_container: "resources/apptainer/assembly.sif"
