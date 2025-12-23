@@ -96,7 +96,7 @@ snakemake --config run_mutants=True --profile profiles/apptainer
 snakemake --config run_phylogeny=True --profile profiles/apptainer
 ```
 
-**NB**: to find NCBI accession numbers of the reference strains used for the phylogenetic analysis, refer to file `configs/reference_strains.csv`.
+**NB**: to find NCBI accession numbers of the reference strains used for the phylogenetic analysis, refer to file `configs/strain_mapping/reference_strains.csv`.
 
 ## Data availability
 
