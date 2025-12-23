@@ -36,9 +36,9 @@ def test_parse_flye_info(temp_assembly_dir):
     """Test parsing of Flye assembly_info.txt."""
     info_file = temp_assembly_dir / "assembly_info.txt"
     # Create mock Flye info content
-    content = "seq_name\tlength\tcov\tcirc\trepeat\tmult\talt_group\tgraph_path\n" \
-              "contig_1\t1000\t50.5\tC\tN\t1\t*\t*\n" \
-              "contig_2\t500\t20.0\tN\tY\t2\t*\t*\n"
+    content = "#seq_name\tlength\tcov.\tcirc.\trepeat\tmult.\talt_group\tgraph_path\n" \
+              "contig_1\t1000\t50.5\tY\tN\t1\t*\t2\n" \
+              "contig_2\t500\t20.0\tN\tY\t2\t*\t1\n"
     info_file.write_text(content)
     
     df = assembly_summary.parse_flye_info(info_file, "STRAIN1")
