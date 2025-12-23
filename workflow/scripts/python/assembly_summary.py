@@ -1,89 +1,157 @@
 import subprocess
+import os
+import sys
+import logging
+from pathlib import Path
+from typing import Optional, List
+
 import pandas as pd
 import numpy as np
-import os
 from Bio import SeqIO
-import sys
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
-input_assembly = snakemake.input[0]  # it's a dir path like 'results/assemblies/DA00000'
-input_plasmid = snakemake.input[1]  # dir name like 'results/plasmids/DA00000'
-strain_position = snakemake.params[0]  # index of strain name position in input assembly, 2 for normal assembling, 3 for reassembling
-output = snakemake.output[0]
+# Standard columns for the assembly summary
+COLUMNS = [
+    "Component", "Segments", "Links", "Length", "N50", 
+    "Longest_component", "Status", "Strain", "Repeat", 
+    "Mult", "Coverage", "Type"
+]
 
-with open(snakemake.log[0], "w") as f:
-    sys.stderr = sys.stdout = f
-    # GET STRAIN NAME
-    strain = input_assembly.split('/')[strain_position]
+def parse_flye_info(info_path: Path, strain: str) -> pd.DataFrame:
+    """Parses Flye/Medaka assembly_info.txt."""
+    logger.info(f"Parsing Flye info from {info_path}")
+    df = pd.read_csv(info_path, sep="\t")
+    
+    # Rename and drop columns to match standard format
+    # Original: seq_name, length, cov, circ, repeat, mult, alt_group, graph_path
+    df = df.rename(columns={
+        "seq_name": "Component",
+        "length": "Length",
+        "cov": "Coverage",
+        "circ": "Status",
+        "repeat": "Repeat",
+        "mult": "Mult"
+    })
+    df.drop(["alt_group", "graph_path"], axis=1, inplace=True, errors="ignore")
+    
+    # Map status
+    df["Status"] = df["Status"].str.replace("N", "incomplete").str.replace("C", "complete")
+    
+    # Add missing standard columns
+    df["Strain"] = strain
+    df["Type"] = ["Chromosome"] + ["Plasmid"] * (len(df) - 1)
+    for col in ["Segments", "Links", "N50", "Longest_component"]:
+        df[col] = np.nan
+        
+    return df[COLUMNS]
 
-    # READ POLISHED ASSEMBLY INFO OR PARSE UNICYCLER LOG
-    polished_info = "%s/assembly_info.txt" % input_assembly
-    if os.path.isfile(polished_info):
-        summary_df = pd.read_csv(polished_info, delimiter="\t")
-        # leave seq_name as component, length as length, complete as status, add strain and type
-        summary_df.drop(["alt_group", "graph_path"], axis=1, inplace=True)
-        summary_df.columns = ["Component", "Length", "Coverage", "Status", "Repeat", "Mult"]
-        summary_df["Type"] = ["Chromosome"] + ["Plasmid"]*(len(summary_df)-1)
-        summary_df["Strain"] = strain
-        summary_df["Segments"] = np.nan
-        summary_df["Links"] = np.nan
-        summary_df["N50"] = np.nan
-        summary_df["Longest_component"] = np.nan
-        # replace N/C in Status with incomplete/complete
-        summary_df["Status"] = summary_df['Status'].str.replace("N", "incomplete")
-        summary_df["Status"] = summary_df['Status'].str.replace("C", "complete")
+def parse_unicycler_log(assembly_dir: Path, strain: str) -> pd.DataFrame:
+    """Parses Unicycler log file to extract summary table."""
+    log_path = assembly_dir / "unicycler.log"
+    logger.info(f"Parsing Unicycler log from {log_path}")
+    
+    # Use sed to extract the component table
+    # This matches the original logic but encapsulated
+    cmd = f"sed -n '/^Component/,/^Polishing/{{p;/^Polishing/q}}' {log_path} | head -n -3"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    
+    lines = result.stdout.splitlines()
+    if not lines:
+        logger.warning(f"No summary found in Unicycler log: {log_path}")
+        return pd.DataFrame(columns=COLUMNS)
+
+    # Process lines: skip header and 'total' if present
+    data = [line.split() for line in lines]
+    if len(data) > 2:
+        # Header is data[0], second line usually 'total' or first component
+        # Original logic skipped first two elements
+        summary_data = data[2:]
     else:
-        # PARSE UNICYCLER'S LOG
-        col_names = ["Component", "Segments", "Links", "Length", "N50", "Longest_component", "Status"]
-        # parse unicycler's log file
-        summary = subprocess.run("sed -n '/^Component/,/^Polishing/{p;/^Polishing/q}' "
-                                "%s/unicycler.log | head -n -3" % input_assembly,
-                                shell=True, capture_output=True, text=True)
-        summary_stdout = summary.stdout.splitlines()
-        # I can skip first two elements (header and total): summary_lines[2:len(summary_lines)]
-        if len(summary_stdout) > 2:
-            # there is 'total' which should be removed ( as well as the original header)
-            summary_lines = [item.split() for item in summary_stdout][2:len(summary_stdout)]
+        # Just header and one component
+        summary_data = data[1:]
+
+    col_names = ["Component", "Segments", "Links", "Length", "N50", "Longest_component", "Status"]
+    df = pd.DataFrame(summary_data, columns=col_names)
+    
+    # Add missing standard columns
+    df["Strain"] = strain
+    df["Type"] = ["Chromosome"] + ["Plasmid"] * (len(df) - 1)
+    for col in ["Repeat", "Mult", "Coverage"]:
+        df[col] = np.nan
+        
+    return df[COLUMNS]
+
+def parse_plasmid_assembly(plasmid_dir: Path, strain: str) -> Optional[pd.DataFrame]:
+    """Parses plasmid assembly scaffolds.fasta if it exists."""
+    plasmid_fasta = plasmid_dir / "scaffolds.fasta"
+    if not (plasmid_fasta.exists() and plasmid_fasta.stat().st_size > 0):
+        logger.info(f"No plasmid assembly found at {plasmid_fasta}")
+        return None
+
+    logger.info(f"Parsing plasmid assembly from {plasmid_fasta}")
+    lengths = [len(seq) for seq in SeqIO.parse(plasmid_fasta, "fasta")]
+    
+    df = pd.DataFrame({
+        "Length": lengths,
+        "Longest_component": lengths,
+        "Segments": 1,
+        "Status": "scaffold",
+        "Strain": strain,
+        "Type": "Plasmid"
+    })
+    
+    # Add other columns as NaNs/Nones
+    for col in ["Component", "Links", "N50", "Repeat", "Mult", "Coverage"]:
+        df[col] = np.nan
+        
+    return df[COLUMNS]
+
+def main():
+    # Setup paths from Snakemake
+    input_assembly = Path(snakemake.input[0])
+    input_plasmid = Path(snakemake.input[1])
+    strain_pos = int(snakemake.params[0])
+    output_file = Path(snakemake.output[0])
+    log_file = Path(snakemake.log[0])
+
+    # Redirect stderr/stdout to log file
+    with open(log_file, "w") as f:
+        sys.stderr = sys.stdout = f
+        
+        # Determine strain name
+        # Path parts: results/assemblies/STRAIN -> index strain_pos
+        # Note: parts is 0-indexed. If strain_pos was 2 for results/assemblies/DA..., parts is ('results', 'assemblies', 'DA...')
+        strain = input_assembly.parts[strain_pos]
+        logger.info(f"Processing strain: {strain}")
+
+        # 1. Parse main assembly
+        flye_info = input_assembly / "assembly_info.txt"
+        if flye_info.exists():
+            main_df = parse_flye_info(flye_info, strain)
         else:
-            # there is no 'total', just one header and one chromosome
-            # remove only original header
-            summary_lines = [item.split() for item in summary_stdout[1:]]
+            main_df = parse_unicycler_log(input_assembly, strain)
 
-        summary_df = pd.DataFrame(summary_lines, columns=col_names)
-        summary_df["Strain"] = strain
-        summary_df["Repeat"] = np.nan
-        summary_df["Mult"] = np.nan
-        summary_df["Coverage"] = np.nan
-        # ideally there should be one chromosomal sequence and the rest should be plasmids
-        summary_df['Type'] = ['Chromosome'] + ['Plasmid'] * (len(summary_df) - 1)
+        # 2. Parse plasmid assembly
+        plasmid_df = parse_plasmid_assembly(input_plasmid, strain)
 
-    # summary_df always has the same set of columns: when it comes from unicycler
-    # or when it comes from flye-medaka-polyploish
+        # 3. Join and Finalize
+        if plasmid_df is not None:
+            final_df = pd.concat([main_df, plasmid_df], ignore_index=True)
+            # Re-index components to be sequential across all
+            final_df["Component"] = range(1, len(final_df) + 1)
+        else:
+            final_df = main_df
 
-    # GET STATS FROM PLASMID ASSEMBLY
-    # finished plasmids assembly is called 'scaffolds.fasta'
-    # create a DataFrame with the same set of columns
-    plasmid_assembly = "%s/scaffolds.fasta" % input_plasmid
-    if os.path.isfile(plasmid_assembly) and os.path.getsize(plasmid_assembly) > 0:
-        plasmid_len = [len(seq) for seq in SeqIO.parse(plasmid_assembly, 'fasta')]
-        plasmid_df = pd.DataFrame({'Length': plasmid_len})
-        plasmid_df['Component'] = None
-        plasmid_df['Segments'] = 1
-        plasmid_df['Links'] = None
-        plasmid_df['N50'] = None
-        plasmid_df['Longest_component'] = plasmid_len
-        plasmid_df['Status'] = 'scaffold'
-        plasmid_df['Strain'] = strain
-        plasmid_df['Type'] = 'Plasmid'
-        plasmid_df["Repeat"] = np.nan
-        plasmid_df["Mult"] = np.nan
-        plasmid_df["Coverage"] = np.nan
-        # concatenate summary_df and plasmid_df
-        joined_df = pd.concat([summary_df, plasmid_df])
-        # rewrite 'Component' to include new plasmids
-        joined_df['Component'] = [i for i in range(1, len(joined_df) + 1)]
-    else:
-        joined_df = summary_df
-    # write this DataFrame to a file
-    # output is declared on the top of the script (and comes from snakemake)
-    joined_df.to_csv(path_or_buf=output, sep="\t", index=False)
+        # Write output
+        logger.info(f"Writing summary to {output_file}")
+        final_df.to_csv(output_file, sep="\t", index=False)
+
+if __name__ == "__main__":
+    main()
