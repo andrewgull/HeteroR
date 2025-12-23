@@ -55,7 +55,9 @@ If you choose to do so, the final results of the analysis might look a little di
 ### Running the workflows
 Once you have installed snakemake and downloaded the data (and built the containers), you can run the workflows.
 
-Execution of the workflows is governed by the configuration files in the `configs` directory. The main `config.yaml` defines which workflow to run and where to find the container files.
+Execution of the workflows is governed by the configuration files in the `configs` directory. The main [config.yaml](config/config.yaml) defines which workflow to run and where to find the data and container images.
+
+You will need to edit this file to point to the location of the raw sequencing data.
 
 
 To run the assembly pipeline, use this command:
