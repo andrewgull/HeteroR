@@ -1,5 +1,6 @@
 import pandas as pd
 from typing import Any
+from snakemake.io import expand
 
 
 def get_sample_path(wildcards: Any, data_frame: pd.DataFrame) -> str:
@@ -35,7 +36,17 @@ def tsv2dict(file_path: str) -> dict:
     return data_dict
 
 
-def final_files(workflow_type: str) -> Any:
+def get_strains(config: dict) -> list:
+    """Get the list of strains from the config."""
+    return pd.read_csv(config.get("strains", ""), dtype={"strains": str})["strains"].tolist()
+
+
+def get_parents(config: dict) -> list:
+    """Get the list of parents from the config."""
+    return pd.read_csv(config.get("parents", ""), dtype={"parents": str})["parents"].tolist()
+
+
+def final_files(config: dict, workflow_type: str) -> Any:
     """
     Get the final files for a given workflow type.
     arguments:
@@ -44,12 +55,16 @@ def final_files(workflow_type: str) -> Any:
         Any: The final files for the given workflow type.
     """
     if workflow_type == "assembly":
-        return expand(f"results/final/{{strain}}_{workflow_type}_all.done", strain=strains["strains"])
+        return expand(f"results/final/{{strain}}_{workflow_type}_all.done", strain=get_strains(config))
     elif workflow_type == "annotation":
-        return expand(f"results/final/{{strain}}_{workflow_type}_all.done", strain=strains["strains"])
+        return expand(f"results/final/{{strain}}_{workflow_type}_all.done", strain=get_strains(config))
     elif workflow_type == "mutants":
-        return expand(f"results/final/{{parent}}_{workflow_type}_all.done", parent=parents["parents"])
+        return expand(f"results/final/{{parent}}_{workflow_type}_all.done", parent=get_parents(config))
     elif workflow_type == "phylogeny":
-        return expand(f"results/final/{{strain}}_{workflow_type}_all.done", strain=strains["strains"])
+        return expand(f"results/final/{{strain}}_{workflow_type}_all.done", strain=get_strains(config))
     else:
         raise ValueError(f"Unknown workflow type: {workflow_type}")
+
+
+if __name__ == "__main__":
+    print("hello, this is utils.py")
