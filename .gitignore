@@ -11,6 +11,7 @@
 .keras/
 .parallel/
 .cache/
+workflow/scripts/python/__pycache__/
 workflow/scripts/__pycache__/
 tests/units/__pycache__/
 **/*_cache/
