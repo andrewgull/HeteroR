@@ -8,7 +8,7 @@ from io import StringIO
 # Add the repository root to sys.path to allow importing from workflow.scripts
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from workflow.scripts import utils
+from workflow.scripts.python import utils
 
 @pytest.fixture
 def mock_snakemake_env():
