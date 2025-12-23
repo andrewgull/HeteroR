@@ -12,6 +12,7 @@
 .parallel/
 .cache/
 workflow/scripts/__pycache__/
+tests/units/__pycache__/
 **/*_cache/
 **/*_files/
 .snakemake
