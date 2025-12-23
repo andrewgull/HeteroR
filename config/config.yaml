@@ -7,6 +7,13 @@ run_phylogeny: False
 # if assembly has been run before mutants, set this to False
 trim_parents: False
 
+# strain names and data
+strains: "config/strain_lists/strains_test.txt"
+reads_path: "data/parents"
+
+parents: "config/strain_lists/parents_test.txt"
+mutants_path: "data/mutants"
+
 default_container: "resources/apptainer/default.sif"
 biopython_container: "resources/apptainer/biopython.sif"
 assembly_container: "resources/apptainer/assembly.sif"
