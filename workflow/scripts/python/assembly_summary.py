@@ -17,11 +17,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Standard columns for the assembly summary
+# Standard columns for the assembly summary (legacy order)
 COLUMNS = [
-    "Component", "Segments", "Links", "Length", "N50", 
-    "Longest_component", "Status", "Strain", "Repeat", 
-    "Mult", "Coverage", "Type"
+    "Component", "Length", "Coverage", "Status", "Repeat", 
+    "Mult", "Type", "Strain", "Segments", "Links", "N50", 
+    "Longest_component"
 ]
 
 def parse_flye_info(info_path: Path, strain: str) -> pd.DataFrame:
