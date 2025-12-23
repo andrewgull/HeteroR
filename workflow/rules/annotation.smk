@@ -49,7 +49,7 @@ rule rename_annotations:
     container:
         config.get("biopython_container", None)
     script:
-        "../scripts/rename_genomic_gbk.py"
+        "../scripts/python/rename_genomic_gbk.py"
 
 
 # Annotate tRNAs separately
@@ -94,7 +94,7 @@ rule join_annotations:
     container:
         config.get("biopython_container", None)
     script:
-        "../scripts/join_two_fastas.py"
+        "../scripts/python/join_two_fastas.py"
 
 
 # Map short reads onto the joined assemblies to get coverage
@@ -165,7 +165,7 @@ rule rg_annotation:
     params:
         filter_criterion=config.get("filter_criterion", "Loose"),
     script:
-        "../scripts/rgi2gff.py"
+        "../scripts/python/rgi2gff.py"
 
 
 # make bed files with coords of regions around the resistance genes to find repeats in them
@@ -190,7 +190,7 @@ rule regions_coords:
         span=config.get("span", 100000),
         min_plasmid_size=config.get("min_plasmid_size", 1000),
     script:
-        "../scripts/flanking_regions.py"
+        "../scripts/python/flanking_regions.py"
 
 
 # retrieve regions as fasta according to their coordinates
@@ -239,7 +239,7 @@ rule ends_overlaps:
     container:
         config.get("biopython_container", None)
     script:
-        "../scripts/join_ends.py"
+        "../scripts/python/join_ends.py"
 
 
 # merge fasta files with the regions into a single file
@@ -308,7 +308,7 @@ rule dr_annotation:
     params:
         min_len=config.get("min_repeat_length", 20),
     script:
-        "../scripts/GRF_parser.py"
+        "../scripts/python/GRF_parser.py"
 
 
 # make a table with repeats coordinates, remove duplicates
@@ -326,7 +326,7 @@ rule dr_table:
     container:
         config.get("biopython_container", None)
     script:
-        "../scripts/make_repeat_tables.py"
+        "../scripts/python/make_repeat_tables.py"
 
 
 # join repeat tables, label repeat pairs as spanning RG centers or not, calculate AR length
@@ -351,7 +351,7 @@ rule dr_summary:
     container:
         config.get("biopython_container", None)
     script:
-        "../scripts/make_repeat_summary_table.py"
+        "../scripts/python/make_repeat_summary_table.py"
 
 
 rule isescan:

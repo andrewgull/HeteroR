@@ -49,6 +49,8 @@ if config.get("trim_parents", False):
             "results/logs/{parent}_parents_trimming.log",
         conda:
             "../envs/fastp.yaml"
+        container:
+            config.get("default_container", None)
         params:
             f=config.get("trim_front"),
             adapter1=config.get("adapter1"),
@@ -269,7 +271,7 @@ rule filter_variant_annotation:
     container:
         config.get("rscripts_container", None)
     script:
-        "../scripts/filter_gff_annotations.R"
+        "../scripts/R/filter_gff_annotations.R"
 
 
 rule depth_mutant:
@@ -308,7 +310,7 @@ rule find_amplified_regions:
         z=config.get("z_threshold"),
         w=config.get("window_size"),
     script:
-        "../scripts/find_amplifications.R"
+        "../scripts/R/find_amplifications.R"
 
 
 rule merge_amplified_regions:
@@ -360,7 +362,7 @@ rule filter_annotated_amplified_regions:
     container:
         config.get("rscripts_container", None)
     script:
-        "../scripts/filter_gff_annotations.R"
+        "../scripts/R/filter_gff_annotations.R"
 
 
 rule relative_coverage_mutant:
@@ -381,7 +383,7 @@ rule relative_coverage_mutant:
         min_len=config.get("min_contig_len"),
         label="mutant",
     script:
-        "../scripts/relative_coverage.R"
+        "../scripts/R/relative_coverage.R"
 
 
 rule relative_coverage_parent:
@@ -402,7 +404,7 @@ rule relative_coverage_parent:
         min_len=config.get("min_contig_len"),
         label="parent",
     script:
-        "../scripts/relative_coverage.R"
+        "../scripts/R/relative_coverage.R"
 
 
 rule collect_all_IS:
@@ -434,7 +436,7 @@ rule find_best_IS:
     container:
         config.get("rscripts_container", None)
     script:
-        "../scripts/find_best_IS_examples.R"
+        "../scripts/R/find_best_IS_examples.R"
 
 
 rule extract_IS_headers:

@@ -87,7 +87,7 @@ rule adaptive_hybrid_assembly:
         genome_length=config.get("genome_length", ""),
         cov_threshold=config.get("cov_threshold", ""),
     script:
-        "../scripts/adaptive_hybrid_assembly.py"
+        "../scripts/python/adaptive_hybrid_assembly.py"
 
 
 # mapping of short reads on the assembly
@@ -193,7 +193,7 @@ rule assembly_summary:
     container:
         config.get("biopython_container", "")
     script:
-        "../scripts/assembly_summary.py"
+        "../scripts/python/assembly_summary.py"
 
 
 # merging Unicycler and SPAdes assemblies into single file
@@ -213,7 +213,7 @@ rule merge_assemblies:
     container:
         config.get("biopython_container", "")
     script:
-        "../scripts/join_two_fastas.py"
+        "../scripts/python/join_two_fastas.py"
 
 
 # join outputs together

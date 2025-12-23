@@ -94,7 +94,7 @@ rule plot_tree:
         units=config.get("units", "in"),
         outgroup=config.get("outgroup", "outgroup"),
     script:
-        "../scripts/plot_tree.R"
+        "../scripts/R/plot_tree.R"
 
 
 rule final:
