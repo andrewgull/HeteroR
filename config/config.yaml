@@ -5,7 +5,8 @@ run_annotation: False
 run_mutants: False
 run_phylogeny: False
 
-# if assembly has been run before mutants, set this to False
+# if you want to run mutants before assembly and annotation, 
+# set this to True
 trim_parents: False
 
 # files with strain names
