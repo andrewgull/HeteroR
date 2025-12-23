@@ -1,28 +1,22 @@
-# list of strains
-strains: "config/strain_lists/strains_test.txt"
-
-# path to raw read files
-reads_path: "data/parents"
-
-# rule trim_illumina params
+# trim_illumina params
 quality: "20"
 window_size: "4"
 cut_right: "20"
 length_required: "50"
 trim_front: "10"
 
-# rule trim_nanopore params
+# trim_nanopore params
 min_nanopore_length: 3000
 
-# rule adaptive_hybrid_assembly params
+# adaptive_hybrid_assembly params
 basecaller: "r941_min_fast_g507"
 genome_size: "5m"
 coverage: 50
 genome_length: 5131220
 cov_threshold: 30
 
-# rule qc_assembly params
+# qc_assembly params
 tax_dataset: "gammaproteobacteria_odb10"
 
-# rule assembly_summary params
+# assembly_summary params
 position: 2
