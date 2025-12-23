@@ -30,19 +30,25 @@ def parse_flye_info(info_path: Path, strain: str) -> pd.DataFrame:
     df = pd.read_csv(info_path, sep="\t")
     
     # Rename and drop columns to match standard format
-    # Original: seq_name, length, cov, circ, repeat, mult, alt_group, graph_path
+    # Standard Flye headers often include '#' and '.'
+    # Headers can be: #seq_name, length, cov., circ., repeat, mult.
     df = df.rename(columns={
+        "#seq_name": "Component",
         "seq_name": "Component",
         "length": "Length",
+        "cov.": "Coverage",
         "cov": "Coverage",
+        "circ.": "Status",
         "circ": "Status",
         "repeat": "Repeat",
+        "mult.": "Mult",
         "mult": "Mult"
     })
     df.drop(["alt_group", "graph_path"], axis=1, inplace=True, errors="ignore")
     
-    # Map status
-    df["Status"] = df["Status"].str.replace("N", "incomplete").str.replace("C", "complete")
+    # Map status: Flye uses Y/N, some versions might use C/N
+    if "Status" in df.columns:
+        df["Status"] = df["Status"].str.replace("Y", "complete").str.replace("C", "complete").str.replace("N", "incomplete")
     
     # Add missing standard columns
     df["Strain"] = strain
