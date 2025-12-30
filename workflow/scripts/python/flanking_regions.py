@@ -13,6 +13,7 @@ from typing import List, Tuple, Optional
 import pandas as pd
 import numpy as np
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 from BCBio import GFF
 
 # Configure logging
@@ -124,7 +125,7 @@ def make_bed_file_for_rg(
 
 def load_inputs(
     assembly_path: Path, gff_dir: Path, rgi_path: Path, min_plasmid_size: int, strain: str
-) -> Tuple[List[SeqIO.SeqRecord], List[GFF.GFFRecord], pd.DataFrame, bool]:
+) -> Tuple[List[SeqRecord], List[SeqRecord], pd.DataFrame, bool]:
     """
     Loads and filters assembly, GFF, and RGI data.
     """
@@ -154,8 +155,8 @@ def load_inputs(
 
 
 def match_assembly_gff(
-    assembly_records: List[SeqIO.SeqRecord], gff_records: List[GFF.GFFRecord]
-) -> List[Tuple[SeqIO.SeqRecord, GFF.GFFRecord]]:
+    assembly_records: List[SeqRecord], gff_records: List[SeqRecord]
+) -> List[Tuple[SeqRecord, SeqRecord]]:
     """
     Pairs assembly contigs with GFF records by length.
     """
