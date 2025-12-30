@@ -25,7 +25,17 @@ COLUMNS = [
 ]
 
 def parse_flye_info(info_path: Path, strain: str) -> pd.DataFrame:
-    """Parses Flye/Medaka assembly_info.txt."""
+    """
+    Parses Flye or Medaka assembly_info.txt to extract assembly metrics.
+
+    Args:
+        info_path (Path): Path to the assembly_info.txt file.
+        strain (str): Name of the strain being processed.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing normalized assembly metrics with
+            standard columns defined in COLUMNS.
+    """
     logger.info(f"Parsing Flye info from {info_path}")
     df = pd.read_csv(info_path, sep="\t")
     
@@ -59,7 +69,18 @@ def parse_flye_info(info_path: Path, strain: str) -> pd.DataFrame:
     return df[COLUMNS]
 
 def parse_unicycler_log(assembly_dir: Path, strain: str) -> pd.DataFrame:
-    """Parses Unicycler log file to extract summary table."""
+    """
+    Parses the Unicycler log file to extract the assembly summary table.
+
+    Args:
+        assembly_dir (Path): Directory containing the unicycler.log file.
+        strain (str): Name of the strain being processed.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the parsed assembly summary with
+            standard columns defined in COLUMNS. Returns an empty DataFrame with
+            correct columns if no summary is found.
+    """
     log_path = assembly_dir / "unicycler.log"
     logger.info(f"Parsing Unicycler log from {log_path}")
     
@@ -95,7 +116,17 @@ def parse_unicycler_log(assembly_dir: Path, strain: str) -> pd.DataFrame:
     return df[COLUMNS]
 
 def parse_plasmid_assembly(plasmid_dir: Path, strain: str) -> Optional[pd.DataFrame]:
-    """Parses plasmid assembly scaffolds.fasta if it exists."""
+    """
+    Parses plasmid assembly scaffolds if the file exists and is not empty.
+
+    Args:
+        plasmid_dir (Path): Directory containing the scaffolds.fasta file.
+        strain (str): Name of the strain being processed.
+
+    Returns:
+        Optional[pd.DataFrame]: A DataFrame containing metrics for each scaffold in
+            the plasmid assembly, or None if no valid assembly file is found.
+    """
     plasmid_fasta = plasmid_dir / "scaffolds.fasta"
     if not (plasmid_fasta.exists() and plasmid_fasta.stat().st_size > 0):
         logger.info(f"No plasmid assembly found at {plasmid_fasta}")
@@ -120,6 +151,16 @@ def parse_plasmid_assembly(plasmid_dir: Path, strain: str) -> Optional[pd.DataFr
     return df[COLUMNS]
 
 def main():
+    """
+    Main execution logic for generating the assembly summary.
+
+    Expected Snakemake objects:
+        input[0]: Main assembly directory path.
+        input[1]: Plasmid assembly directory path.
+        params[0]: Index of the strain name in the input path parts.
+        output[0]: Path to the final summary TSV file.
+        log[0]: Path to the log file.
+    """
     # Setup paths from Snakemake
     input_assembly = Path(snakemake.input[0])
     input_plasmid = Path(snakemake.input[1])
