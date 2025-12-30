@@ -29,9 +29,22 @@ BED_COLUMNS = ["chrom", "range_start", "range_end", "name", "score", "strand"]
 def make_bed(collection: pd.DataFrame, score: int = 0) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Creates BED-formatted DataFrames for normal, 5'-end crossing, and 3'-end crossing spans.
+
+    Args:
+        collection (pd.DataFrame): DataFrame containing genomic coordinates and spans.
+            Expected columns: chrom, gene_id, strand, span_start, span_end,
+            span_over_5_start, span_over_5_end, span_over_3_start, span_over_3_end.
+        score (int, optional): Score value to assign to all BED entries. Defaults to 0.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: A triad of DataFrames:
+            1. Normal spans (not crossing boundaries).
+            2. Spans crossing the 5'-end (circular wrap-around).
+            3. Spans crossing the 3'-end (circular wrap-around).
     """
 
     def create_bed_df(df, start_col, end_col):
+        """Helper to create a standard BED DataFrame from filtered input."""
         bed = pd.DataFrame()
         if not df.empty:
             bed["chrom"] = df["chrom"]
@@ -61,6 +74,22 @@ def make_bed_file_for_rg(
 ) -> Tuple[List[pd.DataFrame], str]:
     """
     Makes BED files for genomic ranges with resistance genes.
+
+    This function identifies resistance genes within a GFF record based on RGI results,
+    calculates flanking regions (spans), and handles wrap-around logic for circular sequences.
+
+    Args:
+        gff_record (SeqRecord): The GFF record object to search for genes.
+        rgi_df (pd.DataFrame): DataFrame containing RGI results (ORF_ID matches).
+        dna_len (int): Total length of the DNA sequence (for boundary checking).
+        span_len (int): Length of the flanking region to extract on each side.
+        is_polypolish (bool): Whether the assembly was polished with Polypolish (affects chrom naming).
+        chr_name (str): Original ID of the contig/record.
+
+    Returns:
+        Tuple[List[pd.DataFrame], str]: A tuple containing:
+            - A list of three DataFrames (normal, 5'-end, 3'-end) in BED format.
+            - A summary message string detailing the processing results and adjustments.
     """
     genes = [feature for feature in gff_record.features if feature.type == "gene"]
     item_id = gff_record.id
@@ -128,6 +157,24 @@ def load_inputs(
 ) -> Tuple[List[SeqRecord], List[SeqRecord], pd.DataFrame, bool]:
     """
     Loads and filters assembly, GFF, and RGI data.
+
+    Args:
+        assembly_path (Path): Path to the assembly FASTA file.
+        gff_dir (Path): Directory containing GFF files.
+        rgi_path (Path): Path to the RGI tab-separated results file.
+        min_plasmid_size (int): Minimum sequence length to include from the GFF.
+        strain (str): Name of the strain (used to locate the specific GFF file).
+
+    Returns:
+        Tuple[List[SeqRecord], List[SeqRecord], pd.DataFrame, bool]: A tuple containing:
+            - List of all assembly SeqRecords.
+            - List of GFF SeqRecords filtered by size.
+            - Filtered RGI DataFrame (Strict/Perfect only).
+            - Boolean indicating if the assembly is Polypolish-processed.
+
+    Raises:
+        ValueError: If the assembly file is empty.
+        FileNotFoundError: If the GFF file for the strain cannot be found.
     """
     # Check assembler type from first record
     try:
@@ -158,7 +205,15 @@ def match_assembly_gff(
     assembly_records: List[SeqRecord], gff_records: List[SeqRecord]
 ) -> List[Tuple[SeqRecord, SeqRecord]]:
     """
-    Pairs assembly contigs with GFF records by length.
+    Pairs assembly contigs with GFF records by length for consistency.
+
+    Args:
+        assembly_records (List[SeqRecord]): List of records from the assembly FASTAs.
+        gff_records (List[SeqRecord]): List of records from the GFF file.
+
+    Returns:
+        List[Tuple[SeqRecord, SeqRecord]]: A list of pairs (assembly_rec, gff_rec)
+            matched by their sequence length. Sorted by length in descending order.
     """
     # Filter assembly to match GFF records by length
     assembly_by_len = {len(rec): rec for rec in assembly_records}
@@ -178,6 +233,14 @@ def match_assembly_gff(
 def save_results(bed_lol: List[List[pd.DataFrame]], output_paths: List[Path], messages: List[str], log_path: Path):
     """
     Concatenates BED DataFrames and saves them along with the log messages.
+
+    Args:
+        bed_lol (List[List[pd.DataFrame]]): List of lists of DataFrames.
+            Outer list indices: 0=normal, 1=5' cross, 2=3' cross.
+            Inner list contains DataFrames for each matched record.
+        output_paths (List[Path]): List of three Paths corresponding to the output files.
+        messages (List[str]): List of informational messages to write to the log.
+        log_path (Path): Path to the output log file.
     """
     for i, output_path in enumerate(output_paths):
         if bed_lol[i]:
@@ -192,6 +255,18 @@ def save_results(bed_lol: List[List[pd.DataFrame]], output_paths: List[Path], me
 
 
 def main():
+    """
+    Main execution logic for extracting flanking regions.
+
+    Expected Snakemake objects:
+        input[0]: Assembly FASTA.
+        input[1]: GFF directory.
+        input[2]: RGI results (TSV).
+        params[0]: Range length (flanking size).
+        params[1]: Minimum plasmid size.
+        output: Three BED files (normal, 5', 3').
+        log: Progress and warning log file.
+    """
     # Snakemake parameters
     in_assembly = Path(snakemake.input[0])
     # Extract strain from results/assemblies/STRAIN/assembly.fasta
