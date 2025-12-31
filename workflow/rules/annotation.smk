@@ -287,11 +287,11 @@ rule direct_repeats:
 # coordinates are LOCAL, i.e. related to a region around RG not the whole chromosome
 rule dr_annotation:
     input:
-        "results/direct_repeats/{strain}/repeats_no_mismatch",
-        "results/annotations/{strain}/prokka",
+        repeats="results/direct_repeats/{strain}/repeats_no_mismatch",
+        prokka="results/annotations/{strain}/prokka",
     output:
-        "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
-        "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff",
+        perfect="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
+        imperfect="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff",
     message:
         "executing GFF_parser.py on {wildcards.strain} perfect repeats data"
     log:
