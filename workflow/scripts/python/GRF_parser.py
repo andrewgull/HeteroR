@@ -181,20 +181,19 @@ def run_snakemake():
         sys.stderr = sys.stdout = f
         
         # Setup inputs from Snakemake context
-        input_dir = Path(snakemake.input[0])
-        assembly_dir = Path(snakemake.input[1])
-        strain = assembly_dir.name
+        input_dir = Path(snakemake.input["repeats"])
+        assembly_dir = Path(snakemake.input["prokka"])
         
         in_perfect = input_dir / "perfect.spacer.id"
         in_imperfect = input_dir / "imperfect.id"
-        in_assembly = assembly_dir / f"{strain}_genomic.faa"
+        in_assembly = assembly_dir / f"{snakemake.wildcards.strain}_genomic.faa"
         
-        out_perfect = Path(snakemake.output[0])
-        out_imperfect = Path(snakemake.output[1])
+        out_perfect = Path(snakemake.output["perfect"])
+        out_imperfect = Path(snakemake.output["imperfect"])
         
-        min_repeat_length = int(snakemake.params[0])
+        min_repeat_length = int(snakemake.params["min_len"])
 
-        logger.info(f"Processing strain: {strain}")
+        logger.info(f"Processing strain: {snakemake.wildcards.strain}")
 
         # Process Perfect repeats
         logger.info("Processing perfect repeats...")
