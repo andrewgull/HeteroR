@@ -73,25 +73,6 @@ rule trna_annotation:
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input} &> {log}"
 
 
-# Merge both annotations
-rule join_annotations:
-    input:
-        prokka="results/annotations/{strain}/prokka",
-        trnascan="results/annotations/{strain}/trna/trna_seq.fasta",
-    output:
-        "results/annotations/{strain}/joined/annotation.fasta",  # it's not supposed to be used as input for RGI tool
-    message:
-        "joining {wildcards.strain} annotations"
-    log:
-        "results/logs/{strain}_join_annot.log",
-    conda:
-        "../envs/biopython.yaml"
-    container:
-        config.get("biopython_container", None)
-    script:
-        "../scripts/python/join_two_fastas.py"
-
-
 # Map short reads onto the joined assemblies to get coverage
 rule genome_coverage:
     input:
