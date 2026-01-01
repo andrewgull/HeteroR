@@ -28,12 +28,12 @@ def join_ends(side_dict, normal_dict, left=True):
 def run_snakemake():
     """Wrapper function to handle Snakemake execution context."""
     # input files
-    input_normal = snakemake.input["normal"]
+    input_normal = snakemake.input["within"]
     input_left = snakemake.input["five_end"]
     input_right = snakemake.input["three_end"]
 
     # output files
-    output_normal = snakemake.output["normal"]
+    output_normal = snakemake.output["within"]
     output_5_end = snakemake.output["five_end"]
     output_3_end = snakemake.output["three_end"]
 
