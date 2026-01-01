@@ -4,23 +4,16 @@ import pandas as pd
 import numpy as np
 import sys
 
-# open log
-with open(snakemake.log[0], "w") as f:
-    sys.stderr = sys.stdout = f
-    # inputs
-    last_file = int(len(snakemake.input)/2)  # index of the first file in the bed input
-    repeat_files_lst = [snakemake.input[i] for i in range(last_file)]  # doesn't include last_file
-    bed_files_lst = [snakemake.input[i] for i in range(last_file, len(snakemake.input))]  # does include last file
-
+def process_repeat_summary(repeat_files, bed_files):
     # read csv files with repeat pairs and join them into a DataFrame
-    repeat_df_list = [pd.read_csv(f) for f in repeat_files_lst]
+    repeat_df_list = [pd.read_csv(f) for f in repeat_files]
     repeat_df = pd.concat(repeat_df_list)
 
     # calculate Amplifiable Region length
     repeat_df["AR_length"] = repeat_df.start_2 - repeat_df.end_1 + 1
 
     # read bed files and join them into a DataFrame
-    bed_df_list = [pd.read_csv(f, delimiter="\t", header=None) for f in bed_files_lst]
+    bed_df_list = [pd.read_csv(f, delimiter="\t", header=None) for f in bed_files]
     bed_df = pd.concat(bed_df_list)
 
     # rename V4 (4th col) to 'record_id'
@@ -37,8 +30,22 @@ with open(snakemake.log[0], "w") as f:
     # make spans_center column
     repeat_df_merged["spans_center"] = np.where((repeat_df_merged['end_1'] <= repeat_df_merged["gene_center"]) &
                                                 (repeat_df_merged["start_2"] >= repeat_df_merged["gene_center"]), 'yes', 'no')
-    # drop the first column
-    repeat_df_merged.drop("Unnamed: 0", axis=1, inplace=True)
+    # drop the first column if Unnamed: 0 exists
+    if "Unnamed: 0" in repeat_df_merged.columns:
+        repeat_df_merged.drop("Unnamed: 0", axis=1, inplace=True)
 
-    # write to output
-    repeat_df_merged.to_csv(snakemake.output[0])
+    return repeat_df_merged
+
+if __name__ == "__main__":
+    # open log
+    with open(snakemake.log[0], "w") as f:
+        sys.stderr = sys.stdout = f
+        # inputs
+        last_file = int(len(snakemake.input)/2)  # index of the first file in the bed input
+        repeat_files_lst = [snakemake.input[i] for i in range(last_file)]  # doesn't include last_file
+        bed_files_lst = [snakemake.input[i] for i in range(last_file, len(snakemake.input))]  # does include last file
+
+        repeat_df_merged = process_repeat_summary(repeat_files_lst, bed_files_lst)
+
+        # write to output
+        repeat_df_merged.to_csv(snakemake.output[0], index=False)
