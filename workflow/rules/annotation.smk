@@ -218,13 +218,13 @@ rule regions_seqs:
 # join regions' ends overlapping 5' or 3'-ends
 rule ends_overlaps:
     input:
-        "results/direct_repeats/{strain}/regions/regions_within.fasta",
-        "results/direct_repeats/{strain}/regions/regions_overlapping_5_end.fasta",
-        "results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta",
+        within="results/direct_repeats/{strain}/regions/regions_within.fasta",
+        five_end="results/direct_repeats/{strain}/regions/regions_overlapping_5_end.fasta",
+        three_end="results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta",
     output:
-        "results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
-        "results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
-        "results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta",
+        within="results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
+        five_end="results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
+        three_end="results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta",
     message:
         "joining regions overlapping chromosome ends in {wildcards.strain} assembly"
     log:
