@@ -1,5 +1,5 @@
 #################################################################
-# scipt to find and save best IS representatives of each family
+# script to find and save best IS representatives of each family
 # input: path to ISEscan results
 # output: output file name (tsv)
 ################################################################
@@ -21,9 +21,9 @@ filter_margins <- function(df, filt_term, marg) {
     df,
     family == filt_term,
     between(isLen, db.length - marg * db.length, db.length + marg *
-              db.length),
+      db.length),
     between(orfLen, db.length - marg * db.length, db.length + marg *
-              db.length)
+      db.length)
   )
 }
 
@@ -57,18 +57,23 @@ select_plausible_length <- function(fam_name,
 join_results <- function(results_path) {
   # read and join all files with IS characteristics
   # collect results
-  isescan_results <- dir(path = results_path,
-                         pattern = "regions_joined_final.fasta.tsv",
-                         recursive = TRUE)
+  isescan_results <- dir(
+    path = results_path,
+    pattern = "regions_joined_final.fasta.tsv",
+    recursive = TRUE
+  )
 
   # read them as TSV and bind by rows
   is_df <-
-    map_dfr(isescan_results, ~ tryCatch({
-      read_tsv(paste0(results_path, .), show_col_types = FALSE)
-    }, error = function(e) {
-      message(paste("No ISEscan results exist for ", ., sep = " "))
-      return(NULL)
-    }))
+    map_dfr(isescan_results, ~ tryCatch(
+      {
+        read_tsv(paste0(results_path, .), show_col_types = FALSE)
+      },
+      error = function(e) {
+        message(paste("No ISEscan results exist for ", ., sep = " "))
+        return(NULL)
+      }
+    ))
 
   # know your ISfamilies
   is_families <- unique(is_df$family)
@@ -76,8 +81,8 @@ join_results <- function(results_path) {
   # apply the functions from above, select the first row of each output table
   best_is <-
     map_dfr(is_families, ~ select_plausible_length(., is_df) %>%
-              filter(orfLen < isLen) %>%
-              slice_head(n = 1))
+      filter(orfLen < isLen) %>%
+      slice_head(n = 1))
   return(best_is)
 }
 
@@ -86,8 +91,9 @@ best_is_representatives <- join_results(snakemake@input[[1]])
 
 # save to file
 write_delim(best_is_representatives,
-            file = snakemake@output[[1]],
-            delim = "\t")
+  file = snakemake@output[[1]],
+  delim = "\t"
+)
 print("Finished. No errors.")
 
 #### CLOSE LOG ####

@@ -1,7 +1,5 @@
 #############################################################
-#
-# script to read depth files and calculate relative coverage
-#
+# Script to read depth files and calculate relative coverage
 #############################################################
 
 #### OPEN LOG ####
@@ -25,12 +23,16 @@ parse_depth <- function(depth_path,
   # read reference
   ref_gen <- readDNAStringSet(ref_path)
   # make a table with contig names and lengths
-  contig_len_df <- tibble("contig.name" = names(ref_gen),
-                          "contig.len" = width(ref_gen))
+  contig_len_df <- tibble(
+    "contig.name" = names(ref_gen),
+    "contig.len" = width(ref_gen)
+  )
   # read depth file
   depth_df <- read.table(depth_path, sep = "\t", header = FALSE)
   # check correct column names
-  stopifnot(exprs = {"V1" %in% names(depth_df) & "V3" %in% names(depth_df)})
+  stopifnot(exprs = {
+    "V1" %in% names(depth_df) & "V3" %in% names(depth_df)
+  })
   # check if the table is empty
   stopifnot(nrow(depth_df) > 0)
 
@@ -60,10 +62,12 @@ parse_depth <- function(depth_path,
 
 # to write the table
 main <- function(cov_table, filename) {
-  write.table(x = cov_table,
-              file = filename,
-              sep = "\t",
-              row.names = FALSE)
+  write.table(
+    x = cov_table,
+    file = filename,
+    sep = "\t",
+    row.names = FALSE
+  )
 }
 
 #### RUN ####
@@ -76,8 +80,10 @@ coverage_table <- parse_depth(
 )
 
 # save it
-main(cov_table = coverage_table,
-     filename = snakemake@output[["rel_cov"]])
+main(
+  cov_table = coverage_table,
+  filename = snakemake@output[["rel_cov"]]
+)
 
 print("Finished, no errors.")
 
