@@ -18,10 +18,17 @@ def make_repeats_df(spacer_file, strain_index=0):
     return spacer_df
 
 
-if __name__ == '__main__':
+def run_snakemake():
     with open(snakemake.log[0], "w") as f:
         sys.stderr = sys.stdout = f
         in_file = os.path.join(snakemake.input[0], "perfect.spacer.id")
         repeat_df = make_repeats_df(in_file, strain_index=2)
         repeat_df.drop_duplicates(inplace=True)
-        repeat_df.to_csv(snakemake.output[0])
+        repeat_df.to_csv(snakemake.output[0], index=False)
+
+if __name__ == '__main__':
+    if 'snakemake' in globals():
+        run_snakemake()
+    else:
+        # This allows the script to be imported for testing
+        pass

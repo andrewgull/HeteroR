@@ -208,7 +208,7 @@ rule merge_assemblies:
     container:
         config.get("biopython_container", "")
     script:
-        "../scripts/python/join_two_fastas.py"
+        "../scripts/python/merge_assemblies.py"
 
 
 # join outputs together

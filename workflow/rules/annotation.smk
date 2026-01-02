@@ -73,25 +73,6 @@ rule trna_annotation:
         "-j {output.gff} -a {output.fasta} -l {log} --thread {threads} {input} &> {log}"
 
 
-# Merge both annotations
-rule join_annotations:
-    input:
-        prokka="results/annotations/{strain}/prokka",
-        trnascan="results/annotations/{strain}/trna/trna_seq.fasta",
-    output:
-        "results/annotations/{strain}/joined/annotation.fasta",  # it's not supposed to be used as input for RGI tool
-    message:
-        "joining {wildcards.strain} annotations"
-    log:
-        "results/logs/{strain}_join_annot.log",
-    conda:
-        "../envs/biopython.yaml"
-    container:
-        config.get("biopython_container", None)
-    script:
-        "../scripts/python/join_two_fastas.py"
-
-
 # Map short reads onto the joined assemblies to get coverage
 rule genome_coverage:
     input:
@@ -218,13 +199,13 @@ rule regions_seqs:
 # join regions' ends overlapping 5' or 3'-ends
 rule ends_overlaps:
     input:
-        "results/direct_repeats/{strain}/regions/regions_within.fasta",
-        "results/direct_repeats/{strain}/regions/regions_overlapping_5_end.fasta",
-        "results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta",
+        within="results/direct_repeats/{strain}/regions/regions_within.fasta",
+        five_end="results/direct_repeats/{strain}/regions/regions_overlapping_5_end.fasta",
+        three_end="results/direct_repeats/{strain}/regions/regions_overlapping_3_end.fasta",
     output:
-        "results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
-        "results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
-        "results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta",
+        within="results/direct_repeats/{strain}/regions/regions_within_joined.fasta",
+        five_end="results/direct_repeats/{strain}/regions/regions_joined_5_end.fasta",
+        three_end="results/direct_repeats/{strain}/regions/regions_joined_3_end.fasta",
     message:
         "joining regions overlapping chromosome ends in {wildcards.strain} assembly"
     log:
@@ -287,11 +268,11 @@ rule direct_repeats:
 # coordinates are LOCAL, i.e. related to a region around RG not the whole chromosome
 rule dr_annotation:
     input:
-        "results/direct_repeats/{strain}/repeats_no_mismatch",
-        "results/annotations/{strain}/prokka",
+        repeats="results/direct_repeats/{strain}/repeats_no_mismatch",
+        prokka="results/annotations/{strain}/prokka",
     output:
-        "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
-        "results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff",
+        perfect="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_perfect.gff",
+        imperfect="results/annotations/{strain}/repeats/{strain}_repeats_no_mismatch_imperfect.gff",
     message:
         "executing GFF_parser.py on {wildcards.strain} perfect repeats data"
     log:
